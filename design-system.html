@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect Design System & Shadow Setup</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Manrope & Playfair Display para un look editorial premium) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Manrope', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        brand: {
+                            text: '#1F2937',
+                            subtext: '#4B5563',
+                            placeholder: '#9CA3AF',
+                            border: '#F3F4F6', // Bordes ultra sutiles y limpios
+                            blueActive: '#3B82F6',
+                            success: '#10B981',
+                            error: '#EF4444',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Tipografía Manrope y tracking premium */
+        body, input, textarea, button, select, span, label, div {
+            font-family: 'Manrope', sans-serif !important;
+            letter-spacing: -0.025em !important;
+        }
+
+        /* Fondo de cuadrícula fina de diseño */
+        body {
+            background-color: #FAFBFD;
+            background-image: 
+                linear-gradient(to right, #F3F4F6 1px, transparent 1px),
+                linear-gradient(to bottom, #F3F4F6 1px, transparent 1px);
+            background-size: 24px 24px;
+            background-attachment: fixed;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* ================= ESTILO PREMIUM ULTRA ELEGANTE (Bordes mínimos y volumen) ================= */
+        .premium-card {
+            background: #FFFFFF;
+            border: 1px solid #F3F4F6;
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.02);
+            border-radius: 28px;
+        }
+
+        .premium-input {
+            background-color: #FFFFFF;
+            border: 1px solid #F3F4F6; /* Borde extremadamente sutil */
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.01), 0 1px 3px rgba(0,0,0,0.01);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .premium-input:focus, .premium-input:focus-within {
+            outline: none;
+            border-color: #E5E7EB;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.03);
+        }
+
+        /* SUCCESS STATE (Bordes ultra suaves) */
+        .premium-success {
+            background-color: #F0FDF4;
+            border: 1px solid #D1FAE5;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.03);
+        }
+
+        /* ERROR STATE (Bordes ultra suaves) */
+        .premium-error {
+            background-color: #FEF2F2;
+            border: 1px solid #FEE2E2;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.03);
+        }
+
+        /* CHIPS / BADGES ELEGANTES CON GRADIENTE */
+        .premium-chip-blue {
+            background: linear-gradient(135deg, #3B82F6, #2563EB);
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+            color: #FFFFFF;
+        }
+        .premium-chip-green {
+            background: linear-gradient(135deg, #10B981, #059669);
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.12);
+            color: #FFFFFF;
+        }
+        .premium-chip-neutral {
+            background: #FFFFFF;
+            border: 1px solid #F3F4F6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.01);
+            color: #111111;
+        }
+
+        /* TABS PREMIUM */
+        .premium-tab-container {
+            background-color: #F3F4F6;
+            border: 1px solid #F3F4F6;
+        }
+        .premium-tab-active {
+            background-color: #FFFFFF;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+        }
+
+        /* ================= LA SOMBRA PERFECTA DE ABRAHAM JOHN (Estática y multicapa) ================= */
+        .perfect-abraham-shadow {
+            box-shadow: 
+                0 1px 2px rgba(0, 0, 0, 0.01),
+                0 2px 4px rgba(0, 0, 0, 0.01),
+                0 4px 8px rgba(0, 0, 0, 0.01),
+                0 8px 16px rgba(0, 0, 0, 0.01),
+                0 16px 32px rgba(0, 0, 0, 0.01),
+                0 32px 64px rgba(0, 0, 0, 0.015);
+            border: 1px solid rgba(0, 0, 0, 0.005);
+        }
+
+        /* ================= BOTONES PREMIUM CORREGIDOS (Sin bordes rígidos) ================= */
+        .btn-custom {
+            cursor: pointer;
+            border-radius: 999px !important;
+            font-weight: 600 !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            height: 42px !important;
+            font-size: 14px !important;
+            border: none !important; /* Totalmente sin bordes feos */
+        }
+
+        /* PRIMARY (Táctil Oscuro Gradiente Suave) */
+        .btn-primary {
+            color: white !important;
+            background: linear-gradient(to bottom, #4B5563, #1F2937) !important;
+            box-shadow: 
+                inset 0 1px 0 rgba(255,255,255,0.1), 
+                0 4px 10px rgba(31, 41, 55, 0.15) !important;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(to bottom, #374151, #111827) !important;
+            transform: translateY(-0.5px);
+        }
+        .btn-primary:focus {
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(31, 41, 55, 0.1) !important;
+        }
+
+        /* SECONDARY (Táctil Blanco/Gris Gradiente) */
+        .btn-secondary {
+            color: #1F2937 !important;
+            background: linear-gradient(to bottom, #ffffff, #f9fafb) !important;
+            box-shadow: 
+                inset 0 1px 0 #ffffff, 
+                0 2px 5px rgba(0,0,0,0.03) !important;
+            border: 1px solid #F3F4F6 !important; /* Borde mínimo imperceptible */
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: linear-gradient(to bottom, #ffffff, #f3f4f6) !important;
+        }
+
+        /* DESTRUCTIVE (Táctil Rojo) */
+        .btn-destructive {
+            color: white !important;
+            background: linear-gradient(to bottom, #ef4444, #dc2626) !important;
+            box-shadow: 
+                inset 0 1px 0 rgba(255,255,255,0.1), 
+                0 4px 10px rgba(220, 38, 38, 0.15) !important;
+        }
+        .btn-destructive:hover:not(:disabled) {
+            background: linear-gradient(to bottom, #dc2626, #b91c1c) !important;
+        }
+
+        /* ================= TOOLTIPS FLOTANTES INTERACTIVOS REALES ================= */
+        .tooltip-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .tooltip-wrapper .tooltip-box {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 140%;
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+        }
+
+        .tooltip-wrapper:hover .tooltip-box {
+            visibility: visible;
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .custom-tooltip-base {
+            display: inline-flex;
+            align-items: center;
+            height: 34px;
+            padding: 0 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 500;
+            position: relative;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.05);
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        /* Flecha inferior del tooltip */
+        .custom-tooltip-base::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 5px;
+            border-style: solid;
+        }
+
+        /* Versión LIGHT */
+        .tooltip-light {
+            background-color: #FFFFFF;
+            border: 1px solid #F3F4F6;
+            color: #1F2937;
+        }
+        .tooltip-light::after {
+            border-color: #FFFFFF transparent transparent transparent;
+        }
+
+        /* Versión DARK */
+        .tooltip-dark {
+            background-color: #1F2937;
+            color: #FFFFFF;
+            border: 1px solid #111827;
+        }
+        .tooltip-dark::after {
+            border-color: #1F2937 transparent transparent transparent;
+        }
+
+        .pill-dark-inner {
+            background-color: #111827;
+            color: #FFFFFF;
+            padding: 1px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .pill-light-inner {
+            background-color: #FFFFFF;
+            color: #1F2937;
+            padding: 1px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid #F3F4F6;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-[#1F2937] flex flex-col items-center justify-start p-4 md:p-8 antialiased gap-12">
+
+    <!-- ================= 1. RECREACIÓN DE LIENZO EDITORIAL "PERFECT SHADOW SETUP" (image_ec65d1.jpg) ================= -->
+    <div class="w-full max-w-5xl bg-[#FAF9F5] border border-[#F3F1EC] rounded-[36px] p-8 md:p-12 relative overflow-hidden flex flex-col gap-10 items-center justify-center">
+        <!-- Decoraciones de cabecera como en la imagen de Abraham John -->
+        <div class="w-full flex justify-between items-center text-xs font-semibold text-gray-500 tracking-wider">
+            <span>Shadow Setup</span>
+            <span>00</span>
+        </div>
+
+        <!-- Títulos Editoriales de Abraham John -->
+        <div class="text-center flex flex-col gap-2">
+            <h1 class="font-serif text-5xl md:text-6xl text-[#1E252B] tracking-tight">Perfect Shadow</h1>
+            <h2 class="font-serif text-4xl md:text-5xl text-[#1E252B] italic">Setup</h2>
+        </div>
+
+        <!-- Lienzo de Sombra Único, Perfecto y Estático (Sin controles sliders complejos) -->
+        <div class="w-full grid grid-cols-1 md:grid-cols-3 gap-8 items-center justify-center py-6 relative">
+            
+            <!-- Bloques Técnicos Izquierdos de Abraham John (Capa 1 a 3) -->
+            <div class="flex flex-col gap-4">
+                <!-- Drop shadow 1 -->
+                <div class="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-white/60 shadow-sm text-[11px] font-semibold text-gray-600 flex flex-col gap-2">
+                    <div class="flex justify-between border-b border-gray-100 pb-1.5">
+                        <span class="font-bold">Drop shadow</span>
+                        <span class="text-gray-400">01</span>
+                    </div>
+                    <div class="flex justify-between"><span>Position:</span> <span class="text-gray-400">X: 0, Y: 1</span></div>
+                    <div class="flex justify-between"><span>Blur:</span> <span class="text-gray-400">1</span></div>
+                    <div class="flex justify-between"><span>Spread:</span> <span class="text-gray-400">0</span></div>
+                </div>
+                <!-- Drop shadow 2 -->
+                <div class="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-white/60 shadow-sm text-[11px] font-semibold text-gray-600 flex flex-col gap-2">
+                    <div class="flex justify-between border-b border-gray-100 pb-1.5">
+                        <span class="font-bold">Drop shadow</span>
+                        <span class="text-gray-400">02</span>
+                    </div>
+                    <div class="flex justify-between"><span>Position:</span> <span class="text-gray-400">X: 0, Y: 2</span></div>
+                    <div class="flex justify-between"><span>Blur:</span> <span class="text-gray-400">2</span></div>
+                    <div class="flex justify-between"><span>Spread:</span> <span class="text-gray-400">0</span></div>
+                </div>
+            </div>
+
+            <!-- El Componente de Tarjeta con la Sombra Multicapa Perfecta -->
+            <div class="flex justify-center items-center py-6">
+                <div class="w-48 h-40 md:w-56 md:h-48 bg-white rounded-[40px] perfect-abraham-shadow flex items-center justify-center">
+                    <div class="flex flex-col items-center gap-1.5">
+                        <span class="text-xs font-bold text-gray-400">Perfect Card</span>
+                        <div class="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bloques Técnicos Derechos (Capa 4 a 6) -->
+            <div class="flex flex-col gap-4">
+                <!-- Drop shadow 3 -->
+                <div class="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-white/60 shadow-sm text-[11px] font-semibold text-gray-600 flex flex-col gap-2">
+                    <div class="flex justify-between border-b border-gray-100 pb-1.5">
+                        <span class="font-bold">Drop shadow</span>
+                        <span class="text-gray-400">03</span>
+                    </div>
+                    <div class="flex justify-between"><span>Position:</span> <span class="text-gray-400">X: 0, Y: 8</span></div>
+                    <div class="flex justify-between"><span>Blur:</span> <span class="text-gray-400">8</span></div>
+                    <div class="flex justify-between"><span>Spread:</span> <span class="text-gray-400">0</span></div>
+                </div>
+                <!-- Drop shadow 4 -->
+                <div class="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-white/60 shadow-sm text-[11px] font-semibold text-gray-600 flex flex-col gap-2">
+                    <div class="flex justify-between border-b border-gray-100 pb-1.5">
+                        <span class="font-bold">Drop shadow</span>
+                        <span class="text-gray-400">04</span>
+                    </div>
+                    <div class="flex justify-between"><span>Position:</span> <span class="text-gray-400">X: 0, Y: 16</span></div>
+                    <div class="flex justify-between"><span>Blur:</span> <span class="text-gray-400">16</span></div>
+                    <div class="flex justify-between"><span>Spread:</span> <span class="text-gray-400">0</span></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Pie de Lienzo de Abraham John -->
+        <div class="w-full flex justify-between items-center text-xs font-bold text-gray-700 tracking-wider border-t border-gray-200/40 pt-4">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-gray-300 overflow-hidden filter grayscale">
+                    <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80" alt="Avatar">
+                </div>
+                <span>Abraham John</span>
+            </div>
+            <span class="border border-gray-300 px-4 py-1.5 rounded-full bg-white/40">Part 1</span>
+            <span class="text-gray-400">&check; Save for later</span>
+        </div>
+    </div>
+
+
+    <!-- ================= 2. SECCIÓN DE PESTAÑAS (TABS - image_ec03e0.png) ================= -->
+    <div class="w-full max-w-6xl premium-card p-6 md:p-8 flex flex-col gap-6">
+        <div>
+            <h2 class="text-sm font-bold text-brand-text">Pestañas & Controladores Táctiles</h2>
+            <p class="text-xs font-semibold text-brand-placeholder mt-0.5">Bordes mínimos integrados de forma natural con el fondo.</p>
+        </div>
+
+        <div class="flex flex-col gap-6 items-center py-6 bg-gray-50/30 rounded-2xl border border-gray-100">
+            <!-- Grupo de Tabs 1 -->
+            <div class="premium-tab-container flex p-1 rounded-full items-center gap-1">
+                <button onclick="setActiveTab(this)" class="premium-tab-active px-5 py-2 rounded-full text-xs font-extrabold text-brand-text flex items-center gap-2 transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                    Table
+                </button>
+                <button onclick="setActiveTab(this)" class="px-5 py-2 rounded-full text-xs font-extrabold text-brand-placeholder hover:text-brand-text transition-all flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                    </svg>
+                    Board
+                </button>
+                <button onclick="setActiveTab(this)" class="px-5 py-2 rounded-full text-xs font-extrabold text-brand-placeholder hover:text-brand-text transition-all flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    Chart
+                </button>
+                <button onclick="setActiveTab(this)" class="px-5 py-2 rounded-full text-xs font-extrabold text-brand-placeholder hover:text-brand-text transition-all flex items-center gap-1">
+                    All
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Grupo de Tabs 2 -->
+            <div class="premium-tab-container flex p-1 rounded-full items-center gap-1">
+                <button onclick="setActiveTab(this)" class="premium-tab-active px-5 py-2 rounded-full text-xs font-extrabold text-brand-text transition-all">
+                    Share
+                </button>
+                <button onclick="setActiveTab(this)" class="px-5 py-2 rounded-full text-xs font-extrabold text-brand-placeholder hover:text-brand-text transition-all">
+                    Privacy
+                </button>
+                <button onclick="setActiveTab(this)" class="px-5 py-2 rounded-full text-xs font-extrabold text-brand-placeholder hover:text-brand-text transition-all">
+                    Publishing
+                </button>
+                <button onclick="setActiveTab(this)" class="px-5 py-2 rounded-full text-xs font-extrabold text-brand-placeholder hover:text-brand-text transition-all">
+                    Domain
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ================= 3. COMPLETO CATÁLOGO DE COMPONENTES RESTAURADO & PREMIUM ================= -->
+    <div class="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+        
+        <!-- ================= COLUMNA A: Inputs Originales ================= -->
+        <div class="premium-card p-6 md:p-8 flex flex-col gap-5">
+            <h3 class="text-sm font-extrabold text-brand-text border-b border-gray-50 pb-3">Inputs Originales</h3>
+
+            <!-- Login -->
+            <div class="flex flex-col">
+                <label class="text-[13px] font-bold text-brand-text mb-1.5 ml-3">Login</label>
+                <input type="text" placeholder="Username or Email" class="w-full h-[46px] px-5 rounded-full premium-input text-sm font-semibold text-brand-text placeholder-brand-placeholder">
+            </div>
+
+            <!-- Website -->
+            <div class="flex flex-col">
+                <label class="text-[13px] font-bold text-brand-text mb-1.5 ml-3">Website</label>
+                <div class="flex h-[46px] rounded-full overflow-hidden border border-gray-100 focus-within:border-brand-blueActive focus-within:ring-4 focus-within:ring-blue-50/10 transition-all">
+                    <span class="flex items-center justify-center px-5 bg-gray-50 text-sm text-brand-placeholder border-r border-[#E5E7EB] font-extrabold select-none rounded-l-full">
+                        http://
+                    </span>
+                    <input type="text" placeholder="yoursite.com" class="w-full h-full px-5 text-sm font-semibold text-brand-text placeholder-brand-placeholder bg-transparent focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Currency -->
+            <div class="flex flex-col">
+                <div class="flex h-[46px] rounded-full overflow-hidden border border-gray-100 focus-within:border-brand-blueActive focus-within:ring-4 focus-within:ring-blue-50/10 transition-all">
+                    <span class="flex items-center justify-center pl-5 pr-2 text-sm text-brand-placeholder font-bold select-none">
+                        $
+                    </span>
+                    <input type="text" placeholder="0.00" class="w-full h-full text-sm font-semibold text-brand-text placeholder-brand-placeholder bg-transparent focus:outline-none">
+                    <div class="flex items-center gap-1 px-5 border-l border-[#E5E7EB] bg-transparent cursor-pointer hover:bg-gray-50 transition-colors select-none">
+                        <span class="text-sm font-extrabold text-brand-text">USD</span>
+                        <svg class="w-4 h-4 text-brand-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phone -->
+            <div class="flex flex-col">
+                <label class="text-[13px] font-bold text-brand-text mb-1.5 ml-3">Phone</label>
+                <div class="flex h-[46px] rounded-full overflow-hidden border border-gray-100 focus-within:border-brand-blueActive focus-within:ring-4 focus-within:ring-blue-50/10 transition-all">
+                    <div class="flex items-center gap-1.5 px-5 border-r border-[#E5E7EB] bg-transparent cursor-pointer hover:bg-gray-50 transition-colors select-none">
+                        <span class="text-sm font-bold text-brand-text">US +1</span>
+                        <svg class="w-3.5 h-3.5 text-brand-placeholder" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
+                        </svg>
+                    </div>
+                    <input type="tel" placeholder="Phone number" class="w-full h-full px-5 text-sm font-semibold text-brand-text placeholder-brand-placeholder bg-transparent focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Buscar con atajo -->
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                    <svg class="h-4 w-4 text-brand-placeholder" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <input type="text" placeholder="Search..." class="w-full h-[46px] pl-11 pr-14 rounded-full premium-input text-sm font-semibold text-brand-text placeholder-brand-placeholder">
+                <div class="absolute inset-y-0 right-0 pr-5 flex items-center pointer-events-none">
+                    <span class="text-[11px] font-bold text-brand-placeholder tracking-wider">⌘S</span>
+                </div>
+            </div>
+
+            <!-- Drop file -->
+            <div id="drop-zone" class="border border-dashed border-gray-200 hover:border-brand-blueActive bg-white rounded-3xl p-5 flex items-center justify-between transition-all cursor-pointer shadow-sm group">
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 bg-gray-50 rounded-full text-brand-placeholder group-hover:text-brand-blueActive transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <span id="file-label" class="text-xs font-bold text-brand-placeholder group-hover:text-brand-text transition-colors">Drop file(s) here...</span>
+                </div>
+                <button type="button" class="h-10 px-4 bg-gray-50 hover:bg-gray-100 text-brand-text font-bold text-xs rounded-full border border-gray-100 transition-colors">Browse</button>
+                <input type="file" id="file-input" class="hidden">
+            </div>
+
+        </div>
+
+        <!-- ================= COLUMNA B: Dropdowns & Chips ================= -->
+        <div class="premium-card p-6 md:p-8 flex flex-col gap-5">
+            <h3 class="text-sm font-extrabold text-brand-text border-b border-gray-50 pb-3">Dropdowns & Chips</h3>
+
+            <!-- Email Success -->
+            <div class="flex flex-col">
+                <label class="text-[13px] font-bold text-brand-text mb-1.5 ml-3">Email (Exitoso)</label>
+                <div class="relative">
+                    <input type="email" value="info@pixsellz.io" class="w-full h-[46px] pl-5 pr-11 rounded-full premium-success text-sm text-brand-text font-bold focus:outline-none">
+                    <div class="absolute inset-y-0 right-0 pr-5 flex items-center pointer-events-none text-brand-success">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                </div>
+                <span class="text-xs font-bold text-brand-success mt-1.5 ml-3">Done!</span>
+            </div>
+
+            <!-- Email Error -->
+            <div class="flex flex-col">
+                <label class="text-[13px] font-bold text-brand-text mb-1.5 ml-3">Email (Error)</label>
+                <div class="relative">
+                    <input type="email" value="test@mail.com" class="w-full h-[46px] pl-5 pr-11 rounded-full premium-error text-sm text-brand-error font-bold focus:outline-none">
+                    <div class="absolute inset-y-0 right-0 pr-5 flex items-center pointer-events-none text-brand-error">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <span class="text-xs font-bold text-brand-error mt-1.5 ml-3">Please enter a valid email address</span>
+            </div>
+
+            <!-- Categories con Badges -->
+            <div class="flex flex-col relative">
+                <label class="text-[13px] font-bold text-brand-text mb-1.5 ml-3">Categories</label>
+                <div class="flex min-h-[46px] items-center justify-between rounded-full px-3 py-1.5 cursor-pointer border border-gray-100 bg-white">
+                    <div class="flex flex-wrap gap-1.5" id="categories-badge-container">
+                        <div class="flex items-center gap-1.5 premium-chip-blue px-3.5 py-1 rounded-full text-xs font-extrabold shadow-sm" id="cat-auto">
+                            <span>Auto</span>
+                            <button type="button" onclick="removeCategoryBadge('cat-auto', event)" class="hover:text-blue-100 transition-colors font-bold ml-1">✕</button>
+                        </div>
+                        <div class="flex items-center gap-1.5 premium-chip-green px-3.5 py-1 rounded-full text-xs font-extrabold shadow-sm" id="cat-food">
+                            <span>Food</span>
+                            <button type="button" onclick="removeCategoryBadge('cat-food', event)" class="hover:text-green-100 transition-colors font-bold ml-1">✕</button>
+                        </div>
+                    </div>
+                    <svg class="w-4 h-4 text-brand-placeholder ml-2 shrink-0 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Category Dropdown (CON TOOLTIP INTERACTIVO REAL AL HOVER) -->
+            <div class="flex flex-col relative" id="category-dropdown-container">
+                <div class="flex justify-between items-center mb-1.5">
+                    <label class="text-[13px] font-bold text-brand-text ml-3">Category</label>
+                    <div class="tooltip-wrapper mr-3">
+                        <button type="button" class="text-brand-placeholder hover:text-brand-text flex items-center">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </button>
+                        <!-- Tooltip real interactivo (Light) -->
+                        <div class="tooltip-box">
+                            <div class="perfect-tooltip tooltip-style-light">
+                                <span>Categories list</span>
+                                <span class="pill-dark-inner">Marketing</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div onclick="toggleDropdown('category-menu')" class="flex h-[46px] items-center justify-between rounded-full px-5 cursor-pointer border border-gray-100 bg-white shadow-sm hover:border-gray-200">
+                    <div class="flex items-center gap-2">
+                        <span id="selected-category-text" class="text-sm font-bold text-brand-text">Marketing</span>
+                    </div>
+                    <svg class="w-4 h-4 text-brand-placeholder" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </div>
+                <div id="category-menu" class="hidden absolute left-0 right-0 top-[80px] z-50 bg-white border border-gray-100 rounded-2xl shadow-xl p-2 flex flex-col gap-1">
+                    <div onclick="selectCategory('Marketing')" class="px-4 py-2 text-sm font-bold hover:bg-gray-50 rounded-xl cursor-pointer">Marketing</div>
+                    <div onclick="selectCategory('Development')" class="px-4 py-2 text-sm font-bold hover:bg-gray-50 rounded-xl cursor-pointer">Development</div>
+                    <div onclick="selectCategory('Design')" class="px-4 py-2 text-sm font-bold hover:bg-gray-50 rounded-xl cursor-pointer">Design</div>
+                </div>
+            </div>
+
+            <!-- User Dropdown (CON TOOLTIP INTERACTIVO REAL AL HOVER) -->
+            <div class="flex flex-col relative" id="user-dropdown-container">
+                <div class="flex justify-between items-center mb-1.5">
+                    <label class="text-[13px] font-bold text-brand-text ml-3">User</label>
+                    <div class="tooltip-wrapper mr-3">
+                        <button type="button" class="text-brand-placeholder hover:text-brand-text flex items-center">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </button>
+                        <!-- Tooltip real interactivo (Dark) -->
+                        <div class="tooltip-box">
+                            <div class="perfect-tooltip tooltip-style-dark">
+                                <span>User Profile</span>
+                                <span class="pill-light-inner">Jane</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div onclick="toggleDropdown('user-menu')" class="flex h-[46px] items-center justify-between rounded-full px-5 cursor-pointer border border-gray-100 bg-white shadow-sm hover:border-gray-200">
+                    <div class="flex items-center gap-2">
+                        <img id="selected-user-avatar" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80" alt="Avatar" class="w-6 h-6 rounded-full object-cover filter grayscale">
+                        <span id="selected-user-name" class="text-sm font-bold text-brand-text">Jane Brown</span>
+                    </div>
+                    <svg class="w-4 h-4 text-[#A3AED0]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </div>
+                <div id="user-menu" class="hidden absolute left-0 right-0 top-[80px] z-50 bg-white border border-gray-100 rounded-2xl shadow-xl p-2 flex flex-col gap-1">
+                    <div onclick="selectUser('Jane Brown', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80')" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 rounded-xl cursor-pointer">
+                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80" class="w-6 h-6 rounded-full object-cover filter grayscale">
+                        <span class="text-sm font-bold text-brand-text">Jane Brown</span>
+                    </div>
+                    <div onclick="selectUser('Jack Sparrow', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80')" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 rounded-xl cursor-pointer">
+                        <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=crop&w=100&q=80" class="w-6 h-6 rounded-full object-cover filter grayscale">
+                        <span class="text-sm font-bold text-brand-text">Jack Sparrow</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div class="flex flex-col">
+                <label class="text-[13px] font-bold text-brand-text mb-1.5 ml-3">Tags</label>
+                <div class="flex min-h-[46px] items-center justify-between rounded-full px-3 py-1.5 cursor-pointer border border-gray-100 bg-white">
+                    <div class="flex flex-wrap gap-1.5" id="tags-container">
+                        <div class="premium-chip-neutral px-3.5 py-1 rounded-full text-xs font-extrabold flex items-center gap-1" id="tag-design">
+                            <span>Design System</span>
+                            <button type="button" onclick="removeTag('tag-design', event)" class="hover:text-red-500 font-bold ml-1">✕</button>
+                        </div>
+                        <div class="premium-chip-neutral px-3.5 py-1 rounded-full text-xs font-extrabold flex items-center gap-1" id="tag-uikit">
+                            <span>UI Kit</span>
+                            <button type="button" onclick="removeTag('tag-uikit', event)" class="hover:text-red-500 font-bold ml-1">✕</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================= COLUMNA C: Toggles, Checkbox de suscripción con check & Menús contextuales ================= -->
+        <div class="premium-card p-6 md:p-8 flex flex-col gap-5">
+            <h3 class="text-sm font-extrabold text-brand-text border-b border-gray-50 pb-3">Alternadores</h3>
+
+            <!-- Paypal & Bank Card (Radio Buttons) -->
+            <div class="flex flex-col gap-3">
+                <label class="text-[13px] font-bold text-brand-text ml-3">Payment Method</label>
+                <div class="flex flex-col gap-2 ml-3">
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        <input type="radio" name="payment_card" checked class="sr-only peer">
+                        <div class="w-5 h-5 rounded-full border border-gray-100 bg-white shadow-sm flex items-center justify-center peer-checked:border-brand-blueActive peer-checked:bg-brand-blueActive transition-all">
+                            <div class="w-2 h-2 rounded-full bg-white"></div>
+                        </div>
+                        <span class="text-sm font-bold text-brand-subtext">Paypal</span>
+                    </label>
+                    <label class="flex items-center gap-3 cursor-pointer group">
+                        <input type="radio" name="payment_card" class="sr-only peer">
+                        <div class="w-5 h-5 rounded-full border border-gray-100 bg-white shadow-sm flex items-center justify-center peer-checked:border-brand-blueActive peer-checked:bg-brand-blueActive transition-all">
+                            <div class="w-2 h-2 rounded-full bg-white"></div>
+                        </div>
+                        <span class="text-sm font-bold text-brand-subtext">Bank Card</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Free Cancellation (Switch) -->
+            <div class="flex items-center justify-between ml-3 mr-3 py-1">
+                <div class="flex flex-col">
+                    <span class="text-sm font-bold text-brand-text">Free Cancellation</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-blueActive shadow-inner"></div>
+                </label>
+            </div>
+
+            <!-- Suscribirse -->
+            <div class="flex items-start gap-3 ml-3 mr-3 py-1">
+                <label class="relative flex items-center justify-center cursor-pointer mt-0.5">
+                    <input type="checkbox" checked class="sr-only peer">
+                    <div class="w-5 h-5 rounded-md border border-gray-100 bg-white flex items-center justify-center peer-checked:border-brand-blueActive peer-checked:bg-brand-blueActive transition-all shadow-sm">
+                        <!-- Checkmark SVG real -->
+                        <svg class="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                </label>
+                <span class="text-sm font-bold text-brand-text">Subscribe to newsletter</span>
+            </div>
+
+            <!-- Cantidad Incrementadora -->
+            <div class="flex items-center justify-between ml-3 mr-3 py-2 border-t border-gray-50">
+                <span class="text-sm font-bold text-brand-text">Quantity</span>
+                <div class="flex items-center gap-1 bg-[#F1F3F6] p-1 rounded-full border border-gray-200">
+                    <button onclick="changeQuantity(-1)" class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center font-extrabold text-brand-text hover:bg-gray-50 shadow-sm transition-all">-</button>
+                    <span id="quantity-val" class="w-10 text-center text-sm font-extrabold text-brand-text">2</span>
+                    <button onclick="changeQuantity(1)" class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center font-extrabold text-brand-text hover:bg-gray-50 shadow-sm transition-all">+</button>
+                </div>
+            </div>
+
+            <!-- Menú Contextual (image_ec65d6.png) -->
+            <div class="border-t border-gray-50 pt-4 flex flex-col gap-2">
+                <span class="text-xs font-bold text-brand-placeholder ml-3">Opciones Contextuales</span>
+                <div class="bg-white border border-gray-100 rounded-2xl p-2 shadow-sm flex flex-col gap-1">
+                    <button class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold text-brand-text hover:bg-gray-50 transition-all w-full text-left">
+                        <svg class="w-4 h-4 text-brand-subtext" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                        </svg>
+                        Edit Item
+                    </button>
+                    <button class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold text-brand-text hover:bg-gray-50 transition-all w-full text-left">
+                        <svg class="w-4 h-4 text-brand-subtext" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        Block Account
+                    </button>
+                    <button class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-bold text-red-600 hover:bg-red-50 transition-all w-full text-left">
+                        <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        Delete Permanently
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ================= 5. SECCIÓN BOTONES TÁCTILES PREMIUM SIN BORDES RÍGIDOS ================= -->
+    <div class="w-full max-w-6xl mx-auto bg-white rounded-3xl p-8 md:p-10 border border-brand-border shadow-md mt-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div>
+                <h2 class="text-md font-bold text-brand-text">Premium Button System</h2>
+                <p class="text-xs font-semibold text-brand-placeholder mt-0.5">Estilo de gradiente tridimensional sólido con relieve elegante y sin bordes.</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-2">
+                <span class="premium-chip-neutral text-xs px-3.5 py-1.5 rounded-full text-brand-text">Status: Active</span>
+                <span class="premium-chip-blue text-xs px-3.5 py-1.5 rounded-full">Segment Active</span>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full min-w-[800px] border-collapse">
+                <thead>
+                    <tr class="text-left text-xs font-extrabold text-brand-placeholder uppercase tracking-wider border-b border-brand-border pb-4">
+                        <th class="pb-4 w-1/6">Type</th>
+                        <th class="pb-4 w-1/5 text-center">Default</th>
+                        <th class="pb-4 w-1/5 text-center">With Icon Left</th>
+                        <th class="pb-4 w-1/5 text-center">Icon Only</th>
+                        <th class="pb-4 w-1/5 text-center">Disabled</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    
+                    <!-- Fila 1: Primary Buttons -->
+                    <tr>
+                        <td class="py-6 text-sm font-extrabold text-brand-text">Primary</td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-primary px-6">
+                                Default
+                            </button>
+                        </td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-primary px-5 gap-2">
+                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                Add Option
+                            </button>
+                        </td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-primary w-11 h-11 p-0">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                </svg>
+                            </button>
+                        </td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-primary px-6" disabled>
+                                Disabled
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Fila 2: Secondary Buttons -->
+                    <tr>
+                        <td class="py-6 text-sm font-extrabold text-brand-text">Secondary</td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-secondary px-6">
+                                Default
+                            </button>
+                        </td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-secondary px-5 gap-2">
+                                <svg class="w-4 h-4 text-brand-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                </svg>
+                                Edit Settings
+                            </button>
+                        </td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-secondary w-11 h-11 p-0">
+                                <svg class="w-5 h-5 text-brand-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                                </svg>
+                            </button>
+                        </td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-secondary px-6" disabled>
+                                Disabled
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Fila 3: Destructive Buttons -->
+                    <tr>
+                        <td class="py-6 text-sm font-extrabold text-brand-text">Destructive</td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-destructive px-6">
+                                Default
+                            </button>
+                        </td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-destructive px-5 gap-2">
+                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                                Delete Item
+                            </button>
+                        </td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-destructive w-11 h-11 p-0">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </td>
+                        <td class="py-6 text-center">
+                            <button class="btn-custom btn-destructive px-6" disabled>
+                                Disabled
+                            </button>
+                        </td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- JavaScript para Cierre de Menús y Lógicas de Control -->
+    <script>
+        // --- 1. Cambiar el estado activo de las pestañas (Tabs) ---
+        function setActiveTab(button) {
+            const container = button.parentNode;
+            const buttons = container.getElementsByTagName('button');
+            
+            for (let btn of buttons) {
+                btn.classList.remove('premium-tab-active', 'text-brand-text');
+                btn.classList.add('text-brand-placeholder');
+            }
+            
+            button.classList.add('premium-tab-active', 'text-brand-text');
+            button.classList.remove('text-brand-placeholder');
+        }
+
+        // --- 2. Incrementar / Decrementar Cantidad ---
+        function changeQuantity(val) {
+            const quantitySpan = document.getElementById('quantity-val');
+            let current = parseInt(quantitySpan.innerText);
+            current += val;
+            if (current < 1) current = 1;
+            quantitySpan.innerText = current;
+        }
+
+        // --- 3. Toggle de desplegables ---
+        function toggleDropdown(id) {
+            const menu = document.getElementById(id);
+            if (menu) menu.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', function(event) {
+            const userContainer = document.getElementById('user-dropdown-container');
+            const categoryContainer = document.getElementById('category-dropdown-container');
+
+            if (userContainer && !userContainer.contains(event.target)) {
+                document.getElementById('user-menu').classList.add('hidden');
+            }
+            if (categoryContainer && !categoryContainer.contains(event.target)) {
+                document.getElementById('category-menu').classList.add('hidden');
+            }
+        });
+
+        function selectCategory(name) {
+            document.getElementById('selected-category-text').innerText = name;
+            document.getElementById('category-menu').classList.add('hidden');
+        }
+
+        function selectUser(name, avatarUrl) {
+            document.getElementById('selected-user-name').innerText = name;
+            document.getElementById('selected-user-avatar').src = avatarUrl;
+            document.getElementById('user-menu').classList.add('hidden');
+        }
+
+        function removeCategoryBadge(id, event) {
+            event.stopPropagation();
+            const el = document.getElementById(id);
+            if(el) el.remove();
+        }
+
+        function removeTag(id, event) {
+            event.stopPropagation();
+            const el = document.getElementById(id);
+            if(el) el.remove();
+        }
+    </script>
+</body>
+</html>

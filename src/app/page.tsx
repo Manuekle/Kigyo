@@ -1,65 +1,286 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import Ferrofluid from '@/components/ui/Ferrofluid'
+import PublicNav from '@/components/marketing/PublicNav'
+import PublicFooter from '@/components/marketing/PublicFooter'
+import {
+  ArrowRight,
+  Users,
+  Shield,
+  Sparkles,
+  LayoutDashboard,
+  FileText,
+  Calendar,
+  UserPlus,
+  PenTool,
+  TrendingUp,
+  Star,
+} from '@/lib/icons'
+
+const FERRO_COLORS = ['#ffffff', '#f5f5f5', '#ebebeb']
+
+export default function LandingPage() {
+  const router = useRouter()
+  const colors = useMemo(() => FERRO_COLORS, [])
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="landing">
+      <PublicNav />
+
+      {/* ─── Hero ─── */}
+      <section className="l-hero">
+        <div className="l-ferro">
+          <Ferrofluid
+            colors={colors}
+            speed={0.4}
+            scale={1.8}
+            turbulence={0.8}
+            fluidity={0.08}
+            rimWidth={0.18}
+            sharpness={2.8}
+            shimmer={1.2}
+            glow={1.8}
+            flowDirection="down"
+            opacity={0.85}
+            mouseInteraction
+            mouseStrength={0.8}
+            mouseRadius={0.3}
+            mouseDampening={0.12}
+            mixBlendMode="screen"
+          />
+        </div>
+        <div className="l-hero-content">
+          <h1 className="l-hero-title">
+            People Operating System
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+          <p className="l-hero-sub">
+            Simplifica la gestión de personas, nómina, documentos, vacaciones
+            y más. Todo en un solo lugar, diseñado para equipos modernos.
+          </p>
+          <div className="l-hero-actions">
+            <button
+              type="button"
+              className="btn pri"
+              style={{ height: 44, fontSize: 14, fontWeight: 700, padding: '0 24px' }}
+              onClick={() => router.push('/login')}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Iniciar sesión
+              <ArrowRight size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn"
+              style={{ height: 44, fontSize: 14, fontWeight: 600, padding: '0 24px' }}
+              onClick={() => {
+                document.getElementById('l-features')?.scrollIntoView({ behavior: 'smooth' })
+              }}
             >
-              Learning
-            </a>{" "}
-            center.
+              Conocer más
+            </button>
+          </div>
+        </div>
+        <div className="l-hero-scroll">
+          <span>Descubre más</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+        </div>
+      </section>
+
+      {/* ─── Stats ─── */}
+      <section className="l-stats">
+        <div className="l-stats-inner">
+          <div className="l-stat">
+            <span className="l-stat-val">+2,500</span>
+            <span className="l-stat-lab">Empleados gestionados</span>
+          </div>
+          <div className="l-stat">
+            <span className="l-stat-val">98%</span>
+            <span className="l-stat-lab">Satisfacción de clientes</span>
+          </div>
+          <div className="l-stat">
+            <span className="l-stat-val">40%</span>
+            <span className="l-stat-lab">Menos tiempo administrativo</span>
+          </div>
+          <div className="l-stat">
+            <span className="l-stat-val">24/7</span>
+            <span className="l-stat-lab">Soporte disponible</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Features ─── */}
+      <section id="l-features" className="l-section">
+        <div className="l-section-head">
+          <h2 className="l-section-title">Todo lo que necesitas para gestionar tu equipo</h2>
+          <p className="l-section-sub">
+            Desde la contratación hasta la nómina, Kigyo centraliza cada proceso de
+            recursos humanos en una plataforma moderna y fácil de usar.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="l-features-grid">
+          <div className="card l-feature">
+            <div className="l-feature-icon">
+              <Users size={22} />
+            </div>
+            <h3 className="l-feature-title">Gestión de personal</h3>
+            <p className="l-feature-desc">
+              Perfiles completos, organigrama interactivo, documentos
+              y control de asistencia en tiempo real.
+            </p>
+          </div>
+
+          <div className="card l-feature">
+            <div className="l-feature-icon">
+              <FileText size={22} />
+            </div>
+            <h3 className="l-feature-title">Documentos y firmas</h3>
+            <p className="l-feature-desc">
+              Crea, envía y firma contratos, anexos y políticas.
+              Todo con validez legal y trazabilidad completa.
+            </p>
+          </div>
+
+          <div className="card l-feature">
+            <div className="l-feature-icon">
+              <Calendar size={22} />
+            </div>
+            <h3 className="l-feature-title">Vacaciones y ausencias</h3>
+            <p className="l-feature-desc">
+              Solicitudes, aprobaciones y calendario de equipo.
+              Control de días disponibles y políticas personalizadas.
+            </p>
+          </div>
+
+          <div className="card l-feature">
+            <div className="l-feature-icon">
+              <LayoutDashboard size={22} />
+            </div>
+            <h3 className="l-feature-title">Dashboard inteligente</h3>
+            <p className="l-feature-desc">
+              KPIs, rotación, clima laboral y headcount en
+              tiempo real. Toda la data de tu equipo en un solo lugar.
+            </p>
+          </div>
+
+          <div className="card l-feature">
+            <div className="l-feature-icon">
+              <Shield size={22} />
+            </div>
+            <h3 className="l-feature-title">Seguridad y cumplimiento</h3>
+            <p className="l-feature-desc">
+              Datos encriptados, backups automáticos y cumplimiento
+              con normativas laborales mexicanas.
+            </p>
+          </div>
+
+          <div className="card l-feature">
+            <div className="l-feature-icon">
+              <Sparkles size={22} />
+            </div>
+            <h3 className="l-feature-title">IA integrada</h3>
+            <p className="l-feature-desc">
+              Asistente inteligente para consultas, generación de reportes
+              y análisis predictivo de tu equipo.
+            </p>
+          </div>
         </div>
-      </main>
+      </section>
+
+      {/* ─── How it works ─── */}
+      <section className="l-section l-steps">
+        <div className="l-section-head">
+          <h2 className="l-section-title">Empieza en minutos, no en semanas</h2>
+          <p className="l-section-sub">
+            Migra tu equipo y ten Kigyo funcionando en tres pasos simples,
+            sin curva de aprendizaje ni implementaciones eternas.
+          </p>
+        </div>
+
+        <div className="l-steps-grid">
+          <div className="l-step">
+            <div className="l-step-num">
+              <UserPlus size={20} />
+            </div>
+            <h3 className="l-step-title">Crea tu equipo</h3>
+            <p className="l-step-desc">
+              Importa tu plantilla actual o agrega colaboradores manualmente.
+              Sin plantillas complicadas ni configuraciones extensas.
+            </p>
+          </div>
+
+          <div className="l-step">
+            <div className="l-step-num">
+              <PenTool size={20} />
+            </div>
+            <h3 className="l-step-title">Configura procesos</h3>
+            <p className="l-step-desc">
+              Define políticas de vacaciones, flujos de aprobación y plantillas
+              de documentos adaptadas a tu operación.
+            </p>
+          </div>
+
+          <div className="l-step">
+            <div className="l-step-num">
+              <TrendingUp size={20} />
+            </div>
+            <h3 className="l-step-title">Opera y crece</h3>
+            <p className="l-step-desc">
+              Visualiza KPIs en tiempo real y deja que Kigyo se encargue del
+              trabajo operativo mientras tú te enfocas en tu gente.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Testimonial ─── */}
+      <section className="l-section l-quote-section">
+        <div className="l-quote-card">
+          <div className="l-quote-stars">
+            <Star size={16} />
+            <Star size={16} />
+            <Star size={16} />
+            <Star size={16} />
+            <Star size={16} />
+          </div>
+          <p className="l-quote-text">
+            &ldquo;Kigyo nos permitió centralizar toda la gestión de personas en
+            semanas. Redujimos el trabajo administrativo de nómina y documentos
+            a una fracción del tiempo que nos tomaba antes.&rdquo;
+          </p>
+          <div className="l-quote-author">
+            <div className="l-quote-avatar">MG</div>
+            <div>
+              <div className="l-quote-name">María González</div>
+              <div className="l-quote-role">Directora de RRHH</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── CTA ─── */}
+      <section className="l-section l-cta">
+        <div className="l-cta-card">
+          <h2 className="l-cta-title">¿Listo para transformar tu gestión de personas?</h2>
+          <p className="l-cta-sub">
+            Únete a las empresas que ya confían en Kigyo como su sistema operativo de personas.
+          </p>
+          <button
+            type="button"
+            className="btn pri"
+            style={{ height: 46, fontSize: 14, fontWeight: 700, padding: '0 28px' }}
+            onClick={() => router.push('/login')}
+          >
+            Comenzar ahora
+            <ArrowRight size={16} />
+          </button>
+        </div>
+      </section>
+
+      <PublicFooter />
     </div>
-  );
+  )
 }
