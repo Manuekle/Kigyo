@@ -36,6 +36,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# design/dev tools
+.claude/
+.design-sync/
+.ds-sync/
+design-system.html
+nucleo-rh.jsx
+DESIGN.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -1,9 +1,0 @@
-{
-  "pkg": "nucleo-rh",
-  "globalName": "NucleoRH",
-  "projectId": "ee5fc90b-dbc3-490d-bbbf-bea9f01566de",
-  "shape": "package",
-  "tsconfig": "./tsconfig.json",
-  "cssEntry": "./src/app/globals.css",
-  "srcDir": "./src/components"
-}
