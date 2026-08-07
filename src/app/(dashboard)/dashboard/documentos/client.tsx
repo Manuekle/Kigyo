@@ -10,6 +10,11 @@ import {
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { apiFetch, errorMessage } from '@/lib/api/client'
+
+type RewriteInstruction =
+  | 'mejorar' | 'acortar' | 'ampliar'
+  | 'formal' | 'profesional' | 'cercano' | 'conciso' | 'optimista'
 
 type Doc = {
   id: string
@@ -56,7 +61,19 @@ const SHARE_PEOPLE = [
 ]
 
 const COMPOSER_SEED = 'Estimado equipo,\n\nLes compartimos la actualización de la política de teletrabajo, vigente a partir del próximo mes. Por favor revisen los puntos clave y confirmen su lectura.\n\nQuedamos atentos a sus comentarios.'
-const TONOS = ['Formal', 'Profesional', 'Cercano', 'Conciso', 'Optimista']
+/**
+ * Rewrite instructions the server accepts. The set is fixed on both sides —
+ * /api/ai/rewrite validates against the same keys — because the document body
+ * is user-authored content and letting the client also supply the instruction
+ * would turn the endpoint into an open prompt.
+ */
+const TONOS = [
+  { key: 'formal', label: 'Formal' },
+  { key: 'profesional', label: 'Profesional' },
+  { key: 'cercano', label: 'Cercano' },
+  { key: 'conciso', label: 'Conciso' },
+  { key: 'optimista', label: 'Optimista' },
+] as const
 
 /* ── Modales existentes (ShareModal, AIComposer, EditDocModal, UploadCard) ── */
 const AV_GRADS: [string, string][] = [
@@ -75,13 +92,18 @@ const Avatar = ({ name, size = 34 }: { name: string; size?: number }) => {
 
 type SharePerson = { name: string; email: string; owner?: boolean; role?: string }
 
-function ShareModal({ open, name, onClose, notify }: { open: boolean; name: string | null; onClose: () => void; notify: (msg: string, kind?: 'ok' | 'err' | 'info' | 'warn') => void }) {
+type ShareModalProps = { open: boolean; name: string | null; onClose: () => void; notify: (msg: string, kind?: 'ok' | 'err' | 'info' | 'warn') => void }
+
+function ShareModal(props: ShareModalProps) {
+  if (!props.open) return null
+  return <ShareModalBody {...props} />
+}
+
+function ShareModalBody({ name, onClose, notify }: ShareModalProps) {
   const [people, setPeople] = useState<SharePerson[]>(SHARE_PEOPLE)
   const [email, setEmail] = useState('')
   const [inviteRole, setInviteRole] = useState('Puede ver')
   const [access, setAccess] = useState('invited')
-  useEffect(() => { if (open) { setPeople(SHARE_PEOPLE); setEmail(''); setInviteRole('Puede ver') } }, [open])
-  if (!open) return null
   const cycleRole = (r?: string) => (r === 'Puede ver' ? 'Puede editar' : 'Puede ver')
   const invite = () => {
     const v = email.trim(); if (!v) return
@@ -117,12 +139,18 @@ function ShareModal({ open, name, onClose, notify }: { open: boolean; name: stri
   )
 }
 
-function AIComposer({ open, onClose, notify }: { open: boolean; onClose: () => void; notify: (msg: string, kind?: 'ok' | 'err' | 'info' | 'warn') => void }) {
+type AIComposerProps = { open: boolean; onClose: () => void; notify: (msg: string, kind?: 'ok' | 'err' | 'info' | 'warn') => void }
+
+function AIComposer(props: AIComposerProps) {
+  if (!props.open) return null
+  return <AIComposerBody {...props} />
+}
+
+function AIComposerBody({ onClose, notify }: AIComposerProps) {
   const [text, setText] = useState(COMPOSER_SEED)
   const [loading, setLoading] = useState(false)
   const [tone, setTone] = useState(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => { if (open) { setText(COMPOSER_SEED); setTone(false) } }, [open])
   const wrap = (before: string, after: string = before) => {
     const ta = taRef.current; if (!ta) return
     const { selectionStart: s, selectionEnd: e } = ta
@@ -142,18 +170,20 @@ function AIComposer({ open, onClose, notify }: { open: boolean; onClose: () => v
     setText(next)
     requestAnimationFrame(() => ta.focus())
   }
-  async function run(instruction: string) {
+  async function run(instruction: RewriteInstruction) {
     if (loading) return
     setLoading(true); setTone(false)
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: 'Eres un asistente de redacción para comunicaciones internas de RRHH. Aplica la instrucción al texto y devuelve ÚNICAMENTE el texto resultante en español, sin comillas ni comentarios.', messages: [{ role: 'user', content: `Instrucción: ${instruction}.\n\nTexto:\n${text}` }] }),
+      const result = await apiFetch<{ text: string }>('/api/ai/rewrite', {
+        method: 'POST',
+        body: JSON.stringify({ instruction, text }),
       })
-      const data = await res.json()
-      const out = (data.content || []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('\n').trim()
-      if (out) setText(out)
-    } catch { notify('No se pudo conectar con la IA', 'err') } finally { setLoading(false) }
+      if (result.text) setText(result.text)
+    } catch (error) {
+      notify(errorMessage(error, 'No se pudo conectar con la IA'), 'err')
+    } finally {
+      setLoading(false)
+    }
   }
   if (!open) return null
   return (
@@ -162,7 +192,7 @@ function AIComposer({ open, onClose, notify }: { open: boolean; onClose: () => v
         <div className="mhead"><div className="mtitle">Redactar con IA</div><button className="ibtn" onClick={onClose}><X size={18} /></button></div>
         <div className="mbody">
           <div className="fbar">
-            <button className="aipill" onClick={() => run('Mejora la redacción y la claridad')}><Sparkles size={14} />Editar con IA</button><span className="fsep" />
+            <button className="aipill" onClick={() => run('mejorar')}><Sparkles size={14} />Editar con IA</button><span className="fsep" />
             <button className="ftxt" onClick={() => linePrefix('# ')}><Type size={14} />Texto <ChevronDown size={12} /></button><span className="fsep" />
             <button className="fbtn" onClick={() => wrap('**')}><Bold size={15} /></button>
             <button className="fbtn" onClick={() => wrap('*')}><Italic size={15} /></button>
@@ -177,7 +207,7 @@ function AIComposer({ open, onClose, notify }: { open: boolean; onClose: () => v
           <textarea ref={taRef} className="editor" value={text} onChange={(e) => setText(e.target.value)} />
           <div className="aibar">
             <div className="aibar-h"><Sparkles size={14} style={{ color: 'var(--red)' }} />{loading ? 'La IA está escribiendo…' : tone ? 'Cambiar tono a…' : 'Preguntar a la IA'}</div>
-            {loading ? <div className="typing"><i /><i /><i /></div> : tone ? (<div className="aichips">{TONOS.map((t) => <button key={t} className="aichip" onClick={() => run(`Cambia el tono a ${t.toLowerCase()}`)}>{t}</button>)}<button className="aichip" onClick={() => setTone(false)}>Cancelar</button></div>) : (<div className="aichips"><button className="aichip" onClick={() => run('Mejora la redacción y la claridad')}><Sparkles size={12} />Mejorar redacción</button><button className="aichip" onClick={() => setTone(true)}>Cambiar tono</button><button className="aichip" onClick={() => run('Hazlo más corto y directo')}>Hacer más corto</button><button className="aichip" onClick={() => run('Amplía el contenido con más detalle')}>Ampliar</button></div>)}
+            {loading ? <div className="typing" role="status" aria-label="La IA está escribiendo"><i /><i /><i /></div> : tone ? (<div className="aichips">{TONOS.map((t) => <button key={t.key} className="aichip" onClick={() => run(t.key)}>{t.label}</button>)}<button className="aichip" onClick={() => setTone(false)}>Cancelar</button></div>) : (<div className="aichips"><button className="aichip" onClick={() => run('mejorar')}><Sparkles size={12} />Mejorar redacción</button><button className="aichip" onClick={() => setTone(true)}>Cambiar tono</button><button className="aichip" onClick={() => run('acortar')}>Hacer más corto</button><button className="aichip" onClick={() => run('ampliar')}>Ampliar</button></div>)}
           </div>
         </div>
         <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}><button className="btn" onClick={onClose}>Cancelar</button><button className="btn dark" onClick={() => { notify('Documento guardado', 'ok'); onClose() }}>Guardar documento</button></div></div>
@@ -198,11 +228,18 @@ function UploadCard({ u, onCancel }: { u: Upload; onCancel: (id: number) => void
   )
 }
 
-function EditDocModal({ doc, onClose, onSave }: { doc: Doc | null; onClose: () => void; onSave: (id: string, patch: Partial<Doc>) => void }) {
-  const [name, setName] = useState('')
-  const [type, setType] = useState('Política')
-  useEffect(() => { if (doc) { setName(doc.name); setType(doc.type) } }, [doc])
-  if (!doc) return null
+type EditDocModalProps = { doc: Doc | null; onClose: () => void; onSave: (id: string, patch: Partial<Doc>) => void }
+
+function EditDocModal(props: EditDocModalProps) {
+  if (!props.doc) return null
+  // Keyed on the document, so switching rows while the modal is open remounts
+  // with the new values instead of syncing them in through an effect.
+  return <EditDocModalBody key={props.doc.id} {...props} doc={props.doc} />
+}
+
+function EditDocModalBody({ doc, onClose, onSave }: EditDocModalProps & { doc: Doc }) {
+  const [name, setName] = useState(doc.name)
+  const [type, setType] = useState(doc.type)
   const types = ['Contrato', 'Política', 'Acta', 'Plan', 'Manual']
   return (
     <div className="mwrap" onClick={onClose}>

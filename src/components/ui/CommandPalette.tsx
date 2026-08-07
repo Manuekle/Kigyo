@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, LayoutDashboard, Users, PenTool, Calendar, Clock, DollarSign, BookOpen, Package, FileText, MessageSquare, Ticket, ShieldAlert, Activity, Sparkles, Settings, ArrowRight, Wallet, Kanban, Receipt, ShoppingCart, FileCheck2, LayoutGrid, PenLine, Tag, ShieldCheck } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
 import { EMPLEADOS } from '@/lib/data/empleados'
 import { NAV } from '@/lib/data/nav'
 import { useApp } from '@/lib/context/AppContext'
+import { useFocusTrap } from '@/lib/hooks/use-focus-trap'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   LayoutDashboard: <LayoutDashboard size={15} />,
@@ -49,25 +50,29 @@ type Result =
 
 export default function CommandPalette() {
   const { cmdOpen, setCmdOpen } = useApp()
-  const [q, setQ] = useState('')
-  const [active, setActive] = useState(0)
-  const router = useRouter()
-  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setCmdOpen(true) }
-      if (e.key === 'Escape') setCmdOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [setCmdOpen])
 
-  useEffect(() => {
-    if (cmdOpen) { setQ(''); setActive(0); setTimeout(() => inputRef.current?.focus(), 30) }
-  }, [cmdOpen])
-
+  // The palette body mounts only while open, so the query and the highlighted
+  // row reset by remounting rather than through an effect that fired an extra
+  // render on every open. Escape is handled by the focus trap inside.
   if (!cmdOpen) return null
+  return <CommandPaletteBody onClose={() => setCmdOpen(false)} />
+}
+
+function CommandPaletteBody({ onClose }: { onClose: () => void }) {
+  const [q, setQ] = useState('')
+  const [active, setActive] = useState(0)
+  const router = useRouter()
+  const listId = useId()
+
+  const trapRef = useFocusTrap<HTMLDivElement>(true, { onEscape: onClose })
 
   const pages = NAV.flatMap((s) => s.items)
   const empResults: Result[] = EMPLEADOS
@@ -85,7 +90,7 @@ export default function CommandPalette() {
   function go(r: Result) {
     if (r.kind === 'emp') router.push(`/dashboard/empleados/${r.id}`)
     else router.push(ROUTE_MAP[r.key] ?? '/dashboard')
-    setCmdOpen(false)
+    onClose()
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -94,32 +99,46 @@ export default function CommandPalette() {
     if (e.key === 'Enter' && results[active]) go(results[active])
   }
 
+  const activeId = results[active] ? `${listId}-opt-${active}` : undefined
+
   return (
-    <>
+    <div ref={trapRef} role="dialog" aria-modal="true" aria-label="Buscador de comandos">
       <div
         style={{ position: 'fixed', inset: 0, background: 'rgba(15,15,18,.55)', backdropFilter: 'blur(4px)', zIndex: 200 }}
-        onClick={() => setCmdOpen(false)}
+        onClick={onClose}
       />
       <div className="cmdpal">
         <div className="cmdinput">
-          <Search size={16} style={{ color: 'var(--ink3)', flexShrink: 0 }} />
+          <Search size={16} style={{ color: 'var(--ink3)', flexShrink: 0 }} aria-hidden="true" />
           <input
-            ref={inputRef}
+            // autoFocus is correct here: the palette exists to receive typing,
+            // and it only mounts in response to the user opening it.
+            autoFocus
             value={q}
             onChange={(e) => { setQ(e.target.value); setActive(0) }}
             onKeyDown={onKeyDown}
             placeholder="Buscar empleados, páginas…"
+            aria-label="Buscar empleados o páginas"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={listId}
+            aria-activedescendant={activeId}
+            aria-autocomplete="list"
           />
-          <span className="kbd" style={{ flexShrink: 0 }}>Esc</span>
+          <span className="kbd" style={{ flexShrink: 0 }} aria-hidden="true">Esc</span>
         </div>
 
-        <div className="cmdlist">
+        <div className="cmdlist" id={listId} role="listbox" aria-label="Resultados">
           {empResults.length > 0 && (
             <>
               <div className="cmdgrp">Personas</div>
               {empResults.map((r, i) => r.kind === 'emp' && (
                 <button
                   key={r.id}
+                  id={`${listId}-opt-${i}`}
+                  role="option"
+                  aria-selected={active === i}
+                  tabIndex={-1}
                   className={`cmditem${active === i ? ' on' : ''}`}
                   onClick={() => go(r)}
                   onMouseEnter={() => setActive(i)}
@@ -141,6 +160,10 @@ export default function CommandPalette() {
               {pageResults.map((r, i) => r.kind === 'page' && (
                 <button
                   key={r.key}
+                  id={`${listId}-opt-${empResults.length + i}`}
+                  role="option"
+                  aria-selected={active === empResults.length + i}
+                  tabIndex={-1}
                   className={`cmditem${active === empResults.length + i ? ' on' : ''}`}
                   onClick={() => go(r)}
                   onMouseEnter={() => setActive(empResults.length + i)}
@@ -166,6 +189,6 @@ export default function CommandPalette() {
           <span><kbd>Esc</kbd> cerrar</span>
         </div>
       </div>
-    </>
+    </div>
   )
 }

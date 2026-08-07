@@ -30,14 +30,21 @@ const MEET_TONE: Record<string, string> = { 'Entrevista': 'blu', 'Onboarding': '
 
 type NewMeetingData = Omit<Meeting, 'id'>
 
-function NewMeetingModal({ open, onClose, onCreate }: { open: boolean; onClose: () => void; onCreate: (d: NewMeetingData) => void }) {
+type NewMeetingModalProps = { open: boolean; onClose: () => void; onCreate: (d: NewMeetingData) => void }
+
+function NewMeetingModal(props: NewMeetingModalProps) {
+  // Mounting only while open is what resets the form; the body below holds no
+  // reset effect, which used to cost an extra render on every open.
+  if (!props.open) return null
+  return <NewMeetingModalBody {...props} />
+}
+
+function NewMeetingModalBody({ onClose, onCreate }: NewMeetingModalProps) {
   const [title, setTitle] = useState('')
   const [type, setType] = useState('Entrevista')
   const [day, setDay] = useState<number | string>(22)
   const [time, setTime] = useState('10:00')
   const [withWhom, setWithWhom] = useState('')
-  useEffect(() => { if (open) { setTitle(''); setType('Entrevista'); setDay(22); setTime('10:00'); setWithWhom('') } }, [open])
-  if (!open) return null
   const types = ['Entrevista', 'Onboarding', '1:1', 'Consultoría']
   const create = () => {
     if (!title.trim()) return

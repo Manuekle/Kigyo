@@ -54,24 +54,30 @@ function StatusCard({
 }
 
 /* ── Modal para registrar/dibujar la firma (sin documento) ── */
-function RegisterSignModal({
-  open,
-  onClose,
-  onSave,
-}: {
+type RegisterSignModalProps = {
   open: boolean
   onClose: () => void
   onSave: (url: string) => void
-}) {
+}
+
+function RegisterSignModal(props: RegisterSignModalProps) {
+  // Mounting only while open is what clears the pad between uses.
+  if (!props.open) return null
+  return <RegisterSignModalBody {...props} />
+}
+
+function RegisterSignModalBody({ open, onClose, onSave }: RegisterSignModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null)
   const drawing = useRef(false)
   const [hasInk, setHasInk] = useState(false)
   const [done, setDone] = useState(false)
 
+  // Only the canvas is set up here now. hasInk/done reset by remounting (see
+  // the wrapper), so this effect no longer triggers a second render pass on
+  // every open.
   useEffect(() => {
     if (!open) return
-    setHasInk(false); setDone(false)
     const c = canvasRef.current
     if (!c) return
     const dpr = window.devicePixelRatio || 1
@@ -148,28 +154,25 @@ function RegisterSignModal({
 }
 
 /* ── Modal para confirmar firma de un documento ── */
-function ConfirmSignModal({
-  open,
-  doc,
-  sigUrl,
-  onClose,
-  onConfirm,
-}: {
+type ConfirmSignModalProps = {
   open: boolean
   doc: Firma | null
   sigUrl: string | null
   onClose: () => void
   onConfirm: () => void
-}) {
+}
+
+function ConfirmSignModal(props: ConfirmSignModalProps) {
+  if (!props.open || !props.doc) return null
+  // Keyed on the document, so picking a different one mid-flow starts a fresh
+  // consent state instead of carrying the previous checkbox across.
+  return <ConfirmSignModalBody key={props.doc.id} {...props} doc={props.doc} />
+}
+
+function ConfirmSignModalBody({ doc, sigUrl, onClose, onConfirm }: ConfirmSignModalProps & { doc: Firma }) {
   const [agree, setAgree] = useState(false)
   const [err, setErr] = useState(false)
   const [done, setDone] = useState(false)
-
-  useEffect(() => {
-    if (open) { setAgree(false); setErr(false); setDone(false) }
-  }, [open])
-
-  if (!open || !doc) return null
 
   const confirm = () => {
     if (!agree) { setErr(true); return }

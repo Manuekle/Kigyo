@@ -4297,3 +4297,73 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   margin-bottom: 22px;
 }
 .access-denied-body b { color: var(--ink2); font-weight: 600; }
+
+/* ═══ assistant: sources, warnings, errors ═══ */
+
+.ia-sources { margin-top: 10px; }
+.ia-sources-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--elevated);
+  color: var(--ink3);
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: color .16s ease-out, border-color .16s ease-out;
+}
+.ia-sources-toggle:hover { color: var(--ink2); border-color: rgba(255,255,255,.12); }
+
+.ia-sources-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.ia-sources-list li {
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--bg2);
+  border: 1px solid var(--line2);
+}
+.ia-sources-list a,
+.ia-sources-list > li > span {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink2);
+}
+.ia-sources-list a:hover { color: var(--ink); text-decoration: underline; }
+.ia-sources-list p {
+  margin: 5px 0 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ink3);
+}
+
+.ia-warn {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--ambs);
+  border: 1px solid var(--line);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ink2);
+}
+
+.ia-bub-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--line);
+  background: var(--reds);
+  color: var(--ink2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ia-sources-toggle { transition: none; }
+}

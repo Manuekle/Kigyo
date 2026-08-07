@@ -1,5 +1,7 @@
 'use client'
 
+import type { StatusTone } from '@/lib/types'
+
 import { useState, useMemo } from 'react'
 import { Plus, Trash2, PenLine, X, Search, Package, DollarSign, TrendingUp, Layers } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
@@ -163,7 +165,7 @@ export default function CatalogosPage() {
                         <span className="muted">{item.proveedor}</span>
                       </div>
                     </td>
-                    <td><Badge st={item.categoria} tone={({ Paneles: 'blu', Inversores: 'amb', Baterías: 'vio', Estructuras: 'neu', Cableado: 'neu', Protecciones: 'red', Servicios: 'grn', Herramientas: 'neu' } as Record<string, string>)[item.categoria] as any} /></td>
+                    <td><Badge st={item.categoria} tone={({ Paneles: 'blu', Inversores: 'amb', Baterías: 'vio', Estructuras: 'neu', Cableado: 'neu', Protecciones: 'red', Servicios: 'grn', Herramientas: 'neu' } as Record<string, StatusTone>)[item.categoria] ?? 'neu'} /></td>
                     <td>
                       <div className="cename">{cop(item.precio)}</div>
                       <div className="elsub">{cop(item.costo)} costo</div>

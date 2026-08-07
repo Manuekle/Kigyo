@@ -186,13 +186,14 @@ export default function CotizacionesPage() {
     return quotes.filter((q) => q.estado === filter)
   }, [quotes, filter])
 
-  useEffect(() => {
-    if (!filtered.find((q) => q.id === selected)) {
-      setSelected(filtered[0]?.id ?? null)
-    }
-  }, [filtered, selected])
+  // Derived, not synchronised. Clamping the selection in an effect meant an
+  // extra render pass on every filter change, and one frame where the detail
+  // pane still showed a quote the list no longer contained.
+  const effectiveSelected = filtered.some((q) => q.id === selected)
+    ? selected
+    : (filtered[0]?.id ?? null)
 
-  const current = quotes.find((q) => q.id === selected) ?? filtered[0] ?? null
+  const current = quotes.find((q) => q.id === effectiveSelected) ?? filtered[0] ?? null
 
   const stats = useMemo(() => {
     const aceptadas = quotes.filter((q) => q.estado === 'Aceptada').length

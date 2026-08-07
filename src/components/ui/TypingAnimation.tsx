@@ -58,12 +58,17 @@ export function TypingAnimation({
     [words, children],
   )
 
-  useEffect(() => {
+  // Restart when the source text changes, using the store-previous-state
+  // pattern rather than an effect. Resetting in an effect meant one frame of
+  // the old text rendered against the new key before it cleared.
+  const [prevSourceKey, setPrevSourceKey] = useState(animationSourceKey)
+  if (animationSourceKey !== prevSourceKey) {
+    setPrevSourceKey(animationSourceKey)
     setDisplayedText('')
     setCurrentWordIndex(0)
     setCurrentCharIndex(0)
     setPhase('typing')
-  }, [animationSourceKey])
+  }
 
   useEffect(() => {
     let timeout: ReturnType<typeof setTimeout> | null = null

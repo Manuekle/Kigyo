@@ -46,6 +46,7 @@ import {
   PencilEdit01Icon,
   PenTool01Icon,
   PlusSignIcon,
+  StopIcon,
   Search01Icon,
   SentIcon,
   Settings01Icon,
@@ -233,3 +234,4 @@ export const Layers = make(Layers01Icon)
 export const GitBranch = make(GitBranchIcon)
 export const History = make(Clock04Icon)
 export const RotateCcw = make(RefreshIcon)
+export const Square = make(StopIcon)

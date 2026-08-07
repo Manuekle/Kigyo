@@ -260,12 +260,19 @@ function FacturaDrawer({ f, onClose, onUpdate, onDelete }: {
   onUpdate: (id: string, patch: Partial<InvFactura>) => void
   onDelete: (id: string) => void
 }) {
-  const { addToast } = useApp()
+  if (!f) return null
+  return <FacturaDrawerBody key={f.id} f={f} onClose={onClose} onUpdate={onUpdate} onDelete={onDelete} />
+}
+
+function FacturaDrawerBody({ f, onClose, onUpdate, onDelete }: {
+  f: InvFactura
+  onClose: () => void
+  onUpdate: (id: string, patch: Partial<InvFactura>) => void
+  onDelete: (id: string) => void
+}) {
   const { runExport, exporting } = useExport()
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState<{ proveedor: string; fecha: string; st: string } | null>(null)
-  useEffect(() => { if (f) { setForm({ proveedor: f.proveedor, fecha: f.fecha, st: f.st }); setEditing(false) } }, [f])
-  if (!f || !form) return null
+  const [form, setForm] = useState({ proveedor: f.proveedor, fecha: f.fecha, st: f.st })
   const tot = f.items.reduce((s, it) => s + it.cant * it.precio, 0)
   const [g1, g2] = ['#b298f2', '#8b5cf6']
   const exportRow = () => {
@@ -369,12 +376,18 @@ function NewPedidoModal({ open, onClose, onCreate }: {
   onClose: () => void
   onCreate: (d: { item: string; proveedor: string; cant: number; precioEst: number }) => void
 }) {
+  if (!open) return null
+  return <NewPedidoModalBody onClose={onClose} onCreate={onCreate} />
+}
+
+function NewPedidoModalBody({ onClose, onCreate }: {
+  onClose: () => void
+  onCreate: (d: { item: string; proveedor: string; cant: number; precioEst: number }) => void
+}) {
   const [item, setItem] = useState('')
   const [proveedor, setProveedor] = useState('')
   const [cant, setCant] = useState(1)
   const [precioEst, setPrecioEst] = useState(0)
-  useEffect(() => { if (open) { setItem(''); setProveedor(''); setCant(1); setPrecioEst(0) } }, [open])
-  if (!open) return null
   const crear = () => {
     if (!item.trim()) return
     onCreate({ item: item.trim(), proveedor: proveedor.trim() || '—', cant: Number(cant) || 1, precioEst: Number(precioEst) || 0 })
@@ -407,9 +420,16 @@ function EditActivoModal({ item, onClose, onSave }: {
   onClose: () => void
   onSave: (id: string, patch: Partial<InvItem>) => void
 }) {
-  const [form, setForm] = useState<{ item: string; cat: string; serial: string; who: string; st: string } | null>(null)
-  useEffect(() => { if (item) setForm({ item: item.item, cat: item.cat, serial: item.serial, who: item.who, st: item.st }) }, [item])
-  if (!item || !form) return null
+  if (!item) return null
+  return <EditActivoModalBody key={item.id} item={item} onClose={onClose} onSave={onSave} />
+}
+
+function EditActivoModalBody({ item, onClose, onSave }: {
+  item: InvItem
+  onClose: () => void
+  onSave: (id: string, patch: Partial<InvItem>) => void
+}) {
+  const [form, setForm] = useState({ item: item.item, cat: item.cat, serial: item.serial, who: item.who, st: item.st })
   return (
     <div className="mwrap" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>

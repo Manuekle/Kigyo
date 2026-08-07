@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated and tool-owned. `.claude/worktrees` holds throwaway checkouts
+    // with their own .next build output; src/lib/supabase/types.ts is emitted
+    // by scripts/gen-db-types.mjs.
+    ".claude/**",
+    "**/.next/**",
+    "src/lib/supabase/types.ts",
   ]),
 ]);
 

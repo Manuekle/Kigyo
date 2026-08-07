@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, Check } from '@/lib/icons'
 
@@ -19,14 +19,20 @@ const norm = (o: Opt) => (typeof o === 'string' ? { value: o, label: o } : o)
 
 export default function Select({ value, onChange, options, placeholder = 'Seleccionar…', className = '', style }: SelectProps) {
   const [open, setOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
   const [active, setActive] = useState(0)
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const ref = useRef<HTMLButtonElement>(null)
   const opts = options.map(norm)
   const selected = opts.find((o) => o.value === value)
 
-  useEffect(() => setMounted(true), [])
+  // Portals need `document`, which does not exist during SSR. useSyncExternalStore
+  // answers "am I on the client?" without an effect, so there is no extra render
+  // pass on mount — and the server snapshot keeps hydration consistent.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  )
 
   const place = () => {
     const r = ref.current?.getBoundingClientRect()

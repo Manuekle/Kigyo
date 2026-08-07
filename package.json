@@ -6,10 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:verify": "./scripts/db-verify.sh --tests",
+    "db:types": "node scripts/gen-db-types.mjs",
+    "check:foundry": "node --env-file=.env.local scripts/check-foundry.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ai-sdk/azure": "^4.0.34",
+    "@ai-sdk/react": "^4.0.58",
     "@azure/identity": "^4.13.1",
     "@hugeicons/core-free-icons": "^4.2.1",
     "@hugeicons/react": "^1.1.9",

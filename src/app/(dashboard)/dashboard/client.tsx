@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ComponentType } from 'react'
+import { useCallback, useEffect, useState, type ComponentType } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Users, FileCheck2, ShieldCheck, ShieldAlert, ChevronRight, Sparkles,
@@ -9,6 +9,7 @@ import {
 import type { IconProps } from '@/lib/icons'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts'
 import { useApp } from '@/lib/context/AppContext'
+import { apiFetch, errorMessage } from '@/lib/api/client'
 
 /* ------------------------------------------------------------------ */
 /*  Page-local data (verbatim from original single-file app)           */
@@ -81,7 +82,26 @@ const FALLBACK_INSIGHTS = [
 ]
 const INSIGHT_ICO: Record<string, ComponentType<IconProps>> = { red: AlertCircle, amb: PenLine, grn: Boxes, blu: TrendingUp, vio: Award }
 
-const AI_SYSTEM = 'Eres el asistente de IA de "Whitebox", una plataforma de recursos humanos. Responde SIEMPRE en español.'
+/** Shape returned by POST /api/ai/insights. */
+type InsightsResponse =
+  | { unavailable: true; reason: string }
+  | {
+      insights: { title: string; desc: string; tone: string }[]
+      recs: Omit<Rec, 'id'>[]
+      generatedAt: string
+      cached: boolean
+    }
+
+/** "hace 12 min" / "hace 3 h" — the cached insights carry a real timestamp. */
+function relativeTime(iso: string): string {
+  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000)
+  if (minutes < 1) return 'hace un momento'
+  if (minutes < 60) return `hace ${minutes} min`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `hace ${hours} h`
+  return `hace ${Math.round(hours / 24)} d`
+}
+
 
 /* ------------------------------------------------------------------ */
 /*  Page-local helpers (inline to match original render exactly)       */
@@ -189,31 +209,44 @@ export default function DashboardPage() {
   const [recs, setRecs] = useState<Rec[]>(RECOMENDACIONES_SEED)
   const [updatedAgo, setUpdatedAgo] = useState('hace 2 min')
 
-  const genInsights = async () => {
+  /**
+   * Insights come from /api/ai/insights, which runs the model server-side over
+   * real aggregates and caches the result per organization.
+   *
+   * This used to call api.anthropic.com straight from the browser: no key was
+   * attached, so it silently failed into the fallback copy on every load — and
+   * adding one would have shipped it in the client bundle.
+   */
+  const genInsights = useCallback(async (refresh = false) => {
     setLoadingInsights(true)
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 800,
-          system: AI_SYSTEM,
-          messages: [{ role: 'user', content: `Genera DOS listas JSON en un solo objeto. Responde SOLO JSON válido sin backticks: {"insights":[{"title":"...","desc":"...","tone":"red|amb|grn|blu|vio"}],"recs":[{"prioridad":"Urgente|Importante|Pronto","cat":"...","titulo":"...","razon":"...","tone":"red|amb|blu|vio|grn"}]}. insights: 3 items, title ≤4 palabras, desc ≤100 chars. recs: 3 acciones concretas ordenadas por impacto, titulo ≤6 palabras, razon ≤90 chars.` }],
-        }),
-      })
-      const data = await res.json()
-      const raw = (data.content || []).filter((b: { type: string }) => b.type === 'text').map((b: { text: string }) => b.text).join('').replace(/```json|```/g, '').trim()
-      const parsed = JSON.parse(raw)
-      if (parsed.insights?.length) setInsights(parsed.insights.slice(0, 3))
-      if (parsed.recs?.length) setRecs(parsed.recs.slice(0, 3).map((r: Rec, i: number) => ({ ...r, id: `RC-0${i + 1}` })))
-      setUpdatedAgo('hace un momento')
-    } catch {
-      addToast('Usando datos del último análisis disponible', 'info')
-    } finally { setLoadingInsights(false) }
-  }
+      const data = await apiFetch<InsightsResponse>(
+        `/api/ai/insights${refresh ? '?refresh=1' : ''}`,
+        { method: 'POST' },
+      )
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
-  useEffect(() => { genInsights() }, [])
+      if ('unavailable' in data) {
+        // Nothing is broken: the assistant simply is not configured, and the
+        // static fallback copy already on screen is the right thing to show.
+        return
+      }
+
+      if (data.insights?.length) setInsights(data.insights.slice(0, 3))
+      if (data.recs?.length) {
+        setRecs(data.recs.slice(0, 3).map((r, i) => ({ ...r, id: `RC-0${i + 1}` })))
+      }
+      setUpdatedAgo(
+        data.cached ? relativeTime(data.generatedAt) : 'hace un momento',
+      )
+    } catch (error) {
+      addToast(errorMessage(error, 'Usando datos del último análisis disponible'), 'info')
+    } finally {
+      setLoadingInsights(false)
+    }
+  }, [addToast])
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void genInsights() }, [genInsights])
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { const t = setTimeout(() => setShown(true), 30); return () => clearTimeout(t) }, [])
 
@@ -308,7 +341,7 @@ export default function DashboardPage() {
         <div className="card ins-top rise d5">
           <div className="chead">
             <div className="ctitle">Resumen ejecutivo IA</div>
-            <button className="iref" data-tip="Actualizar resumen" onClick={genInsights} disabled={loadingInsights} title="Actualizar">
+            <button className="iref" data-tip="Actualizar resumen" onClick={() => void genInsights(true)} disabled={loadingInsights} aria-busy={loadingInsights} title="Actualizar">
               {loadingInsights ? <span className="ispin" /> : <span className="kvs">{updatedAgo}</span>}
             </button>
           </div>

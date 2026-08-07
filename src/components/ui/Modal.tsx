@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { X } from '@/lib/icons'
+import { useFocusTrap } from '@/lib/hooks/use-focus-trap'
 
 interface ModalProps {
   open: boolean
@@ -18,6 +19,7 @@ export default function Modal({ open, onClose, title, children, footer, wide }: 
   const [render, setRender] = useState(open)
   const [shown, setShown] = useState(false)
   const [prevOpen, setPrevOpen] = useState(open)
+  const titleId = useId()
 
   // Sync mount/visibility to `open` during render (the store-previous-state
   // pattern): mount immediately when opening, drop .is-open when closing.
@@ -40,11 +42,10 @@ export default function Modal({ open, onClose, title, children, footer, wide }: 
     }
   }, [open, render])
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    if (open) window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  // Traps focus, marks the rest of the page inert, restores focus on close and
+  // handles Escape. Previously only Escape was handled: Tab walked straight
+  // out of the dialog into the page behind it, with no way back.
+  const trapRef = useFocusTrap<HTMLDivElement>(open, { onEscape: onClose })
 
   if (!render) return null
 
@@ -53,6 +54,7 @@ export default function Modal({ open, onClose, title, children, footer, wide }: 
 
   return (
     <div
+      ref={trapRef}
       className={`mwrap${closing ? ' is-closing' : ''}`}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
@@ -60,10 +62,12 @@ export default function Modal({ open, onClose, title, children, footer, wide }: 
         className={`modal t-modal${wide ? ' modalw' : ''}${state}`}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        // Points at the visible heading rather than duplicating it in an
+        // aria-label, so the accessible name and the on-screen name match.
+        aria-labelledby={titleId}
       >
         <div className="mhead">
-          <span className="mtitle">{title}</span>
+          <span className="mtitle" id={titleId}>{title}</span>
           <button className="ibtn" aria-label="Cerrar" onClick={onClose}><X size={16} /></button>
         </div>
         <div className="mbody">{children}</div>

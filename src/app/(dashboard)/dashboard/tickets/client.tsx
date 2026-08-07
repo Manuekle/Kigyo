@@ -131,17 +131,33 @@ function TicketDrawer({
   onStatus,
   onUpdate,
   onDelete,
-}: {
+}: TicketDrawerProps) {
+  // Keyed remount in the wrapper below gives each ticket a fresh draft, so
+  // there is no effect syncing form state and no render where the drawer
+  // still shows the previously selected ticket's values.
+  if (!t) return null
+  return <TicketDrawerBody key={t.id} t={t} onClose={onClose} onStatus={onStatus} onUpdate={onUpdate} onDelete={onDelete} />
+}
+
+type TicketDrawerProps = {
   t: TicketItem | null
   onClose: () => void
   onStatus: (id: string, to: string) => void
   onUpdate: (id: string, patch: Partial<TicketItem>) => void
   onDelete: (id: string) => void
-}) {
+}
+
+function TicketDrawerBody({
+  t,
+  onClose,
+  onStatus,
+  onUpdate,
+  onDelete,
+}: TicketDrawerProps & { t: TicketItem }) {
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState<{ asunto: string; area: string; prio: string } | null>(null)
-  useEffect(() => { if (t) { setForm({ asunto: t.asunto, area: t.area, prio: t.prio }); setEditing(false) } }, [t])
-  if (!t || !form) return null
+  const [form, setForm] = useState<{ asunto: string; area: string; prio: string }>({
+    asunto: t.asunto, area: t.area, prio: t.prio,
+  })
   const trans = t.st === 'Abierto' ? { label: 'Tomar ticket', to: 'En proceso' }
     : t.st === 'En proceso' ? { label: 'Marcar como resuelto', to: 'Resuelto' }
     : { label: 'Reabrir ticket', to: 'Abierto' }
