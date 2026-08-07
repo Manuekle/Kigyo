@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Boxes, Users, Package, AlertCircle, ShoppingCart, Receipt,
   FileSpreadsheet, Plus, PenLine, Trash2, X, Check, Printer,

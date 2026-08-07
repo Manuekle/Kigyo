@@ -206,6 +206,7 @@ function ConfirmSignModalBody({ doc, sigUrl, onClose, onConfirm }: ConfirmSignMo
               <div className="dsect">Tu firma registrada</div>
               <div className="signpad" style={{ background: '#fff', height: 100 }}>
                 {sigUrl
+                  // eslint-disable-next-line @next/next/no-img-element -- data: URL from the signature canvas; next/image cannot optimize it
                   ? <img src={sigUrl} alt="Firma" style={{ maxHeight: 86, maxWidth: '90%' }} />
                   : <span className="elsub" style={{ color: '#9ca3af' }}>Sin firma — regístrala primero</span>}
               </div>
@@ -311,6 +312,7 @@ export default function FirmasPage() {
           </div>
           <div className="signpad" style={{ background: '#fff' }}>
             {sig
+              // eslint-disable-next-line @next/next/no-img-element -- data: URL from the signature canvas; next/image cannot optimize it
               ? <img src={sig} alt="Firma" style={{ maxHeight: 110, maxWidth: '90%' }} />
               : <span className="elsub" style={{ color: '#9ca3af' }}>Sin firma registrada</span>}
           </div>

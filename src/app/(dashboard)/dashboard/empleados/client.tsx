@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Users, BarChart3, Search, FileSpreadsheet, Plus, ChevronRight } from '@/lib/icons'
-import { useApp } from '@/lib/context/AppContext'
 import { initials } from '@/lib/utils'
 import { useExport } from '@/lib/hooks/use-export'
 import { EMPLEADOS, ROTATION_RISK } from '@/lib/data/empleados'
@@ -104,7 +103,6 @@ function OrgNode({ emp, all, onOpen, overlay }: OrgNodeProps) {
 /*  Empleados                                                          */
 /* ------------------------------------------------------------------ */
 export default function EmpleadosPage() {
-  const { addToast } = useApp()
   const { runExport, exporting } = useExport()
   const router = useRouter()
   const [q, setQ] = useState('')

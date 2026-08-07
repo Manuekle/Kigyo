@@ -37,11 +37,6 @@ const RIESGOS_SEED: Riesgo[] = [
 /* ------------------------------------------------------------------ */
 /*  Page-local Stat (replicate original ico/tone gradient primitive)   */
 /* ------------------------------------------------------------------ */
-const TONE: Record<string, [string, string]> = {
-  red: ['#ff8a8d', '#e5484d'], grn: ['#3ed694', '#1f9d63'], amb: ['#f0bd5a', '#bf8410'],
-  blu: ['#7aa2ff', '#3b82f6'], vio: ['#b298f2', '#7c5cd6'], ink: ['#a6a6b2', '#6b6b76'],
-  neu: ['#a6a6b2', '#6b6b76'],
-}
 function Stat({ ico: Ico, tone = 'ink', label, value, sub }: {
   ico: (p: IconProps) => React.ReactElement
   tone?: string

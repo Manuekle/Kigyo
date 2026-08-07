@@ -29,11 +29,6 @@ const INIT_BENEFICIOS: BeneficioItem[] = [
 
 const cop = (n: number) => '$' + n.toLocaleString('es-CO')
 
-const TONE: Record<string, [string, string]> = {
-  red: ['#ff8a8d', '#e5484d'], grn: ['#3ed694', '#10b981'], amb: ['#f0bd5a', '#bf8410'],
-  blu: ['#7aa2ff', '#3b82f6'], vio: ['#b298f2', '#7c5cd6'], ink: ['#a6a6b2', '#6b6b76'],
-  neu: ['#a6a6b2', '#6b6b76'],
-}
 
 function Stat({ ico: Ico, tone = 'ink', label, value, sub }: { ico: ComponentType<IconProps>; tone?: string; label: string; value: string | number; sub?: string }) {
   return (

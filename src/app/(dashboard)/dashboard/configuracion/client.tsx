@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Users, Bell, Lock, Building2, Shield, Check, Upload, PenLine, Ticket,
   Sparkles, Mail, LogOut, Globe, ChevronDown, Star,
@@ -10,33 +11,20 @@ import type { IconProps } from '@/lib/icons'
 import { initials } from '@/lib/utils'
 import { useApp } from '@/lib/context/AppContext'
 import TabBar from '@/components/ui/TabBar'
+import { PERMISSION_LABELS, permissionsByModule, ROLES, type Permission, type RoleKey } from '@/lib/auth/permissions'
+import type { SettingsData } from '@/server/queries/settings'
+import {
+  changePassword,
+  setMemberRole,
+  setRolePermission,
+  updateOrganization,
+  updateProfile,
+  type ActionResult,
+} from '@/server/mutations/settings'
 
 /* ------------------------------------------------------------------ */
 /*  Page-local data                                                    */
 /* ------------------------------------------------------------------ */
-const ROLES = ['Administrador', 'Líder de equipo', 'Empleado']
-const PERMS_DEFAULT: Record<string, Record<string, boolean>> = {
-  'Administrador': { dashboard: true, empleados: true, asistencia: true, nomina: true, riesgos: true, firmas: true, inventario: true, documentos: true, consultoria: true, tickets: true, calendario: true, trazabilidad: true, ia: true, configuracion: true },
-  'Líder de equipo': { dashboard: true, empleados: true, asistencia: true, nomina: false, riesgos: true, firmas: true, inventario: true, documentos: true, consultoria: true, tickets: true, calendario: true, trazabilidad: true, ia: true, configuracion: false },
-  'Empleado': { dashboard: true, empleados: false, asistencia: false, nomina: false, riesgos: false, firmas: false, inventario: false, documentos: true, consultoria: false, tickets: true, calendario: true, trazabilidad: false, ia: false, configuracion: false },
-}
-const PERM_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard', empleados: 'Empleados', asistencia: 'Asistencia',
-  nomina: 'Nómina', talento: 'Talento',
-  riesgos: 'Centro de Riesgos',
-  firmas: 'Firmas', inventario: 'Inventario', documentos: 'Documentos',
-  consultoria: 'Consultoría', tickets: 'Tickets', calendario: 'Calendario', trazabilidad: 'Trazabilidad', configuracion: 'Configuración',
-}
-const EMPLEADOS = [
-  { id: 'EMP-1042', name: 'María González', role: 'Diseñadora de Producto', perm: 'Empleado' },
-  { id: 'EMP-1043', name: 'Juan Pérez', role: 'Desarrollador Backend', perm: 'Empleado' },
-  { id: 'EMP-1044', name: 'Camila Restrepo', role: 'Líder de RRHH', perm: 'Administrador' },
-  { id: 'EMP-1045', name: 'Andrés Mora', role: 'Analista Financiero', perm: 'Líder de equipo' },
-  { id: 'EMP-1046', name: 'Valentina Ruiz', role: 'Especialista en Marketing', perm: 'Empleado' },
-  { id: 'EMP-1047', name: 'Sebastián Cano', role: 'Diseñador UX', perm: 'Empleado' },
-  { id: 'EMP-1048', name: 'Laura Jiménez', role: 'Contadora', perm: 'Líder de equipo' },
-  { id: 'EMP-1049', name: 'Daniel Ospina', role: 'Soporte TI', perm: 'Empleado' },
-]
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -77,13 +65,14 @@ function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; d
   return <button className={`sw ${on ? 'on' : ''}`} onClick={onClick} disabled={disabled} aria-label="toggle" />
 }
 
-const SAVE_KEY = 'nucleo-config-state'
 
 /* ------------------------------------------------------------------ */
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
-export default function ConfiguracionPage() {
+export default function ConfiguracionPage({ data }: { data: SettingsData }) {
   const { addToast } = useApp()
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
 
   /* ---- tab & dirty state ---- */
   const [tab, setTab] = useState('perfil')
@@ -91,47 +80,29 @@ export default function ConfiguracionPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [fadeIdx, setFadeIdx] = useState(0)
 
-  /* ---- form state ---- */
-  const [name, setName] = useState('Camila Restrepo')
-  const [role, setRole] = useState('Líder de RRHH')
-  const [email, setEmail] = useState('camila.restrepo@whitebox.com')
+  /* ---- form state, seeded from the server ---- */
+  const [name, setName] = useState(data.profile.fullName)
+  const email = data.profile.email  // changing it re-verifies the address; not here
+  const role = data.profile.role
   const [notifs, setNotifs] = useState({ firmas: true, tickets: true, menciones: false, resumen: true })
-  const [sec, setSec] = useState({ twofa: true })
+  const [sec, setSec] = useState({ twofa: false })
   const [pw, setPw] = useState({ current: '', new: '', confirm: '' })
   const [showPw, setShowPw] = useState<Record<string, boolean>>({})
-  const [company, setCompany] = useState('Nucleo Energía')
-  const [industry, setIndustry] = useState('Energía Solar')
-  const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>(PERMS_DEFAULT)
-  const [empRoles, setEmpRoles] = useState(EMPLEADOS)
+  const [company, setCompany] = useState(data.organization.name)
+  const [industry, setIndustry] = useState(data.organization.industry ?? '')
 
-  /* ---- initial load from localStorage ---- */
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SAVE_KEY)
-      if (!raw) return
-      const d = JSON.parse(raw)
-      if (d.name) setName(d.name)
-      if (d.role) setRole(d.role)
-      if (d.email) setEmail(d.email)
-      if (d.notifs) setNotifs(d.notifs)
-      if (d.sec) setSec(d.sec)
-      if (d.company) setCompany(d.company)
-      if (d.industry) setIndustry(d.industry)
-      if (d.permissions) setPermissions(d.permissions)
-      if (d.empRoles) setEmpRoles(d.empRoles)
-    } catch { /* ignore */ }
-  }, [])
+  /**
+   * The permission matrix and member roles are server state.
+   *
+   * They used to live in localStorage — editable by the very user they were
+   * meant to restrict, and read by nothing on the server. They are now
+   * `role_permissions` and `memberships`, which is also what RLS reads, so a
+   * revoked permission is enforced by the database and not just hidden.
+   */
+  const permissions = data.matrix
+  const members = data.members
+  const canManage = data.canManage
 
-  /* ---- persist to localStorage ---- */
-  const persist = useCallback(() => {
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ name, role, email, notifs, sec, company, industry, permissions, empRoles }))
-    } catch { /* ignore */ }
-  }, [name, role, email, notifs, sec, company, industry, permissions, empRoles])
-
-  useEffect(() => { if (dirty) persist() }, [dirty, persist])
-
-  /* ---- mark dirty ---- */
   const mark = useCallback(() => setDirty(true), [])
 
   /* ---- tab switch with dirty guard ---- */
@@ -170,14 +141,49 @@ export default function ConfiguracionPage() {
       addToast('Corrige los errores antes de guardar', 'err')
       return
     }
-    setDirty(false)
-    addToast('Cambios guardados correctamente', 'ok')
+
+    startTransition(async () => {
+      let result: ActionResult = { ok: true }
+
+      if (tab === 'perfil') result = await updateProfile({ fullName: name })
+      else if (tab === 'empresa') result = await updateOrganization({ name: company, industry })
+      else if (tab === 'seguridad' && pw.new) {
+        result = await changePassword({ currentPassword: pw.current, newPassword: pw.new })
+        if (result.ok) setPw({ current: '', new: '', confirm: '' })
+      }
+
+      if (!result.ok) { addToast(result.error, 'err'); return }
+
+      setDirty(false)
+      addToast('Cambios guardados correctamente', 'ok')
+      router.refresh()
+    })
   }
 
   /* ---- handlers ---- */
   const toggleNotif = (k: keyof typeof notifs) => { setNotifs((n) => ({ ...n, [k]: !n[k] })); mark() }
-  const togglePerm = (r: string, section: string) => { setPermissions((p) => ({ ...p, [r]: { ...p[r], [section]: !p[r][section] } })); mark() }
-  const cycleEmpRole = (id: string) => { setEmpRoles((es) => es.map((e) => e.id === id ? { ...e, perm: ROLES[(ROLES.indexOf(e.perm) + 1) % ROLES.length] } : e)); mark() }
+
+  // Permission changes save immediately. Batching them behind "Guardar" made
+  // it possible to leave the page believing an access change had applied when
+  // it had not.
+  const togglePerm = (r: RoleKey, permission: Permission) => {
+    const next = !permissions[r][permission]
+    startTransition(async () => {
+      const result = await setRolePermission(r, permission, next)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      router.refresh()
+    })
+  }
+
+  const cycleMemberRole = (membershipId: string, current: RoleKey) => {
+    const next = ROLES[(ROLES.indexOf(current) + 1) % ROLES.length]
+    startTransition(async () => {
+      const result = await setMemberRole(membershipId, next)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      addToast(`Rol actualizado a ${next}`, 'ok')
+      router.refresh()
+    })
+  }
 
   const str = passwordStrength(pw.new)
 
@@ -215,11 +221,16 @@ export default function ConfiguracionPage() {
             <div className="flabel">Nombre completo</div>
             <input className="field" value={name} onChange={(e) => { setName(e.target.value); mark() }} style={fi('name') ? { borderColor: fi('name') } : undefined} />
             {fe('name')}
-            <div className="flabel">Cargo</div>
-            <input className="field" value={role} onChange={(e) => { setRole(e.target.value); mark() }} />
+            <div className="flabel">Rol en la organización</div>
+            <input className="field" value={role} readOnly aria-readonly="true" />
+            <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 4 }}>
+              Solo una persona administradora puede cambiar roles, en la pestaña Roles y permisos.
+            </div>
             <div className="flabel">Correo electrónico</div>
-            <input className="field" value={email} onChange={(e) => { setEmail(e.target.value); mark() }} style={fi('email') ? { borderColor: fi('email') } : undefined} />
-            {fe('email')}
+            <input className="field" value={email} readOnly aria-readonly="true" autoComplete="email" />
+            <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 4 }}>
+              Cambiar el correo requiere verificar la nueva dirección. Escríbenos para hacerlo.
+            </div>
             <button className="btn dark" style={{ marginTop: 18 }} onClick={save}><Check size={15} />Guardar cambios</button>
           </>
         )}
@@ -347,18 +358,23 @@ export default function ConfiguracionPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {Object.keys(PERM_LABELS).map((sec) => (
-                      <div key={sec} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink2)' }}>{PERM_LABELS[sec]}</span>
-                        <button
-                          className={`sw ${permissions[r][sec] ? 'on' : ''}`}
-                          onClick={() => togglePerm(r, sec)}
-                          disabled={r === 'Administrador'}
-                          aria-label={PERM_LABELS[sec]}
-                          style={{ transform: 'scale(.85)', transformOrigin: 'right center' }}
-                        />
-                      </div>
-                    ))}
+                    {permissionsByModule().flatMap((group) =>
+                      group.permissions.map((permission) => (
+                        <div key={permission} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink2)' }}>{PERMISSION_LABELS[permission]}</span>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={permissions[r][permission]}
+                            className={`sw ${permissions[r][permission] ? 'on' : ''}`}
+                            onClick={() => togglePerm(r, permission)}
+                            disabled={!canManage || pending || r === 'Administrador'}
+                            aria-label={`${PERMISSION_LABELS[permission]} para ${r}`}
+                            style={{ transform: 'scale(.85)', transformOrigin: 'right center' }}
+                          />
+                        </div>
+                      )),
+                    )}
                   </div>
                 </div>
               ))}
@@ -367,18 +383,33 @@ export default function ConfiguracionPage() {
             <div className="ctitle" style={{ marginBottom: 12 }}>Rol por persona</div>
             <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 10 }}>Asigna el nivel de acceso individual de cada colaborador.</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {empRoles.map((e) => (
-                <div className="elrow" key={e.id} style={{ padding: '10px 12px', borderRadius: 'var(--r)', background: 'var(--bg)' }}>
+              {members.map((m) => (
+                <div className="elrow" key={m.membershipId} style={{ padding: '10px 12px', borderRadius: 'var(--r)', background: 'var(--bg)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Avatar name={e.name} size={32} />
+                    <Avatar name={m.fullName} size={32} />
                     <div>
-                      <div className="eltxt" style={{ fontSize: 13, fontWeight: 600 }}>{e.name}</div>
-                      <div className="elsub" style={{ fontSize: 11.5 }}>{e.role}</div>
+                      <div className="eltxt" style={{ fontSize: 13, fontWeight: 600 }}>
+                        {m.fullName}{m.isSelf && <span style={{ color: 'var(--ink3)', fontWeight: 500 }}> · tú</span>}
+                      </div>
+                      <div className="elsub" style={{ fontSize: 11.5 }}>{m.email}</div>
                     </div>
                   </div>
-                  <button className="prole" onClick={() => cycleEmpRole(e.id)}>{e.perm} <ChevronDown size={12} /></button>
+                  <button
+                    type="button"
+                    className="prole"
+                    disabled={!canManage || pending}
+                    onClick={() => cycleMemberRole(m.membershipId, m.role)}
+                    aria-label={`Cambiar el rol de ${m.fullName}, actualmente ${m.role}`}
+                  >
+                    {m.role} <ChevronDown size={12} />
+                  </button>
                 </div>
               ))}
+              {members.length === 0 && (
+                <p style={{ fontSize: 13, color: 'var(--ink3)' }}>
+                  Todavía no hay más personas en la organización.
+                </p>
+              )}
             </div>
           </>
         )}

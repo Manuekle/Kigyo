@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion, useInView, type HTMLMotionProps, type MotionProps } from 'framer-motion'
 import { cn } from '@/lib/utils'
 

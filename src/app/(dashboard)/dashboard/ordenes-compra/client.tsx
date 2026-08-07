@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { FileCheck2, Check, Truck, X, Plus, Eye, Calendar } from '@/lib/icons'
+import { FileCheck2, Check, Truck, X, Plus, Calendar } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
 import { useApp } from '@/lib/context/AppContext'

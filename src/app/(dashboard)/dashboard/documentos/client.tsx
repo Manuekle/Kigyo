@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles, Upload, FileText,
   X, ChevronDown, Users, Link2, Check, ShieldCheck, Copy, Type, Bold, Italic,
-  Underline, Strikethrough, List, ListOrdered, Image, Quote,
+  Underline, Strikethrough, List, ListOrdered, Image as ImageIcon, Quote,
   Calendar, ChevronLeft, PenLine, Trash2, Share2,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
@@ -201,7 +201,7 @@ function AIComposerBody({ onClose, notify }: AIComposerProps) {
             <button className="fbtn" onClick={() => linePrefix('- ')}><List size={15} /></button>
             <button className="fbtn" onClick={() => linePrefix('', true)}><ListOrdered size={15} /></button><span className="fsep" />
             <button className="fbtn" onClick={() => wrap('[', '](enlace)')}><Link2 size={15} /></button>
-            <button className="fbtn" onClick={() => wrap('![', '](imagen)')}><Image size={15} /></button>
+            <button className="fbtn" onClick={() => wrap('![', '](imagen)')}><ImageIcon size={15} /></button>
             <button className="fbtn" onClick={() => linePrefix('> ')}><Quote size={15} /></button>
           </div>
           <textarea ref={taRef} className="editor" value={text} onChange={(e) => setText(e.target.value)} />

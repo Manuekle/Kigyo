@@ -2,8 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import {
-  Menu, Search, Bell, X,
-} from '@/lib/icons'
+  Menu, Search, Bell, } from '@/lib/icons'
 import { useState } from 'react'
 import { useApp } from '@/lib/context/AppContext'
 import { META } from '@/lib/data/nav'

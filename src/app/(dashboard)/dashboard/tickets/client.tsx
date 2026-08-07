@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import {
   Ticket, Clock, Check, Activity, LayoutGrid, List, Plus, FileSpreadsheet,
   Sparkles, X, PenLine, Trash2,
@@ -43,11 +43,6 @@ const AREA_GRAD: Record<string, [string, string]> = {
 }
 const COLDOT: Record<string, string> = { Abierto: '#9494a0', 'En proceso': '#bf8410', Resuelto: '#1f9d63' }
 
-const TONE: Record<string, [string, string]> = {
-  red: ['#ff8a8d', '#e5484d'], grn: ['#3ed694', '#1f9d63'], amb: ['#f0bd5a', '#bf8410'],
-  blu: ['#7aa2ff', '#3b82f6'], vio: ['#b298f2', '#7c5cd6'], ink: ['#a6a6b2', '#6b6b76'],
-  neu: ['#a6a6b2', '#6b6b76'],
-}
 
 const tone = (st: string): string =>
   ({ Resuelto: 'grn', 'En proceso': 'amb', Abierto: 'neu' }[st] || 'neu')

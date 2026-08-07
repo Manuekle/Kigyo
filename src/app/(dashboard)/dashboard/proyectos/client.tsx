@@ -1,11 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { BarChart3, Calendar, Clock, Check, Plus, X, Users, ChevronRight, MapPin, Zap, FileText } from '@/lib/icons'
+import { BarChart3, Clock, Check, Plus, X, Users, ChevronRight, MapPin, Zap, FileText } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import TabBar from '@/components/ui/TabBar'
-import { initials } from '@/lib/utils'
 import { useApp } from '@/lib/context/AppContext'
 
 interface Proyecto {
@@ -33,11 +32,6 @@ const PROYECTOS: Proyecto[] = [
   { id: 'PRY-007', nombre: 'Granja Solar Montes de María', ubicacion: 'El Carmen, Bolívar', cliente: 'Gobernación de Bolívar', tipo: 'Instalación', capacidad: '500 kWp', inicio: '01 jul 2026', fin: '31 dic 2026', progreso: 0, st: 'Planificación', equipo: ['Camila Restrepo', 'Andrés Mora', 'Juan Pérez'], presupuesto: 1850000000 },
 ]
 
-const TONE: Record<string, [string, string]> = {
-  red: ['#ff8a8d', '#e5484d'], grn: ['#3ed694', '#1f9d63'], amb: ['#f0bd5a', '#bf8410'],
-  blu: ['#7aa2ff', '#3b82f6'], vio: ['#b298f2', '#7c5cd6'], ink: ['#a6a6b2', '#6b6b76'],
-  neu: ['#a6a6b2', '#6b6b76'],
-}
 
 function Stat({ ico: Ico, tone = 'ink', label, value, sub }: {
   ico: (p: IconProps) => React.ReactElement

@@ -254,8 +254,6 @@ export default function ComprasPage() {
     addToast('Requisición registrada', 'ok')
   }
 
-  const totalItems = selected?.items.reduce((acc, item) => acc + item.cantidad, 0) ?? 0
-
   return (
     <div>
       <div className="g3" style={{ marginBottom: 18 }}>

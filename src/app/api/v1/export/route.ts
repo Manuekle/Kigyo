@@ -5,6 +5,7 @@ import { route } from '@/lib/api/handler'
 import { RATE_LIMITS } from '@/lib/api/rate-limit'
 import { forbidden } from '@/lib/api/errors'
 import { can, ROUTE_PERMISSIONS } from '@/lib/auth/permissions'
+import { columnsOf, sanitizeCell } from '@/lib/export'
 
 /**
  * Server-side XLSX export.
@@ -28,24 +29,6 @@ const bodySchema = z.object({
   rows: z.array(z.record(z.string(), z.unknown())).max(MAX_ROWS),
 })
 
-/**
- * Neutralises spreadsheet formula injection.
- *
- * A cell whose text begins with `=`, `+`, `-`, `@`, or a tab/CR is parsed as a
- * formula by Excel, LibreOffice and Sheets. Since these values originate from
- * user-entered records (ticket subjects, employee names), an export can
- * otherwise smuggle `=HYPERLINK(...)` or a DDE payload into a colleague's
- * machine. Prefixing with an apostrophe forces literal text.
- */
-function sanitizeCell(value: unknown): string | number | boolean | Date | null {
-  if (value === null || value === undefined) return null
-  if (typeof value === 'number' || typeof value === 'boolean') return value
-  if (value instanceof Date) return value
-
-  const text = String(value)
-  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text
-}
-
 export const POST = route({
   body: bodySchema,
   rateLimit: RATE_LIMITS.export,
@@ -64,9 +47,7 @@ export const POST = route({
       views: [{ state: 'frozen', ySplit: 1 }],
     })
 
-    // Union of keys across all rows, so a field missing from the first record
-    // does not silently drop its column for every other record.
-    const columns = [...new Set(body.rows.flatMap((row) => Object.keys(row)))]
+    const columns = columnsOf(body.rows)
 
     if (columns.length === 0) {
       sheet.addRow(['Sin datos'])

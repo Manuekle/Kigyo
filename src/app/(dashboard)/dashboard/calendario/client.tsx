@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus, PenLine, Trash2, X } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
 

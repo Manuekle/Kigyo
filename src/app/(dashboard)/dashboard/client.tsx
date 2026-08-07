@@ -245,9 +245,13 @@ export default function DashboardPage() {
     }
   }, [addToast])
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void genInsights() }, [genInsights])
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    // After first paint: the panel has fallback copy to show meanwhile, and
+    // an AI round trip should never delay the dashboard rendering.
+    const frame = requestAnimationFrame(() => void genInsights())
+    return () => cancelAnimationFrame(frame)
+  }, [genInsights])
+   
   useEffect(() => { const t = setTimeout(() => setShown(true), 30); return () => clearTimeout(t) }, [])
 
   const hixColor = HEALTH_SCORE >= 80 ? 'grn' : HEALTH_SCORE >= 60 ? 'amb' : 'red'
