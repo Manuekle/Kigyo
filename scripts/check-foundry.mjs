@@ -14,6 +14,11 @@
 //      actually isolates by org_id: if the index has no filterable `org_id`
 //      field the filter is ignored silently, retrieval spans every tenant, and
 //      nothing in the response says so.
+//
+//      When AZURE_FOUNDRY_PROJECT_ENDPOINT is set, the project's connections
+//      are listed too — that answers "could I enable Foundry IQ here?" without
+//      clicking through the portal. A knowledge base needs an Azure AI Search
+//      connection; an empty list means there is nothing to connect one to.
 
 const API_VERSION = '2026-04-01'
 const IMPOSSIBLE_ORG_ID = '00000000-0000-4000-8000-000000000000'
@@ -176,6 +181,49 @@ if (retrievalSet.length === 0) {
     )
   } catch (error) {
     report(false, 'llamada de recuperación', error.message)
+  }
+}
+
+// ─── 3. What the project has connected ──────────────────────────────────────
+
+const projectEndpoint = process.env.AZURE_FOUNDRY_PROJECT_ENDPOINT?.trim()
+
+if (projectEndpoint) {
+  console.log('\nPROYECTO')
+  try {
+    const key = process.env.AZURE_FOUNDRY_API_KEY?.trim()
+    const response = await fetch(
+      `${projectEndpoint.replace(/\/+$/, '')}/connections?api-version=2025-05-01`,
+      {
+        headers: key
+          ? { 'api-key': key }
+          : { authorization: `Bearer ${await bearer('https://ai.azure.com/.default')}` },
+      },
+    )
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 200)}`)
+    }
+
+    const { value = [] } = await response.json()
+    const search = value.filter((c) => /search/i.test(c.type ?? c.properties?.category ?? ''))
+
+    report(true, 'recursos conectados', value.length === 0 ? 'ninguno' : String(value.length))
+
+    if (search.length > 0) {
+      console.log(
+        `        hay ${search.length} conexión(es) de Azure AI Search: puedes crear una ` +
+        'knowledge base y habilitar Foundry IQ.',
+      )
+    } else {
+      console.log(
+        '        sin Azure AI Search conectado, así que Foundry IQ no está disponible ' +
+        'en este proyecto. Para habilitarlo haría falta crear un servicio de búsqueda ' +
+        'y conectarlo desde Foundry → Management center → Connected resources.',
+      )
+    }
+  } catch (error) {
+    report(false, 'consultar el proyecto', error.message)
   }
 }
 

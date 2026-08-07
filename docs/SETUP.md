@@ -154,6 +154,11 @@ Foundry IQ **no** es lo mismo que los modelos: es una knowledge base servida
 por un servicio de **Azure AI Search**, que se crea e indexa aparte. Tener
 modelos sin knowledge base es una configuración normal.
 
+Para saber si tu proyecto puede usarlo, pon el endpoint del proyecto (Foundry →
+Overview) en `AZURE_FOUNDRY_PROJECT_ENDPOINT` y ejecuta `npm run check:foundry`.
+Lista los recursos conectados: sin una conexión de Azure AI Search, Foundry IQ
+no está disponible ahí. Esa variable es solo diagnóstico; la app no la usa.
+
 Sin ella el asistente sigue funcionando: responde consultando la base de datos
 en vivo — de donde salen las respuestas operativas ("¿qué firmas están
 pendientes?"). Lo que se pierde es el anclaje en documentos subidos, y las
