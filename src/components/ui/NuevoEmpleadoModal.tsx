@@ -10,9 +10,22 @@ const DEPTS = ['Recursos Humanos', 'Tecnología', 'Finanzas', 'Diseño', 'Ventas
 const LOCS = ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Remoto']
 const PERMS = ['Administrador', 'Líder de equipo', 'Empleado']
 
-interface Props { open: boolean; onClose: () => void }
+export interface NuevoEmpleadoData {
+  name: string
+  role: string
+  dept: string
+  loc: string
+  perm: string
+  manager: string
+}
 
-export default function NuevoEmpleadoModal({ open, onClose }: Props) {
+interface Props {
+  open: boolean
+  onClose: () => void
+  onCreate: (data: NuevoEmpleadoData) => void
+}
+
+export default function NuevoEmpleadoModal({ open, onClose, onCreate }: Props) {
   const { addToast } = useApp()
   const [name, setName] = useState('')
   const [role, setRole] = useState('')
@@ -28,6 +41,10 @@ export default function NuevoEmpleadoModal({ open, onClose }: Props) {
     if (!name.trim()) { addToast('El nombre es requerido', 'err'); return }
     if (!role.trim()) { addToast('El cargo es requerido', 'err'); return }
     if (email && !/^[^@]+@[^@]+\.[^@]+$/.test(email)) { addToast('Correo inválido', 'err'); return }
+    // The toast used to be the whole of it — the form reported success and
+    // dropped everything it had collected. The directory owns the list, so
+    // creation goes back to it.
+    onCreate({ name: name.trim(), role: role.trim(), dept, loc, perm, manager })
     addToast(`${name} agregado al equipo`, 'ok')
     reset()
     onClose()

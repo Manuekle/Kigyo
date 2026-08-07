@@ -6,23 +6,39 @@ import Select from '@/components/ui/Select'
 import { useApp } from '@/lib/context/AppContext'
 import { EMPLEADOS } from '@/lib/data/empleados'
 
-const AREAS = ['Contratos', 'Onboarding', 'Permisos', 'Nómina', 'Capacitación', 'Administración', 'Beneficios', 'Disciplinario', 'Clima', 'Evaluación', 'Certificados']
 const PRIOS = ['Alta', 'Media', 'Baja']
 
-interface Props { open: boolean; onClose: () => void }
+export interface NuevoTicketData {
+  asunto: string
+  area: string
+  prio: string
+  quien: string
+  desc: string
+}
 
-export default function NuevoTicketModal({ open, onClose }: Props) {
+interface Props {
+  open: boolean
+  onClose: () => void
+  /** The board's own areas, so a new ticket lands under a tab that exists. */
+  areas: string[]
+  onCreate: (data: NuevoTicketData) => void
+}
+
+export default function NuevoTicketModal({ open, onClose, areas, onCreate }: Props) {
   const { addToast } = useApp()
   const [title, setTitle] = useState('')
-  const [area, setArea] = useState(AREAS[0])
+  const [area, setArea] = useState(areas[0])
   const [prio, setPrio] = useState('Media')
   const [assigned, setAssigned] = useState('')
   const [desc, setDesc] = useState('')
 
-  function reset() { setTitle(''); setArea(AREAS[0]); setPrio('Media'); setAssigned(''); setDesc('') }
+  function reset() { setTitle(''); setArea(areas[0]); setPrio('Media'); setAssigned(''); setDesc('') }
 
   function handleSubmit() {
     if (!title.trim()) { addToast('El título es requerido', 'err'); return }
+    // The toast used to be the whole of it — the ticket was announced and then
+    // thrown away. The board owns the list, so creation goes back to it.
+    onCreate({ asunto: title.trim(), area, prio, quien: assigned || 'Sin asignar', desc: desc.trim() })
     addToast(`Ticket "${title}" creado`, 'ok')
     reset()
     onClose()
@@ -51,7 +67,7 @@ export default function NuevoTicketModal({ open, onClose }: Props) {
         <div className="fg2">
           <div>
             <div className="flabel">Área</div>
-            <Select value={area} onChange={setArea} options={AREAS} />
+            <Select value={area} onChange={setArea} options={areas} />
           </div>
           <div>
             <div className="flabel">Prioridad</div>

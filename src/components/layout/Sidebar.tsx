@@ -12,6 +12,8 @@ import Avatar from '@/components/ui/Avatar'
 import { NAV, ROLES } from '@/lib/data/nav'
 import { NOTIFS } from '@/lib/data/dashboard'
 import { useApp } from '@/lib/context/AppContext'
+import { useMember } from '@/lib/context/MemberContext'
+import { ROUTE_PERMISSIONS } from '@/lib/auth/permissions'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   LayoutDashboard: <LayoutDashboard size={18} />,
@@ -68,7 +70,24 @@ export default function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { sidebarOpen, setSidebarOpen, viewAsRole, setViewAsRole, addToast } = useApp()
+  const member = useMember()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+
+  /**
+   * The nav only lists what this member can actually open. Every route is
+   * still gated on the server by `RequirePermission`, so this is not the
+   * control — without it, though, the sidebar advertises twenty modules and
+   * some of them answer "no tienes acceso" when clicked.
+   */
+  const sections = NAV
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        const permission = ROUTE_PERMISSIONS[item.key]
+        return !permission || member.can(permission)
+      }),
+    }))
+    .filter((section) => section.items.length > 0)
 
   function isActive(key: string) {
     const route = ROUTE_MAP[key]
@@ -106,7 +125,7 @@ export default function Sidebar() {
         </div>
 
         <nav className="nav">
-          {NAV.map((section, si) => (
+          {sections.map((section, si) => (
             <div key={si}>
               {section.label && <div className="nlabel">{section.label}</div>}
               {section.items.map((item) => (
@@ -173,10 +192,10 @@ export default function Sidebar() {
             className="suser"
             onClick={() => setUserMenuOpen((v) => !v)}
           >
-            <Avatar name="Camila Restrepo" size={36} />
+            <Avatar name={member.fullName} size={36} />
             <div className="suser-info" style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 13.5 }}>Camila Restrepo</div>
-              <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>Líder de RRHH</div>
+              <div style={{ fontWeight: 700, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.fullName}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>{member.role}</div>
             </div>
             <ChevronRight className="suser-chev" size={16} color="#c4c4cc" style={{ transform: userMenuOpen ? 'rotate(90deg)' : 'none', transition: '.15s' }} />
           </button>

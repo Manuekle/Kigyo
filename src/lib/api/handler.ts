@@ -29,7 +29,7 @@ export interface RouteOptions<TBody, TParams extends Record<string, string>> {
   rateLimit?: RateLimitRule
   /** When present, the request body is parsed as JSON and validated. */
   body?: ZodType<TBody>
-  handler: (ctx: RouteContext<TBody, TParams>) => Promise<NextResponse | unknown>
+  handler: (ctx: RouteContext<TBody, TParams>) => Promise<Response | unknown>
 }
 
 type NextRouteContext<TParams> = { params: Promise<TParams> }
@@ -40,7 +40,7 @@ export function route<TBody = undefined, TParams extends Record<string, string> 
   return async function handler(
     request: NextRequest,
     context?: NextRouteContext<TParams>,
-  ): Promise<NextResponse> {
+  ): Promise<Response> {
     let limitHeaders: Record<string, string> = {}
 
     try {
@@ -84,7 +84,13 @@ export function route<TBody = undefined, TParams extends Record<string, string> 
         searchParams: request.nextUrl.searchParams,
       })
 
-      if (result instanceof NextResponse) {
+      // Checked as `Response`, not `NextResponse`. A streaming endpoint hands
+      // back what the AI SDK builds — a plain `Response` — and the narrower
+      // check let those fall through to `NextResponse.json()`, which
+      // serialised the stream object itself as `{}`. The client then saw a 200
+      // with an empty JSON body: the assistant answered nothing and reported
+      // no error. `NextResponse` extends `Response`, so this covers both.
+      if (result instanceof Response) {
         for (const [key, value] of Object.entries(limitHeaders)) result.headers.set(key, value)
         return result
       }
@@ -115,9 +121,9 @@ export function publicRoute<TBody = undefined>(options: {
   /** Derives the limiter subject from the body, e.g. the submitted email. */
   rateLimitSubject?: (body: TBody) => string | undefined
   body?: ZodType<TBody>
-  handler: (ctx: PublicRouteContext<TBody>) => Promise<NextResponse | unknown>
+  handler: (ctx: PublicRouteContext<TBody>) => Promise<Response | unknown>
 }) {
-  return async function handler(request: NextRequest): Promise<NextResponse> {
+  return async function handler(request: NextRequest): Promise<Response> {
     let limitHeaders: Record<string, string> = {}
 
     try {
@@ -156,7 +162,13 @@ export function publicRoute<TBody = undefined>(options: {
 
       const result = await options.handler({ request, body })
 
-      if (result instanceof NextResponse) {
+      // `Response`, not `NextResponse`. The streaming endpoints hand back what
+      // the AI SDK builds — a plain `Response` — and a `NextResponse`-only check
+      // let those fall through to `NextResponse.json()`, which serialised the
+      // stream object itself as `{}`: the client saw a 200 with an empty JSON
+      // body, so the assistant answered nothing and reported no error.
+      // `NextResponse` extends `Response`, so this covers both.
+      if (result instanceof Response) {
         for (const [key, value] of Object.entries(limitHeaders)) result.headers.set(key, value)
         return result
       }

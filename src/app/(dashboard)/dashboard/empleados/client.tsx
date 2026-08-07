@@ -110,10 +110,13 @@ export default function EmpleadosPage() {
   const [view, setView] = useState<'directorio' | 'organigrama'>('directorio')
   const [overlay, setOverlay] = useState('ninguno')
   const [addOpen, setAddOpen] = useState(false)
+  // Held in state rather than read straight off the seed, so a newly added
+  // person shows up in the directory and the org chart.
+  const [empleados, setEmpleados] = useState<Empleado[]>(EMPLEADOS)
 
-  const rows = EMPLEADOS.filter((e) =>
+  const rows = empleados.filter((e) =>
     (e.name + e.role + e.dept + e.loc).toLowerCase().includes(q.toLowerCase()))
-  const root = EMPLEADOS.find((e) => !e.manager)
+  const root = empleados.find((e) => !e.manager)
 
   const openEmpleado = (e: Empleado) => router.push(`/dashboard/empleados/${e.id}`)
 
@@ -184,11 +187,29 @@ export default function EmpleadosPage() {
                 </span>
               )}
             </div>
-            {root && <OrgNode emp={root} all={EMPLEADOS} onOpen={openEmpleado} overlay={overlay === 'ninguno' ? null : overlay} />}
+            {root && <OrgNode emp={root} all={empleados} onOpen={openEmpleado} overlay={overlay === 'ninguno' ? null : overlay} />}
           </div>
         )}
       </div>
-      <NuevoEmpleadoModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <NuevoEmpleadoModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onCreate={(data) =>
+          setEmpleados((prev) => [
+            ...prev,
+            {
+              id: Math.max(0, ...prev.map((e) => e.id)) + 1,
+              name: data.name,
+              role: data.role,
+              dept: data.dept,
+              loc: data.loc,
+              st: 'Activo',
+              perm: data.perm as Empleado['perm'],
+              ...(data.manager ? { manager: data.manager } : {}),
+            },
+          ])
+        }
+      />
     </>
   )
 }

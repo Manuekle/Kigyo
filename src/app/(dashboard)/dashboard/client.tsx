@@ -9,6 +9,7 @@ import {
 import type { IconProps } from '@/lib/icons'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts'
 import { useApp } from '@/lib/context/AppContext'
+import { useMember } from '@/lib/context/MemberContext'
 import { apiFetch, errorMessage } from '@/lib/api/client'
 
 /* ------------------------------------------------------------------ */
@@ -199,6 +200,9 @@ function ChartTip({ active, payload, label }: { active?: boolean; payload?: TipP
 /* ------------------------------------------------------------------ */
 export default function DashboardPage() {
   const { addToast } = useApp()
+  const member = useMember()
+  // First name only — "Hola, Camila Restrepo" reads like a form letter.
+  const firstName = member.fullName.trim().split(/\s+/)[0]
   const router = useRouter()
   const go = (x: string) => router.push(`/dashboard/${x}`)
   const openAI = () => router.push('/dashboard/ia')
@@ -261,7 +265,7 @@ export default function DashboardPage() {
       {/* Editorial header — texts reveal */}
       <div className="dash-head">
         <div className={`t-stagger${shown ? ' is-shown' : ''}`}>
-          <h1 className="dash-hello t-stagger-line t-stagger-line--1">Hola, Camila</h1>
+          <h1 className="dash-hello t-stagger-line t-stagger-line--1">Hola, {firstName}</h1>
           <p className="dash-sub t-stagger-line t-stagger-line--2">Esto es lo que está pasando en tu organización.</p>
         </div>
         <button className="btn pri" onClick={openAI}><Sparkles size={15} />Preguntar a la IA</button>

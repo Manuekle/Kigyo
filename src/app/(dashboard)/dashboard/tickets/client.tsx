@@ -448,7 +448,23 @@ export default function TicketsPage() {
         </div>
       )}
       <TicketDrawer t={selected} onClose={() => setSel(null)} onStatus={setStatus} onUpdate={updateTicket} onDelete={deleteTicket} />
-      <NuevoTicketModal open={addOpen} onClose={() => setAddOpen(false)} />
+      <NuevoTicketModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        areas={areas.filter((a) => a !== 'Todos')}
+        onCreate={(data) => {
+          const next: TicketItem = {
+            id: `TK-${Math.floor(Math.random() * 9000) + 1000}`,
+            asunto: data.asunto,
+            quien: data.quien,
+            area: data.area,
+            prio: data.prio,
+            st: 'Abierto',
+            t: 'ahora',
+          }
+          setItems((prev) => [next, ...prev])
+        }}
+      />
     </>
   )
 }
