@@ -38,6 +38,17 @@ Si no puedes usar la CLI, ejecuta cada archivo **en orden** desde el SQL Editor
 del panel de Supabase. El orden importa: la migración 01 define las funciones
 que usan todas las demás.
 
+**Si ya creaste cuentas antes de aplicar las migraciones**, la 09 las repara.
+`handle_new_user` solo dispara en `INSERT`, así que una cuenta anterior al
+esquema se queda sin perfil, sin organización y sin membresía: autentica bien y
+luego rebota entre `/dashboard` y `/login` para siempre, sin nada que lo
+explique. La migración 09 corre esa misma lógica una vez sobre lo que ya
+existe, es idempotente, y puedes volver a lanzarla cuando quieras:
+
+```sql
+select * from app.backfill_orphan_accounts();
+```
+
 ### 2.3 Verificar antes de confiar
 
 Contra un Postgres local, sin Docker:
