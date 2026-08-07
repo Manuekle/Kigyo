@@ -15,20 +15,25 @@ const SUPABASE = {
   NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
 }
 
-const FOUNDRY = {
+/** The chat model — all the assistant strictly needs. */
+const MODEL = {
+  AZURE_FOUNDRY_ENDPOINT: 'https://example.openai.azure.com/openai/v1',
+  AZURE_FOUNDRY_DEPLOYMENT: 'gpt-5.4-mini',
+}
+
+/** Foundry IQ document grounding — a separate, optional Azure resource. */
+const RETRIEVAL = {
   AZURE_SEARCH_ENDPOINT: 'https://example.search.windows.net',
   FOUNDRY_IQ_KNOWLEDGE_BASE: 'kb-kigyo',
   FOUNDRY_IQ_KNOWLEDGE_SOURCE: 'ks-kigyo',
-  AZURE_OPENAI_ENDPOINT: 'https://example.openai.azure.com',
-  AZURE_OPENAI_DEPLOYMENT: 'gpt-4.1',
 }
 
 const MANAGED = [
   ...Object.keys(SUPABASE),
-  ...Object.keys(FOUNDRY),
+  ...Object.keys(MODEL),
+  ...Object.keys(RETRIEVAL),
+  'AZURE_FOUNDRY_API_KEY',
   'AZURE_SEARCH_API_KEY',
-  'AZURE_OPENAI_API_KEY',
-  'AZURE_OPENAI_API_VERSION',
 ]
 
 let saved: Record<string, string | undefined>
@@ -65,62 +70,73 @@ describe('serverEnv', () => {
   })
 })
 
-describe('aiEnv', () => {
-  it('returns null when Foundry is not configured, rather than throwing', async () => {
+describe('modelEnv', () => {
+  it('returns null when no model is configured, rather than throwing', async () => {
     Object.assign(process.env, SUPABASE)
-    const { aiEnv } = await load()
-    // The dashboard renders an insights panel; a missing AI config must not
+    const { modelEnv } = await load()
+    // The dashboard renders an insights panel; a missing model config must not
     // take the page down with it.
-    expect(aiEnv()).toBeNull()
+    expect(modelEnv()).toBeNull()
   })
 
-  it('accepts a configuration with no API keys at all', async () => {
-    // This is the Entra path. Requiring AZURE_OPENAI_API_KEY here previously
-    // made a correctly configured managed identity report "not configured".
-    Object.assign(process.env, SUPABASE, FOUNDRY)
-    const { aiEnv } = await load()
+  it('accepts a model with no API key, which is what selects Entra', async () => {
+    Object.assign(process.env, SUPABASE, MODEL)
+    const { modelEnv } = await load()
 
-    const env = aiEnv()
+    const env = modelEnv()
     expect(env).not.toBeNull()
-    expect(env?.AZURE_OPENAI_API_KEY).toBeUndefined()
-    expect(env?.AZURE_SEARCH_API_KEY).toBeUndefined()
+    expect(env?.AZURE_FOUNDRY_API_KEY).toBeUndefined()
   })
 
   it('treats a blank key in the env file as unset', async () => {
     // Every scaffolded .env leaves the unused keys as `FOO=`, which puts an
     // empty string in process.env. Without preprocessing, `.optional()` does
-    // not apply and the whole AI config is rejected.
-    Object.assign(process.env, SUPABASE, FOUNDRY, {
-      AZURE_SEARCH_API_KEY: '',
-      AZURE_OPENAI_API_KEY: '   ',
-    })
-    const { aiEnv } = await load()
-
-    const env = aiEnv()
-    expect(env).not.toBeNull()
-    expect(env?.AZURE_SEARCH_API_KEY).toBeUndefined()
-    expect(env?.AZURE_OPENAI_API_KEY).toBeUndefined()
+    // not apply and the whole config is rejected.
+    Object.assign(process.env, SUPABASE, MODEL, { AZURE_FOUNDRY_API_KEY: '   ' })
+    const { modelEnv } = await load()
+    expect(modelEnv()?.AZURE_FOUNDRY_API_KEY).toBeUndefined()
   })
 
   it('keeps a key that is actually set', async () => {
-    Object.assign(process.env, SUPABASE, FOUNDRY, { AZURE_SEARCH_API_KEY: 'real-key' })
-    const { aiEnv } = await load()
-    expect(aiEnv()?.AZURE_SEARCH_API_KEY).toBe('real-key')
+    Object.assign(process.env, SUPABASE, MODEL, { AZURE_FOUNDRY_API_KEY: 'real-key' })
+    const { modelEnv } = await load()
+    expect(modelEnv()?.AZURE_FOUNDRY_API_KEY).toBe('real-key')
   })
 
-  it('defaults the OpenAI API version', async () => {
-    Object.assign(process.env, SUPABASE, FOUNDRY)
-    const { aiEnv } = await load()
-    expect(aiEnv()?.AZURE_OPENAI_API_VERSION).toBe('2024-10-21')
+  it('names the missing variable when the endpoint is absent', async () => {
+    Object.assign(process.env, SUPABASE, MODEL)
+    delete process.env.AZURE_FOUNDRY_ENDPOINT
+    const { modelEnv, modelEnvOrThrow } = await load()
+
+    expect(modelEnv()).toBeNull()
+    expect(() => modelEnvOrThrow()).toThrowError(/AZURE_FOUNDRY_ENDPOINT/)
+  })
+})
+
+describe('retrievalEnv', () => {
+  it('is null with a model but no knowledge base', async () => {
+    // The common case: Foundry Models is provisioned, Foundry IQ is not. The
+    // assistant must still run, answering from live database queries.
+    Object.assign(process.env, SUPABASE, MODEL)
+    const { modelEnv, retrievalEnv } = await load()
+
+    expect(modelEnv()).not.toBeNull()
+    expect(retrievalEnv()).toBeNull()
   })
 
-  it('still rejects a configuration missing an endpoint', async () => {
-    Object.assign(process.env, SUPABASE, FOUNDRY)
-    delete process.env.AZURE_OPENAI_ENDPOINT
-    const { aiEnv, aiEnvOrThrow } = await load()
+  it('resolves once all three knowledge-base variables are present', async () => {
+    Object.assign(process.env, SUPABASE, MODEL, RETRIEVAL)
+    const { retrievalEnv } = await load()
+    expect(retrievalEnv()?.FOUNDRY_IQ_KNOWLEDGE_BASE).toBe('kb-kigyo')
+  })
 
-    expect(aiEnv()).toBeNull()
-    expect(() => aiEnvOrThrow()).toThrowError(/AZURE_OPENAI_ENDPOINT/)
+  it('stays null on a partial knowledge-base config', async () => {
+    // Half-configured retrieval would fail at request time inside the chat
+    // stream; better to treat it as absent.
+    Object.assign(process.env, SUPABASE, MODEL, RETRIEVAL)
+    delete process.env.FOUNDRY_IQ_KNOWLEDGE_SOURCE
+    const { retrievalEnv } = await load()
+    expect(retrievalEnv()).toBeNull()
   })
 })
 

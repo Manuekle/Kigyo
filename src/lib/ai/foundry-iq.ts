@@ -1,5 +1,5 @@
 import 'server-only'
-import { aiEnvOrThrow } from '@/lib/env'
+import { retrievalEnv, retrievalEnvOrThrow } from '@/lib/env'
 import { getAccessToken, SEARCH_SCOPE } from './credential'
 
 /**
@@ -21,6 +21,18 @@ import { getAccessToken, SEARCH_SCOPE } from './credential'
  */
 
 const API_VERSION = '2026-04-01'
+
+/**
+ * Whether a Foundry IQ knowledge base is configured.
+ *
+ * Retrieval is optional. A knowledge base is an Azure AI Search resource that
+ * has to be created and indexed separately from the chat model, so an install
+ * with Models and no knowledge base is a normal state — the assistant answers
+ * from live database queries instead, without document citations.
+ */
+export function isRetrievalConfigured(): boolean {
+  return retrievalEnv() !== null
+}
 
 export interface RetrievalIntent {
   type: 'semantic'
@@ -120,7 +132,7 @@ export interface RetrieveOptions {
  * should be run once against a new knowledge base.
  */
 export async function retrieve(options: RetrieveOptions): Promise<RetrievalResult> {
-  const env = aiEnvOrThrow()
+  const env = retrievalEnvOrThrow()
 
   const url =
     `${env.AZURE_SEARCH_ENDPOINT.replace(/\/+$/, '')}` +

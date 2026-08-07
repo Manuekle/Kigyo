@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { route } from '@/lib/api/handler'
 import { RATE_LIMITS } from '@/lib/api/rate-limit'
 import { ApiError } from '@/lib/api/errors'
-import { aiEnv } from '@/lib/env'
+import { modelEnv } from '@/lib/env'
 import { chatModel } from '@/lib/ai/model'
 
 /**
@@ -40,10 +40,10 @@ export const POST = route({
   permission: 'documentos:write',
   rateLimit: RATE_LIMITS.aiChat,
   async handler({ body, request }) {
-    if (!aiEnv()) {
+    if (!modelEnv()) {
       throw new ApiError(503, 'Asistente no configurado', {
         type: 'kigyo:ai-not-configured',
-        detail: 'Falta la configuración de Microsoft Foundry en el servidor.',
+        detail: 'Falta el modelo de Microsoft Foundry en el servidor.',
       })
     }
 

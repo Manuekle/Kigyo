@@ -30,32 +30,50 @@ const optionalSecret = z.preprocess(
 )
 
 /**
- * Both API keys are optional: leaving them unset is what selects Microsoft
- * Entra, which is the recommended production configuration. Requiring
- * AZURE_OPENAI_API_KEY here would have made the Entra path in ai/model.ts
- * unreachable — `aiEnv()` returns null without it, so the assistant would
- * report "not configured" on a correctly configured managed identity.
+ * The chat model — Microsoft Foundry Models.
+ *
+ * The endpoint is the OpenAI-compatible surface Foundry exposes, e.g.
+ * `https://<recurso>.openai.azure.com/openai/v1` or
+ * `https://<recurso>.services.ai.azure.com/openai/v1`. Both work; both accept
+ * the key as `api-key` or as a bearer token, so one code path covers keys and
+ * Microsoft Entra alike.
+ *
+ * The API key is optional: leaving it blank selects Entra, which is the
+ * recommended production configuration.
  */
-const aiSchema = z.object({
+const modelSchema = z.object({
+  AZURE_FOUNDRY_ENDPOINT: z.url(),
+  AZURE_FOUNDRY_DEPLOYMENT: z.string().min(1),
+  AZURE_FOUNDRY_API_KEY: optionalSecret,
+})
+
+/**
+ * Foundry IQ retrieval — **optional**.
+ *
+ * A Foundry IQ knowledge base is a separate resource from Foundry Models: it
+ * is served by an Azure AI Search service and has to be created and indexed on
+ * its own. Plenty of installs have Models and no knowledge base.
+ *
+ * Without it the assistant still works: it answers from live database queries,
+ * which is where the operational questions are answered anyway. What is lost
+ * is grounding on uploaded documents, and answers carry no citations.
+ */
+const retrievalSchema = z.object({
   AZURE_SEARCH_ENDPOINT: z.url(),
   FOUNDRY_IQ_KNOWLEDGE_BASE: z.string().min(1),
   FOUNDRY_IQ_KNOWLEDGE_SOURCE: z.string().min(1),
   AZURE_SEARCH_API_KEY: optionalSecret,
-
-  AZURE_OPENAI_ENDPOINT: z.url(),
-  AZURE_OPENAI_API_KEY: optionalSecret,
-  AZURE_OPENAI_DEPLOYMENT: z.string().min(1),
-  AZURE_OPENAI_API_VERSION: z.string().default('2024-10-21'),
 })
 
 export type ServerEnv = z.infer<typeof serverSchema>
-export type AiEnv = z.infer<typeof aiSchema>
-
-let cachedServer: ServerEnv | null = null
+export type ModelEnv = z.infer<typeof modelSchema>
+export type RetrievalEnv = z.infer<typeof retrievalSchema>
 
 function format(issues: z.core.$ZodIssue[]): string {
   return issues.map((i) => `  · ${i.path.join('.') || '(root)'}: ${i.message}`).join('\n')
 }
+
+let cachedServer: ServerEnv | null = null
 
 export function serverEnv(): ServerEnv {
   if (cachedServer) return cachedServer
@@ -70,29 +88,54 @@ export function serverEnv(): ServerEnv {
   return cachedServer
 }
 
-let cachedAi: AiEnv | null = null
+let cachedModel: ModelEnv | null = null
 
 /**
- * Returns null when the AI stack is not configured, so the assistant can
- * degrade to a clear "not configured" response instead of crashing a page
- * that merely happens to render an insights panel.
+ * Returns null when no chat model is configured, so the assistant can report
+ * that plainly instead of crashing a page that merely renders an insights
+ * panel.
  */
-export function aiEnv(): AiEnv | null {
-  if (cachedAi) return cachedAi
-  const parsed = aiSchema.safeParse(process.env)
+export function modelEnv(): ModelEnv | null {
+  if (cachedModel) return cachedModel
+  const parsed = modelSchema.safeParse(process.env)
   if (!parsed.success) return null
-  cachedAi = parsed.data
-  return cachedAi
+  cachedModel = parsed.data
+  return cachedModel
 }
 
-export function aiEnvOrThrow(): AiEnv {
-  const env = aiEnv()
+export function modelEnvOrThrow(): ModelEnv {
+  const env = modelEnv()
   if (!env) {
-    const parsed = aiSchema.safeParse(process.env)
+    const parsed = modelSchema.safeParse(process.env)
     const detail = parsed.success ? '' : `\n${format(parsed.error.issues)}`
     throw new Error(
-      `Falta configurar Microsoft Foundry.${detail}\n` +
-        'Revisa la sección de Foundry en .env.local (guía en docs/SETUP.md).',
+      `Falta configurar el modelo de Microsoft Foundry.${detail}\n` +
+        'Revisa AZURE_FOUNDRY_* en .env.local (guía en docs/SETUP.md).',
+    )
+  }
+  return env
+}
+
+let cachedRetrieval: RetrievalEnv | null = null
+
+/** Null whenever Foundry IQ is not set up — an expected state, not an error. */
+export function retrievalEnv(): RetrievalEnv | null {
+  if (cachedRetrieval) return cachedRetrieval
+  const parsed = retrievalSchema.safeParse(process.env)
+  if (!parsed.success) return null
+  cachedRetrieval = parsed.data
+  return cachedRetrieval
+}
+
+export function retrievalEnvOrThrow(): RetrievalEnv {
+  const env = retrievalEnv()
+  if (!env) {
+    const parsed = retrievalSchema.safeParse(process.env)
+    const detail = parsed.success ? '' : `\n${format(parsed.error.issues)}`
+    throw new Error(
+      `Falta configurar Foundry IQ.${detail}\n` +
+        'Es opcional: sin él, el asistente responde desde la base de datos, ' +
+        'pero sin citas de documentos.',
     )
   }
   return env

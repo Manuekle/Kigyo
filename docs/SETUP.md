@@ -95,57 +95,77 @@ select cron.schedule(
 
 ## 3. Microsoft Foundry
 
-El asistente usa dos servicios: **Foundry IQ** para recuperar contexto y
-**Azure OpenAI** para redactar la respuesta. Hacen falta los dos: la API
-estable de recuperación `2026-04-01` devuelve contenido extractivo, no una
-respuesta redactada.
+Son **dos recursos distintos**, y solo el primero es obligatorio.
 
-### 3.1 Knowledge base
+### 3.1 Modelos (obligatorio para el asistente)
 
-En el portal de [Microsoft Foundry](https://ai.azure.com), en **Build →
-Knowledge**, crea una knowledge base con al menos un knowledge source de tipo
-`searchIndex`.
+En [Microsoft Foundry](https://ai.azure.com) → **Deployments**, despliega un
+modelo de chat y anota el nombre del **deployment** (no siempre coincide con el
+del modelo).
 
-> **Requisito crítico.** El índice del knowledge source **debe tener un campo
-> `org_id` marcado como filtrable**. Todas las recuperaciones envían
-> `filterAddOn: org_id eq '<organización>'`. Si el campo no existe o no es
-> filtrable, Azure AI Search **ignora el filtro en silencio** y el asistente
-> devolverá documentos de todas las organizaciones. No hay error, no hay aviso:
-> solo una fuga de datos entre clientes.
+El endpoint es la superficie compatible con OpenAI de tu recurso. Ambas formas
+funcionan:
 
-Al indexar documentos, escribe en `org_id` el UUID de la organización dueña del
-documento.
+```
+https://<recurso>.openai.azure.com/openai/v1
+https://<recurso>.services.ai.azure.com/openai/v1
+```
 
-### 3.2 Modelo
+Va en `AZURE_FOUNDRY_ENDPOINT`, el deployment en `AZURE_FOUNDRY_DEPLOYMENT`.
 
-Despliega un modelo de chat (por ejemplo `gpt-4.1`) en tu recurso de Azure
-OpenAI y anota el nombre del **deployment**, que no siempre coincide con el del
-modelo.
+El código habla con este endpoint por el proveedor OpenAI del AI SDK con
+`baseURL`, no por el proveedor de Azure. El de Azure reescribe la URL
+(`{baseURL}/v1{path}`), lo que choca con un endpoint que ya trae su propia
+ruta, y necesita separar clave y token; el endpoint de Foundry acepta ambos
+como *bearer*, así que un solo camino cubre claves y Entra.
+
+### 3.2 Foundry IQ (opcional)
+
+Foundry IQ **no** es lo mismo que los modelos: es una knowledge base servida
+por un servicio de **Azure AI Search**, que se crea e indexa aparte. Tener
+modelos sin knowledge base es una configuración normal.
+
+Sin ella el asistente sigue funcionando: responde consultando la base de datos
+en vivo — de donde salen las respuestas operativas ("¿qué firmas están
+pendientes?"). Lo que se pierde es el anclaje en documentos subidos, y las
+respuestas no llevan citas.
+
+Si la configuras, en **Build → Knowledge** crea una knowledge base con al menos
+un knowledge source de tipo `searchIndex`.
+
+> **Requisito crítico si la usas con más de una organización.** El índice del
+> knowledge source **debe tener un campo `org_id` marcado como filtrable**.
+> Todas las recuperaciones envían `filterAddOn: org_id eq '<organización>'`. Si
+> el campo no existe o no es filtrable, Azure AI Search **ignora el filtro en
+> silencio** y el asistente devolverá documentos de todas las organizaciones.
+> No hay error, no hay aviso: solo una fuga de datos entre clientes.
+
+Al indexar documentos, escribe en `org_id` el UUID de la organización dueña.
 
 ### 3.3 Autenticación
 
 Se prefiere Microsoft Entra sobre las claves de API: una clave no se puede
 acotar por permiso, no rota sin desplegar y no se puede atribuir a nadie.
 
-- **En Azure**: asigna una identidad administrada a la app y dale los roles
-  `Search Index Data Reader` sobre el servicio de búsqueda y
-  `Cognitive Services OpenAI User` sobre el recurso de OpenAI. Deja
-  `AZURE_SEARCH_API_KEY` vacío.
+- **En Azure**: asigna una identidad administrada a la app con los roles
+  `Cognitive Services OpenAI User` sobre el recurso de Foundry y, si usas
+  Foundry IQ, `Search Index Data Reader` sobre el servicio de búsqueda. Deja
+  `AZURE_FOUNDRY_API_KEY` y `AZURE_SEARCH_API_KEY` en blanco.
 - **En local**: `az login`, o define `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` y
   `AZURE_CLIENT_SECRET`.
-- **Alternativa**: define `AZURE_SEARCH_API_KEY`. Funciona, pero no es la
-  configuración recomendada para producción.
+- **Alternativa**: rellena las claves. Funciona, pero no es la configuración
+  recomendada para producción.
 
-### 3.4 Verificar el aislamiento
+### 3.4 Verificar
 
 ```bash
 npm run check:foundry
 ```
 
-Comprueba las variables, que la knowledge base responde y — lo importante —
-lanza una recuperación con un UUID de organización que no existe. Si vuelve
-cualquier contenido, `filterAddOn` no está aislando nada y hay que reindexar
-antes de usar la base con más de un cliente.
+Comprueba que el modelo responde, y — si Foundry IQ está configurado — lanza
+una recuperación con un UUID de organización que no existe. Si vuelve cualquier
+contenido, `filterAddOn` no está aislando nada y hay que reindexar antes de
+usarla con más de un cliente. Sin knowledge base, ese bloque se salta.
 
 ---
 
@@ -158,17 +178,20 @@ cp .env.example .env.local
 Rellena `.env.local`. **No las pegues en un chat ni las subas al repositorio**
 — `.gitignore` ya excluye `.env*`.
 
-| Variable | Dónde se obtiene |
-| --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Igual. Es pública por diseño |
-| `SUPABASE_SERVICE_ROLE_KEY` | Igual. **Salta RLS: solo en servidor** |
-| `NEXT_PUBLIC_APP_URL` | Origen público de la app |
-| `AZURE_SEARCH_ENDPOINT` | Servicio de Azure AI Search del proyecto Foundry |
-| `FOUNDRY_IQ_KNOWLEDGE_BASE` | Nombre de la knowledge base |
-| `FOUNDRY_IQ_KNOWLEDGE_SOURCE` | Nombre del knowledge source |
-| `AZURE_OPENAI_ENDPOINT` | Recurso de Azure OpenAI |
-| `AZURE_OPENAI_DEPLOYMENT` | Nombre del deployment, no del modelo |
+| Variable | Obligatoria | Dónde se obtiene |
+| --- | --- | --- |
+| `NEXT_PUBLIC_APP_URL` | sí | Origen público de la app |
+| `NEXT_PUBLIC_SUPABASE_URL` | sí | Supabase → Project Settings → API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sí | Igual. Es pública por diseño |
+| `SUPABASE_SERVICE_ROLE_KEY` | sí | Igual. **Salta RLS: solo en servidor** |
+| `AZURE_FOUNDRY_ENDPOINT` | para la IA | Recurso de Foundry, ruta `/openai/v1` |
+| `AZURE_FOUNDRY_DEPLOYMENT` | para la IA | Nombre del deployment, no del modelo |
+| `AZURE_FOUNDRY_API_KEY` | no | En blanco para usar Entra |
+| `AZURE_SEARCH_ENDPOINT` | no | Solo si usas Foundry IQ |
+| `FOUNDRY_IQ_KNOWLEDGE_BASE` | no | Solo si usas Foundry IQ |
+| `FOUNDRY_IQ_KNOWLEDGE_SOURCE` | no | Solo si usas Foundry IQ |
+| `AZURE_SEARCH_API_KEY` | no | En blanco para usar Entra |
+| `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` | no | Solo para Entra con app registration |
 
 ---
 

@@ -5,11 +5,17 @@ import { route } from '@/lib/api/handler'
 import { RATE_LIMITS } from '@/lib/api/rate-limit'
 import { ApiError } from '@/lib/api/errors'
 import { createClient } from '@/lib/supabase/server'
-import { aiEnv } from '@/lib/env'
+import { modelEnv } from '@/lib/env'
 import { chatModel } from '@/lib/ai/model'
 import { buildTools } from '@/lib/ai/tools'
 import { systemPrompt } from '@/lib/ai/prompt'
-import { retrieve, toCitations, FoundryIqError, type RetrievalResult } from '@/lib/ai/foundry-iq'
+import {
+  retrieve,
+  toCitations,
+  isRetrievalConfigured,
+  FoundryIqError,
+  type RetrievalResult,
+} from '@/lib/ai/foundry-iq'
 
 /**
  * Streaming chat, grounded on Foundry IQ plus live Supabase data.
@@ -55,32 +61,37 @@ export const POST = route({
   permission: 'ia:use',
   rateLimit: RATE_LIMITS.aiChat,
   async handler({ body, member, request }) {
-    if (!aiEnv()) {
+    if (!modelEnv()) {
       throw new ApiError(503, 'Asistente no configurado', {
         type: 'kigyo:ai-not-configured',
         detail:
-          'Falta la configuración de Microsoft Foundry. Revisa AZURE_SEARCH_ENDPOINT, ' +
-          'FOUNDRY_IQ_KNOWLEDGE_BASE y AZURE_OPENAI_ENDPOINT en el entorno del servidor.',
+          'Falta el modelo de Microsoft Foundry. Revisa AZURE_FOUNDRY_ENDPOINT y ' +
+          'AZURE_FOUNDRY_DEPLOYMENT en el entorno del servidor.',
       })
     }
 
     const question = latestUserText(body.messages)
     if (!question) throw new ApiError(400, 'Mensaje vacío', { detail: 'Escribe una pregunta.' })
 
-    // Retrieval failing should degrade the answer, not break the conversation:
-    // the tools alone can still answer most operational questions.
+    // Document grounding is optional and best-effort. A knowledge base is a
+    // separate Azure resource from the chat model, so many installs have no
+    // retrieval at all — and when one exists, a failure should degrade the
+    // answer rather than break the conversation. Either way the tools below
+    // still answer the operational questions.
     let retrieval: RetrievalResult | null = null
-    try {
-      retrieval = await retrieve({
-        orgId: member.orgId,
-        intents: [{ type: 'semantic', search: question }],
-        signal: request.signal,
-      })
-    } catch (error) {
-      if (error instanceof FoundryIqError) {
-        console.warn('[ai] Foundry IQ retrieval failed', error.status, error.message)
-      } else {
-        console.warn('[ai] Foundry IQ retrieval failed', error)
+    if (isRetrievalConfigured()) {
+      try {
+        retrieval = await retrieve({
+          orgId: member.orgId,
+          intents: [{ type: 'semantic', search: question }],
+          signal: request.signal,
+        })
+      } catch (error) {
+        if (error instanceof FoundryIqError) {
+          console.warn('[ai] Foundry IQ retrieval failed', error.status, error.message)
+        } else {
+          console.warn('[ai] Foundry IQ retrieval failed', error)
+        }
       }
     }
 

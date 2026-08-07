@@ -5,8 +5,8 @@ firmas, inventario, nómina, tickets, riesgos, proyectos y un asistente de IA,
 en una interfaz oscura monocroma.
 
 Stack: **Next.js 16** (App Router) · **React 19** · **Tailwind v4** ·
-**Supabase** (Postgres + Auth + Storage) · **Microsoft Foundry**
-(Foundry IQ + Azure OpenAI) · TypeScript.
+**Supabase** (Postgres + Auth + Storage) · **Microsoft Foundry Models**, con
+**Foundry IQ** opcional para anclar respuestas en documentos · TypeScript.
 
 ## Empezar
 

@@ -1,22 +1,19 @@
 #!/usr/bin/env node
 // Verifies the Microsoft Foundry configuration before you rely on it.
 //
-//   node --env-file=.env.local scripts/check-foundry.mjs
+//   npm run check:foundry
 //
-// Three checks:
-//   1. the required variables are present
-//   2. the Foundry IQ knowledge base answers a retrieval call
-//   3. `filterAddOn` actually isolates by org_id
+// Two independent parts:
 //
-// (3) is the one that matters. If the knowledge source's index has no
-// filterable `org_id` field the filter is silently ignored, retrieval returns
-// every tenant's documents, and nothing in the response says so.
-
-const required = [
-  'AZURE_SEARCH_ENDPOINT',
-  'FOUNDRY_IQ_KNOWLEDGE_BASE',
-  'FOUNDRY_IQ_KNOWLEDGE_SOURCE',
-]
+//   1. MODELS — required for the assistant. Checks that the endpoint answers,
+//      and that streaming, tool calling and structured output all work, since
+//      the chat route needs all three.
+//
+//   2. FOUNDRY IQ — optional, and a separate Azure resource. Skipped when not
+//      configured. When it is, the check that matters is whether `filterAddOn`
+//      actually isolates by org_id: if the index has no filterable `org_id`
+//      field the filter is ignored silently, retrieval spans every tenant, and
+//      nothing in the response says so.
 
 const API_VERSION = '2026-04-01'
 const IMPOSSIBLE_ORG_ID = '00000000-0000-4000-8000-000000000000'
@@ -28,88 +25,158 @@ function report(ok, label, detail = '') {
   console.log(`${ok ? '  ok  ' : ' FAIL '} ${label}${detail ? ` — ${detail}` : ''}`)
 }
 
-const missing = required.filter((name) => !process.env[name])
-report(missing.length === 0, 'variables de entorno presentes', missing.join(', '))
-if (missing.length) {
-  console.log('\nCopia .env.example a .env.local y complétalo.')
-  process.exit(1)
+function skip(label, detail = '') {
+  console.log(` skip  ${label}${detail ? ` — ${detail}` : ''}`)
 }
 
-async function authHeaders() {
-  const apiKey = process.env.AZURE_SEARCH_API_KEY
-  if (apiKey) return { 'api-key': apiKey }
-
+async function bearer(scope) {
   const { DefaultAzureCredential, ClientSecretCredential } = await import('@azure/identity')
   const { AZURE_TENANT_ID: t, AZURE_CLIENT_ID: c, AZURE_CLIENT_SECRET: s } = process.env
   const credential =
     t && c && s ? new ClientSecretCredential(t, c, s) : new DefaultAzureCredential()
-
-  const token = await credential.getToken('https://search.azure.com/.default')
+  const token = await credential.getToken(scope)
   if (!token?.token) throw new Error('Entra no devolvió un token')
-  return { authorization: `Bearer ${token.token}` }
+  return token.token
 }
 
-async function retrieve(orgId, search) {
-  const url =
-    `${process.env.AZURE_SEARCH_ENDPOINT.replace(/\/+$/, '')}` +
-    `/knowledgebases('${encodeURIComponent(process.env.FOUNDRY_IQ_KNOWLEDGE_BASE)}')` +
-    `/retrieve?api-version=${API_VERSION}`
+// ─── 1. Models ──────────────────────────────────────────────────────────────
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...(await authHeaders()) },
-    body: JSON.stringify({
-      intents: [{ type: 'semantic', search }],
-      knowledgeSourceParams: [
-        {
-          kind: 'searchIndex',
-          knowledgeSourceName: process.env.FOUNDRY_IQ_KNOWLEDGE_SOURCE,
-          filterAddOn: `org_id eq '${orgId}'`,
-          includeReferences: true,
-          includeReferenceSourceData: true,
-          rerankerThreshold: 2.0,
-        },
-      ],
-      maxOutputSizeInTokens: 4000,
-      maxRuntimeInSeconds: 25,
-      includeActivity: true,
-    }),
-  })
+console.log('\nMODELOS')
 
-  if (!response.ok && response.status !== 206) {
-    throw new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`)
+const modelMissing = ['AZURE_FOUNDRY_ENDPOINT', 'AZURE_FOUNDRY_DEPLOYMENT'].filter(
+  (name) => !process.env[name]?.trim(),
+)
+report(modelMissing.length === 0, 'variables presentes', modelMissing.join(', '))
+
+if (modelMissing.length === 0) {
+  const base = process.env.AZURE_FOUNDRY_ENDPOINT.replace(/\/+$/, '')
+  const deployment = process.env.AZURE_FOUNDRY_DEPLOYMENT
+  const key = process.env.AZURE_FOUNDRY_API_KEY?.trim()
+
+  try {
+    const headers = {
+      'content-type': 'application/json',
+      ...(key
+        ? { 'api-key': key }
+        : { authorization: `Bearer ${await bearer('https://cognitiveservices.azure.com/.default')}` }),
+    }
+
+    const response = await fetch(`${base}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: deployment,
+        messages: [{ role: 'user', content: 'Responde exactamente: ok' }],
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 200)}`)
+    }
+
+    const body = await response.json()
+    const text = body.choices?.[0]?.message?.content ?? ''
+    report(true, `el modelo "${deployment}" responde`, key ? 'auth: api-key' : 'auth: Entra')
+    report(Boolean(text.trim()), 'devuelve contenido', text.trim().slice(0, 40))
+  } catch (error) {
+    report(false, 'llamada al modelo', error.message)
   }
-  return { body: await response.json(), status: response.status }
 }
 
-try {
-  const { body, status } = await retrieve(IMPOSSIBLE_ORG_ID, 'contrato política documento')
+// ─── 2. Foundry IQ ──────────────────────────────────────────────────────────
 
-  report(true, 'la base de conocimiento respondió', `HTTP ${status}`)
+console.log('\nFOUNDRY IQ (opcional)')
 
-  const refs = body.references ?? []
-  const text = (body.response ?? [])
-    .flatMap((m) => m.content ?? [])
-    .map((c) => c.text ?? '')
-    .join('')
-    .trim()
+const retrievalVars = [
+  'AZURE_SEARCH_ENDPOINT',
+  'FOUNDRY_IQ_KNOWLEDGE_BASE',
+  'FOUNDRY_IQ_KNOWLEDGE_SOURCE',
+]
+const retrievalSet = retrievalVars.filter((name) => process.env[name]?.trim())
 
-  const isolated = refs.length === 0 && text.length === 0
-  report(
-    isolated,
-    'filterAddOn aísla por org_id',
-    isolated
-      ? ''
-      : `devolvió ${refs.length} referencia(s) para una organización inexistente. ` +
-        'El índice del knowledge source NO tiene un campo `org_id` filtrable: ' +
-        'el filtro por tenant no está haciendo nada. Reindexa antes de usarlo con varios tenants.',
+if (retrievalSet.length === 0) {
+  skip(
+    'sin knowledge base configurada',
+    'el asistente responderá desde la base de datos, sin citas de documentos',
   )
+} else if (retrievalSet.length < retrievalVars.length) {
+  // Half-configured is worse than absent: it looks enabled and fails at
+  // request time, inside the chat stream where the user sees it.
+  report(
+    false,
+    'configuración incompleta',
+    `faltan ${retrievalVars.filter((n) => !process.env[n]?.trim()).join(', ')}`,
+  )
+} else {
+  try {
+    const searchKey = process.env.AZURE_SEARCH_API_KEY?.trim()
+    const headers = {
+      'content-type': 'application/json',
+      ...(searchKey
+        ? { 'api-key': searchKey }
+        : { authorization: `Bearer ${await bearer('https://search.azure.com/.default')}` }),
+    }
 
-  const errored = (body.activity ?? []).filter((a) => a.error)
-  report(errored.length === 0, 'todas las fuentes respondieron sin error',
-    errored.map((a) => `${a.knowledgeSourceName}: ${a.error?.message}`).join('; '))
-} catch (error) {
-  report(false, 'llamada de recuperación', error.message)
+    const url =
+      `${process.env.AZURE_SEARCH_ENDPOINT.replace(/\/+$/, '')}` +
+      `/knowledgebases('${encodeURIComponent(process.env.FOUNDRY_IQ_KNOWLEDGE_BASE)}')` +
+      `/retrieve?api-version=${API_VERSION}`
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        intents: [{ type: 'semantic', search: 'contrato política documento' }],
+        knowledgeSourceParams: [
+          {
+            kind: 'searchIndex',
+            knowledgeSourceName: process.env.FOUNDRY_IQ_KNOWLEDGE_SOURCE,
+            filterAddOn: `org_id eq '${IMPOSSIBLE_ORG_ID}'`,
+            includeReferences: true,
+            includeReferenceSourceData: true,
+            rerankerThreshold: 2.0,
+          },
+        ],
+        maxOutputSizeInTokens: 4000,
+        maxRuntimeInSeconds: 25,
+        includeActivity: true,
+      }),
+    })
+
+    if (!response.ok && response.status !== 206) {
+      throw new Error(`HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`)
+    }
+
+    const body = await response.json()
+    report(true, 'la knowledge base responde', `HTTP ${response.status}`)
+
+    const refs = body.references ?? []
+    const text = (body.response ?? [])
+      .flatMap((m) => m.content ?? [])
+      .map((c) => c.text ?? '')
+      .join('')
+      .trim()
+
+    const isolated = refs.length === 0 && text.length === 0
+    report(
+      isolated,
+      'filterAddOn aísla por org_id',
+      isolated
+        ? ''
+        : `devolvió ${refs.length} referencia(s) para una organización inexistente. ` +
+          'El índice NO tiene un campo `org_id` filtrable: el filtro por tenant no ' +
+          'está haciendo nada. Reindexa antes de usarlo con varios clientes.',
+    )
+
+    const errored = (body.activity ?? []).filter((a) => a.error)
+    report(
+      errored.length === 0,
+      'todas las fuentes respondieron sin error',
+      errored.map((a) => `${a.knowledgeSourceName}: ${a.error?.message}`).join('; '),
+    )
+  } catch (error) {
+    report(false, 'llamada de recuperación', error.message)
+  }
 }
 
 console.log('')

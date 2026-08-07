@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { route } from '@/lib/api/handler'
 import { RATE_LIMITS } from '@/lib/api/rate-limit'
 import { createClient } from '@/lib/supabase/server'
-import { aiEnv } from '@/lib/env'
+import { modelEnv } from '@/lib/env'
 import { chatModel } from '@/lib/ai/model'
 
 /**
@@ -122,10 +122,10 @@ export const POST = route({
       }
     }
 
-    if (!aiEnv()) {
+    if (!modelEnv()) {
       // Not an error the dashboard should surface as a failure: the page has
       // static fallback copy and simply keeps using it.
-      return { unavailable: true as const, reason: 'Microsoft Foundry no está configurado.' }
+      return { unavailable: true as const, reason: 'El modelo de Microsoft Foundry no está configurado.' }
     }
 
     const snapshot = await gatherSnapshot()

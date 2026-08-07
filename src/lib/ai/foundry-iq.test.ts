@@ -10,10 +10,6 @@ const ENV = {
   FOUNDRY_IQ_KNOWLEDGE_BASE: 'kb-kigyo',
   FOUNDRY_IQ_KNOWLEDGE_SOURCE: 'ks-kigyo',
   AZURE_SEARCH_API_KEY: 'test-key',
-  AZURE_OPENAI_ENDPOINT: 'https://example.openai.azure.com',
-  AZURE_OPENAI_API_KEY: 'test-openai-key',
-  AZURE_OPENAI_DEPLOYMENT: 'gpt-4.1',
-  AZURE_OPENAI_API_VERSION: '2024-10-21',
 }
 
 // `server-only` throws outside a React Server Component build.
@@ -152,6 +148,27 @@ describe('assertTenantFilterSupported', () => {
     const { assertTenantFilterSupported } = await loadModule()
 
     expect((await assertTenantFilterSupported()).ok).toBe(true)
+  })
+})
+
+describe('isRetrievalConfigured', () => {
+  it('is false without a knowledge base', async () => {
+    for (const key of Object.keys(ENV)) delete process.env[key]
+    const { isRetrievalConfigured } = await loadModule()
+    expect(isRetrievalConfigured()).toBe(false)
+  })
+
+  it('is false on a partial configuration', async () => {
+    Object.assign(process.env, ENV)
+    delete process.env.FOUNDRY_IQ_KNOWLEDGE_BASE
+    const { isRetrievalConfigured } = await loadModule()
+    expect(isRetrievalConfigured()).toBe(false)
+  })
+
+  it('is true once all three variables are set', async () => {
+    Object.assign(process.env, ENV)
+    const { isRetrievalConfigured } = await loadModule()
+    expect(isRetrievalConfigured()).toBe(true)
   })
 })
 

@@ -65,10 +65,14 @@ export function systemPrompt(member: Member, retrieval: RetrievalResult | null):
       )
     }
   } else {
+    // Either no knowledge base is configured, or it returned nothing for this
+    // question. Both look the same from here, and the instruction is the same:
+    // answer from the tools and be explicit about what could not be checked.
     sections.push(
       '',
       'No hay contexto documental para esta consulta. Responde con lo que devuelvan',
-      'las herramientas y di explícitamente qué no pudiste verificar.',
+      'las herramientas y di explícitamente qué no pudiste verificar. No cites',
+      'documentos: en esta respuesta no hay ninguno que citar.',
     )
   }
 
