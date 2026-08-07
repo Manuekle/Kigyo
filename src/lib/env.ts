@@ -16,14 +16,34 @@ const serverSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.url(),
 })
 
+/**
+ * A key left blank in the env file means "not set".
+ *
+ * `.optional()` alone does not cover this: `FOO=` puts an empty string in
+ * process.env, which is present, so the field is validated rather than
+ * skipped. Every scaffolded .env has blank lines for the keys you are not
+ * using, so this is the normal case, not the edge case.
+ */
+const optionalSecret = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().min(1).optional(),
+)
+
+/**
+ * Both API keys are optional: leaving them unset is what selects Microsoft
+ * Entra, which is the recommended production configuration. Requiring
+ * AZURE_OPENAI_API_KEY here would have made the Entra path in ai/model.ts
+ * unreachable — `aiEnv()` returns null without it, so the assistant would
+ * report "not configured" on a correctly configured managed identity.
+ */
 const aiSchema = z.object({
   AZURE_SEARCH_ENDPOINT: z.url(),
   FOUNDRY_IQ_KNOWLEDGE_BASE: z.string().min(1),
   FOUNDRY_IQ_KNOWLEDGE_SOURCE: z.string().min(1),
-  AZURE_SEARCH_API_KEY: z.string().optional(),
+  AZURE_SEARCH_API_KEY: optionalSecret,
 
   AZURE_OPENAI_ENDPOINT: z.url(),
-  AZURE_OPENAI_API_KEY: z.string().min(1),
+  AZURE_OPENAI_API_KEY: optionalSecret,
   AZURE_OPENAI_DEPLOYMENT: z.string().min(1),
   AZURE_OPENAI_API_VERSION: z.string().default('2024-10-21'),
 })
@@ -42,8 +62,8 @@ export function serverEnv(): ServerEnv {
   const parsed = serverSchema.safeParse(process.env)
   if (!parsed.success) {
     throw new Error(
-      `Environment is not configured.\n${format(parsed.error.issues)}\n` +
-        'Copy .env.example to .env.local and fill it in.',
+      `Falta configurar el entorno.\n${format(parsed.error.issues)}\n` +
+        'Copia .env.example a .env.local y complétalo (guía en docs/SETUP.md).',
     )
   }
   cachedServer = parsed.data
@@ -70,7 +90,10 @@ export function aiEnvOrThrow(): AiEnv {
   if (!env) {
     const parsed = aiSchema.safeParse(process.env)
     const detail = parsed.success ? '' : `\n${format(parsed.error.issues)}`
-    throw new Error(`Microsoft Foundry is not configured.${detail}`)
+    throw new Error(
+      `Falta configurar Microsoft Foundry.${detail}\n` +
+        'Revisa la sección de Foundry en .env.local (guía en docs/SETUP.md).',
+    )
   }
   return env
 }

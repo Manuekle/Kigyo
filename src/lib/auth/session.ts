@@ -27,7 +27,18 @@ export interface Member {
  * the same render share one round trip.
  */
 export const getMember = cache(async (): Promise<Member | null> => {
-  const supabase = await createClient()
+  // On an unconfigured install `createClient()` throws, which would surface as
+  // a 500 error page on /dashboard. There is no session in that state, so
+  // returning null is both accurate and better: `requireMember()` redirects to
+  // /login, where submitting the form reports exactly which variables are
+  // missing. Either way the dashboard is never served — this fails closed.
+  let supabase: Awaited<ReturnType<typeof createClient>>
+  try {
+    supabase = await createClient()
+  } catch (error) {
+    console.error('[auth] Supabase is not configured', error)
+    return null
+  }
 
   const {
     data: { user },
