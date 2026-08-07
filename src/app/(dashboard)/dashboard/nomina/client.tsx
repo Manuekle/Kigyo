@@ -146,7 +146,7 @@ export default function NominaPage() {
           <button disabled={exporting} aria-busy={exporting} className="btn ghost" onClick={exportNomina}><FileSpreadsheet size={15} />Exportar</button>
         </div>
         <table className="tbl">
-          <thead><tr><th>Área</th><th>Personas</th><th>Costo mensual</th><th>Costo / persona</th></tr></thead>
+          <thead><tr><th scope="col">Área</th><th scope="col">Personas</th><th scope="col">Costo mensual</th><th scope="col">Costo / persona</th></tr></thead>
           <tbody>
             {areas.map((a) => (
               <tr className="trow" key={a.area}>

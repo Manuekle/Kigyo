@@ -13,6 +13,7 @@ import { useApp } from '@/lib/context/AppContext'
 import { cop } from '@/lib/utils'
 import { useExport } from '@/lib/hooks/use-export'
 import { EMPLEADOS } from '@/lib/data/empleados'
+import { activatable } from '@/lib/a11y'
 
 // ── Page-local data (faithful to original nucleo-rh.jsx — shared data files
 //    have incompatible shapes/values, so seeded inline to render IDENTICAL).
@@ -163,7 +164,7 @@ export default function InventarioPage() {
 
         {view === 'activos' && (
           <table className="tbl">
-            <thead><tr><th>Activo</th><th>Categoría</th><th>Asignado a</th><th>Serial</th><th>Ingreso</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th scope="col">Activo</th><th scope="col">Categoría</th><th scope="col">Asignado a</th><th scope="col">Serial</th><th scope="col">Ingreso</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {items.map((it) => (
                 <tr className="trow" key={it.id}>
@@ -187,7 +188,7 @@ export default function InventarioPage() {
 
         {view === 'pedidos' && (
           <table className="tbl">
-            <thead><tr><th>Pedido</th><th>Proveedor</th><th>Cant.</th><th>Estimado</th><th>Solicitado por</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th scope="col">Pedido</th><th scope="col">Proveedor</th><th scope="col">Cant.</th><th scope="col">Estimado</th><th scope="col">Solicitado por</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {pedidos.map((p) => (
                 <tr className="trow" key={p.id}>
@@ -209,10 +210,10 @@ export default function InventarioPage() {
 
         {view === 'facturas' && (
           <table className="tbl">
-            <thead><tr><th>Factura</th><th>Proveedor</th><th>Fecha</th><th>Total</th><th>Estado</th></tr></thead>
+            <thead><tr><th scope="col">Factura</th><th scope="col">Proveedor</th><th scope="col">Fecha</th><th scope="col">Total</th><th scope="col">Estado</th></tr></thead>
             <tbody>
               {facturas.map((f) => (
-                <tr className="trow" key={f.id} style={{ cursor: 'pointer' }} onClick={() => setSelFacturaId(f.id)}>
+                <tr className="trow" key={f.id} style={{ cursor: 'pointer' }} {...activatable(() => setSelFacturaId(f.id), `Abrir factura ${f.id} de ${f.proveedor}`)}>
                   <td><div className="cename mono">{f.id}</div><div className="ceid">{f.items.length} {f.items.length === 1 ? 'ítem' : 'ítems'}</div></td>
                   <td className="muted">{f.proveedor}</td>
                   <td className="muted mono" style={{ fontSize: 12 }}>{f.fecha}</td>
@@ -357,7 +358,7 @@ function FacturaDrawerBody({ f, onClose, onUpdate, onDelete }: {
           <div><div className="pinv-label">Facturado a</div><div>Whitebox SAS · NIT 900.123.456-7</div></div>
         </div>
         <table className="pinv-table">
-          <thead><tr><th>Activo</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead>
+          <thead><tr><th scope="col">Activo</th><th scope="col">Cantidad</th><th scope="col">Precio unitario</th><th scope="col">Subtotal</th></tr></thead>
           <tbody>
             {f.items.map((it, i) => (
               <tr key={i}><td>{it.activo}</td><td>{it.cant}</td><td>{cop(it.precio)}</td><td>{cop(it.cant * it.precio)}</td></tr>

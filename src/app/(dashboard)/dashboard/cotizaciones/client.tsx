@@ -311,14 +311,14 @@ export default function CotizacionesPage() {
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Referencia</th>
-                  <th>Cliente · Proyecto</th>
-                  <th>Tipo</th>
-                  <th>Monto</th>
-                  <th>Responsable</th>
-                  <th>Estado</th>
-                  <th>Vencimiento</th>
-                  <th style={{ textAlign: 'right' }}>Acciones</th>
+                  <th scope="col">Referencia</th>
+                  <th scope="col">Cliente · Proyecto</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Monto</th>
+                  <th scope="col">Responsable</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Vencimiento</th>
+                  <th scope="col" style={{ textAlign: 'right' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>

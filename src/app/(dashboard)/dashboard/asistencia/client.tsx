@@ -184,7 +184,7 @@ export default function AsistenciaPage() {
             <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={14} />Registrar</button>
           </div>
           <table className="tbl">
-            <thead><tr><th>Empleado</th><th>Tipo</th><th>Desde</th><th>Días</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th scope="col">Empleado</th><th scope="col">Tipo</th><th scope="col">Desde</th><th scope="col">Días</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {ausencias.map((a) => (
                 <tr className="trow" key={a.id}>

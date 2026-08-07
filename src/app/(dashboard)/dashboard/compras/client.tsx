@@ -15,6 +15,7 @@ import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
 import Select from '@/components/ui/Select'
 import { useApp } from '@/lib/context/AppContext'
+import { activatable } from '@/lib/a11y'
 
 /* ------------------------------------------------------------------ */
 interface ReqItem {
@@ -278,19 +279,19 @@ export default function ComprasPage() {
           <table className="tbl">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Proveedor</th>
-                <th>Proyecto</th>
-                <th>Categoria</th>
-                <th>Monto</th>
-                <th>Estado</th>
-                <th>Urgencia</th>
-                <th>Responsable</th>
+                <th scope="col">ID</th>
+                <th scope="col">Proveedor</th>
+                <th scope="col">Proyecto</th>
+                <th scope="col">Categoria</th>
+                <th scope="col">Monto</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Urgencia</th>
+                <th scope="col">Responsable</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((req) => (
-                <tr key={req.id} className="trow" onClick={() => setSelectedId(req.id)} style={req.id === selected?.id ? { background: 'var(--blus)' } : undefined}>
+                <tr key={req.id} className="trow" {...activatable(() => setSelectedId(req.id), `Abrir requisición ${req.id}`)} style={req.id === selected?.id ? { background: 'var(--blus)' } : undefined}>
                   <td>
                     <div className="cename">{req.id}</div>
                     <div className="elsub">{req.created}</div>

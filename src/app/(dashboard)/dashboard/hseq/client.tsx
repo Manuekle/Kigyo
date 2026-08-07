@@ -282,13 +282,13 @@ export default function HseqPage() {
           <table className="tbl">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Tipo · Categoría</th>
-                <th>Proyecto · Área</th>
-                <th>Responsable</th>
-                <th>Prioridad</th>
-                <th>Estado</th>
-                <th>Vence</th>
+                <th scope="col">ID</th>
+                <th scope="col">Tipo · Categoría</th>
+                <th scope="col">Proyecto · Área</th>
+                <th scope="col">Responsable</th>
+                <th scope="col">Prioridad</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Vence</th>
               </tr>
             </thead>
             <tbody>

@@ -5,6 +5,7 @@ import { FileCheck2, Check, Truck, X, Plus, Calendar } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
 import { useApp } from '@/lib/context/AppContext'
+import { activatable } from '@/lib/a11y'
 
 interface OCItem { desc: string; cantidad: number; precio: number }
 interface OC { id: string; proveedor: string; proyecto: string; status: 'Pendiente' | 'Aprobada' | 'Recibida' | 'Cancelada'; total: number; fecha: string; vencimiento: string; items: OCItem[]; notas: string }
@@ -87,17 +88,17 @@ export default function OCPage() {
           <table className="tbl">
             <thead>
               <tr>
-                <th>ID · Fecha</th>
-                <th>Proveedor</th>
-                <th>Proyecto</th>
-                <th>Total</th>
-                <th>Estado</th>
-                <th>Vence</th>
+                <th scope="col">ID · Fecha</th>
+                <th scope="col">Proveedor</th>
+                <th scope="col">Proyecto</th>
+                <th scope="col">Total</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Vence</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(oc => (
-                <tr key={oc.id} className="trow" onClick={() => setSelId(oc.id)} style={oc.id === sel?.id ? { background: 'var(--blus)' } : undefined}>
+                <tr key={oc.id} className="trow" {...activatable(() => setSelId(oc.id), `Abrir orden de compra ${oc.id}`)} style={oc.id === sel?.id ? { background: 'var(--blus)' } : undefined}>
                   <td><div className="cename">{oc.id}</div><div className="elsub">{oc.fecha}</div></td>
                   <td>{oc.proveedor}</td>
                   <td>{oc.proyecto}</td>

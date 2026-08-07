@@ -9,6 +9,7 @@ import { EMPLEADOS, ROTATION_RISK } from '@/lib/data/empleados'
 import type { Empleado } from '@/lib/types'
 import NuevoEmpleadoModal from '@/components/ui/NuevoEmpleadoModal'
 import TabBar from '@/components/ui/TabBar'
+import { activatable } from '@/lib/a11y'
 
 /* ------------------------------------------------------------------ */
 /*  Page-local data (verbatim from original single-file app)           */
@@ -148,12 +149,12 @@ export default function EmpleadosPage() {
         </div>
         {view === 'directorio' ? (
           <table className="tbl">
-            <thead><tr><th>Empleado</th><th>Cargo</th><th>Departamento</th><th>Ubicación</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th scope="col">Empleado</th><th scope="col">Cargo</th><th scope="col">Departamento</th><th scope="col">Ubicación</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No se encontraron empleados para &quot;{q}&quot;.</div></td></tr>
               ) : rows.map((e) => (
-                <tr className="trow" key={e.id} style={{ cursor: 'pointer' }} onClick={() => openEmpleado(e)}>
+                <tr className="trow" key={e.id} style={{ cursor: 'pointer' }} {...activatable(() => openEmpleado(e), `Ver perfil de ${e.name}`)}>
                   <td><div className="cemp"><Avatar name={e.name} /><div><div className="cename">{e.name}</div><div className="ceid mono">{e.id}</div></div></div></td>
                   <td className="muted">{e.role}</td>
                   <td className="muted">{e.dept}</td>

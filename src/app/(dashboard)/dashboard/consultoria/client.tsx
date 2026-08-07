@@ -74,7 +74,7 @@ export default function ConsultoriaPage() {
             <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={15} />Nueva consulta</button>
           </div>
           <table className="tbl">
-            <thead><tr><th>Tema</th><th>Solicitante</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th scope="col">Tema</th><th scope="col">Solicitante</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {consultas.map(c => (
                 <tr className="trow" key={c.id}>

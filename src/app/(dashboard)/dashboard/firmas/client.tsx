@@ -264,7 +264,7 @@ export default function FirmasPage() {
       <div className="card rise d1">
         <div className="chead"><div className="ctitle">Documentos para firma</div><span className="kvs">{rows.length} en total</span></div>
         <table className="tbl">
-          <thead><tr><th>Documento</th><th>Empleado</th><th>Tipo</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th scope="col">Documento</th><th scope="col">Empleado</th><th scope="col">Tipo</th><th scope="col">Fecha</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
           <tbody>
             {rows.map((f) => (
               <tr className="trow" key={f.id}>

@@ -30,8 +30,12 @@ function ToastItem({ t, onRemove }: { t: Toast; onRemove: (id: number) => void }
   }, [dismiss])
 
   return (
-    <div className={`toast${out ? ' out' : ''}`}>
-      <span className={`tci ${t.type}`}>{ICONS[t.type]}</span>
+    <div
+      className={`toast${out ? ' out' : ''}`}
+      // Errors interrupt; everything else waits for a pause in speech.
+      role={t.type === 'err' ? 'alert' : 'status'}
+    >
+      <span className={`tci ${t.type}`} aria-hidden="true">{ICONS[t.type]}</span>
       <span className="tmsg">{t.msg}</span>
       {t.action && (
         <button className="tact" onClick={() => { t.onAction?.(); dismiss() }}>
@@ -39,7 +43,7 @@ function ToastItem({ t, onRemove }: { t: Toast; onRemove: (id: number) => void }
         </button>
       )}
       <button aria-label="Cerrar notificación" onClick={dismiss} style={{ marginLeft: 4, color: 'var(--ink3)' }}>
-        <X size={13} />
+        <X size={13} aria-hidden="true" />
       </button>
     </div>
   )
@@ -47,9 +51,17 @@ function ToastItem({ t, onRemove }: { t: Toast; onRemove: (id: number) => void }
 
 export default function Toasts() {
   const { toasts, removeToast } = useApp()
-  if (!toasts.length) return null
+
+  /**
+   * The live region is always mounted, even with nothing in it.
+   *
+   * A region inserted at the same moment as its first message is frequently
+   * missed by screen readers: they only announce changes *inside* a region
+   * they were already observing. Unmounting on empty — which this component
+   * used to do — reintroduces that bug on every toast.
+   */
   return (
-    <div className="toasts">
+    <div className="toasts" aria-live="polite" aria-atomic="false">
       {toasts.map((t) => (
         <ToastItem key={t.id} t={t} onRemove={removeToast} />
       ))}

@@ -146,13 +146,13 @@ export default function CatalogosPage() {
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Producto</th>
-                  <th>Categoría</th>
-                  <th>Precio / Costo</th>
-                  <th>Margen</th>
-                  <th>Stock</th>
-                  <th>Activo</th>
-                  <th></th>
+                  <th scope="col">Producto</th>
+                  <th scope="col">Categoría</th>
+                  <th scope="col">Precio / Costo</th>
+                  <th scope="col">Margen</th>
+                  <th scope="col">Stock</th>
+                  <th scope="col">Activo</th>
+                  <th scope="col"></th>
                 </tr>
               </thead>
               <tbody>

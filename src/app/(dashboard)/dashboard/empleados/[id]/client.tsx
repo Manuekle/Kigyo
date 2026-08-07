@@ -146,10 +146,10 @@ export default function EmpleadoDetailPage() {
           <table className="tbl">
             <thead>
               <tr>
-                <th>Título</th>
-                <th>Área</th>
-                <th>Rol</th>
-                <th>Estado</th>
+                <th scope="col">Título</th>
+                <th scope="col">Área</th>
+                <th scope="col">Rol</th>
+                <th scope="col">Estado</th>
               </tr>
             </thead>
             <tbody>

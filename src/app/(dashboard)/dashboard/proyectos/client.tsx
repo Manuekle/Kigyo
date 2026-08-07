@@ -6,6 +6,7 @@ import type { IconProps } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import TabBar from '@/components/ui/TabBar'
 import { useApp } from '@/lib/context/AppContext'
+import { activatable } from '@/lib/a11y'
 
 interface Proyecto {
   id: string
@@ -110,12 +111,12 @@ export default function ProyectosPage() {
           <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={15} />Nuevo proyecto</button>
         </div>
         <table className="tbl">
-          <thead><tr><th>Proyecto</th><th>Ubicación</th><th>Capacidad</th><th>Avance</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th scope="col">Proyecto</th><th scope="col">Ubicación</th><th scope="col">Capacidad</th><th scope="col">Avance</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay proyectos en esta categoría.</div></td></tr>
             ) : filtered.map(p => (
-              <tr className="trow" key={p.id} style={{ cursor: 'pointer' }} onClick={() => setSelProy(p.id)}>
+              <tr className="trow" key={p.id} style={{ cursor: 'pointer' }} {...activatable(() => setSelProy(p.id), `Abrir proyecto ${p.nombre}`)}>
                 <td>
                   <div className="cename">{p.nombre}</div>
                   <div className="ceid mono">{p.id} · {p.cliente}</div>

@@ -5,6 +5,7 @@ import { Send, Users, Plus, X, CheckCircle, MapPin, Briefcase } from '@/lib/icon
 import { useApp } from '@/lib/context/AppContext'
 import Avatar from '@/components/ui/Avatar'
 import Badge from '@/components/ui/Badge'
+import { activatable } from '@/lib/a11y'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -204,7 +205,7 @@ export default function CanalesPage() {
                   {m.txt && <div className="ch-msg-text">{m.txt}</div>}
 
                   {m.proy && (
-                    <div className="ch-proj" onClick={() => addToast(`Abriendo ${m.proy?.nombre}`, 'ok')}>
+                    <div className="ch-proj" {...activatable(() => addToast(`Abriendo ${m.proy?.nombre}`, 'ok'), `Abrir proyecto ${m.proy?.nombre}`)}>
                       <div className="ch-proj-head">
                         <Briefcase size={14} style={{ color: 'var(--ink2)' }} />
                         <span className="ch-proj-id">{m.proy.id}</span>

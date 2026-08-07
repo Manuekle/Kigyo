@@ -9,6 +9,7 @@ import { useApp } from '@/lib/context/AppContext'
 import { useExport } from '@/lib/hooks/use-export'
 import NuevoTicketModal from '@/components/ui/NuevoTicketModal'
 import TabBar from '@/components/ui/TabBar'
+import { activatable } from '@/lib/a11y'
 
 type TicketItem = {
   id: string
@@ -101,7 +102,7 @@ const aiSugOf = (t: TicketItem) => `Clasificado automáticamente para el área d
 
 function TicketCard({ t, onOpen }: { t: TicketItem; onOpen: (id: string) => void }) {
   return (
-    <div className="tkcard" onClick={() => onOpen(t.id)}>
+    <div className="tkcard" {...activatable(() => onOpen(t.id), `Abrir ticket ${t.id}: ${t.asunto}`)}>
       <div className="tktop">
         <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] }} />{t.area}
@@ -426,12 +427,12 @@ export default function TicketsPage() {
       ) : (
         <div className="card rise d2">
           <table className="tbl">
-            <thead><tr><th>Ticket</th><th>Solicitante</th><th>Área</th><th>Prioridad</th><th>Estado</th><th>Tiempo</th></tr></thead>
+            <thead><tr><th scope="col">Ticket</th><th scope="col">Solicitante</th><th scope="col">Área</th><th scope="col">Prioridad</th><th scope="col">Estado</th><th scope="col">Tiempo</th></tr></thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay tickets.</div></td></tr>
               ) : rows.map((t) => (
-                <tr className="trow" key={t.id} style={{ cursor: 'pointer' }} onClick={() => setSel(t.id)}>
+                <tr className="trow" key={t.id} style={{ cursor: 'pointer' }} {...activatable(() => setSel(t.id), `Abrir ticket ${t.id}: ${t.asunto}`)}>
                   <td><div className="cename" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>{t.asunto}{t.ai && <Sparkles size={13} style={{ color: 'var(--red)' }} />}</div><div className="ceid mono">{t.id}</div></td>
                   <td className="muted">{t.quien}</td>
                   <td><span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] }} />{t.area}</span></td>
