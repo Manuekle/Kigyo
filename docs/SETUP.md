@@ -25,18 +25,36 @@ cada consulta paga esa latencia.
 
 ### 2.2 Aplicar las migraciones
 
+Las migraciones están en `supabase/migrations/`, numeradas y en orden. Crean 58
+tablas, las políticas RLS, los triggers de auditoría y los contadores de rate
+limiting.
+
+**Opción recomendada** — conexión directa, sin CLI ni Docker:
+
+1. Supabase → **Project Settings → Database → Connection string → URI**
+2. Sustituye `[YOUR-PASSWORD]` por la contraseña de la **base de datos**. No es
+   la service-role key; si no la recuerdas, en esa misma pantalla generas otra.
+3. Pégala en `.env.local` como `SUPABASE_DB_URL` y ejecuta:
+
+```bash
+npm run db:push
+```
+
+Cada migración corre en una transacción, así que un fallo a mitad deja la base
+como estaba. Lo aplicado se registra en `supabase_migrations.schema_migrations`
+—la misma tabla que usa la CLI—, de modo que volver a ejecutarlo salta lo ya
+hecho y pasarte a la CLI más adelante sigue funcionando.
+
+**Con la CLI**, si prefieres: necesita un token de cuenta (`supabase login` o
+`SUPABASE_ACCESS_TOKEN`), que es distinto de las claves del proyecto.
+
 ```bash
 npx supabase link --project-ref <tu-project-ref>
 npx supabase db push
 ```
 
-Las migraciones están en `supabase/migrations/`, numeradas y en orden. Crean 58
-tablas, las políticas RLS, los triggers de auditoría y los contadores de rate
-limiting.
-
-Si no puedes usar la CLI, ejecuta cada archivo **en orden** desde el SQL Editor
-del panel de Supabase. El orden importa: la migración 01 define las funciones
-que usan todas las demás.
+**A mano**: ejecuta cada archivo **en orden** desde el SQL Editor del panel. El
+orden importa: la migración 01 define las funciones que usan todas las demás.
 
 **Si ya creaste cuentas antes de aplicar las migraciones**, la 09 las repara.
 `handle_new_user` solo dispara en `INSERT`, así que una cuenta anterior al

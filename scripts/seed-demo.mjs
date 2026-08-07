@@ -36,6 +36,25 @@ function fail(step, error) {
   process.exit(1)
 }
 
+// ─── Schema check ────────────────────────────────────────────────────────────
+// Without it the first insert fails with PostgREST's "Could not find the table
+// 'public.memberships' in the schema cache", which reads like a caching bug
+// rather than "you have not applied the migrations yet".
+
+{
+  const { error } = await db.from('memberships').select('id').limit(1)
+  if (error) {
+    console.error(`
+El esquema no está aplicado en esta base de datos.
+
+  npm run db:push
+
+(o \`npx supabase db push\` si tienes la CLI enlazada). Detalle: ${error.message}
+`)
+    process.exit(1)
+  }
+}
+
 // ─── User + organization ─────────────────────────────────────────────────────
 
 console.log(`→ usuario ${email}`)
