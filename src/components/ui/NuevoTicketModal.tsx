@@ -48,7 +48,7 @@ export default function NuevoTicketModal({ open, onClose }: Props) {
           <input className="field" placeholder="Describe el ticket…" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="fg2">
           <div>
             <div className="flabel">Área</div>
             <Select value={area} onChange={setArea} options={AREAS} />

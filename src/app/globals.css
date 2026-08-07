@@ -33,16 +33,16 @@
 
 :root {
   /* ═══ animation durations ═══ */
-  --resize-dur: 220ms; --resize-ease: ease-out;
+  --resize-dur: 220ms; --resize-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --tabs-dur: 250ms; --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --dropdown-open-dur: 180ms; --dropdown-close-dur: 120ms;
-  --dropdown-pre-scale: 0.96; --dropdown-closing-scale: 0.985;
-  --dropdown-ease: ease-out;
-  --modal-open-dur: 220ms; --modal-close-dur: 140ms;
-  --modal-scale: 0.96; --modal-ease: ease-out;
-  --panel-open-dur: 280ms; --panel-close-dur: 220ms;
-  --panel-translate-y: 24px; --panel-blur: 0px;
-  --panel-ease: ease-out;
+  --dropdown-open-dur: 250ms; --dropdown-close-dur: 150ms;
+  --dropdown-pre-scale: 0.97; --dropdown-closing-scale: 0.99;
+  --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --modal-open-dur: 250ms; --modal-close-dur: 150ms;
+  --modal-scale: 0.96; --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --panel-open-dur: 400ms; --panel-close-dur: 350ms;
+  --panel-translate-y: 24px; --panel-blur: 2px;
+  --panel-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --icon-swap-dur: 180ms; --icon-swap-blur: 2px;
   --icon-swap-start-scale: 0.3; --icon-swap-ease: ease-out;
   --check-opacity-dur: 400ms; --check-rotate-dur: 400ms;
@@ -56,6 +56,27 @@
   --shake-dur-a: 80ms; --shake-dur-b: 60ms;
   --shake-ease: ease-out;
   --revert-hold: 2800ms; --revert-dur: 240ms;
+
+  /* Interactive state changes (hover, focus, selected, press).
+     Enumerated on purpose: with `transition: all`, every breakpoint change
+     animates too, so rotating a phone tweens widths and paddings. */
+  --t-state:
+    background-color 180ms ease-out,
+    border-color 180ms ease-out,
+    color 180ms ease-out,
+    box-shadow 180ms ease-out,
+    opacity 180ms ease-out,
+    transform 180ms ease-out;
+
+  /* ═══ breakpoints (documentation — CSS can't interpolate these into
+     media queries, so the literals below must stay in sync) ═══
+     1024px — sidebar collapses into an overlay drawer
+      760px — single column, compact padding, 16px form text
+      560px — two-up form grids fold to one column */
+
+  /* sidebar drawer */
+  --drawer-open-dur: 260ms; --drawer-close-dur: 200ms;
+  --drawer-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ═══ monochrome palette — Chinese Ink ═══ */
   --bg:       #161616;
@@ -133,7 +154,12 @@
 }
 
 .nrh {
+  /* 100vh is the *largest* viewport on mobile, so with the browser chrome
+     expanded the shell runs past the bottom of the screen — and since this
+     element is `overflow: hidden`, whatever falls off is unreachable.
+     100dvh tracks the visible height; the vh line stays as the fallback. */
   height: 100vh;
+  height: 100dvh;
   display: flex;
   overflow: hidden;
   background: var(--bg);
@@ -151,10 +177,11 @@
   color: inherit;
   outline: none;
 }
+/* Sin border-radius aquí: el outline ya sigue la curva propia del elemento.
+   Fijarlo cuadraba los botones redondos (.ibtn es --rfull) al enfocarlos. */
 .nrh button:focus-visible {
   outline: 2px solid rgba(255,255,255,.30);
   outline-offset: 2px;
-  border-radius: var(--r-sm);
 }
 .nrh input, .nrh textarea { font-family: inherit; }
 .nrh ::selection { background: rgba(255,255,255,.12); }
@@ -229,7 +256,7 @@
   color: var(--ink2);
   font-weight: 400;
   font-size: 13px;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
   text-align: left;
   margin-bottom: 1px;
   position: relative;
@@ -431,7 +458,7 @@
   width: 240px;
   height: 34px;
   color: var(--ink3);
-  transition: all .18s ease-out;
+  transition: var(--t-state);
   border: 1px solid var(--line2);
 }
 button.search { background: var(--bg2); }
@@ -469,12 +496,12 @@ button.search { background: var(--bg2); }
   place-items: center;
   color: var(--ink2);
   position: relative;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
   flex-shrink: 0;
 }
 .ibtn:hover { background: var(--hover); color: var(--ink); }
 .ibtn.on { background: var(--ink); color: var(--bg); }
-.ibtn:active { transform: scale(.95); }
+.ibtn:active { transform: scale(.96); }
 
 .top .ibtn {
   background: transparent;
@@ -489,6 +516,7 @@ button.search { background: var(--bg2); }
   border-color: transparent;
 }
 .top .btn:hover { background: var(--hover); }
+.top-meet { gap: 7px; padding-left: 12px; }
 .ham { display: none; }
 
 .nbell {
@@ -501,10 +529,10 @@ button.search { background: var(--bg2); }
   display: grid;
   place-items: center;
   position: relative;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .nbell:hover { background: var(--hover); color: var(--ink); }
-.nbell:active { transform: scale(.95); }
+.nbell:active { transform: scale(.96); }
 .nbadge2 {
   position: absolute;
   top: -3px;
@@ -530,6 +558,17 @@ button.search { background: var(--bg2); }
   to   { transform: translate(0, 0) scale(1); opacity: 1; }
 }
 .popcatch { position: fixed; inset: 0; z-index: 75; }
+/* The sidebar drawer's scrim is the one catcher that sits *behind* what it
+   dismisses: `.sb` is z-index 60, so the shared z-index 75 would cover the
+   open drawer and swallow every tap on a nav item. */
+.sb-scrim {
+  z-index: 55;
+  background: rgba(0,0,0,.45);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: fade var(--drawer-open-dur) var(--drawer-ease) both;
+}
+@media (prefers-reduced-motion: reduce) { .sb-scrim { animation: none !important; } }
 .notifwrap { position: relative; }
 .notifpanel {
   position: absolute;
@@ -543,9 +582,9 @@ button.search { background: var(--bg2); }
   border: 1px solid var(--line);
   overflow: hidden;
   z-index: 200;
-  animation: popin .18s ease-out both;
+  animation: popin var(--dropdown-open-dur) var(--dropdown-ease) both;
 }
-@keyframes popin { from { opacity: 0; transform: translateY(-4px) scale(.98) } to { opacity: 1; transform: none } }
+@keyframes popin { from { opacity: 0; transform: translateY(-4px) scale(var(--dropdown-pre-scale)) } to { opacity: 1; transform: none } }
 .notifhead {
   display: flex;
   align-items: center;
@@ -578,7 +617,7 @@ button.search { background: var(--bg2); }
   background: transparent;
   border-radius: var(--rfull);
   padding: 6px 14px;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .docchip:hover { color: var(--ink); background: var(--hover); }
 .docchip.on {
@@ -617,7 +656,7 @@ button.search { background: var(--bg2); }
   overflow: hidden;
   z-index: 80;
   padding: 6px;
-  animation: popin .18s ease-out both;
+  animation: popin var(--dropdown-open-dur) var(--dropdown-ease) both;
 }
 
 /* ═══ content panel ═══ */
@@ -662,6 +701,17 @@ button.search { background: var(--bg2); }
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
+/* Standalone toolbar row (filters on the left, actions on the right) for
+   pages that have no card or page header to hang them off. */
+.ptools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.ptools > * { min-width: 0; }
 .h1 { font-size: 26px; font-weight: 700; letter-spacing: -.04em; line-height: 1.1; }
 .psub { color: var(--ink2); font-size: 14px; margin-top: 4px; font-weight: 400; }
 
@@ -681,10 +731,10 @@ button.search { background: var(--bg2); }
   background: var(--bg2);
   flex-shrink: 0;
   white-space: nowrap;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .btn:hover { background: var(--hover); border-color: rgba(255,255,255,.10); }
-.btn:active { transform: scale(.97); }
+.btn:active { transform: scale(.96); }
 .btn:disabled { opacity: .35; cursor: default; transform: none; }
 
 /* Primary — blue */
@@ -698,7 +748,7 @@ button.search { background: var(--bg2); }
   background: linear-gradient(180deg, #4F8CF7, #1D4ED8);
   box-shadow: 0 4px 14px rgba(59,130,246,.35);
 }
-.btn.pri:active, .btn.dark:active { transform: scale(.97); }
+.btn.pri:active, .btn.dark:active { transform: scale(.96); }
 .btn.pri:focus-visible, .btn.dark:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px rgba(59,130,246,.25);
@@ -715,7 +765,7 @@ button.search { background: var(--bg2); }
   background: linear-gradient(180deg, #34D399, #047857);
   box-shadow: 0 4px 14px rgba(16,185,129,.35);
 }
-.btn.success:active { transform: scale(.97); }
+.btn.success:active { transform: scale(.96); }
 
 /* Danger — red */
 .btn.danger {
@@ -728,7 +778,7 @@ button.search { background: var(--bg2); }
   background: linear-gradient(180deg, #F87171, #B91C1C);
   box-shadow: 0 4px 14px rgba(239,68,68,.35);
 }
-.btn.danger:active { transform: scale(.97); }
+.btn.danger:active { transform: scale(.96); }
 
 /* Blue accent — kept for compat */
 .btn.blue {
@@ -741,7 +791,7 @@ button.search { background: var(--bg2); }
   background: linear-gradient(180deg, #4F8CF7, #1D4ED8);
   box-shadow: 0 4px 14px rgba(59,130,246,.35);
 }
-.btn.blue:active { transform: scale(.97); }
+.btn.blue:active { transform: scale(.96); }
 .btn.blue:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,.25); }
 
 /* Ghost — transparent, for icons and toolbars */
@@ -846,12 +896,19 @@ button.search { background: var(--bg2); }
 
 .gkpi {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   gap: 16px;
   margin-bottom: 20px;
   align-items: stretch;
 }
 .gkpi > div { display: flex; flex-direction: column; }
+/* A grid or flex item defaults to `min-width: auto`, so its min-content size
+   becomes the track's floor — one wide table and the whole column grows past
+   the viewport, dragging the page's horizontal scroll with it. Zeroing the
+   floor lets the track follow the container and the overflow stay where it
+   belongs, inside `.tblwrap`. */
+.g2 > *, .g2b > *, .g3 > *, .gkpi > *,
+.riskgrid > *, .reccards > *, .sucgrid > *, .fg2 > *, .optgrid > * { min-width: 0; }
 .g2 { display: grid; grid-template-columns: 1.62fr 1fr; gap: 16px; margin-bottom: 20px; }
 .settingsgrid { grid-template-columns: 200px 1fr; }
 .calgrid { grid-template-columns: 1.3fr 1fr; align-items: start; }
@@ -911,7 +968,7 @@ button.search { background: var(--bg2); }
 .g2b { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
 .g3 {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr));
   gap: 16px;
   align-items: stretch;
 }
@@ -1111,6 +1168,20 @@ button.search { background: var(--bg2); }
 }
 
 /* ═══ table ═══ */
+/* Every `.tbl` is wrapped in this. Without it a wide table widens `.content`,
+   which is the page's only scroll box — so the header, the filters and the
+   toolbar all slide away sideways with the columns. Scoping the overflow to
+   the table keeps the rest of the page put. */
+.tblwrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tblwrap::-webkit-scrollbar { display: none; }
 .tbl { width: 100%; border-collapse: collapse; }
 .tbl th {
   text-align: left;
@@ -1198,7 +1269,7 @@ button.search { background: var(--bg2); }
   height: 42px;
   border-radius: var(--r);
   background: var(--bg2);
-  animation: t-skel-pulse var(--pulse-dur, 1000ms) ease-in-out infinite;
+  animation: t-skel-pulse var(--pulse-dur, 1000ms) linear infinite;
 }
 @media (prefers-reduced-motion: reduce) { .skel { animation: none !important; } }
 .it { font-weight: 600; font-size: 13.5px; letter-spacing: -.02em; }
@@ -1253,7 +1324,7 @@ button.search { background: var(--bg2); }
   padding: 32px 20px;
   text-align: center;
   background: var(--bg2);
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .drop:hover { background: var(--hover); border-color: rgba(255,255,255,.12); }
 .dico {
@@ -1382,7 +1453,7 @@ button.search { background: var(--bg2); }
   background: transparent;
   border-radius: var(--rfull);
   padding: 6px 14px;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .chip:hover { color: var(--ink); background: var(--hover); }
 .chip.on {
@@ -1409,7 +1480,7 @@ button.search { background: var(--bg2); }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .seg button:hover { color: var(--ink); }
 .seg button.on {
@@ -1428,7 +1499,16 @@ button.search { background: var(--bg2); }
   border-radius: var(--rfull);
   background: var(--bg2);
   border: 1px solid var(--line2);
+  /* Eight category tabs are 800px of pill — wider than any phone. The rail
+     scrolls instead of wrapping, because the sliding pill is one absolutely
+     positioned element and has no second line to move to. */
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.tabbar::-webkit-scrollbar { display: none; }
 .tabbar-pill {
   position: absolute;
   top: 4px;
@@ -1472,7 +1552,10 @@ button.search { background: var(--bg2); }
   padding: 4px 2px 28px;
   overflow-x: auto;
   align-items: flex-start;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.board::-webkit-scrollbar { display: none; }
 .col {
   flex: 1;
   min-width: 280px;
@@ -1701,7 +1784,7 @@ button.search { background: var(--bg2); }
   display: inline-grid;
   place-items: center;
   color: #fff;
-  transition: .18s ease-out;
+  transition: var(--t-state);
 }
 .permchk:hover:not(:disabled) { border-color: rgba(255,255,255,.12); }
 .permchk.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
@@ -1727,7 +1810,10 @@ button.search { background: var(--bg2); }
   align-items: center;
   gap: 0;
   min-height: 320px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.orgwrap::-webkit-scrollbar { display: none; }
 .orgnode { display: flex; flex-direction: column; align-items: center; position: relative; }
 .orgcard {
   background: var(--bg2);
@@ -1738,7 +1824,7 @@ button.search { background: var(--bg2); }
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  transition: .18s ease-out;
+  transition: var(--t-state);
   min-width: 150px;
   max-width: 180px;
   cursor: pointer;
@@ -1779,7 +1865,7 @@ button.search { background: var(--bg2); }
 .hix-bar-val { font-size: 11.5px; font-weight: 600; color: var(--ink2); width: 30px; text-align: right; flex-shrink: 0; }
 
 /* ═══ risk center ═══ */
-.riskgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; padding: 20px; }
+.riskgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 16px; padding: 20px; }
 .riskcard {
   background: var(--bg2);
   border-radius: var(--r-lg);
@@ -1788,7 +1874,7 @@ button.search { background: var(--bg2); }
   flex-direction: column;
   gap: 10px;
   border: 1px solid var(--line2);
-  transition: .18s ease-out;
+  transition: var(--t-state);
 }
 .riskcard.sev-alta { border-color: rgba(255,255,255,.10); }
 .riskcard.sev-media { border-color: var(--line); }
@@ -1808,7 +1894,7 @@ button.search { background: var(--bg2); }
 .riskaction { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; color: var(--ink2); flex: 1; min-width: 0; }
 
 /* ═══ recommendation cards ═══ */
-.reccards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.reccards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 16px; }
 .reccard {
   border-radius: var(--r-lg);
   padding: 16px 18px;
@@ -1826,7 +1912,8 @@ button.search { background: var(--bg2); }
 .reccat { font-size: 11px; font-weight: 500; color: var(--ink3); text-transform: uppercase; letter-spacing: .05em; }
 
 /* ═══ talent / skills matrix ═══ */
-.skillmatrix { overflow-x: auto; padding: 0 20px 20px; }
+.skillmatrix { overflow-x: auto; padding: 0 20px 20px; scrollbar-width: none; -ms-overflow-style: none; }
+.skillmatrix::-webkit-scrollbar { display: none; }
 .smtable { border-collapse: separate; border-spacing: 0; width: 100%; }
 .smtable th {
   padding: 9px 8px;
@@ -1841,11 +1928,11 @@ button.search { background: var(--bg2); }
 .smtable td { padding: 6px 8px; text-align: center; }
 .smtable td:first-child { text-align: left; }
 .smtable tr:hover td { background: var(--hover); }
-.smcell { width: 30px; height: 30px; border-radius: var(--r-sm); margin: 0 auto; transition: .18s ease-out; background: var(--line2); }
+.smcell { width: 30px; height: 30px; border-radius: var(--r-sm); margin: 0 auto; transition: var(--t-state); background: var(--line2); }
 .smlegend { display: flex; align-items: center; gap: 14px; padding: 10px 0 0; flex-wrap: wrap; }
 
 /* ═══ succession ═══ */
-.sucgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; padding: 20px; }
+.sucgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 16px; padding: 20px; }
 .succard {
   background: var(--bg2);
   border-radius: var(--r-lg);
@@ -1896,7 +1983,8 @@ button.search { background: var(--bg2); }
 .benchval.best, .benchval.worst { color: var(--ink2); }
 
 /* ═══ employee journey ═══ */
-.jfunnel { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 14px; align-items: flex-start; }
+.jfunnel { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 14px; align-items: flex-start; scrollbar-width: none; -ms-overflow-style: none; }
+.jfunnel::-webkit-scrollbar { display: none; }
 .jstage { flex: 1; min-width: 120px; cursor: pointer; }
 .jbar {
   display: flex;
@@ -1906,7 +1994,7 @@ button.search { background: var(--bg2); }
   border-radius: var(--r);
   font-weight: 600;
   font-size: 13px;
-  transition: .18s ease-out;
+  transition: var(--t-state);
   border: 1px solid var(--line2);
   background: var(--bg2);
 }
@@ -1974,7 +2062,7 @@ input[type="range"].sld::-moz-range-thumb {
   border: 1px solid var(--line);
   border-radius: var(--r);
   padding: 16px;
-  transition: .18s ease-out;
+  transition: var(--t-state);
   background: var(--bg2);
 }
 .simresult.pos, .simresult.neg, .simresult.neu { background: var(--bg2); }
@@ -1993,7 +2081,7 @@ input[type="range"].sld::-moz-range-thumb {
   font-size: 11px;
   font-weight: 500;
   cursor: default;
-  transition: .18s ease-out;
+  transition: var(--t-state);
 }
 .heatcell:hover { transform: scale(1.12); }
 .heatcell.e { visibility: hidden; }
@@ -2086,9 +2174,12 @@ input[type="range"].sld::-moz-range-thumb {
   overflow: hidden;
   border: 1px solid var(--line);
   box-shadow: var(--e4);
-  animation: drawerIn .32s ease-out both;
+  animation: drawerIn var(--panel-open-dur) var(--panel-ease) both;
 }
-@keyframes drawerIn { from { transform: translateX(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes drawerIn {
+  from { transform: translateX(var(--panel-translate-y)); opacity: 0; filter: blur(var(--panel-blur)) }
+  to   { transform: none; opacity: 1; filter: blur(0) }
+}
 .dhead {
   padding: 18px 22px 16px;
   border-bottom: 1px solid var(--line);
@@ -2169,7 +2260,7 @@ input[type="range"].sld::-moz-range-thumb {
   font-size: 12px;
   font-weight: 500;
   color: var(--ink2);
-  transition: .18s ease-out;
+  transition: var(--t-state);
 }
 .qchip:hover { color: var(--ink); background: var(--hover); border-color: var(--line); }
 .qchip svg { color: var(--ink2); flex-shrink: 0; }
@@ -2182,7 +2273,7 @@ input[type="range"].sld::-moz-range-thumb {
   align-items: flex-end;
   gap: 8px;
   border: 1px solid var(--line);
-  transition: .18s ease-out;
+  transition: var(--t-state);
   border-radius: var(--rfull);
 }
 .ainput:focus-within { border-color: rgba(255,255,255,.12); }
@@ -2207,7 +2298,7 @@ input[type="range"].sld::-moz-range-thumb {
   place-items: center;
   color: var(--ink2);
   flex-shrink: 0;
-  transition: .18s ease-out;
+  transition: var(--t-state);
   margin-bottom: 2px;
 }
 .aplus:hover { background: var(--active); color: var(--ink); }
@@ -2276,7 +2367,7 @@ input[type="range"].sld::-moz-range-thumb {
   font-size: 13px;
   font-weight: 500;
   color: var(--ink2);
-  transition: .18s ease-out;
+  transition: var(--t-state);
 }
 .ia-chip:hover {
   border-color: rgba(255,255,255,.12);
@@ -2323,7 +2414,7 @@ input[type="range"].sld::-moz-range-thumb {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--line);
-  transition: all .2s ease-out;
+  transition: var(--t-state);
   box-shadow: var(--e1);
 }
 .ia-box:focus-within {
@@ -2338,7 +2429,7 @@ input[type="range"].sld::-moz-range-thumb {
   color: var(--ink3);
   display: grid;
   place-items: center;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
   flex-shrink: 0;
 }
 .ia-attach:hover { background: var(--hover); color: var(--ink2); }
@@ -2368,7 +2459,7 @@ input[type="range"].sld::-moz-range-thumb {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .ia-go:hover:not(:disabled) { opacity: .85; transform: scale(1.04); }
 .ia-go:disabled { background: var(--line2); color: var(--ink3); cursor: default; }
@@ -2551,7 +2642,7 @@ button.ch-item.on { background: var(--active); color: var(--ink); font-weight: 6
   border-radius: var(--r);
   padding: 10px;
   background: var(--bg2);
-  animation: popin .15s ease-out both;
+  animation: popin var(--dropdown-open-dur) var(--dropdown-ease) both;
 }
 .ch-picker-title { font-size: 11px; font-weight: 700; color: var(--ink2); margin-bottom: 8px; }
 button.ch-pick-item {
@@ -2590,7 +2681,7 @@ button.ch-pick-item.on { background: var(--active); }
   padding: 14px;
   cursor: pointer;
   position: relative;
-  transition: .18s ease-out;
+  transition: var(--t-state);
   background: var(--bg2);
   border: 1px solid var(--line2);
 }
@@ -2609,11 +2700,31 @@ button.ch-pick-item.on { background: var(--active); }
   display: grid;
   place-items: center;
   color: transparent;
-  transition: .18s ease-out;
+  transition: var(--t-state);
 }
 .optcard.on .optcheck { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 
 /* ═══ form fields ═══ */
+/* Two fields side by side. Folds to one column at 560px, where a half-width
+   field is narrower than the label sitting above it. */
+.fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* Store: catalogue beside a sticky cart. */
+.shop-layout { display: flex; gap: 16px; align-items: flex-start; }
+.shop-cart { width: 300px; min-width: 300px; position: sticky; top: 20px; }
+@media (max-width: 900px) {
+  /* Below 900px the cart's fixed 300px eats more than half the row, so it
+     moves under the catalogue and stops sticking. */
+  /* `align-items: flex-start` is a cross-axis rule, so once the row becomes a
+     column it stops meaning "top-aligned" and starts meaning "shrink to fit",
+     which sizes the catalogue to its widest row. */
+  .shop-layout { flex-direction: column; align-items: stretch; }
+  .shop-layout > * { min-width: 0; }
+  .shop-cart { width: 100%; min-width: 0; position: static; }
+}
+
+/* Line-item row: description, quantity, unit cost, add. */
+.lineitem-grid { display: grid; grid-template-columns: 1fr 80px 110px auto; gap: 8px; align-items: end; }
+.lineitem-grid > * { min-width: 0; }
 .flabel {
   display: block;
   font-size: 12px;
@@ -2634,7 +2745,7 @@ button.ch-pick-item.on { background: var(--active); }
   color: var(--ink);
   font-weight: 400;
   font-family: inherit;
-  transition: all .18s ease-out;
+  transition: border-color .18s ease-out, box-shadow .18s ease-out;
 }
 .field::placeholder, .premium-input::placeholder { color: rgba(255,255,255,.35); font-weight: 400; }
 .field:hover, .premium-input:hover { border-color: rgba(255,255,255,.10); }
@@ -2713,7 +2824,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   gap: 2px;
   max-height: 260px;
   overflow-y: auto;
-  animation: popin .18s ease-out both;
+  animation: popin var(--dropdown-open-dur) var(--dropdown-ease) both;
 }
 .nselect-menu::-webkit-scrollbar { display: none; }
 .nselect-item {
@@ -2756,7 +2867,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   background: var(--bg2);
   flex-shrink: 0;
   cursor: pointer;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .role:hover { border-color: rgba(255,255,255,.12); }
 .acc {
@@ -2825,7 +2936,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
 /* ═══ AI composer modal ═══ */
 .modalw { width: 640px; }
 .fbar { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; padding: 8px 0 12px; }
-.fbtn { width: 30px; height: 30px; border-radius: var(--r-sm); display: grid; place-items: center; color: var(--ink2); transition: .18s ease-out; }
+.fbtn { width: 30px; height: 30px; border-radius: var(--r-sm); display: grid; place-items: center; color: var(--ink2); transition: var(--t-state); }
 .fbtn:hover { background: var(--hover); color: var(--ink); }
 .fsep { width: 1px; height: 18px; background: var(--line); margin: 0 4px; }
 .ftxt {
@@ -2851,7 +2962,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   background: var(--bg2);
   border-radius: var(--rfull);
   padding: 7px 12px;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .aipill:hover { background: var(--hover); }
 .editor {
@@ -2886,7 +2997,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   padding: 6px 11px;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2984,7 +3095,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   border-radius: var(--rfull);
   background: rgba(255,255,255,.08);
   position: relative;
-  transition: all .2s ease-out;
+  transition: var(--t-state);
   flex-shrink: 0;
   cursor: pointer;
   border: none;
@@ -2998,7 +3109,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   height: 20px;
   border-radius: 50%;
   background: var(--ink);
-  transition: all .2s ease-out;
+  transition: var(--t-state);
 }
 .sw.on { background: rgba(255,255,255,.20); }
 .sw.on::after { transform: translateX(20px); }
@@ -3074,6 +3185,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
 .landing {
   width: 100%;
   height: 100vh;
+  height: 100dvh;
   flex: 1 1 auto;
   display: block;
   overflow-x: hidden;
@@ -3498,6 +3610,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   position: relative;
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3731,7 +3844,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
 /* features grid */
 .l-features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 16px;
 }
 .l-feature {
@@ -3877,6 +3990,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
 /* ═══ login ═══ */
 .loginwrap {
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   display: flex;
   align-items: center;
@@ -3908,7 +4022,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   cursor: pointer;
   flex-shrink: 0;
   vertical-align: middle;
-  transition: all .18s ease-out;
+  transition: var(--t-state);
 }
 .nrh input[type=checkbox]:hover { border-color: rgba(255,255,255,.14); }
 .nrh input[type=checkbox]:checked {
@@ -4012,26 +4126,122 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
 .rise.d4 { animation-delay: .16s } .rise.d5 { animation-delay: .2s } .rise.d6 { animation-delay: .24s }
 
 /* ═══ responsive ═══ */
+/* ── 1024px — tablet: the sidebar becomes a drawer ──
+   At 768px the fixed 272px rail leaves 496px for the whole app, which is
+   less room than a phone gets. Below 1024 the rail overlays instead, so the
+   page always owns the full width. */
+@media (max-width: 1024px) {
+  .sb {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: min(280px, 84vw);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--bg);
+    transform: translateX(-100%);
+    /* Asymmetric on purpose: the drawer arrives with presence and leaves
+       without ceremony. */
+    transition: transform var(--drawer-close-dur) var(--drawer-ease);
+    box-shadow: var(--e4);
+    will-change: transform;
+  }
+  .sb.open { transform: none; transition-duration: var(--drawer-open-dur); }
+  .ham { display: grid; }
+  .g2b { grid-template-columns: 1fr; }
+  /* The drawer covers the page, so the page must not scroll behind it. */
+  .nrh:has(.sb.open) .content { overflow: hidden; }
+}
+@media (max-width: 1024px) and (prefers-reduced-motion: reduce) {
+  .sb { transition: none !important; }
+}
 @media (max-width: 1080px) { .g2 { grid-template-columns: 1fr; } }
 @media (max-width: 760px) {
-  .sb { position: fixed; left: 0; top: 0; height: 100%; width: min(280px, 84vw); background: var(--bg); transform: translateX(-100%); transition: transform .25s ease-out; box-shadow: var(--e4); }
-  .sb.open { transform: none; }
-  .ham { display: grid; } .search { display: none; } .crumb { display: none; } .tdiv { display: none; }
+  .search { display: none; } .tdiv { display: none; }
   .aitop { padding: 0; width: 38px; height: 38px; } .aitop .lbl { display: none; }
-  .g2b { grid-template-columns: 1fr; }
-  .main { padding: 0; } .content { padding: 16px 14px 40px; } .top { padding: 0 12px; }
+  .main { padding: 0; }
+  .content {
+    padding: 16px 14px 40px;
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  }
+  .top {
+    padding: 0 12px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    gap: 8px;
+  }
+  /* The breadcrumb is the only persistent "where am I" on a phone, so it
+     stays; the Meet button gives up its label instead. */
+  .crumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .top-meet .btn-label { display: none; }
+  .top-meet { padding: 0; width: 34px; gap: 0; }
   .h1 { font-size: 20px; } .phead { margin-bottom: 14px; }
-  .card { /* no overflow — tables flow naturally */ }
+  /* Toolbars in a page or card header wrap onto their own line rather than
+     running off the right edge. */
+  .phead > div:not(.tabbar), .chead > div:not(.tabbar), .ptools > div:not(.tabbar) { flex-wrap: wrap; min-width: 0; }
+  .phead > div:last-child { width: 100%; }
+  .phead .search { width: 100% !important; }
+  /* Fixed-width filter inputs give up their width budget on a phone. */
+  .chead .field, .chead input.field { width: 100% !important; min-width: 0; }
+  .chead > div:last-child:not(.tabbar) { flex: 1 1 100%; }
+  /* Below 16px iOS Safari zooms the page in on focus and never zooms back. */
+  .field, .premium-input, textarea.field, select.field,
+  .nselect-trigger, .search input, .cmdinput input, #ia-input,
+  .contact-field input, .contact-field textarea {
+    font-size: 16px;
+  }
+  /* Six 46px boxes plus their gaps come to 326px — wider than a 320px phone
+     once the card's padding is taken out. */
+  .otp-row { gap: 8px; }
+  .otp-box { width: 100%; min-width: 0; max-width: 46px; }
+  .tblwrap > .tbl { min-width: 600px; }
   .tbl th, .tbl td { padding: 11px 14px; }
-  .gkpi { display: flex; overflow-x: auto; gap: 12px; margin: -8px 0 8px; padding: 8px 0 24px; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; align-items: stretch; }
+  .gkpi { display: flex; overflow-x: auto; gap: 12px; margin: -8px 0 8px; padding: 8px 0 24px; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; align-items: stretch; scrollbar-width: none; -ms-overflow-style: none; }
+  .gkpi::-webkit-scrollbar { display: none; }
   .gkpi > div { flex: 0 0 180px; scroll-snap-align: start; display: flex; flex-direction: column; }
   .gkpi .kpi { min-width: 180px; overflow: hidden; }
   .gkpi .kvs { display: none; }
-  .g3 { display: flex; overflow-x: auto; gap: 12px; margin: -8px 0 -8px; padding: 8px 0 24px; -webkit-overflow-scrolling: touch; align-items: stretch; }
+  .g3 { display: flex; overflow-x: auto; gap: 12px; margin: -8px 0 -8px; padding: 8px 0 24px; -webkit-overflow-scrolling: touch; align-items: stretch; scrollbar-width: none; -ms-overflow-style: none; }
+  .g3::-webkit-scrollbar { display: none; }
   .g3 > div { flex: 0 0 158px; display: flex; flex-direction: column; }
   .g3 .stat { overflow: hidden; }
   .g3.docgrid { display: flex; flex-direction: column; gap: 14px; overflow: visible; margin: 0; padding: 0; }
   .g3.docgrid > div { flex: none; display: block; }
+  .hix { gap: 16px; }
+  .hix-name { width: 108px; }
+  .modal { padding-bottom: env(safe-area-inset-bottom); }
+  /* A 440px side panel inset by 12px leaves 351px of usable width on a
+     phone, so it takes the whole screen instead. */
+  .drawer {
+    top: 0; right: 0; bottom: 0; left: 0;
+    width: 100%; max-width: 100%;
+    border-radius: 0;
+    border: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .toasts { bottom: calc(20px + env(safe-area-inset-bottom)); max-width: calc(100vw - 32px); }
+  .toast { min-width: 0; }
+  .upwrap { right: 16px; left: 16px; bottom: calc(20px + env(safe-area-inset-bottom)); width: auto; max-width: none; }
+}
+
+/* ── 560px — two-up form grids fold ── */
+@media (max-width: 560px) {
+  .fg2, .optgrid { grid-template-columns: 1fr; }
+  /* Description spans the row; quantity and cost share the next one; the
+     button takes its own. */
+  .lineitem-grid { grid-template-columns: 1fr 1fr; }
+  .lineitem-grid > :first-child, .lineitem-grid > .btn { grid-column: 1 / -1; }
+  .l-stats-inner { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── touch: hover-only affordances have no trigger ──
+   `.doc-acts` and `.premove` are revealed on `:hover`, which never fires on
+   a touchscreen — the actions behind them are simply unreachable there. */
+@media (hover: none) {
+  .doc-acts { opacity: 1; }
+  .prow .premove { display: grid; }
 }
 
 /* ═══ printable invoice ═══ */
@@ -4085,10 +4295,10 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
 
 /* ═══ transitions.dev — number pop-in, texts reveal, shimmer ═══ */
 :root {
-  --digit-dur: 500ms; --digit-distance: 8px; --digit-stagger: 60ms; --digit-blur: 2px;
-  --digit-ease: cubic-bezier(0.34, 1.3, 0.64, 1); --digit-dir-x: 0; --digit-dir-y: 1;
-  --stagger-dur: 500ms; --stagger-distance: 14px; --stagger-stagger: 60ms; --stagger-blur: 3px;
-  --stagger-ease: ease-out;
+  --digit-dur: 500ms; --digit-distance: 8px; --digit-stagger: 40ms; --digit-blur: 2px;
+  --digit-ease: cubic-bezier(0.34, 1.36, 0.64, 1); --digit-dir-x: 0; --digit-dir-y: 1;
+  --stagger-dur: 500ms; --stagger-distance: 12px; --stagger-stagger: 40ms; --stagger-blur: 3px;
+  --stagger-ease: ease-in-out;
   --shimmer-dur: 2000ms; --shimmer-base: var(--ink3); --shimmer-highlight: var(--ink2);
   --shimmer-band: 400%; --shimmer-ease: linear;
 }
@@ -4179,7 +4389,7 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
   transition: none !important;
 }
 .t-skel-skeleton.is-pulsing > * {
-  animation: t-skel-pulse var(--pulse-dur) ease-in-out var(--pulse-count);
+  animation: t-skel-pulse var(--pulse-dur) linear var(--pulse-count);
 }
 @keyframes t-skel-pulse {
   0%, 100% { opacity: 1; }
@@ -4191,7 +4401,16 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
    separate trees. Replayed per navigation via a pathname key
    on the wrapper in the dashboard template. */
 .page-reveal {
-  animation: t-page-reveal var(--reveal-dur) var(--reveal-ease) both;
+  /* `backwards`, not `both`. `both` retains the last keyframe, and that
+     keyframe sets `filter: blur(0)` — a filter, even a zero one, makes this
+     element the containing block for every `position: fixed` descendant. The
+     modals, the drawer and the toasts live inside it, so they were being laid
+     out against the page instead of the viewport: on a phone the bottom sheet
+     landed a full screen below the fold. `backwards` still applies the opening
+     keyframe before the animation starts, so there is no flash of unstyled
+     content, and the element drops back to its own (filterless) styles the
+     moment it finishes. */
+  animation: t-page-reveal var(--reveal-dur) var(--reveal-ease) backwards;
 }
 @keyframes t-page-reveal {
   0%   { opacity: 0; filter: blur(var(--reveal-blur)); }
@@ -4251,7 +4470,6 @@ select.field option { font-weight: 500; color: #000; background: #fff; }
 .nrh [role="option"]:focus-visible {
   outline: 2px solid rgba(255,255,255,.55);
   outline-offset: 2px;
-  border-radius: var(--r-sm);
 }
 
 /* Visually hidden but still announced. */

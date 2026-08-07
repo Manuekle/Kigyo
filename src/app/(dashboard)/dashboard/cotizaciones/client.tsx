@@ -308,71 +308,73 @@ export default function CotizacionesPage() {
           {filtered.length === 0 ? (
             <div className="dempty">No hay cotizaciones en esta categoría todavía.</div>
           ) : (
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th scope="col">Referencia</th>
-                  <th scope="col">Cliente · Proyecto</th>
-                  <th scope="col">Tipo</th>
-                  <th scope="col">Monto</th>
-                  <th scope="col">Responsable</th>
-                  <th scope="col">Estado</th>
-                  <th scope="col">Vencimiento</th>
-                  <th scope="col" style={{ textAlign: 'right' }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((quote) => (
-                  <tr
-                    key={quote.id}
-                    className="trow"
-                    onClick={() => setSelected(quote.id)}
-                    style={quote.id === current?.id ? { background: 'var(--blus)' } : undefined}
-                  >
-                    <td>
-                      <div className="cename">{quote.id}</div>
-                      <div className="elsub">{quote.fecha}</div>
-                    </td>
-                    <td>
-                      <div className="cename">{quote.cliente}</div>
-                      <div className="elsub">{quote.proyecto}</div>
-                    </td>
-                    <td className="muted">{quote.tipo}</td>
-                    <td>{cop(quote.monto)}</td>
-                    <td>{quote.responsable}</td>
-                    <td><Badge st={quote.estado} filled /></td>
-                    <td className="muted">{quote.vencimiento}</td>
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {quote.estado === 'Borrador' && (
-                        <button className="btn pri" onClick={() => handleStatus(quote.id, 'Enviada', 'Cotización enviada al cliente')}>
-                          Enviar
-                        </button>
-                      )}
-                      {quote.estado === 'Enviada' && (
-                        <div style={{ display: 'inline-flex', gap: 4 }}>
-                          <button className="btn pri" onClick={() => handleStatus(quote.id, 'Aceptada', 'Cotización aceptada')}>
-                            Aceptar
-                          </button>
-                          <button className="btn" onClick={() => handleStatus(quote.id, 'Rechazado', 'Cotización rechazada')}>
-                            Rechazar
-                          </button>
-                        </div>
-                      )}
-                      {quote.estado === 'Aceptada' && (
-                        <button className="btn pri" onClick={() => addToast('Orden de compra generada automáticamente.', 'ok')}>
-                          Generar OC
-                        </button>
-                      )}
-                      {quote.estado === 'Rechazado' && (
-                        <button className="btn" onClick={() => duplicateQuote(quote)}>
-                          Renegociar
-                        </button>
-                      )}
-                    </td>
+            <div className="tblwrap">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th scope="col">Referencia</th>
+                    <th scope="col">Cliente · Proyecto</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Monto</th>
+                    <th scope="col">Responsable</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Vencimiento</th>
+                    <th scope="col" style={{ textAlign: 'right' }}>Acciones</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filtered.map((quote) => (
+                    <tr
+                      key={quote.id}
+                      className="trow"
+                      onClick={() => setSelected(quote.id)}
+                      style={quote.id === current?.id ? { background: 'var(--blus)' } : undefined}
+                    >
+                      <td>
+                        <div className="cename">{quote.id}</div>
+                        <div className="elsub">{quote.fecha}</div>
+                      </td>
+                      <td>
+                        <div className="cename">{quote.cliente}</div>
+                        <div className="elsub">{quote.proyecto}</div>
+                      </td>
+                      <td className="muted">{quote.tipo}</td>
+                      <td>{cop(quote.monto)}</td>
+                      <td>{quote.responsable}</td>
+                      <td><Badge st={quote.estado} filled /></td>
+                      <td className="muted">{quote.vencimiento}</td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {quote.estado === 'Borrador' && (
+                          <button className="btn pri" onClick={() => handleStatus(quote.id, 'Enviada', 'Cotización enviada al cliente')}>
+                            Enviar
+                          </button>
+                        )}
+                        {quote.estado === 'Enviada' && (
+                          <div style={{ display: 'inline-flex', gap: 4 }}>
+                            <button className="btn pri" onClick={() => handleStatus(quote.id, 'Aceptada', 'Cotización aceptada')}>
+                              Aceptar
+                            </button>
+                            <button className="btn" onClick={() => handleStatus(quote.id, 'Rechazado', 'Cotización rechazada')}>
+                              Rechazar
+                            </button>
+                          </div>
+                        )}
+                        {quote.estado === 'Aceptada' && (
+                          <button className="btn pri" onClick={() => addToast('Orden de compra generada automáticamente.', 'ok')}>
+                            Generar OC
+                          </button>
+                        )}
+                        {quote.estado === 'Rechazado' && (
+                          <button className="btn" onClick={() => duplicateQuote(quote)}>
+                            Renegociar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
@@ -426,7 +428,7 @@ export default function CotizacionesPage() {
                   <span className="barval">{current.probabilidad}%</span>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginTop: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(150px, 100%), 1fr))', gap: 10, marginTop: 8 }}>
                   <div>
                     <div className="elsub">Monto propuesto</div>
                     <div className="cename">{cop(current.monto)}</div>
@@ -500,7 +502,7 @@ export default function CotizacionesPage() {
               <input className="field" value={form.cliente} onChange={(e) => handleInput('cliente', e.target.value)} placeholder="Empresa o proyecto" />
               <label className="elsub">Proyecto</label>
               <input className="field" value={form.proyecto} onChange={(e) => handleInput('proyecto', e.target.value)} placeholder="Resumen corto" />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="fg2">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label className="elsub">Monto estimado</label>
                   <input
@@ -516,7 +518,7 @@ export default function CotizacionesPage() {
                   <input className="field" value={form.vencimiento} onChange={(e) => handleInput('vencimiento', e.target.value)} />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="fg2">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label className="elsub">Tipo de proyecto</label>
                   <Select options={['Comercial','Residencial','Industrial','Rural']} value={form.tipo} onChange={(v) => handleInput('tipo', v)} />

@@ -14,7 +14,7 @@ export default function Loading() {
           {[...Array(4)].map((_, i) => <div key={i} className="skel" style={{ width: 80, height: 36, borderRadius: 999 }} />)}
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(230px, 100%), 1fr))', gap: 12 }}>
         {[...Array(9)].map((_, i) => <div key={i} className="skel" style={{ height: 120, borderRadius: 16 }} />)}
       </div>
     </div>

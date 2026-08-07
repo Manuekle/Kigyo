@@ -89,7 +89,7 @@ export default function Sidebar() {
   return (
     <>
       {sidebarOpen && (
-        <div className="popcatch" onClick={() => setSidebarOpen(false)} />
+        <div className="popcatch sb-scrim" onClick={() => setSidebarOpen(false)} />
       )}
       <aside className={`sb${sidebarOpen ? ' open' : ''}`}>
         <div className="brand">

@@ -399,20 +399,22 @@ export default function DashboardPage() {
             <div className="ctitle">Firmas pendientes</div>
             <button className="clink" onClick={() => go('firmas')}>Ver todo <ChevronRight size={14} /></button>
           </div>
-          <table className="tbl">
-            <tbody>
-              {FIRMAS.filter((f) => f.st !== 'Firmado').map((f) => (
-                <tr className="trow" key={f.id}>
-                  <td>
-                    <div className="cename">{f.name}</div>
-                    <div className="ceid mono">{f.id} · {f.who}</div>
-                  </td>
-                  <td className="muted" style={{ textAlign: 'right' }}>{f.days} d</td>
-                  <td style={{ textAlign: 'right' }}><Badge st={f.st} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tblwrap">
+            <table className="tbl">
+              <tbody>
+                {FIRMAS.filter((f) => f.st !== 'Firmado').map((f) => (
+                  <tr className="trow" key={f.id}>
+                    <td>
+                      <div className="cename">{f.name}</div>
+                      <div className="ceid mono">{f.id} · {f.who}</div>
+                    </td>
+                    <td className="muted" style={{ textAlign: 'right' }}>{f.days} d</td>
+                    <td style={{ textAlign: 'right' }}><Badge st={f.st} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="card rise d6">

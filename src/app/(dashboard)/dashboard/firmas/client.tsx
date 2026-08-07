@@ -263,28 +263,30 @@ export default function FirmasPage() {
     <div className="g2">
       <div className="card rise d1">
         <div className="chead"><div className="ctitle">Documentos para firma</div><span className="kvs">{rows.length} en total</span></div>
-        <table className="tbl">
-          <thead><tr><th scope="col">Documento</th><th scope="col">Empleado</th><th scope="col">Tipo</th><th scope="col">Fecha</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
-          <tbody>
-            {rows.map((f) => (
-              <tr className="trow" key={f.id}>
-                <td><div className="cename">{f.name}</div><div className="ceid mono">{f.id}</div></td>
-                <td className="muted">{f.who}</td>
-                <td className="muted">{f.type}</td>
-                <td className="muted mono" style={{ fontSize: 12 }}>{f.date}</td>
-                <td><Badge st={f.st} /></td>
-                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                    {f.st === 'Pendiente' && (
-                      <button className="btn dark" style={{ fontSize: 11, height: 28 }} onClick={() => openConfirm(f)}><Check size={12} />Firmar</button>
-                    )}
-                    <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Eliminar" onClick={() => { setRows((r) => r.filter((x) => x.id !== f.id)); addToast('Documento eliminado', 'ok') }}><Trash2 size={13} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tblwrap">
+          <table className="tbl">
+            <thead><tr><th scope="col">Documento</th><th scope="col">Empleado</th><th scope="col">Tipo</th><th scope="col">Fecha</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
+            <tbody>
+              {rows.map((f) => (
+                <tr className="trow" key={f.id}>
+                  <td><div className="cename">{f.name}</div><div className="ceid mono">{f.id}</div></td>
+                  <td className="muted">{f.who}</td>
+                  <td className="muted">{f.type}</td>
+                  <td className="muted mono" style={{ fontSize: 12 }}>{f.date}</td>
+                  <td><Badge st={f.st} /></td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                      {f.st === 'Pendiente' && (
+                        <button className="btn dark" style={{ fontSize: 11, height: 28 }} onClick={() => openConfirm(f)}><Check size={12} />Firmar</button>
+                      )}
+                      <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Eliminar" onClick={() => { setRows((r) => r.filter((x) => x.id !== f.id)); addToast('Documento eliminado', 'ok') }}><Trash2 size={13} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

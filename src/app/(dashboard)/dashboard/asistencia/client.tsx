@@ -183,32 +183,34 @@ export default function AsistenciaPage() {
             <div className="ctitle">Registro de ausencias</div>
             <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={14} />Registrar</button>
           </div>
-          <table className="tbl">
-            <thead><tr><th scope="col">Empleado</th><th scope="col">Tipo</th><th scope="col">Desde</th><th scope="col">Días</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
-            <tbody>
-              {ausencias.map((a) => (
-                <tr className="trow" key={a.id}>
-                  <td><div className="cemp"><Avatar name={a.name} size={26} /><div className="cename">{a.name}</div></div></td>
-                  <td className="muted">{a.tipo}</td>
-                  <td className="muted mono" style={{ fontSize: 12 }}>{a.desde}</td>
-                  <td className="muted">{a.dias}d</td>
-                  <td><Badge st={a.st} /></td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      className="ibtn"
-                      style={{ width: 30, height: 30 }}
-                      aria-haspopup="menu"
-                      aria-expanded={menuId === a.id}
-                      aria-label={`Acciones para ${a.name}`}
-                      onClick={(e) => openMenu(a.id, e)}
-                    >
-                      <MoreHorizontal size={15} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead><tr><th scope="col">Empleado</th><th scope="col">Tipo</th><th scope="col">Desde</th><th scope="col">Días</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
+              <tbody>
+                {ausencias.map((a) => (
+                  <tr className="trow" key={a.id}>
+                    <td><div className="cemp"><Avatar name={a.name} size={26} /><div className="cename">{a.name}</div></div></td>
+                    <td className="muted">{a.tipo}</td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{a.desde}</td>
+                    <td className="muted">{a.dias}d</td>
+                    <td><Badge st={a.st} /></td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        className="ibtn"
+                        style={{ width: 30, height: 30 }}
+                        aria-haspopup="menu"
+                        aria-expanded={menuId === a.id}
+                        aria-label={`Acciones para ${a.name}`}
+                        onClick={(e) => openMenu(a.id, e)}
+                      >
+                        <MoreHorizontal size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         {menuId && menuPos && createPortal(
           <>
@@ -303,7 +305,7 @@ export default function AsistenciaPage() {
               <Select value={empSel} onChange={setEmpSel} options={EMPLEADOS.map((e) => e.name)} />
               <div className="flabel">Tipo de ausencia</div>
               <Select value={tipo} onChange={setTipo} options={['Vacaciones', 'Incapacidad', 'Permiso', 'Licencia', 'Otro']} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="fg2">
                 <div><div className="flabel">Desde</div><input className="field" type="date" value={desde} onChange={(e) => setDesde(e.target.value)} /></div>
                 <div><div className="flabel">Hasta</div><input className="field" type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} /></div>
               </div>

@@ -279,46 +279,48 @@ export default function HseqPage() {
           />
         </div>
         <div style={{ maxHeight: 320, overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th scope="col">ID</th>
-                <th scope="col">Tipo · Categoría</th>
-                <th scope="col">Proyecto · Área</th>
-                <th scope="col">Responsable</th>
-                <th scope="col">Prioridad</th>
-                <th scope="col">Estado</th>
-                <th scope="col">Vence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((report) => (
-                <tr
-                  key={report.id}
-                  className="trow"
-                  onClick={() => setSelectedId(report.id)}
-                  style={report.id === selected?.id ? { background: 'var(--blus)' } : undefined}
-                >
-                  <td>
-                    <div className="cename">{report.id}</div>
-                    <div className="elsub">{report.fecha}</div>
-                  </td>
-                  <td>
-                    <div className="cename">{report.tipo}</div>
-                    <div className="elsub">{report.categoria}</div>
-                  </td>
-                  <td>
-                    <div className="cename">{report.proyecto}</div>
-                    <div className="elsub">{report.area}</div>
-                  </td>
-                  <td>{report.responsable}</td>
-                  <td><Badge st={report.prioridad} tone={PRIORITY_TONE[report.prioridad]} /></td>
-                  <td><Badge st={report.status} tone={STATUS_TONE[report.status]} /></td>
-                  <td className="muted">{report.vencimiento}</td>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Tipo · Categoría</th>
+                  <th scope="col">Proyecto · Área</th>
+                  <th scope="col">Responsable</th>
+                  <th scope="col">Prioridad</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Vence</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((report) => (
+                  <tr
+                    key={report.id}
+                    className="trow"
+                    onClick={() => setSelectedId(report.id)}
+                    style={report.id === selected?.id ? { background: 'var(--blus)' } : undefined}
+                  >
+                    <td>
+                      <div className="cename">{report.id}</div>
+                      <div className="elsub">{report.fecha}</div>
+                    </td>
+                    <td>
+                      <div className="cename">{report.tipo}</div>
+                      <div className="elsub">{report.categoria}</div>
+                    </td>
+                    <td>
+                      <div className="cename">{report.proyecto}</div>
+                      <div className="elsub">{report.area}</div>
+                    </td>
+                    <td>{report.responsable}</td>
+                    <td><Badge st={report.prioridad} tone={PRIORITY_TONE[report.prioridad]} /></td>
+                    <td><Badge st={report.status} tone={STATUS_TONE[report.status]} /></td>
+                    <td className="muted">{report.vencimiento}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -466,7 +468,7 @@ export default function HseqPage() {
               ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="fg2">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label className="elsub">Tipo</label>
                 <Select

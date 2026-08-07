@@ -50,7 +50,7 @@ export default function NuevoEmpleadoModal({ open, onClose }: Props) {
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 4 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="fg2">
           <div>
             <div className="flabel">Nombre completo *</div>
             <input className="field" placeholder="Ej: María López" value={name} onChange={(e) => setName(e.target.value)} />
@@ -61,7 +61,7 @@ export default function NuevoEmpleadoModal({ open, onClose }: Props) {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="fg2">
           <div>
             <div className="flabel">Departamento</div>
             <Select value={dept} onChange={setDept} options={DEPTS} />
@@ -72,7 +72,7 @@ export default function NuevoEmpleadoModal({ open, onClose }: Props) {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div className="fg2">
           <div>
             <div className="flabel">Rol / Permisos</div>
             <Select value={perm} onChange={setPerm} options={PERMS} />

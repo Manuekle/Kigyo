@@ -155,7 +155,7 @@ export default function RiesgosPage() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="mhead"><div className="mtitle">Nuevo riesgo</div><button className="ibtn" onClick={() => setAddOpen(false)}><X size={18} /></button></div>
             <div className="mbody">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="fg2">
                 <div>
                   <div className="flabel" style={{ marginTop: 0 }}>Tipo</div>
                   <Select value={rTipo} onChange={setRTipo} options={['Contractual', 'Operacional', 'Cumplimiento', 'Financiero', 'Técnico', 'HSE', 'Otro']} />

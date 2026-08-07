@@ -143,31 +143,33 @@ export default function EmpleadoDetailPage() {
             <span className="ctitle">Tickets relacionados</span>
             <span className="muted">{relatedTickets.length} tickets</span>
           </div>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th scope="col">Título</th>
-                <th scope="col">Área</th>
-                <th scope="col">Rol</th>
-                <th scope="col">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {relatedTickets.map((t) => (
-                <tr key={t.id} className="trow">
-                  <td style={{ fontWeight: 600 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <AlertTriangle size={13} style={{ color: t.prio === 'Alta' ? 'var(--red)' : t.prio === 'Media' ? 'var(--amb)' : 'var(--ink3)', flexShrink: 0 }} />
-                      {t.title}
-                    </div>
-                  </td>
-                  <td className="muted">{t.area}</td>
-                  <td className="muted">{t.req === emp.name ? 'Solicitante' : 'Asignado'}</td>
-                  <td><Badge st={t.st} filled /></td>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Título</th>
+                  <th scope="col">Área</th>
+                  <th scope="col">Rol</th>
+                  <th scope="col">Estado</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {relatedTickets.map((t) => (
+                  <tr key={t.id} className="trow">
+                    <td style={{ fontWeight: 600 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <AlertTriangle size={13} style={{ color: t.prio === 'Alta' ? 'var(--red)' : t.prio === 'Media' ? 'var(--amb)' : 'var(--ink3)', flexShrink: 0 }} />
+                        {t.title}
+                      </div>
+                    </td>
+                    <td className="muted">{t.area}</td>
+                    <td className="muted">{t.req === emp.name ? 'Solicitante' : 'Asignado'}</td>
+                    <td><Badge st={t.st} filled /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

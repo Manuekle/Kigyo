@@ -199,7 +199,7 @@ await upsert('risks', [
 
 await upsert('absences', [
   { code: 'AUS-0001', employee_id: byCode['EMP-0004'], kind: 'Incapacidad', starts_on: day(-3), ends_on: day(4), status: 'Activa', notes: 'Incapacidad médica de 7 días.' },
-  { code: 'AUS-0002', employee_id: byCode['EMP-0005'], kind: 'Vacaciones', starts_on: day(10), ends_on: day(20), status: 'Programada' },
+  { code: 'AUS-0002', employee_id: byCode['EMP-0005'], kind: 'Vacaciones', starts_on: day(10), ends_on: day(20), status: 'Programada', notes: '' },
   { code: 'AUS-0003', employee_id: byCode['EMP-0002'], kind: 'Permiso', starts_on: day(-20), ends_on: day(-20), status: 'Finalizada', notes: 'Cita médica.' },
 ])
 
@@ -208,7 +208,7 @@ await upsert('absences', [
 const at = (offset, hour) => {
   const d = new Date(today)
   d.setDate(d.getDate() + offset)
-  d.setHours(hour, 0, 0, 0)
+  d.setHours(Math.trunc(hour), (hour % 1) * 60, 0, 0)
   return d.toISOString()
 }
 

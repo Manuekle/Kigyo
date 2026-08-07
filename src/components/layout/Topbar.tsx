@@ -33,14 +33,16 @@ export default function Topbar() {
       </button>
 
       <button
-        className="btn"
-        style={{ gap: 7, paddingLeft: 12 }}
+        className="btn top-meet"
+        aria-label="Nueva reunión de Meet"
         onClick={() => window.open('https://meet.google.com/new', '_blank')}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Meet
+        {/* Wrapped so the phone layout can drop the word and keep the icon —
+            a bare text node has nothing for CSS to hide. */}
+        <span className="btn-label">Meet</span>
       </button>
 
       <div className="notifwrap">

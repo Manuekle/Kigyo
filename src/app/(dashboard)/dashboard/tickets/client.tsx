@@ -361,7 +361,7 @@ export default function TicketsPage() {
       </div>
 
       {/* toolbar — sin card wrapper, limpio */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 10, flexWrap: 'wrap' }}>
+      <div className="ptools">
         <TabBar
           value={area}
           onChange={setArea}
@@ -426,23 +426,25 @@ export default function TicketsPage() {
         </div>
       ) : (
         <div className="card rise d2">
-          <table className="tbl">
-            <thead><tr><th scope="col">Ticket</th><th scope="col">Solicitante</th><th scope="col">Área</th><th scope="col">Prioridad</th><th scope="col">Estado</th><th scope="col">Tiempo</th></tr></thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay tickets.</div></td></tr>
-              ) : rows.map((t) => (
-                <tr className="trow" key={t.id} style={{ cursor: 'pointer' }} {...activatable(() => setSel(t.id), `Abrir ticket ${t.id}: ${t.asunto}`)}>
-                  <td><div className="cename" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>{t.asunto}{t.ai && <Sparkles size={13} style={{ color: 'var(--red)' }} />}</div><div className="ceid mono">{t.id}</div></td>
-                  <td className="muted">{t.quien}</td>
-                  <td><span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] }} />{t.area}</span></td>
-                  <td><Prio prio={t.prio} /></td>
-                  <td><Badge st={t.st} /></td>
-                  <td className="muted mono" style={{ fontSize: 12 }}>{t.t}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead><tr><th scope="col">Ticket</th><th scope="col">Solicitante</th><th scope="col">Área</th><th scope="col">Prioridad</th><th scope="col">Estado</th><th scope="col">Tiempo</th></tr></thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay tickets.</div></td></tr>
+                ) : rows.map((t) => (
+                  <tr className="trow" key={t.id} style={{ cursor: 'pointer' }} {...activatable(() => setSel(t.id), `Abrir ticket ${t.id}: ${t.asunto}`)}>
+                    <td><div className="cename" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>{t.asunto}{t.ai && <Sparkles size={13} style={{ color: 'var(--red)' }} />}</div><div className="ceid mono">{t.id}</div></td>
+                    <td className="muted">{t.quien}</td>
+                    <td><span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] }} />{t.area}</span></td>
+                    <td><Prio prio={t.prio} /></td>
+                    <td><Badge st={t.st} /></td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{t.t}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       <TicketDrawer t={selected} onClose={() => setSel(null)} onStatus={setStatus} onUpdate={updateTicket} onDelete={deleteTicket} />

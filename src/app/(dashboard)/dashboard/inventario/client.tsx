@@ -163,66 +163,72 @@ export default function InventarioPage() {
         </div>
 
         {view === 'activos' && (
-          <table className="tbl">
-            <thead><tr><th scope="col">Activo</th><th scope="col">Categoría</th><th scope="col">Asignado a</th><th scope="col">Serial</th><th scope="col">Ingreso</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
-            <tbody>
-              {items.map((it) => (
-                <tr className="trow" key={it.id}>
-                  <td><div className="cename">{it.item}</div><div className="ceid mono">{it.id}</div></td>
-                  <td className="muted">{it.cat}</td>
-                  <td className="muted">{it.who}</td>
-                  <td className="mono muted" style={{ fontSize: 12 }}>{it.serial}</td>
-                  <td className="muted mono" style={{ fontSize: 12 }}>{it.date}</td>
-                  <td><Badge st={it.st} /></td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                      <button className="ibtn" style={{ width: 30, height: 30, borderRadius: 9 }} data-tip="Editar" onClick={() => setEditItem(it)}><PenLine size={14} /></button>
-                      <button className="ibtn" style={{ width: 30, height: 30, borderRadius: 9, color: 'var(--redd)' }} data-tip="Eliminar" onClick={() => deleteItem(it.id)}><Trash2 size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead><tr><th scope="col">Activo</th><th scope="col">Categoría</th><th scope="col">Asignado a</th><th scope="col">Serial</th><th scope="col">Ingreso</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
+              <tbody>
+                {items.map((it) => (
+                  <tr className="trow" key={it.id}>
+                    <td><div className="cename">{it.item}</div><div className="ceid mono">{it.id}</div></td>
+                    <td className="muted">{it.cat}</td>
+                    <td className="muted">{it.who}</td>
+                    <td className="mono muted" style={{ fontSize: 12 }}>{it.serial}</td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{it.date}</td>
+                    <td><Badge st={it.st} /></td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                        <button className="ibtn" style={{ width: 30, height: 30, borderRadius: 9 }} data-tip="Editar" onClick={() => setEditItem(it)}><PenLine size={14} /></button>
+                        <button className="ibtn" style={{ width: 30, height: 30, borderRadius: 9, color: 'var(--redd)' }} data-tip="Eliminar" onClick={() => deleteItem(it.id)}><Trash2 size={14} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {view === 'pedidos' && (
-          <table className="tbl">
-            <thead><tr><th scope="col">Pedido</th><th scope="col">Proveedor</th><th scope="col">Cant.</th><th scope="col">Estimado</th><th scope="col">Solicitado por</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
-            <tbody>
-              {pedidos.map((p) => (
-                <tr className="trow" key={p.id}>
-                  <td><div className="cename">{p.item}</div><div className="ceid mono">{p.id}</div></td>
-                  <td className="muted">{p.proveedor}</td>
-                  <td className="muted">{p.cant}</td>
-                  <td className="muted">{cop(p.cant * p.precioEst)}</td>
-                  <td className="muted">{p.quien}</td>
-                  <td><Badge st={p.st} /></td>
-                  <td style={{ textAlign: 'right' }}>
-                    {p.st === 'Solicitado' && <button className="btn" onClick={() => approvePedido(p.id)}>Aprobar</button>}
-                    {p.st === 'Aprobado' && <button className="btn dark" onClick={() => invoicePedido(p.id)}>Facturar</button>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead><tr><th scope="col">Pedido</th><th scope="col">Proveedor</th><th scope="col">Cant.</th><th scope="col">Estimado</th><th scope="col">Solicitado por</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
+              <tbody>
+                {pedidos.map((p) => (
+                  <tr className="trow" key={p.id}>
+                    <td><div className="cename">{p.item}</div><div className="ceid mono">{p.id}</div></td>
+                    <td className="muted">{p.proveedor}</td>
+                    <td className="muted">{p.cant}</td>
+                    <td className="muted">{cop(p.cant * p.precioEst)}</td>
+                    <td className="muted">{p.quien}</td>
+                    <td><Badge st={p.st} /></td>
+                    <td style={{ textAlign: 'right' }}>
+                      {p.st === 'Solicitado' && <button className="btn" onClick={() => approvePedido(p.id)}>Aprobar</button>}
+                      {p.st === 'Aprobado' && <button className="btn dark" onClick={() => invoicePedido(p.id)}>Facturar</button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {view === 'facturas' && (
-          <table className="tbl">
-            <thead><tr><th scope="col">Factura</th><th scope="col">Proveedor</th><th scope="col">Fecha</th><th scope="col">Total</th><th scope="col">Estado</th></tr></thead>
-            <tbody>
-              {facturas.map((f) => (
-                <tr className="trow" key={f.id} style={{ cursor: 'pointer' }} {...activatable(() => setSelFacturaId(f.id), `Abrir factura ${f.id} de ${f.proveedor}`)}>
-                  <td><div className="cename mono">{f.id}</div><div className="ceid">{f.items.length} {f.items.length === 1 ? 'ítem' : 'ítems'}</div></td>
-                  <td className="muted">{f.proveedor}</td>
-                  <td className="muted mono" style={{ fontSize: 12 }}>{f.fecha}</td>
-                  <td className="cename">{cop(total(f))}</td>
-                  <td><Badge st={f.st} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead><tr><th scope="col">Factura</th><th scope="col">Proveedor</th><th scope="col">Fecha</th><th scope="col">Total</th><th scope="col">Estado</th></tr></thead>
+              <tbody>
+                {facturas.map((f) => (
+                  <tr className="trow" key={f.id} style={{ cursor: 'pointer' }} {...activatable(() => setSelFacturaId(f.id), `Abrir factura ${f.id} de ${f.proveedor}`)}>
+                    <td><div className="cename mono">{f.id}</div><div className="ceid">{f.items.length} {f.items.length === 1 ? 'ítem' : 'ítems'}</div></td>
+                    <td className="muted">{f.proveedor}</td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{f.fecha}</td>
+                    <td className="cename">{cop(total(f))}</td>
+                    <td><Badge st={f.st} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

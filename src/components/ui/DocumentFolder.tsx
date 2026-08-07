@@ -50,14 +50,16 @@ const papers: { z: number; rest: PaperState; hover: PaperState; open: PaperState
 ]
 
 /* ---------- Variants de la lista ---------- */
+/* Un acordeón se lee como un solo movimiento reversible, así que abrir y
+   cerrar comparten duración y curva en lugar de dividirse. */
 const listVariants: Variants = {
   hidden: { height: 0, opacity: 0 },
   show: {
     height: 'auto',
     opacity: 1,
-    transition: { height: { duration: 0.4, ease: [0.4, 0, 0.2, 1] }, staggerChildren: 0.06, delayChildren: 0.14 },
+    transition: { height: { duration: 0.25, ease: [0.22, 1, 0.36, 1] }, staggerChildren: 0.04, delayChildren: 0.08 },
   },
-  exit: { height: 0, opacity: 0, transition: { duration: 0.3, ease: [0.4, 0, 1, 1] } },
+  exit: { height: 0, opacity: 0, transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } },
 }
 const rowVariants: Variants = {
   hidden: { opacity: 0, y: 16 },
@@ -134,7 +136,7 @@ export function DocumentFolder({ title = 'Documentos', documents, onSelect }: Do
                 className="pointer-events-none absolute inset-0"
                 style={{ borderRadius: '1.8rem', background: 'radial-gradient(circle at 50% 100%, #fff, transparent 68%)' }}
                 animate={{ opacity: open || hover ? 0.14 : 0 }}
-                transition={{ duration: 0.4 }}
+                transition={{ duration: 0.25 }}
               />
 
               {/* 3 puntos */}

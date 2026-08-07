@@ -276,40 +276,42 @@ export default function ComprasPage() {
           </div>
         </div>
         <div style={{ maxHeight: 300, overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th scope="col">ID</th>
-                <th scope="col">Proveedor</th>
-                <th scope="col">Proyecto</th>
-                <th scope="col">Categoria</th>
-                <th scope="col">Monto</th>
-                <th scope="col">Estado</th>
-                <th scope="col">Urgencia</th>
-                <th scope="col">Responsable</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((req) => (
-                <tr key={req.id} className="trow" {...activatable(() => setSelectedId(req.id), `Abrir requisición ${req.id}`)} style={req.id === selected?.id ? { background: 'var(--blus)' } : undefined}>
-                  <td>
-                    <div className="cename">{req.id}</div>
-                    <div className="elsub">{req.created}</div>
-                  </td>
-                  <td>{req.provider}</td>
-                  <td>
-                    <div className="cename">{req.project}</div>
-                    <div className="elsub">{req.category}</div>
-                  </td>
-                  <td>{req.category}</td>
-                  <td>{req.amount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
-                  <td><span className={`badge b-${req.status === 'Borrador' ? 'amb' : req.status === 'Pendiente' ? 'amb' : req.status === 'Aprobada' ? 'grn' : 'neu'} ${req.status === 'Borrador' ? 'filled-amb' : req.status === 'Pendiente' ? 'filled-amb' : req.status === 'Aprobada' ? 'filled-grn' : 'filled-neu'}`}><span className="bd" />{req.status}</span></td>
-                  <td>{req.urgency}</td>
-                  <td>{req.owner}</td>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">ID</th>
+                  <th scope="col">Proveedor</th>
+                  <th scope="col">Proyecto</th>
+                  <th scope="col">Categoria</th>
+                  <th scope="col">Monto</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Urgencia</th>
+                  <th scope="col">Responsable</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((req) => (
+                  <tr key={req.id} className="trow" {...activatable(() => setSelectedId(req.id), `Abrir requisición ${req.id}`)} style={req.id === selected?.id ? { background: 'var(--blus)' } : undefined}>
+                    <td>
+                      <div className="cename">{req.id}</div>
+                      <div className="elsub">{req.created}</div>
+                    </td>
+                    <td>{req.provider}</td>
+                    <td>
+                      <div className="cename">{req.project}</div>
+                      <div className="elsub">{req.category}</div>
+                    </td>
+                    <td>{req.category}</td>
+                    <td>{req.amount.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
+                    <td><span className={`badge b-${req.status === 'Borrador' ? 'amb' : req.status === 'Pendiente' ? 'amb' : req.status === 'Aprobada' ? 'grn' : 'neu'} ${req.status === 'Borrador' ? 'filled-amb' : req.status === 'Pendiente' ? 'filled-amb' : req.status === 'Aprobada' ? 'filled-grn' : 'filled-neu'}`}><span className="bd" />{req.status}</span></td>
+                    <td>{req.urgency}</td>
+                    <td>{req.owner}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -412,7 +414,7 @@ export default function ComprasPage() {
           <div className="cpad" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* Datos generales */}
             <div className="elsub" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--ink3)' }}>Datos generales</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div className="fg2">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label className="elsub">Proveedor</label>
                 <input className="field" placeholder="Nombre del proveedor" value={form.provider} onChange={(e) => setForm((prev) => ({ ...prev, provider: e.target.value }))} />
@@ -441,7 +443,7 @@ export default function ComprasPage() {
 
             {/* Ítems */}
             <div className="elsub" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--ink3)' }}>Ítems</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px auto', gap: 8, alignItems: 'end' }}>
+            <div className="lineitem-grid">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label className="elsub">Descripción</label>
                 <input className="field" placeholder="Nombre del ítem" value={form.item} onChange={(e) => setForm((prev) => ({ ...prev, item: e.target.value }))} />
@@ -483,7 +485,7 @@ export default function ComprasPage() {
 
             {/* Catálogo */}
             <div className="elsub" style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--ink3)' }}>Catálogo sugerido</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(160px, 100%), 1fr))', gap: 8 }}>
               {CATALOG.map((item) => (
                 <div key={item.name} className="card" style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ fontWeight: 600, fontSize: 12 }}>{item.name}</div>

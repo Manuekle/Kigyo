@@ -142,7 +142,7 @@ export default function CatalogosPage() {
         {filtered.length === 0 ? (
           <div className="dempty">No se encontraron productos con los filtros actuales.</div>
         ) : (
-          <div style={{ overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="tblwrap">
             <table className="tbl">
               <thead>
                 <tr>
@@ -201,7 +201,7 @@ export default function CatalogosPage() {
             <div className="mbody">
               <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
               <input className="field" placeholder="Nombre del producto" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="fg2">
                 <div>
                   <div className="flabel">Categoría</div>
                   <Select options={CATS} value={form.categoria} onChange={v => setForm(p => ({ ...p, categoria: v }))} />
@@ -211,7 +211,7 @@ export default function CatalogosPage() {
                   <Select options={UNIDADES} value={form.unidad} onChange={v => setForm(p => ({ ...p, unidad: v }))} />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="fg2">
                 <div>
                   <div className="flabel">Precio venta</div>
                   <input className="field" type="number" placeholder="0" value={form.precio} onChange={e => setForm(p => ({ ...p, precio: e.target.value }))} />
@@ -221,7 +221,7 @@ export default function CatalogosPage() {
                   <input className="field" type="number" placeholder="0" value={form.costo} onChange={e => setForm(p => ({ ...p, costo: e.target.value }))} />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="fg2">
                 <div>
                   <div className="flabel">Stock</div>
                   <input className="field" type="number" placeholder="0" value={form.stock} onChange={e => setForm(p => ({ ...p, stock: e.target.value }))} />
@@ -250,7 +250,7 @@ export default function CatalogosPage() {
             <div className="mbody">
               <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
               <input className="field" placeholder="Nombre del producto" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="fg2">
                 <div>
                   <div className="flabel">Categoría</div>
                   <Select options={CATS} value={form.categoria} onChange={v => setForm(p => ({ ...p, categoria: v }))} />
@@ -260,7 +260,7 @@ export default function CatalogosPage() {
                   <Select options={UNIDADES} value={form.unidad} onChange={v => setForm(p => ({ ...p, unidad: v }))} />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="fg2">
                 <div>
                   <div className="flabel">Precio venta</div>
                   <input className="field" type="number" placeholder="0" value={form.precio} onChange={e => setForm(p => ({ ...p, precio: e.target.value }))} />
@@ -270,7 +270,7 @@ export default function CatalogosPage() {
                   <input className="field" type="number" placeholder="0" value={form.costo} onChange={e => setForm(p => ({ ...p, costo: e.target.value }))} />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="fg2">
                 <div>
                   <div className="flabel">Stock</div>
                   <input className="field" type="number" placeholder="0" value={form.stock} onChange={e => setForm(p => ({ ...p, stock: e.target.value }))} />

@@ -148,23 +148,25 @@ export default function EmpleadosPage() {
           )}
         </div>
         {view === 'directorio' ? (
-          <table className="tbl">
-            <thead><tr><th scope="col">Empleado</th><th scope="col">Cargo</th><th scope="col">Departamento</th><th scope="col">Ubicación</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
-            <tbody>
-              {rows.length === 0 ? (
-                <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No se encontraron empleados para &quot;{q}&quot;.</div></td></tr>
-              ) : rows.map((e) => (
-                <tr className="trow" key={e.id} style={{ cursor: 'pointer' }} {...activatable(() => openEmpleado(e), `Ver perfil de ${e.name}`)}>
-                  <td><div className="cemp"><Avatar name={e.name} /><div><div className="cename">{e.name}</div><div className="ceid mono">{e.id}</div></div></div></td>
-                  <td className="muted">{e.role}</td>
-                  <td className="muted">{e.dept}</td>
-                  <td className="muted">{e.loc}</td>
-                  <td><Badge st={e.st} /></td>
-                  <td style={{ textAlign: 'right' }}><ChevronRight size={16} color="#c4c4cc" /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead><tr><th scope="col">Empleado</th><th scope="col">Cargo</th><th scope="col">Departamento</th><th scope="col">Ubicación</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No se encontraron empleados para &quot;{q}&quot;.</div></td></tr>
+                ) : rows.map((e) => (
+                  <tr className="trow" key={e.id} style={{ cursor: 'pointer' }} {...activatable(() => openEmpleado(e), `Ver perfil de ${e.name}`)}>
+                    <td><div className="cemp"><Avatar name={e.name} /><div><div className="cename">{e.name}</div><div className="ceid mono">{e.id}</div></div></div></td>
+                    <td className="muted">{e.role}</td>
+                    <td className="muted">{e.dept}</td>
+                    <td className="muted">{e.loc}</td>
+                    <td><Badge st={e.st} /></td>
+                    <td style={{ textAlign: 'right' }}><ChevronRight size={16} color="#c4c4cc" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="orgwrap">
             <div className="orgmetasel">

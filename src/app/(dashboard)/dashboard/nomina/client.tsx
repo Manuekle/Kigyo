@@ -145,26 +145,28 @@ export default function NominaPage() {
           <div className="ctitle">Costo por departamento</div>
           <button disabled={exporting} aria-busy={exporting} className="btn ghost" onClick={exportNomina}><FileSpreadsheet size={15} />Exportar</button>
         </div>
-        <table className="tbl">
-          <thead><tr><th scope="col">Área</th><th scope="col">Personas</th><th scope="col">Costo mensual</th><th scope="col">Costo / persona</th></tr></thead>
-          <tbody>
-            {areas.map((a) => (
-              <tr className="trow" key={a.area}>
-                <td className="cename">{a.area}</td>
-                <td className="muted">{a.personas}</td>
-                <td className="cename" style={{ cursor: 'pointer' }} onClick={() => { setEditArea(a.area); setEditVal(String(a.costo)) }}>
-                  {editArea === a.area ? (
-                    <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-                      <input style={{ width: 110, height: 28, padding: '0 10px', fontSize: 12, borderRadius: 'var(--r-sm)', background: 'var(--bg2)', border: '1px solid var(--line)', outline: 'none', color: 'var(--ink)', fontFamily: 'inherit' }} type="number" value={editVal} onChange={e => setEditVal(e.target.value)} autoFocus onKeyDown={e => e.key === 'Enter' && updateCosto(a.area)} />
-                      <button className="ibtn" style={{ width: 24, height: 24 }} onClick={() => updateCosto(a.area)}><Check size={12} /></button>
-                    </span>
-                  ) : cop(a.costo)}
-                </td>
-                <td className="muted">{cop(Math.round(a.costo / a.personas))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tblwrap">
+          <table className="tbl">
+            <thead><tr><th scope="col">Área</th><th scope="col">Personas</th><th scope="col">Costo mensual</th><th scope="col">Costo / persona</th></tr></thead>
+            <tbody>
+              {areas.map((a) => (
+                <tr className="trow" key={a.area}>
+                  <td className="cename">{a.area}</td>
+                  <td className="muted">{a.personas}</td>
+                  <td className="cename" style={{ cursor: 'pointer' }} onClick={() => { setEditArea(a.area); setEditVal(String(a.costo)) }}>
+                    {editArea === a.area ? (
+                      <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                        <input style={{ width: 110, height: 28, padding: '0 10px', fontSize: 12, borderRadius: 'var(--r-sm)', background: 'var(--bg2)', border: '1px solid var(--line)', outline: 'none', color: 'var(--ink)', fontFamily: 'inherit' }} type="number" value={editVal} onChange={e => setEditVal(e.target.value)} autoFocus onKeyDown={e => e.key === 'Enter' && updateCosto(a.area)} />
+                        <button className="ibtn" style={{ width: 24, height: 24 }} onClick={() => updateCosto(a.area)}><Check size={12} /></button>
+                      </span>
+                    ) : cop(a.costo)}
+                  </td>
+                  <td className="muted">{cop(Math.round(a.costo / a.personas))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       {benefOpen && (
         <div className="mwrap" onClick={() => setBenefOpen(false)}>

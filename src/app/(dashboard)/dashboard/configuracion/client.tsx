@@ -341,7 +341,7 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
             <div className="ctitle" style={{ marginBottom: 6 }}>Permisos por rol</div>
             <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 14 }}>Define qué módulos puede ver y gestionar cada nivel de la organización.</div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 14, marginBottom: 24 }}>
               {ROLES.map((r) => (
                 <div key={r} className="card" style={{ padding: 16, background: 'var(--bg)', borderColor: 'var(--line2)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--line2)' }}>

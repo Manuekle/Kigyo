@@ -73,25 +73,27 @@ export default function ConsultoriaPage() {
             <div className="ctitle">Solicitudes de consultoría</div>
             <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={15} />Nueva consulta</button>
           </div>
-          <table className="tbl">
-            <thead><tr><th scope="col">Tema</th><th scope="col">Solicitante</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
-            <tbody>
-              {consultas.map(c => (
-                <tr className="trow" key={c.id}>
-                  <td><div className="cename">{c.tema}</div><div className="ceid mono">{c.id} · {c.date}</div></td>
-                  <td className="muted">{c.quien}</td>
-                  <td><Badge st={c.st} /></td>
-                  <td style={{ textAlign: 'right' }}>
-                    {c.st !== 'Resuelta' && (
-                      <button className="btn" onClick={() => advanceSt(c.id)}>
-                        {c.st === 'Agendada' ? 'Iniciar' : 'Resolver'}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead><tr><th scope="col">Tema</th><th scope="col">Solicitante</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
+              <tbody>
+                {consultas.map(c => (
+                  <tr className="trow" key={c.id}>
+                    <td><div className="cename">{c.tema}</div><div className="ceid mono">{c.id} · {c.date}</div></td>
+                    <td className="muted">{c.quien}</td>
+                    <td><Badge st={c.st} /></td>
+                    <td style={{ textAlign: 'right' }}>
+                      {c.st !== 'Resuelta' && (
+                        <button className="btn" onClick={() => advanceSt(c.id)}>
+                          {c.st === 'Agendada' ? 'Iniciar' : 'Resolver'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="card cpad rise d2" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -102,7 +104,7 @@ export default function ConsultoriaPage() {
           <p style={{ color: 'var(--ink2)', fontSize: 13.5, margin: 0, lineHeight: 1.55 }}>
             Acompañamiento en licencias ambientales, regulación CREG/UPME, RETIE y normativa del sector energético colombiano.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, borderTop: '1px solid var(--line2)', paddingTop: 14 }}>
+          <div className="fg2" style={{ gap: 14, borderTop: '1px solid var(--line2)', paddingTop: 14 }}>
             <div><div className="kvs">Tiempo de respuesta</div><div style={{ fontWeight: 800, fontSize: 16, marginTop: 3, letterSpacing: '-.04em' }}>24 h hábiles</div></div>
             <div><div className="kvs">Consultas este mes</div><div style={{ fontWeight: 800, fontSize: 16, marginTop: 3, letterSpacing: '-.04em' }}>{consultas.length}</div></div>
           </div>

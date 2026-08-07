@@ -27,7 +27,15 @@ export default function TabBar({ items, value, onChange, className = '', style }
     if (!root || !pill || idx < 0) return
     const btn = root.querySelectorAll<HTMLButtonElement>('.tabbar-tab')[idx]
     if (!btn) return
+    // `offsetLeft` is measured against `.tabbar` itself, so the pill stays
+    // aligned no matter how far the rail is scrolled.
     const apply = () => { pill.style.transform = `translateX(${btn.offsetLeft}px)`; pill.style.width = `${btn.offsetWidth}px` }
+    // On a narrow screen the rail scrolls, and the tab just selected can sit
+    // outside the visible slice.
+    if (animate) {
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      btn.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduced ? 'auto' : 'smooth' })
+    }
     if (!animate) {
       const prev = pill.style.transition
       pill.style.transition = 'none'

@@ -110,31 +110,33 @@ export default function ProyectosPage() {
           />
           <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={15} />Nuevo proyecto</button>
         </div>
-        <table className="tbl">
-          <thead><tr><th scope="col">Proyecto</th><th scope="col">Ubicación</th><th scope="col">Capacidad</th><th scope="col">Avance</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay proyectos en esta categoría.</div></td></tr>
-            ) : filtered.map(p => (
-              <tr className="trow" key={p.id} style={{ cursor: 'pointer' }} {...activatable(() => setSelProy(p.id), `Abrir proyecto ${p.nombre}`)}>
-                <td>
-                  <div className="cename">{p.nombre}</div>
-                  <div className="ceid mono">{p.id} · {p.cliente}</div>
-                </td>
-                <td><div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={13} style={{ flexShrink: 0 }} /><span className="muted">{p.ubicacion}</span></div></td>
-                <td className="muted">{p.capacidad}</td>
-                <td style={{ minWidth: 130 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div className="bartrack" style={{ flex: 1 }}><div className="barfill" style={{ width: `${p.progreso}%`, background: p.progreso === 100 ? 'var(--grn)' : 'var(--blu)' }} /></div>
-                    <span className="elsub" style={{ fontWeight: 600, flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{p.progreso}%</span>
-                  </div>
-                </td>
-                <td><Badge st={p.st} filled /></td>
-                <td style={{ textAlign: 'right' }}><ChevronRight size={16} color="#c4c4cc" /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="tblwrap">
+          <table className="tbl">
+            <thead><tr><th scope="col">Proyecto</th><th scope="col">Ubicación</th><th scope="col">Capacidad</th><th scope="col">Avance</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay proyectos en esta categoría.</div></td></tr>
+              ) : filtered.map(p => (
+                <tr className="trow" key={p.id} style={{ cursor: 'pointer' }} {...activatable(() => setSelProy(p.id), `Abrir proyecto ${p.nombre}`)}>
+                  <td>
+                    <div className="cename">{p.nombre}</div>
+                    <div className="ceid mono">{p.id} · {p.cliente}</div>
+                  </td>
+                  <td><div style={{ display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={13} style={{ flexShrink: 0 }} /><span className="muted">{p.ubicacion}</span></div></td>
+                  <td className="muted">{p.capacidad}</td>
+                  <td style={{ minWidth: 130 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="bartrack" style={{ flex: 1 }}><div className="barfill" style={{ width: `${p.progreso}%`, background: p.progreso === 100 ? 'var(--grn)' : 'var(--blu)' }} /></div>
+                      <span className="elsub" style={{ fontWeight: 600, flexShrink: 0, minWidth: 32, textAlign: 'right' }}>{p.progreso}%</span>
+                    </div>
+                  </td>
+                  <td><Badge st={p.st} filled /></td>
+                  <td style={{ textAlign: 'right' }}><ChevronRight size={16} color="#c4c4cc" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Drawer detalle */}
@@ -212,7 +214,7 @@ export default function ProyectosPage() {
                   <button key={t} className={`chip ${nuevo.tipo === t ? 'on' : ''}`} onClick={() => setNuevo(n => ({ ...n, tipo: t }))}>{t}</button>
                 ))}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="fg2">
                 <div><div className="flabel">Capacidad</div><input className="field" placeholder="Ej. 150 kWp" value={nuevo.capacidad} onChange={e => setNuevo(n => ({ ...n, capacidad: e.target.value }))} /></div>
                 <div><div className="flabel">Presupuesto estimado</div><input className="field" type="number" placeholder="0" value={nuevo.presupuesto} onChange={e => setNuevo(n => ({ ...n, presupuesto: e.target.value }))} /></div>
               </div>

@@ -85,30 +85,32 @@ export default function OCPage() {
           </div>
         </div>
         <div style={{ maxHeight: 280, overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th scope="col">ID · Fecha</th>
-                <th scope="col">Proveedor</th>
-                <th scope="col">Proyecto</th>
-                <th scope="col">Total</th>
-                <th scope="col">Estado</th>
-                <th scope="col">Vence</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(oc => (
-                <tr key={oc.id} className="trow" {...activatable(() => setSelId(oc.id), `Abrir orden de compra ${oc.id}`)} style={oc.id === sel?.id ? { background: 'var(--blus)' } : undefined}>
-                  <td><div className="cename">{oc.id}</div><div className="elsub">{oc.fecha}</div></td>
-                  <td>{oc.proveedor}</td>
-                  <td>{oc.proyecto}</td>
-                  <td>{oc.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
-                  <td><span className={`badge b-${oc.status === 'Aprobada' ? 'grn' : oc.status === 'Pendiente' ? 'amb' : oc.status === 'Recibida' ? 'blu' : 'neu'} ${oc.status === 'Aprobada' ? 'filled-grn' : oc.status === 'Pendiente' ? 'filled-amb' : oc.status === 'Recibida' ? 'filled-blu' : 'filled-neu'}`}><span className="bd" />{oc.status}</span></td>
-                  <td className="muted">{oc.vencimiento}</td>
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">ID · Fecha</th>
+                  <th scope="col">Proveedor</th>
+                  <th scope="col">Proyecto</th>
+                  <th scope="col">Total</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Vence</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(oc => (
+                  <tr key={oc.id} className="trow" {...activatable(() => setSelId(oc.id), `Abrir orden de compra ${oc.id}`)} style={oc.id === sel?.id ? { background: 'var(--blus)' } : undefined}>
+                    <td><div className="cename">{oc.id}</div><div className="elsub">{oc.fecha}</div></td>
+                    <td>{oc.proveedor}</td>
+                    <td>{oc.proyecto}</td>
+                    <td>{oc.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</td>
+                    <td><span className={`badge b-${oc.status === 'Aprobada' ? 'grn' : oc.status === 'Pendiente' ? 'amb' : oc.status === 'Recibida' ? 'blu' : 'neu'} ${oc.status === 'Aprobada' ? 'filled-grn' : oc.status === 'Pendiente' ? 'filled-amb' : oc.status === 'Recibida' ? 'filled-blu' : 'filled-neu'}`}><span className="bd" />{oc.status}</span></td>
+                    <td className="muted">{oc.vencimiento}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
       <div className="g2">

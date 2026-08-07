@@ -119,7 +119,7 @@ export default function TiendaPage() {
         <div className="rise d4"><Stat icon={<ShoppingCart size={16} />} tone="amb" label="Stock bajo" value={stats.bajo + stats.agotado} sub={`${stats.bajo} bajo · ${stats.agotado} agotado`} /></div>
       </div>
 
-      <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+      <div className="shop-layout">
         {/* Catálogo */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="card rise d1">
@@ -143,7 +143,7 @@ export default function TiendaPage() {
               <div className="dempty">No se encontraron productos con los filtros actuales.</div>
             ) : (
               <div style={{ padding: 16 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(220px, 100%), 1fr))', gap: 12 }}>
                   {filtered.map(p => (
                     <div key={p.id} className="card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <div style={{ fontSize: 32, textAlign: 'center', lineHeight: 1 }}>{p.imagen}</div>
@@ -169,7 +169,7 @@ export default function TiendaPage() {
         </div>
 
         {/* Carrito */}
-        <div className="card" style={{ width: 300, minWidth: 300, position: 'sticky', top: 20 }}>
+        <div className="card shop-cart">
           <div className="chead">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <ShoppingCart size={15} />
