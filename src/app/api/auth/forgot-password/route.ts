@@ -1,28 +1,37 @@
-import { NextResponse } from 'next/server'
-import { generateOtp } from '@/lib/otp-store'
+import { publicRoute } from '@/lib/api/handler'
+import { RATE_LIMITS } from '@/lib/api/rate-limit'
+import { createClient } from '@/lib/supabase/server'
+import { forgotPasswordSchema } from '@/lib/validation/auth'
 
-export async function POST(req: Request) {
-  const { email } = await req.json()
+/**
+ * Starts password recovery.
+ *
+ * Supabase sends the email. The account's recovery template must render
+ * `{{ .Token }}` — the six-digit code the existing OtpInput expects — rather
+ * than only `{{ .ConfirmationURL }}`. See docs/SETUP.md.
+ *
+ * What this replaces: a handler that generated the code itself, stored it in a
+ * module-level `Map` that did not survive a cold start, and returned it in the
+ * response body outside production.
+ */
+export const POST = publicRoute({
+  body: forgotPasswordSchema,
+  rateLimit: RATE_LIMITS.passwordReset,
+  rateLimitSubject: (body) => body.email,
+  async handler({ body }) {
+    const supabase = await createClient()
 
-  if (!email || typeof email !== 'string') {
-    return NextResponse.json({ error: 'Ingresa un correo válido.' }, { status: 400 })
-  }
+    const { error } = await supabase.auth.resetPasswordForEmail(body.email)
 
-  const { code, limited } = generateOtp(email)
+    if (error) {
+      // Logged, never surfaced. Reporting "no account with that email" here
+      // is a free membership oracle, so the response is identical either way.
+      console.error('[auth] resetPasswordForEmail failed', error.message)
+    }
 
-  if (limited) {
-    return NextResponse.json(
-      { error: 'Demasiadas solicitudes. Intenta de nuevo en unos minutos.' },
-      { status: 429 },
-    )
-  }
-
-  // No email provider is wired into this project — in production this code
-  // would be dispatched via email, never returned in the response body.
-  console.log(`[demo] OTP para ${email}: ${code}`)
-
-  return NextResponse.json({
-    ok: true,
-    devOtp: process.env.NODE_ENV !== 'production' ? code : undefined,
-  })
-}
+    return {
+      ok: true,
+      message: 'Si existe una cuenta con ese correo, enviamos un código de 6 dígitos.',
+    }
+  },
+})

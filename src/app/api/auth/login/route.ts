@@ -1,27 +1,46 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { publicRoute } from '@/lib/api/handler'
+import { RATE_LIMITS } from '@/lib/api/rate-limit'
+import { ApiError } from '@/lib/api/errors'
+import { createClient } from '@/lib/supabase/server'
+import { loginSchema } from '@/lib/validation/auth'
 
-export async function POST(req: Request) {
-  const { email, password } = await req.json()
+/**
+ * Sign in.
+ *
+ * What this replaces: a handler that accepted any email and any password and
+ * issued the constant cookie `wb-session=wb-demo-token`, which the proxy then
+ * accepted purely on presence. Anyone could set that cookie by hand.
+ */
+export const POST = publicRoute({
+  body: loginSchema,
+  rateLimit: RATE_LIMITS.login,
+  rateLimitSubject: (body) => body.email,
+  async handler({ body }) {
+    const supabase = await createClient()
 
-  if (!email || !password) {
-    return NextResponse.json({ error: 'Completa todos los campos.' }, { status: 400 })
-  }
+    const { error } = await supabase.auth.signInWithPassword({
+      email: body.email,
+      password: body.password,
+    })
 
-  const jar = await cookies()
-  jar.set('wb-session', 'wb-demo-token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 7,
-    path: '/',
-    sameSite: 'lax',
-  })
+    if (error) {
+      // One message for "no such account" and "wrong password" alike. Any
+      // difference between the two turns this endpoint into a way to
+      // enumerate which emails are registered.
+      throw new ApiError(401, 'Credenciales inválidas', {
+        type: 'kigyo:invalid-credentials',
+        detail: 'Correo o contraseña incorrectos.',
+      })
+    }
 
-  return NextResponse.json({ ok: true })
-}
+    return { ok: true }
+  },
+})
 
+/** Sign out. Clears the session cookies through the SSR client. */
 export async function DELETE() {
-  const jar = await cookies()
-  jar.delete('wb-session')
-  return NextResponse.json({ ok: true })
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  return NextResponse.json({ ok: true }, { headers: { 'cache-control': 'no-store' } })
 }

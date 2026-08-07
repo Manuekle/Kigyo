@@ -1,26 +1,58 @@
-import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { publicRoute } from '@/lib/api/handler'
+import { RATE_LIMITS } from '@/lib/api/rate-limit'
+import { ApiError } from '@/lib/api/errors'
+import { createClient } from '@/lib/supabase/server'
+import { serverEnv } from '@/lib/env'
+import { registerSchema } from '@/lib/validation/auth'
 
-export async function POST(req: Request) {
-  const { name, email, company, password } = await req.json()
+/**
+ * Sign up.
+ *
+ * The organization and the Administrador membership are created by the
+ * `handle_new_user` trigger on `auth.users`, not here — that keeps account
+ * creation and tenant creation in one transaction, so a crash between the two
+ * cannot leave an account with no organization.
+ */
+export const POST = publicRoute({
+  body: registerSchema,
+  rateLimit: RATE_LIMITS.register,
+  rateLimitSubject: (body) => body.email,
+  async handler({ body }) {
+    const supabase = await createClient()
+    const env = serverEnv()
 
-  if (!name || !email || !password) {
-    return NextResponse.json({ error: 'Completa todos los campos requeridos.' }, { status: 400 })
-  }
-  if (password.length < 8) {
-    return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 })
-  }
+    const { data, error } = await supabase.auth.signUp({
+      email: body.email,
+      password: body.password,
+      options: {
+        // Read by handle_new_user() to name the organization.
+        data: {
+          full_name: body.name,
+          company: body.company?.trim() || body.name,
+        },
+        emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`,
+      },
+    })
 
-  void company
+    if (error) {
+      // Supabase reports an already-registered address as a distinct error.
+      // Surfacing it would let anyone test which emails have accounts, so it
+      // is folded into the generic case and the response below is identical.
+      if (error.status && error.status >= 500) {
+        throw new ApiError(503, 'Servicio no disponible', {
+          type: 'kigyo:upstream',
+          detail: 'No pudimos crear la cuenta ahora mismo. Intenta de nuevo en unos minutos.',
+        })
+      }
+      return { ok: true, requiresEmailConfirmation: true }
+    }
 
-  const jar = await cookies()
-  jar.set('wb-session', 'wb-demo-token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 7,
-    path: '/',
-    sameSite: 'lax',
-  })
-
-  return NextResponse.json({ ok: true })
-}
+    // With email confirmation enabled, `session` is null until the link is
+    // opened. The client uses this to decide between routing to the dashboard
+    // and showing "check your inbox".
+    return {
+      ok: true,
+      requiresEmailConfirmation: data.session === null,
+    }
+  },
+})

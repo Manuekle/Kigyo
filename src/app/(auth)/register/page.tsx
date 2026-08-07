@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff } from '@/lib/icons'
+import { Eye, EyeOff, CheckCircle } from '@/lib/icons'
+import { apiFetch, errorMessage } from '@/lib/api/client'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -15,6 +16,7 @@ export default function RegisterPage() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [checkInbox, setCheckInbox] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,22 +37,51 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, company, email, password }),
-      })
-      if (!res.ok) {
-        const data = await res.json()
-        setError(data.error ?? 'No se pudo crear la cuenta.')
-      } else {
-        router.push('/dashboard')
+      const result = await apiFetch<{ ok: true; requiresEmailConfirmation: boolean }>(
+        '/api/auth/register',
+        { method: 'POST', body: JSON.stringify({ name, company, email, password }) },
+      )
+
+      // With email confirmation on, there is no session yet — routing to the
+      // dashboard would just bounce back to /login.
+      if (result.requiresEmailConfirmation) {
+        setCheckInbox(true)
+        setLoading(false)
+        return
       }
-    } catch {
-      setError('Error de conexión. Intenta de nuevo.')
-    } finally {
+
+      router.refresh()
+      router.replace('/dashboard')
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo crear la cuenta.'))
       setLoading(false)
     }
+  }
+
+  if (checkInbox) {
+    return (
+      <div className="loginwrap">
+        <div className="loginbox">
+          <div className="loginlogo">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icon.svg" alt="Kigyo" width={46} height={46} style={{ borderRadius: 14, boxShadow: '0 4px 10px rgba(0,0,0,.25)' }} />
+          </div>
+          <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+              <CheckCircle size={32} />
+            </div>
+            <h1 className="logintitle" style={{ fontSize: 20 }}>Revisa tu correo</h1>
+            <p className="loginsub" style={{ marginTop: 6 }}>
+              Si <b>{email}</b> está disponible, te enviamos un enlace para confirmar tu cuenta.
+              Ábrelo para entrar a Kigyo.
+            </p>
+          </div>
+          <div className="loginfoot">
+            <Link href="/login" className="loginlink">Volver a iniciar sesión</Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

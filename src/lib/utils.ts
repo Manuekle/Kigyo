@@ -1,5 +1,4 @@
 import type { StatusTone } from './types'
-import * as XLSX from 'xlsx'
 
 export function initials(name: string): string {
   return name
@@ -55,11 +54,42 @@ export function cop(n: number): string {
   }).format(n)
 }
 
-export function exportExcel(rows: Record<string, unknown>[], filename: string): void {
-  const ws = XLSX.utils.json_to_sheet(rows)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Data')
-  XLSX.writeFile(wb, `${filename}.xlsx`)
+/**
+ * Builds the workbook on the server and downloads the result.
+ *
+ * This used to run `xlsx` in the browser. That package is abandoned on npm and
+ * carries unfixed high-severity advisories, and building the file client-side
+ * meant the export ran with no authorization check at all. The route now
+ * verifies the caller's `<module>:read` permission, rate limits, and escapes
+ * cells that would otherwise be interpreted as formulas by Excel.
+ *
+ * Throws on failure so callers can surface a toast.
+ */
+export async function exportExcel(
+  rows: Record<string, unknown>[],
+  filename: string,
+  module: string,
+): Promise<void> {
+  const response = await fetch('/api/v1/export', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ module, filename, rows }),
+  })
+
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null)
+    throw new Error(problem?.detail ?? 'No se pudo generar el archivo.')
+  }
+
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${filename}.xlsx`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 export function clsx(...classes: (string | undefined | null | false)[]): string {

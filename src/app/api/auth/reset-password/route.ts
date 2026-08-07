@@ -1,30 +1,50 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { consumeResetToken } from '@/lib/otp-store'
+import { ApiError, toResponse, unauthorized } from '@/lib/api/errors'
+import { createClient } from '@/lib/supabase/server'
+import { resetPasswordSchema } from '@/lib/validation/auth'
 
-export async function POST(req: Request) {
-  const { resetToken, password } = await req.json()
+/**
+ * Sets a new password for the session established by /api/auth/verify-otp.
+ *
+ * Authorization comes from that session cookie, so this cannot be driven by a
+ * value the client supplies — which is exactly what the previous `resetToken`
+ * in the request body was.
+ */
+export async function POST(request: Request) {
+  try {
+    let raw: unknown
+    try {
+      raw = await request.json()
+    } catch {
+      throw new ApiError(400, 'Solicitud inválida', {
+        detail: 'El cuerpo de la solicitud debe ser JSON válido.',
+      })
+    }
 
-  if (!resetToken || !password) {
-    return NextResponse.json({ error: 'Solicitud inválida.' }, { status: 400 })
+    const body = resetPasswordSchema.parse(raw)
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      throw unauthorized('Verifica el código antes de cambiar tu contraseña.')
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: body.password })
+
+    if (error) {
+      throw new ApiError(400, 'No pudimos actualizar la contraseña', {
+        type: 'kigyo:password-rejected',
+        // Supabase's own message here is user-facing and safe: it reports
+        // policy failures such as "password is too weak", not internals.
+        detail: error.message,
+      })
+    }
+
+    return NextResponse.json({ ok: true }, { headers: { 'cache-control': 'no-store' } })
+  } catch (error) {
+    return toResponse(error)
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: 'La contraseña debe tener al menos 8 caracteres.' }, { status: 400 })
-  }
-
-  const result = consumeResetToken(resetToken)
-  if (!result.ok) {
-    return NextResponse.json({ error: 'El enlace de restablecimiento expiró o ya fue usado.' }, { status: 400 })
-  }
-
-  const jar = await cookies()
-  jar.set('wb-session', 'wb-demo-token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 60 * 60 * 24 * 7,
-    path: '/',
-    sameSite: 'lax',
-  })
-
-  return NextResponse.json({ ok: true })
 }

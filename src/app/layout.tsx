@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist_Mono } from 'next/font/google'
+import { headers } from 'next/headers'
 import './globals.css'
 
 const geistMono = Geist_Mono({
@@ -11,10 +12,11 @@ const geistMono = Geist_Mono({
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://whitebox.com'
 
 export const viewport: Viewport = {
-  themeColor: '#e5484d',
+  themeColor: '#161616',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  // No maximumScale / userScalable. Capping zoom at 1 fails WCAG 1.4.4
+  // (Resize Text) and blocks anyone who needs to pinch-zoom to read.
 }
 
 export const metadata: Metadata = {
@@ -117,12 +119,17 @@ const jsonLd = {
   },
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Minted per request in proxy.ts. Without it this inline script is blocked
+  // by the Content-Security-Policy that the same proxy sets.
+  const nonce = (await headers()).get('x-nonce') ?? undefined
+
   return (
     <html lang="es" className={geistMono.variable}>
       <head>
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>

@@ -5,23 +5,30 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import OtpInput from '@/components/ui/OtpInput'
 import { ArrowLeft, Eye, EyeOff, CheckCircle } from '@/lib/icons'
+import { apiFetch, errorMessage } from '@/lib/api/client'
 
 type Step = 'email' | 'otp' | 'reset' | 'done'
 
 const RESEND_COOLDOWN = 30
 
+/**
+ * Three-step recovery: request a code, verify it, set a new password.
+ *
+ * Verifying the code establishes a real Supabase session, and the password
+ * change is authorized by that session. The previous flow minted its own
+ * "reset token", handed it to the browser, and accepted it back from the
+ * request body — whoever held the string could change the password.
+ */
 export default function ForgotPasswordPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [resetToken, setResetToken] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [devOtp, setDevOtp] = useState('')
   const [cooldown, setCooldown] = useState(0)
 
   useEffect(() => {
@@ -39,22 +46,17 @@ export default function ForgotPasswordPage() {
     }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/forgot-password', {
+      // Always reports success, whether or not an account exists — the
+      // response must not reveal which emails are registered.
+      await apiFetch('/api/auth/forgot-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error ?? 'No se pudo enviar el código.')
-      } else {
-        setDevOtp(data.devOtp ?? '')
-        setCode('')
-        setCooldown(RESEND_COOLDOWN)
-        setStep('otp')
-      }
-    } catch {
-      setError('Error de conexión. Intenta de nuevo.')
+      setCode('')
+      setCooldown(RESEND_COOLDOWN)
+      setStep('otp')
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo enviar el código.'))
     } finally {
       setLoading(false)
     }
@@ -69,20 +71,15 @@ export default function ForgotPasswordPage() {
     }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/verify-otp', {
+      // On success the recovery session cookie is set; the reset step below is
+      // authorized by it rather than by anything the client carries around.
+      await apiFetch('/api/auth/verify-otp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error ?? 'Código inválido.')
-      } else {
-        setResetToken(data.resetToken)
-        setStep('reset')
-      }
-    } catch {
-      setError('Error de conexión. Intenta de nuevo.')
+      setStep('reset')
+    } catch (err) {
+      setError(errorMessage(err, 'Código inválido.'))
     } finally {
       setLoading(false)
     }
@@ -101,19 +98,13 @@ export default function ForgotPasswordPage() {
     }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/reset-password', {
+      await apiFetch('/api/auth/reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resetToken, password }),
+        body: JSON.stringify({ password }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.error ?? 'No se pudo restablecer la contraseña.')
-      } else {
-        setStep('done')
-      }
-    } catch {
-      setError('Error de conexión. Intenta de nuevo.')
+      setStep('done')
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo restablecer la contraseña.'))
     } finally {
       setLoading(false)
     }
@@ -179,13 +170,9 @@ export default function ForgotPasswordPage() {
               Cambiar correo
             </button>
             <div className="logintitle" style={{ fontSize: 22 }}>Ingresa el código</div>
-            <div className="loginsub">Enviamos un código de 6 dígitos a {email}</div>
-
-            {devOtp && (
-              <div className="demo-banner">
-                Modo demo: no hay proveedor de correo configurado. Tu código es <b>{devOtp}</b>.
-              </div>
-            )}
+            <div className="loginsub">
+              Si existe una cuenta con {email}, enviamos un código de 6 dígitos.
+            </div>
 
             <form onSubmit={verifyCode} style={{ marginTop: 20 }}>
               <OtpInput value={code} onChange={setCode} disabled={loading} />
@@ -285,7 +272,10 @@ export default function ForgotPasswordPage() {
               type="button"
               className="btn pri"
               style={{ width: '100%', height: 36, fontSize: 13.5, fontWeight: 600, marginTop: 22 }}
-              onClick={() => router.push('/dashboard')}
+              onClick={() => {
+                router.refresh()
+                router.replace('/dashboard')
+              }}
             >
               Ir al dashboard
             </button>

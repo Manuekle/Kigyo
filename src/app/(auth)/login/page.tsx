@@ -4,11 +4,24 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from '@/lib/icons'
+import { apiFetch, errorMessage } from '@/lib/api/client'
+
+/**
+ * Where to land after signing in. Read at submit time rather than through
+ * `useSearchParams`, which would opt the whole page out of prerendering.
+ * Only same-origin paths are followed — echoing back an attacker-supplied
+ * absolute URL would be an open redirect.
+ */
+function redirectTarget(): string {
+  if (typeof window === 'undefined') return '/dashboard'
+  const next = new URLSearchParams(window.location.search).get('next')
+  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
+}
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('valentina@whitebox.co')
-  const [password, setPassword] = useState('demo1234')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -16,23 +29,20 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!email || !password.trim()) { setError('Completa todos los campos.'); return }
+    if (!email.trim() || !password) { setError('Completa todos los campos.'); return }
     setLoading(true)
     try {
-      const res = await fetch('/api/auth/login', {
+      await apiFetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-      if (!res.ok) {
-        const data = await res.json()
-        setError(data.error ?? 'Error al iniciar sesión.')
-      } else {
-        router.push('/dashboard')
-      }
-    } catch {
-      setError('Error de conexión. Intenta de nuevo.')
-    } finally {
+      // The session cookie was just set. Refresh so Server Components re-run
+      // with it before navigating, otherwise the dashboard renders as signed
+      // out and bounces straight back here.
+      router.refresh()
+      router.replace(redirectTarget())
+    } catch (err) {
+      setError(errorMessage(err, 'Error al iniciar sesión.'))
       setLoading(false)
     }
   }
