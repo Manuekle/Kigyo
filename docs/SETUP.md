@@ -29,16 +29,29 @@ Las migraciones están en `supabase/migrations/`, numeradas y en orden. Crean 58
 tablas, las políticas RLS, los triggers de auditoría y los contadores de rate
 limiting.
 
-**Opción recomendada** — conexión directa, sin CLI ni Docker:
+**Opción recomendada** — sin CLI ni Docker:
 
-1. Supabase → **Project Settings → Database → Connection string → URI**
+1. Supabase → **Project Settings → Database → Connection string** → pestaña
+   **Session pooler** (puerto 5432).
+
+   > Usa el pooler, no la conexión directa. `db.<ref>.supabase.co` publica
+   > **solo IPv6**, y la mayoría de redes domésticas y de oficina no tienen
+   > salida IPv6: `psql` falla con «could not translate host name», que parece
+   > un error de tipeo pero no lo es. El pooler responde por IPv4.
+
 2. Sustituye `[YOUR-PASSWORD]` por la contraseña de la **base de datos**. No es
    la service-role key; si no la recuerdas, en esa misma pantalla generas otra.
+   Fíjate en que el usuario es `postgres.<ref>`, no `postgres` a secas.
+
 3. Pégala en `.env.local` como `SUPABASE_DB_URL` y ejecuta:
 
 ```bash
 npm run db:push
 ```
+
+Si te equivocas de host o de región, el script lo detecta y te dice cuál es el
+tuyo: pregunta a cada pooler por tu proyecto, y solo el que lo aloja responde
+algo distinto de «tenant not found». No necesita la contraseña para eso.
 
 Cada migración corre en una transacción, así que un fallo a mitad deja la base
 como estaba. Lo aplicado se registra en `supabase_migrations.schema_migrations`

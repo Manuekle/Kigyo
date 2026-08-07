@@ -21,6 +21,7 @@
 import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { resolve, basename } from 'node:path'
+import { resolve4, resolve6 } from 'node:dns/promises'
 
 const dbUrl = process.env.SUPABASE_DB_URL
 
@@ -28,13 +29,19 @@ if (!dbUrl) {
   console.error(`
 Falta SUPABASE_DB_URL.
 
-  1. Supabase → Project Settings → Database → Connection string → URI
+  1. Supabase → Project Settings → Database → Connection string
+     → pestaña "Session pooler"  (puerto 5432)
+
+     Usa el pooler, no la conexión directa: db.<ref>.supabase.co solo
+     publica IPv6 y la mayoría de redes no lo tienen.
+
   2. Sustituye [YOUR-PASSWORD] por la contraseña de la base de datos
      (NO es la service-role key; si no la recuerdas, en esa misma pantalla
      puedes generar una nueva)
+
   3. Pégala en .env.local:
 
-     SUPABASE_DB_URL=postgresql://postgres.<ref>:<contraseña>@<host>:5432/postgres
+     SUPABASE_DB_URL=postgresql://postgres.<ref>:<contraseña>@aws-0-<región>.pooler.supabase.com:5432/postgres
 `)
   process.exit(1)
 }
@@ -74,13 +81,163 @@ function psql(args, input) {
 
 // ─── Connectivity ────────────────────────────────────────────────────────────
 
+
+/** Supabase pooler regions, in rough order of how common they are. */
+const POOLER_REGIONS = [
+  'us-east-1', 'us-west-1', 'us-west-2', 'us-east-2', 'ca-central-1',
+  'sa-east-1', 'eu-central-1', 'eu-west-1', 'eu-west-2', 'eu-west-3',
+  'eu-north-1', 'eu-central-2', 'ap-southeast-1', 'ap-southeast-2',
+  'ap-northeast-1', 'ap-northeast-2', 'ap-south-1', 'ap-east-1',
+]
+
+/**
+ * Finds which pooler hosts a project, by asking each one.
+ *
+ * Supavisor answers "tenant/user not found" for a project it does not host and
+ * an authentication error for one it does — so a deliberately wrong password
+ * identifies the region without ever needing the real one. Beats making
+ * somebody read a region out of the dashboard and guess between aws-0 and
+ * aws-1.
+ */
+async function findPoolerHost(ref) {
+  const attempt = (host) =>
+    new Promise((done) => {
+      try {
+        execFileSync(
+          'psql',
+          [`postgresql://postgres.${ref}@${host}:5432/postgres`, '-c', 'select 1'],
+          {
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+            env: { ...process.env, PGPASSWORD: 'x', PGCONNECT_TIMEOUT: '8' },
+          },
+        )
+        done(host) // would mean the password happened to be 'x'
+      } catch (error) {
+        const text = String(error.stderr ?? '')
+        // Anything that is not "no such tenant" means this pooler knows it.
+        done(/not found/i.test(text) || /translate|traducir/i.test(text) ? null : host)
+      }
+    })
+
+  const hosts = POOLER_REGIONS.flatMap((region) => [
+    `aws-0-${region}.pooler.supabase.com`,
+    `aws-1-${region}.pooler.supabase.com`,
+  ])
+
+  const found = (await Promise.all(hosts.map(attempt))).filter(Boolean)
+  return found[0] ?? null
+}
+
+/**
+ * Explains a connection failure instead of restating it.
+ *
+ * The common one is not a wrong password: Supabase's direct host,
+ * `db.<ref>.supabase.co`, publishes only an AAAA record. On a network without
+ * IPv6 — most home and office connections — DNS resolution fails outright, and
+ * psql reports it as "could not translate host name", which reads like a typo.
+ * The fix is the pooler, which is reachable over IPv4.
+ */
+async function explainConnectionFailure(message) {
+  const host = dbUrl.match(/@([^:/?]+)/)?.[1]
+  if (!host) return null
+
+  const [v4, v6] = await Promise.all([
+    resolve4(host).catch(() => []),
+    resolve6(host).catch(() => []),
+  ])
+
+  const directMatch = host.match(/^db\.([a-z0-9]+)\.supabase\.co$/)
+
+  if (directMatch && v4.length === 0) {
+    const ref = directMatch[1]
+
+    process.stderr.write('\nBuscando el pooler de tu proyecto…')
+    const pooler = await findPoolerHost(ref)
+    process.stderr.write('\r' + ' '.repeat(40) + '\r')
+
+    if (pooler) {
+      return `
+Ese host es la conexión DIRECTA de Supabase, que solo publica IPv6${
+        v6.length ? ` (${v6[0]})` : ''
+      },
+y esta red no tiene salida IPv6. No es un problema de contraseña.
+
+Tu proyecto está en ${pooler.replace('.pooler.supabase.com', '')}. Pon esto en
+.env.local, con la contraseña de la base de datos:
+
+  SUPABASE_DB_URL=postgresql://postgres.${ref}:<contraseña>@${pooler}:5432/postgres
+
+Si no recuerdas la contraseña, genera una nueva en
+Supabase → Project Settings → Database → Database password.`
+    }
+
+    return `
+Ese host es la conexión DIRECTA de Supabase, que solo publica IPv6${
+      v6.length ? ` (${v6[0]})` : ''
+    },
+y esta red no tiene salida IPv6. No es un problema de contraseña.
+
+Usa el POOLER, que sí responde por IPv4:
+
+  Supabase → Project Settings → Database → Connection string
+           → pestaña "Session pooler"  (puerto 5432, no el 6543)
+
+Queda con esta forma — fíjate en que el usuario lleva el ref del proyecto:
+
+  postgresql://postgres.${ref}:<contraseña>@aws-0-<región>.pooler.supabase.com:5432/postgres
+               ─────────┬────────────────                ────┬────
+                        │                                    └── la región de tu proyecto
+                        └── "postgres." + ref, no "postgres" a secas
+
+Copia la URI tal cual de esa pestaña y sustituye solo [YOUR-PASSWORD].`
+  }
+
+  // Right pooler family, wrong region: Supavisor answers "tenant not found"
+  // rather than anything that points at the actual problem.
+  if (/tenant\/user .* not found/i.test(message) && /pooler\.supabase\.com$/.test(host)) {
+    const ref = dbUrl.match(/\/\/postgres\.([a-z0-9]+)/)?.[1]
+    if (ref) {
+      process.stderr.write('\nBuscando el pooler de tu proyecto…')
+      const pooler = await findPoolerHost(ref)
+      process.stderr.write('\r' + ' '.repeat(40) + '\r')
+
+      if (pooler && pooler !== host) {
+        return `
+Ese pooler no aloja tu proyecto: está en otra región.
+
+  usa   ${pooler}
+  no    ${host}`
+      }
+    }
+    return `
+El pooler no reconoce el usuario. Debe ser "postgres.<ref>", no "postgres" a
+secas — copia la URI tal cual de la pestaña "Session pooler".`
+  }
+
+  if (v4.length === 0 && v6.length === 0) {
+    return `\nEl nombre "${host}" no resuelve. Revisa que la URI sea la de tu proyecto.`
+  }
+
+  if (/password|authenticat/i.test(message)) {
+    return `
+La contraseña no es correcta. Es la de la BASE DE DATOS, no la service-role key.
+Puedes generar una nueva en Supabase → Project Settings → Database → Database password.`
+  }
+
+  return null
+}
+
 try {
   const who = psql(['--tuples-only', '--no-align', '--command', 'select current_database()'])
   console.log(`→ conectado a ${who.trim()}\n`)
 } catch (error) {
+  const message = String(error.stderr ?? error.message).trim()
   console.error('No se pudo conectar.\n')
-  console.error(String(error.stderr ?? error.message).trim().slice(0, 500))
-  console.error('\nRevisa la contraseña y que la URI sea la de tu proyecto.')
+  console.error(message.slice(0, 500))
+
+  const hint = await explainConnectionFailure(message)
+  console.error(hint ?? '\nRevisa la contraseña y que la URI sea la de tu proyecto.')
   process.exit(1)
 }
 
