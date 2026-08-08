@@ -71,7 +71,7 @@ export default function OCPage() {
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, fontSize: 13, color: 'var(--ink2)' }}>
         <FileCheck2 size={16} />
-        <span style={{ fontSize: 10, color: 'rgba(255,255,255,.30)' }}>{stats.total} OC · COP {stats.totalMonto.toLocaleString('es-CO')}</span>
+        <span style={{ fontSize: 10, color: 'rgb(var(--ink-rgb) / .30)' }}>{stats.total} OC · COP {stats.totalMonto.toLocaleString('es-CO')}</span>
       </div>
 
       <div className="card rise d1" style={{ marginBottom: 18 }}>
@@ -126,8 +126,8 @@ export default function OCPage() {
             {sel ? (<>
               <div className="elrow"><div><div className="eltxt">Proveedor</div><div className="elsub">{sel.proveedor}</div></div><div><div className="eltxt">Proyecto</div><div className="elsub">{sel.proyecto}</div></div><div><div className="eltxt">Total</div><div className="cename">{sel.total.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div></div></div>
               <div className="elrow"><div><div className="eltxt">Estado</div><div className="elsub">{sel.status}</div></div><div><div className="eltxt">Vencimiento</div><div className="elsub">{sel.vencimiento}</div></div><div><div className="eltxt">Notas</div><div className="elsub">{sel.notas}</div></div></div>
-              <div style={{ marginTop: 12 }}><div className="elsub" style={{ marginBottom: 6 }}>Items</div>{sel.items.map(i => (<div key={i.desc} className="elrow" style={{ padding: '6px 0' }}><div><div className="eltxt">{i.desc}</div><div className="elsub">{i.cantidad} × {(i.precio).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div></div><div style={{ fontWeight: 700 }}>{(i.cantidad * i.precio).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div></div>))}</div>
-            </>) : <p className="psub" style={{ fontSize: 10, color: 'rgba(255,255,255,.30)', marginTop: 2 }}>Selecciona una OC</p>}
+              <div style={{ marginTop: 12 }}><div className="elsub" style={{ marginBottom: 6 }}>Items</div>{sel.items.map(i => (<div key={i.desc} className="elrow" style={{ padding: '6px 0' }}><div><div className="eltxt">{i.desc}</div><div className="elsub">{i.cantidad} × {(i.precio).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div></div><div style={{ fontWeight: 500 }}>{(i.cantidad * i.precio).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div></div>))}</div>
+            </>) : <p className="psub" style={{ fontSize: 10, color: 'rgb(var(--ink-rgb) / .30)', marginTop: 2 }}>Selecciona una OC</p>}
           </div>
         </div>
         <div className="card rise d1">

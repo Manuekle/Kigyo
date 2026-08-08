@@ -13,7 +13,11 @@ import {
   RotateCcw,
   FileText,
 } from '@/lib/icons'
+import { BorderBeam } from 'border-beam'
+import { ThinkingOrb } from 'thinking-orbs'
 import { useApp } from '@/lib/context/AppContext'
+import { useSound } from '@/lib/context/SoundContext'
+import { useTheme } from '@/lib/context/ThemeContext'
 import MetaBalls from '@/components/ui/MetaBalls'
 import type { ChatMetadata, Citation, KigyoUIMessage } from '@/lib/ai/types'
 
@@ -100,8 +104,38 @@ function Sources({ citations }: { citations: Citation[] }) {
   )
 }
 
+/**
+ * Progress indicator for a turn that has no text yet.
+ *
+ * The orb carries the "something is happening" signal so the label can say
+ * *what* is happening. The theme is passed explicitly rather than left on
+ * `auto`: the orb's own detection would follow the OS, which is wrong as soon
+ * as the user pins a theme against it.
+ */
+function Thinking({
+  state,
+  label,
+  theme,
+}: {
+  state: 'working' | 'searching'
+  label: string
+  theme: 'light' | 'dark'
+}) {
+  return (
+    <span className="ia-thinking">
+      <ThinkingOrb state={state} size={20} theme={theme} aria-hidden="true" />
+      <span className="t-shimmer" data-text={label}>{label}</span>
+    </span>
+  )
+}
+
 export default function IAPage() {
   const { addToast } = useApp()
+  const { cue } = useSound()
+  const { theme } = useTheme()
+  // MetaBalls paints into a transparent canvas, so it needs the ink
+  // colour outright — white blobs on a white page would vanish.
+  const orbInk = theme === 'dark' ? '#ffffff' : '#161616'
   const [input, setInput] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -134,6 +168,15 @@ export default function IAPage() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, status])
+
+  // Chime when an answer lands. Gated on the previous status so it only fires
+  // for a turn that actually streamed — not on the 'ready' the hook reports
+  // before anything has been sent.
+  const prevStatus = useRef(status)
+  useEffect(() => {
+    if (prevStatus.current === 'streaming' && status === 'ready') cue('ready')
+    prevStatus.current = status
+  }, [status, cue])
 
   // Neutralize the dashboard .content padding/scroll so the composer stays
   // pinned to the bottom and doesn't ride up when messages are sent.
@@ -169,8 +212,8 @@ export default function IAPage() {
             <div className="ia-welcome">
               <div className="w-[200px] h-[200px] mb-6" aria-hidden="true">
                 <MetaBalls
-                  color="#ffffff"
-                  cursorBallColor="#ffffff"
+                  color={orbInk}
+                  cursorBallColor={orbInk}
                   cursorBallSize={2}
                   ballCount={15}
                   animationSize={30}
@@ -216,9 +259,7 @@ export default function IAPage() {
                     >
                       <div className="ia-bub">
                         {message.role === 'assistant' && tools.length > 0 && !text && (
-                          <span className="t-shimmer" data-text={`Consultando ${tools.join(', ')}…`}>
-                            Consultando {tools.join(', ')}…
-                          </span>
+                          <Thinking state="searching" label={`Consultando ${tools.join(', ')}…`} theme={theme} />
                         )}
                         {text}
                         {message.role === 'assistant' && metadata?.partialRetrieval && (
@@ -239,7 +280,7 @@ export default function IAPage() {
               {status === 'submitted' && (
                 <div className="ia-row ai">
                   <div className="ia-bub">
-                    <span className="t-shimmer" data-text="Analizando datos">Analizando datos</span>
+                    <Thinking state="working" label="Analizando datos" theme={theme} />
                   </div>
                 </div>
               )}
@@ -263,42 +304,64 @@ export default function IAPage() {
       </div>
 
       <div className="ia-composer">
-        <div className="ia-box">
-          <label className="sr-only" htmlFor="ia-input">Mensaje para el asistente</label>
-          <textarea
-            id="ia-input"
-            ref={taRef}
-            rows={1}
-            className="ia-text"
-            placeholder="Escribe un mensaje…"
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value)
-              autoResize()
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                send()
-              }
-            }}
-          />
-          {busy ? (
-            <button type="button" className="ia-go" onClick={() => stop()} aria-label="Detener respuesta">
-              <Square size={16} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="ia-go"
-              disabled={!input.trim()}
-              onClick={() => send()}
-              aria-label="Enviar mensaje"
-            >
-              <ArrowUp size={18} />
-            </button>
-          )}
-        </div>
+        {/* The beam runs only while a turn is in flight, so the composer itself
+            carries the "working" state — `active` fades it in and out rather
+            than mounting/unmounting, which would pop. `mono` + `staticColors`
+            keeps it inside the monochrome palette instead of cycling hues.
+            The radius is passed explicitly: auto-detection would read the
+            pill's 999px and trace a shape far larger than the box. */}
+        <BorderBeam
+          active={busy}
+          size="md"
+          colorVariant="mono"
+          theme={theme}
+          staticColors
+          borderRadius={28}
+        >
+          <div className="ia-box">
+            <label className="sr-only" htmlFor="ia-input">Mensaje para el asistente</label>
+            <textarea
+              id="ia-input"
+              ref={taRef}
+              rows={1}
+              className="ia-text"
+              placeholder="Escribe un mensaje…"
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value)
+                autoResize()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  send()
+                }
+              }}
+            />
+            {busy ? (
+              <button
+                type="button"
+                className="ia-go"
+                onClick={() => stop()}
+                aria-label="Detener respuesta"
+                data-cuelume-press="tick"
+              >
+                <Square size={16} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="ia-go"
+                disabled={!input.trim()}
+                onClick={() => send()}
+                aria-label="Enviar mensaje"
+                data-cuelume-press="press"
+              >
+                <ArrowUp size={18} />
+              </button>
+            )}
+          </div>
+        </BorderBeam>
         <p className="ia-hint">
           El asistente puede cometer errores. Verifica la información importante.
         </p>

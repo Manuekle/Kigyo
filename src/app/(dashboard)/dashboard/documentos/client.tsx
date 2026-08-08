@@ -122,8 +122,8 @@ function ShareModalBody({ name, onClose, notify }: ShareModalProps) {
             <button className="btn dark" onClick={invite}>Invitar</button>
           </div>
           <div className="flabel" style={{ marginTop: 14 }}>Acceso general</div>
-          <button className="acc" onClick={() => { setAccess('invited'); notify('Acceso limitado a invitados', 'ok') }}><span className="acico"><Users size={17} /></span><div style={{ flex: 1 }}><div className="act">Solo invitados</div><div className="acs">{people.length} personas con acceso</div></div>{access === 'invited' ? <Check size={16} color="var(--grn)" /> : <ChevronDown size={16} color="#c4c4cc" />}</button>
-          <button className="acc" onClick={() => { setAccess('link'); notify('Acceso por enlace activado', 'ok') }}><span className="acico"><Link2 size={17} /></span><div style={{ flex: 1 }}><div className="act">Acceso por enlace</div><div className="acs">Solo quien tenga el enlace</div></div>{access === 'link' ? <Check size={16} color="var(--grn)" /> : <ChevronDown size={16} color="#c4c4cc" />}</button>
+          <button className="acc" onClick={() => { setAccess('invited'); notify('Acceso limitado a invitados', 'ok') }}><span className="acico"><Users size={17} /></span><div style={{ flex: 1 }}><div className="act">Solo invitados</div><div className="acs">{people.length} personas con acceso</div></div>{access === 'invited' ? <Check size={16} color="var(--grn)" /> : <ChevronDown size={16} color="var(--ink3)" />}</button>
+          <button className="acc" onClick={() => { setAccess('link'); notify('Acceso por enlace activado', 'ok') }}><span className="acico"><Link2 size={17} /></span><div style={{ flex: 1 }}><div className="act">Acceso por enlace</div><div className="acs">Solo quien tenga el enlace</div></div>{access === 'link' ? <Check size={16} color="var(--grn)" /> : <ChevronDown size={16} color="var(--ink3)" />}</button>
           <div className="flabel">Personas con acceso</div>
           {people.map((p, i) => (
             <div className="prow" key={i}>
@@ -261,6 +261,9 @@ function EditDocModalBody({ doc, onClose, onSave }: EditDocModalProps & { doc: D
 const GLASS_BACK = 'rgba(26,26,26,.82)'
 const GLASS_FRONT = 'rgba(26,26,26,.86)'
 const SHADOW = '0 22px 45px -14px rgba(0,0,0,.55)'
+// The folder is a physical object, not a themed surface: dark glass holding
+// white paper. Its own highlights therefore stay white in both themes —
+// following the ink channel would erase them against the dark glass.
 const HL = 'rgba(255,255,255,.14)'
 
 const paperDefs = [
@@ -449,7 +452,7 @@ export default function DocumentosPage() {
                 <ChevronLeft size={18} />
               </button>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-.02em' }}>{activeFolderInfo?.name}</div>
+                <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: '-.02em' }}>{activeFolderInfo?.name}</div>
                 <div className="kvs">{activeDocs.length} {activeDocs.length === 1 ? 'documento' : 'documentos'}</div>
               </div>
               <div style={{ flex: 1 }} />

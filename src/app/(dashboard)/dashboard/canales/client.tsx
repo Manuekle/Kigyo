@@ -214,7 +214,7 @@ export default function CanalesPage() {
                       <div className="ch-proj-name">{m.proy.nombre}</div>
                       <div className="ch-proj-meta">
                         <span><MapPin size={11} />{m.proy.ubicacion}</span>
-                        <span style={{ fontWeight: 700, color: 'var(--ink2)' }}>{m.proy.monto}</span>
+                        <span style={{ fontWeight: 500, color: 'var(--ink2)' }}>{m.proy.monto}</span>
                       </div>
                     </div>
                   )}

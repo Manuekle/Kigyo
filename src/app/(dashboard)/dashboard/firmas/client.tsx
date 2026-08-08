@@ -301,7 +301,7 @@ export default function FirmasPage() {
           <div className="flabel">Archivo</div>
           <div className="drop">
             <div className="dico"><Upload size={20} /></div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>Arrastra un documento aquí</div>
+            <div style={{ fontWeight: 500, fontSize: 14 }}>Arrastra un documento aquí</div>
             <div style={{ color: 'var(--ink2)', fontSize: 12.5, marginTop: 3 }}>PDF, DOCX · hasta 20 MB</div>
           </div>
           <button className="btn dark" style={{ width: '100%', marginTop: 14 }} onClick={request}><Plus size={15} />Solicitar firma</button>

@@ -193,7 +193,7 @@ export default function TiendaPage() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                       <button className="ibtn" style={{ width: 22, height: 22 }} onClick={() => updateCartCant(item.producto.id, item.cant - 1)}>-</button>
-                      <span style={{ fontSize: 12, fontWeight: 700, width: 18, textAlign: 'center' }}>{item.cant}</span>
+                      <span style={{ fontSize: 12, fontWeight: 500, width: 18, textAlign: 'center' }}>{item.cant}</span>
                       <button className="ibtn" style={{ width: 22, height: 22 }} onClick={() => updateCartCant(item.producto.id, item.cant + 1)}>+</button>
                     </div>
                     <button className="ibtn" style={{ width: 22, height: 22 }} onClick={() => removeCart(item.producto.id)}><X size={11} /></button>
@@ -201,7 +201,7 @@ export default function TiendaPage() {
                 ))}
                 <div style={{ borderTop: '1px solid var(--line2)', padding: '10px 0', display: 'flex', justifyContent: 'space-between' }}>
                   <span className="eltxt">Total</span>
-                  <span style={{ fontWeight: 700, fontSize: 15 }}>{cop(cartTotal)}</span>
+                  <span style={{ fontWeight: 500, fontSize: 15 }}>{cop(cartTotal)}</span>
                 </div>
                 <button className="btn dark" style={{ justifyContent: 'center' }} onClick={checkout}>Generar pedido</button>
               </>

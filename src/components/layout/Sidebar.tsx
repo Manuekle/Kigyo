@@ -133,6 +133,7 @@ export default function Sidebar() {
                   key={item.key}
                   className={`nitem${isActive(item.key) ? ' on' : ''}`}
                   onClick={() => navigate(item.key)}
+                  data-cuelume-press="tick"
                 >
                   {ICON_MAP[item.icon]}
                   <span className="nitem-label">{item.label}</span>
@@ -194,10 +195,10 @@ export default function Sidebar() {
           >
             <Avatar name={member.fullName} size={36} />
             <div className="suser-info" style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.fullName}</div>
+              <div style={{ fontWeight: 500, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.fullName}</div>
               <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>{member.role}</div>
             </div>
-            <ChevronRight className="suser-chev" size={16} color="#c4c4cc" style={{ transform: userMenuOpen ? 'rotate(90deg)' : 'none', transition: '.15s' }} />
+            <ChevronRight className="suser-chev" size={16} color="var(--ink3)" style={{ transform: userMenuOpen ? 'rotate(90deg)' : 'none', transition: '.15s' }} />
           </button>
         </div>
       </aside>

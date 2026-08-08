@@ -109,6 +109,10 @@ import {
   GitBranchIcon,
   Clock04Icon,
   RefreshIcon,
+  VolumeHighIcon,
+  VolumeOffIcon,
+  Sun03Icon,
+  Moon02Icon,
 } from '@hugeicons/core-free-icons'
 
 export interface IconProps {
@@ -235,3 +239,7 @@ export const GitBranch = make(GitBranchIcon)
 export const History = make(Clock04Icon)
 export const RotateCcw = make(RefreshIcon)
 export const Square = make(StopIcon)
+export const Volume = make(VolumeHighIcon)
+export const VolumeOff = make(VolumeOffIcon)
+export const Sun = make(Sun03Icon)
+export const Moon = make(Moon02Icon)

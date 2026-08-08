@@ -10,7 +10,7 @@ export default function ContactForm() {
     return (
       <div className="card contact-form-card" style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '48px 26px' }}>
         <CheckCircle size={32} />
-        <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-.02em' }}>Mensaje enviado</div>
+        <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: '-.02em' }}>Mensaje enviado</div>
         <p style={{ fontSize: 13.5, color: 'var(--ink2)', lineHeight: 1.5, margin: 0 }}>
           Gracias por escribirnos. Nuestro equipo te responderá en menos de 24 horas hábiles.
         </p>

@@ -9,6 +9,7 @@ import {
 import type { IconProps } from '@/lib/icons'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts'
 import { useApp } from '@/lib/context/AppContext'
+import { useTheme } from '@/lib/context/ThemeContext'
 import { useMember } from '@/lib/context/MemberContext'
 import { apiFetch, errorMessage } from '@/lib/api/client'
 
@@ -146,6 +147,17 @@ interface KpiLocalProps {
   spark: number[]
   tone?: string
 }
+/**
+ * Recharts takes colours as props, so the chart cannot inherit the palette
+ * from CSS. Brand blue works on either surface; the neutral series has to
+ * flip, and dot centres are punched out in the card colour so the line reads
+ * as passing behind them.
+ */
+const SERIES = {
+  dark:  { neutral: '#9ca3af', neutralFill: '#d1d5db' },
+  light: { neutral: '#52525b', neutralFill: '#71717a' },
+} as const
+
 /* transitions.dev — number pop-in: each digit blurs + slides up on mount */
 function PopNumber({ value }: { value: string | number }) {
   return (
@@ -159,6 +171,9 @@ function PopNumber({ value }: { value: string | number }) {
 
 const Kpi = ({ ico: Ico, label, value, delta, up, dir, vs, spark, tone: kt = 'neu' }: KpiLocalProps) => {
   const down = (dir || (up ? 'up' : 'down')) === 'down'
+  // The sparkline is an inline <polyline stroke>, so it needs a concrete
+  // colour rather than a class.
+  const { theme } = useTheme()
   return (
     <div className="card kpi">
       <div className={`kglow ${kt}`} />
@@ -172,7 +187,7 @@ const Kpi = ({ ico: Ico, label, value, delta, up, dir, vs, spark, tone: kt = 'ne
           <span className={`delta ${up ? 'up' : 'dn'}`}><ArrowUp size={11} style={{ transform: down ? 'rotate(180deg)' : 'none' }} />{delta}</span>
           <span className="kvs">{vs}</span>
         </div>
-        <Spark data={spark} color="#d7dadf" />
+        <Spark data={spark} color={SERIES[theme].neutral} />
       </div>
     </div>
   )
@@ -204,6 +219,8 @@ export default function DashboardPage() {
   // First name only — "Hola, Camila Restrepo" reads like a form letter.
   const firstName = member.fullName.trim().split(/\s+/)[0]
   const router = useRouter()
+  const { theme } = useTheme()
+  const series = SERIES[theme]
   const go = (x: string) => router.push(`/dashboard/${x}`)
   const openAI = () => router.push('/dashboard/ia')
 
@@ -287,7 +304,7 @@ export default function DashboardPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div className="legend">
                 <span className="lg"><span className="lgd" style={{ background: '#3b82f6' }} />Firmas</span>
-                <span className="lg"><span className="lgd" style={{ background: '#1f2937' }} />Documentos</span>
+                <span className="lg"><span className="lgd" style={{ background: series.neutral }} />Documentos</span>
               </div>
               <span className="range">Últimos 6 meses</span>
             </div>
@@ -302,21 +319,21 @@ export default function DashboardPage() {
                     <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="gK" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#d1d5db" stopOpacity={0.14} />
-                    <stop offset="50%" stopColor="#d1d5db" stopOpacity={0.04} />
-                    <stop offset="100%" stopColor="#d1d5db" stopOpacity={0} />
+                    <stop offset="0%" stopColor={series.neutralFill} stopOpacity={0.14} />
+                    <stop offset="50%" stopColor={series.neutralFill} stopOpacity={0.04} />
+                    <stop offset="100%" stopColor={series.neutralFill} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} stroke="var(--line2)" strokeDasharray="4 4" />
                 <XAxis dataKey="m" tickLine={false} axisLine={false} dy={8} tick={{ fill: 'var(--ink3)', fontSize: 12, fontWeight: 600 }} />
                 <YAxis tickLine={false} axisLine={false} width={40} tick={{ fill: 'var(--ink3)', fontSize: 11 }} />
                 <Tooltip content={<ChartTip />} cursor={{ stroke: 'var(--line)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                <Area type="monotone" dataKey="docs" stroke="#9ca3af" strokeWidth={2} fill="url(#gK)"
-                  dot={{ r: 3.5, strokeWidth: 2, fill: '#1A1A1A', stroke: '#9ca3af' }}
-                  activeDot={{ r: 5.5, strokeWidth: 2, fill: '#1A1A1A', stroke: '#9ca3af' }} />
+                <Area type="monotone" dataKey="docs" stroke={series.neutral} strokeWidth={2} fill="url(#gK)"
+                  dot={{ r: 3.5, strokeWidth: 2, fill: 'var(--bg2)', stroke: series.neutral }}
+                  activeDot={{ r: 5.5, strokeWidth: 2, fill: 'var(--bg2)', stroke: series.neutral }} />
                 <Area type="monotone" dataKey="firmas" stroke="#3b82f6" strokeWidth={2.6} fill="url(#gR)"
-                  dot={{ r: 4, strokeWidth: 2, fill: '#1A1A1A', stroke: '#3b82f6' }}
-                  activeDot={{ r: 6, strokeWidth: 2.5, fill: '#1A1A1A', stroke: '#3b82f6' }} />
+                  dot={{ r: 4, strokeWidth: 2, fill: 'var(--bg2)', stroke: '#3b82f6' }}
+                  activeDot={{ r: 6, strokeWidth: 2.5, fill: 'var(--bg2)', stroke: '#3b82f6' }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -389,7 +406,7 @@ export default function DashboardPage() {
                   <div className="recto">{r.titulo}</div>
                   <div className="recra">{r.razon}</div>
                 </div>
-                <ChevronRight size={16} color="#c4c4cc" style={{ flexShrink: 0, alignSelf: 'center' }} />
+                <ChevronRight size={16} color="var(--ink3)" style={{ flexShrink: 0, alignSelf: 'center' }} />
               </button>
             ))}
           </div>

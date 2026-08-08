@@ -145,7 +145,7 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
                 >
                   <Avatar name={r.name} size={26} />
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{r.name}</div>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{r.name}</div>
                     <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>{r.role} · {r.dept}</div>
                   </div>
                   <ArrowRight size={13} style={{ marginLeft: 'auto', color: 'var(--ink3)', flexShrink: 0 }} />

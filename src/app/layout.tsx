@@ -1,18 +1,21 @@
 import type { Metadata, Viewport } from 'next'
-import { Geist_Mono } from 'next/font/google'
 import { headers } from 'next/headers'
+import { THEME_INIT_SCRIPT, ThemeProvider } from '@/lib/context/ThemeContext'
 import './globals.css'
 
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-geist-mono',
-  display: 'swap',
-})
+// Typography is the self-hosted Saans variable font, declared in globals.css.
+// Its MONO axis covers the monospace faces too, so there is no second family
+// and no Google Fonts request.
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://whitebox.com'
 
 export const viewport: Viewport = {
-  themeColor: '#161616',
+  // One entry per scheme so the browser chrome matches the rendered theme.
+  // A single value would tint the address bar dark for a light-mode visitor.
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#161616' },
+    { media: '(prefers-color-scheme: light)', color: '#F7F7F8' },
+  ],
   width: 'device-width',
   initialScale: 1,
   // No maximumScale / userScalable. Capping zoom at 1 fails WCAG 1.4.4
@@ -125,15 +128,26 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const nonce = (await headers()).get('x-nonce') ?? undefined
 
   return (
-    <html lang="es" className={geistMono.variable}>
+    // `data-theme` is stamped by the script below before first paint, so the
+    // server's dark default and the client's resolved theme differ on the
+    // <html> element by design — hence suppressHydrationWarning here too.
+    <html lang="es" data-theme="dark" suppressHydrationWarning>
       <head>
+        {/* Must stay the first script in <head> and stay synchronous: it sets
+            the theme attribute before the browser paints, which is what keeps
+            a light-mode visitor from seeing a dark flash on every load. */}
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <script
           type="application/ld+json"
           nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="nrh" suppressHydrationWarning>{children}</body>
+      {/* Mounted at the root, not just the dashboard, so a 'system' preference
+          keeps following the OS on the marketing pages too. */}
+      <body className="nrh" suppressHydrationWarning>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   )
 }

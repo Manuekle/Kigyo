@@ -30,6 +30,9 @@ interface DocumentFolderProps {
 const GLASS_BACK = 'rgba(26,26,26,.82)'   // #1A1A1A
 const GLASS_FRONT = 'rgba(26,26,26,.86)'  // #1A1A1A
 const SHADOW = '0 22px 45px -14px rgba(0,0,0,.55)'
+// The folder is a physical object, not a themed surface: dark glass holding
+// white paper. Its own highlights therefore stay white in both themes —
+// following the ink channel would erase them against the dark glass.
 const HL = 'rgba(255,255,255,.14)'
 
 /* ---------- Estilo por tipo de archivo ---------- */

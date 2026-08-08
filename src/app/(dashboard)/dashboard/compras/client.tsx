@@ -369,7 +369,7 @@ export default function ComprasPage() {
                           <div className="eltxt">{item.desc}</div>
                           <div className="elsub">{item.cantidad} × {item.unidad}</div>
                         </div>
-                        <div style={{ fontWeight: 700 }}>{(item.cantidad * item.costoUnitario).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div>
+                        <div style={{ fontWeight: 500 }}>{(item.cantidad * item.costoUnitario).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div>
                       </div>
                     ))}
                   </div>
@@ -402,7 +402,7 @@ export default function ComprasPage() {
                 </div>
               </>
             ) : (
-              <p className="psub" style={{ fontSize: 10, color: 'rgba(255,255,255,.30)', marginTop: 2 }}>Selecciona una requisición para ver sus detalles.</p>
+              <p className="psub" style={{ fontSize: 10, color: 'rgb(var(--ink-rgb) / .30)', marginTop: 2 }}>Selecciona una requisición para ver sus detalles.</p>
             )}
           </div>
         </div>

@@ -315,7 +315,7 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
             <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 10 }}>Estos datos se usan en reportes, facturación y comunicaciones oficiales.</div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
-              <div style={{ width: 56, height: 56, borderRadius: 'var(--r)', background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, color: '#fff', flexShrink: 0, boxShadow: '0 4px 14px rgba(59,130,246,.30)' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 'var(--r)', background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 500, color: '#fff', flexShrink: 0, boxShadow: '0 4px 14px rgba(59,130,246,.30)' }}>
                 {company.charAt(0)}
               </div>
               <div>
@@ -347,13 +347,13 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--line2)' }}>
                     <span style={{
                       width: 30, height: 30, borderRadius: 'var(--r-sm)', display: 'grid', placeItems: 'center',
-                      background: r === 'Administrador' ? 'rgba(239,68,68,.12)' : r === 'Líder de equipo' ? 'rgba(245,158,11,.12)' : 'rgba(255,255,255,.06)',
+                      background: r === 'Administrador' ? 'rgba(239,68,68,.12)' : r === 'Líder de equipo' ? 'rgba(245,158,11,.12)' : 'rgb(var(--ink-rgb) / .06)',
                       color: r === 'Administrador' ? '#ef4444' : r === 'Líder de equipo' ? '#f59e0b' : 'var(--ink2)',
                     }}>
                       {r === 'Administrador' ? <Shield size={15} /> : r === 'Líder de equipo' ? <Star size={15} /> : <Users size={15} />}
                     </span>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>{r}</div>
+                      <div style={{ fontWeight: 500, fontSize: 13 }}>{r}</div>
                       <div style={{ fontSize: 10.5, color: 'var(--ink3)' }}>{r === 'Administrador' ? 'Acceso total' : r === 'Líder de equipo' ? 'Gestión de equipo' : 'Acceso básico'}</div>
                     </div>
                   </div>

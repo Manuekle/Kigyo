@@ -1,5 +1,6 @@
 import { AppProvider } from '@/lib/context/AppContext'
 import { MemberProvider } from '@/lib/context/MemberContext'
+import { SoundProvider } from '@/lib/context/SoundContext'
 import { requireMember } from '@/lib/auth/session'
 import Sidebar from '@/components/layout/Sidebar'
 import Topbar from '@/components/layout/Topbar'
@@ -39,16 +40,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
       }}
     >
       <AppProvider>
-        <a href="#contenido" className="skip-link">Saltar al contenido</a>
-        <Sidebar />
-        <main className="main">
-          <Topbar />
-          <div className="content" id="contenido" tabIndex={-1}>
-            {children}
-          </div>
-        </main>
-        <Toasts />
-        <CommandPalette />
+        <SoundProvider>
+          <a href="#contenido" className="skip-link">Saltar al contenido</a>
+          <Sidebar />
+          <main className="main">
+            <Topbar />
+            <div className="content" id="contenido" tabIndex={-1}>
+              {children}
+            </div>
+          </main>
+          <Toasts />
+          <CommandPalette />
+        </SoundProvider>
       </AppProvider>
     </MemberProvider>
   )

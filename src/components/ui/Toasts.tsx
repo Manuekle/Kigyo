@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CheckCircle, XCircle, Info, AlertTriangle, X } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
+import { useSound } from '@/lib/context/SoundContext'
 import type { Toast } from '@/lib/types'
+import type { SoundName } from 'cuelume'
 
 const ICONS = {
   ok: <CheckCircle size={13} />,
@@ -12,11 +14,20 @@ const ICONS = {
   warn: <AlertTriangle size={13} />,
 }
 
+/** One cue per toast type — a toast arriving is not a DOM event `bind()` sees. */
+const CUES: Record<Toast['type'], SoundName> = {
+  ok: 'success',
+  err: 'error',
+  info: 'droplet',
+  warn: 'tick',
+}
+
 const VISIBLE_MS = 4000
 const EXIT_MS = 220 // matches .toast.out (toastout .22s)
 
 function ToastItem({ t, onRemove }: { t: Toast; onRemove: (id: number) => void }) {
   const [out, setOut] = useState(false)
+  const { cue } = useSound()
 
   // Add .out to play the exit transition, then unmount once it finishes.
   const dismiss = useCallback(() => {
@@ -28,6 +39,11 @@ function ToastItem({ t, onRemove }: { t: Toast; onRemove: (id: number) => void }
     const timer = setTimeout(dismiss, VISIBLE_MS)
     return () => clearTimeout(timer)
   }, [dismiss])
+
+  // Fires once per toast, on mount. A no-op while sound is off.
+  useEffect(() => {
+    cue(CUES[t.type])
+  }, [cue, t.type])
 
   return (
     <div

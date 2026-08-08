@@ -74,11 +74,11 @@ export default function AboutPage() {
             si tienes preguntas.
           </p>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-            <Link href="/login" className="btn pri" style={{ height: 46, fontSize: 14, fontWeight: 700, padding: '0 28px', textDecoration: 'none' }}>
+            <Link href="/login" className="btn pri" style={{ height: 46, fontSize: 14, fontWeight: 500, padding: '0 28px', textDecoration: 'none' }}>
               Comenzar ahora
               <ArrowRight size={16} />
             </Link>
-            <Link href="/contact" className="btn" style={{ height: 46, fontSize: 14, fontWeight: 600, padding: '0 28px', textDecoration: 'none' }}>
+            <Link href="/contact" className="btn" style={{ height: 46, fontSize: 14, fontWeight: 500, padding: '0 28px', textDecoration: 'none' }}>
               Contactar equipo
             </Link>
           </div>

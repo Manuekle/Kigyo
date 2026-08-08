@@ -452,7 +452,7 @@ export default function CotizacionesPage() {
                           <div className="cename" style={{ fontSize: 13 }}>{item.desc}</div>
                           <div className="muted" style={{ fontSize: 11 }}>{item.cantidad} × {cop(item.precioUnitario)}</div>
                         </div>
-                        <div style={{ fontWeight: 700 }}>{cop(item.cantidad * item.precioUnitario)}</div>
+                        <div style={{ fontWeight: 500 }}>{cop(item.cantidad * item.precioUnitario)}</div>
                       </div>
                     ))}
                   </div>
@@ -486,7 +486,7 @@ export default function CotizacionesPage() {
                 </div>
               </>
             ) : (
-              <p className="psub" style={{ fontSize: 10, color: 'rgba(255,255,255,.30)', marginTop: 2 }}>Selecciona una cotización para ver el detalle.</p>
+              <p className="psub" style={{ fontSize: 10, color: 'rgb(var(--ink-rgb) / .30)', marginTop: 2 }}>Selecciona una cotización para ver el detalle.</p>
             )}
           </div>
         </div>
@@ -494,7 +494,7 @@ export default function CotizacionesPage() {
         <div className="card rise d1">
           <div className="chead">
             <div className="ctitle">Captura rápida</div>
-            <span className="elsub" style={{ fontSize: 10, color: 'rgba(255,255,255,.30)' }}>Todos los campos se pueden ajustar después</span>
+            <span className="elsub" style={{ fontSize: 10, color: 'rgb(var(--ink-rgb) / .30)' }}>Todos los campos se pueden ajustar después</span>
           </div>
           <div className="cpad">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

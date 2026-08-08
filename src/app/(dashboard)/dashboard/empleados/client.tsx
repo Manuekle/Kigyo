@@ -164,7 +164,7 @@ export default function EmpleadosPage() {
                     <td className="muted">{e.dept}</td>
                     <td className="muted">{e.loc}</td>
                     <td><Badge st={e.st} /></td>
-                    <td style={{ textAlign: 'right' }}><ChevronRight size={16} color="#c4c4cc" /></td>
+                    <td style={{ textAlign: 'right' }}><ChevronRight size={16} color="var(--ink3)" /></td>
                   </tr>
                 ))}
               </tbody>

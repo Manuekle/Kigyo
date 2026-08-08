@@ -131,7 +131,7 @@ export default function ProyectosPage() {
                     </div>
                   </td>
                   <td><Badge st={p.st} filled /></td>
-                  <td style={{ textAlign: 'right' }}><ChevronRight size={16} color="#c4c4cc" /></td>
+                  <td style={{ textAlign: 'right' }}><ChevronRight size={16} color="var(--ink3)" /></td>
                 </tr>
               ))}
             </tbody>
@@ -172,7 +172,7 @@ export default function ProyectosPage() {
               <div className="dsect">Avance</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div className="bartrack" style={{ height: 12, borderRadius: 8, flex: 1 }}><div className="barfill" style={{ width: `${sel.progreso}%`, height: 12, borderRadius: 8, background: sel.progreso === 100 ? 'var(--grn)' : 'var(--blu)' }} /></div>
-                <span style={{ fontWeight: 700, fontSize: 20, flexShrink: 0 }}>{sel.progreso}%</span>
+                <span style={{ fontWeight: 500, fontSize: 20, flexShrink: 0 }}>{sel.progreso}%</span>
               </div>
 
               <div className="dsect">Presupuesto</div>

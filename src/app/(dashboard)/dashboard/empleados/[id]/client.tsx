@@ -176,7 +176,7 @@ export default function EmpleadoDetailPage() {
       {relatedTickets.length === 0 && (
         <div className="card cpad" style={{ textAlign: 'center', color: 'var(--ink3)', padding: '28px' }}>
           <TrendingUp size={22} style={{ margin: '0 auto 8px', opacity: .4 }} />
-          <div style={{ fontWeight: 700 }}>Sin tickets activos</div>
+          <div style={{ fontWeight: 500 }}>Sin tickets activos</div>
           <div style={{ fontSize: 12.5, marginTop: 4 }}>Este empleado no tiene tickets asignados</div>
         </div>
       )}

@@ -3,8 +3,12 @@
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Ferrofluid from '@/components/ui/Ferrofluid'
+import MetalButton from '@/components/ui/MetalButton'
+import { useTheme } from '@/lib/context/ThemeContext'
+import { useReveal } from '@/lib/hooks/use-reveal'
 import PublicNav from '@/components/marketing/PublicNav'
 import PublicFooter from '@/components/marketing/PublicFooter'
+import Ledger from '@/components/marketing/Ledger'
 import {
   ArrowRight,
   Users,
@@ -19,11 +23,21 @@ import {
   Star,
 } from '@/lib/icons'
 
-const FERRO_COLORS = ['#ffffff', '#f5f5f5', '#ebebeb']
+/**
+ * The hero fluid is drawn as light and composited with `screen` on dark, where
+ * white lifts off the near-black page. On a white page `screen` is a no-op —
+ * so light mode draws it dark and composites with `multiply` instead.
+ */
+const FERRO_COLORS = {
+  dark: ['#ffffff', '#f5f5f5', '#ebebeb'],
+  light: ['#1c1c1e', '#2a2a2e', '#3a3a40'],
+} as const
 
 export default function LandingPage() {
   const router = useRouter()
-  const colors = useMemo(() => FERRO_COLORS, [])
+  const { theme } = useTheme()
+  const colors = useMemo(() => [...FERRO_COLORS[theme]], [theme])
+  useReveal()
 
   return (
     <div className="landing">
@@ -48,7 +62,7 @@ export default function LandingPage() {
             mouseStrength={0.8}
             mouseRadius={0.3}
             mouseDampening={0.12}
-            mixBlendMode="screen"
+            mixBlendMode={theme === 'dark' ? 'screen' : 'multiply'}
           />
         </div>
         <div className="l-hero-content">
@@ -60,19 +74,24 @@ export default function LandingPage() {
             y más. Todo en un solo lugar, diseñado para equipos modernos.
           </p>
           <div className="l-hero-actions">
-            <button
-              type="button"
-              className="btn pri"
-              style={{ height: 44, fontSize: 14, fontWeight: 700, padding: '0 24px' }}
-              onClick={() => router.push('/login')}
-            >
-              Iniciar sesión
-              <ArrowRight size={16} />
-            </button>
+            {/* The shader ring is painted on a canvas sized from the child, so
+                the button keeps owning its own layout and text — and falls
+                back to a plain button wherever WebGL isn't available. */}
+            <MetalButton preset="silver">
+              <button
+                type="button"
+                className="btn pri"
+                style={{ height: 44, fontSize: 14, fontWeight: 500, padding: '0 24px' }}
+                onClick={() => router.push('/login')}
+              >
+                Iniciar sesión
+                <ArrowRight size={16} />
+              </button>
+            </MetalButton>
             <button
               type="button"
               className="btn"
-              style={{ height: 44, fontSize: 14, fontWeight: 600, padding: '0 24px' }}
+              style={{ height: 44, fontSize: 14, fontWeight: 500, padding: '0 24px' }}
               onClick={() => {
                 document.getElementById('l-features')?.scrollIntoView({ behavior: 'smooth' })
               }}
@@ -92,28 +111,32 @@ export default function LandingPage() {
       {/* ─── Stats ─── */}
       <section className="l-stats">
         <div className="l-stats-inner">
-          <div className="l-stat">
+          <div className="l-stat" data-reveal>
             <span className="l-stat-val">+2,500</span>
             <span className="l-stat-lab">Empleados gestionados</span>
           </div>
-          <div className="l-stat">
+          <div className="l-stat" data-reveal>
             <span className="l-stat-val">98%</span>
             <span className="l-stat-lab">Satisfacción de clientes</span>
           </div>
-          <div className="l-stat">
+          <div className="l-stat" data-reveal>
             <span className="l-stat-val">40%</span>
             <span className="l-stat-lab">Menos tiempo administrativo</span>
           </div>
-          <div className="l-stat">
+          <div className="l-stat" data-reveal>
             <span className="l-stat-val">24/7</span>
             <span className="l-stat-lab">Soporte disponible</span>
           </div>
         </div>
       </section>
 
+      {/* ─── Operations ledger — the signature section ─── */}
+      <Ledger />
+
       {/* ─── Features ─── */}
       <section id="l-features" className="l-section">
-        <div className="l-section-head">
+        <div className="l-section-head" data-reveal>
+          <span className="l-eyebrow">Plataforma</span>
           <h2 className="l-section-title">Todo lo que necesitas para gestionar tu equipo</h2>
           <p className="l-section-sub">
             Desde la contratación hasta la nómina, Kigyo centraliza cada proceso de
@@ -122,7 +145,7 @@ export default function LandingPage() {
         </div>
 
         <div className="l-features-grid">
-          <div className="card l-feature">
+          <div className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <Users size={22} />
             </div>
@@ -133,7 +156,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="card l-feature">
+          <div className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <FileText size={22} />
             </div>
@@ -144,7 +167,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="card l-feature">
+          <div className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <Calendar size={22} />
             </div>
@@ -155,7 +178,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="card l-feature">
+          <div className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <LayoutDashboard size={22} />
             </div>
@@ -166,7 +189,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="card l-feature">
+          <div className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <Shield size={22} />
             </div>
@@ -177,7 +200,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="card l-feature">
+          <div className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <Sparkles size={22} />
             </div>
@@ -192,7 +215,8 @@ export default function LandingPage() {
 
       {/* ─── How it works ─── */}
       <section className="l-section l-steps">
-        <div className="l-section-head">
+        <div className="l-section-head" data-reveal>
+          <span className="l-eyebrow">Puesta en marcha</span>
           <h2 className="l-section-title">Empieza en minutos, no en semanas</h2>
           <p className="l-section-sub">
             Migra tu equipo y ten Kigyo funcionando en tres pasos simples,
@@ -201,7 +225,7 @@ export default function LandingPage() {
         </div>
 
         <div className="l-steps-grid">
-          <div className="l-step">
+          <div className="l-step" data-reveal>
             <div className="l-step-num">
               <UserPlus size={20} />
             </div>
@@ -212,7 +236,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="l-step">
+          <div className="l-step" data-reveal>
             <div className="l-step-num">
               <PenTool size={20} />
             </div>
@@ -223,7 +247,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="l-step">
+          <div className="l-step" data-reveal>
             <div className="l-step-num">
               <TrendingUp size={20} />
             </div>
@@ -238,7 +262,7 @@ export default function LandingPage() {
 
       {/* ─── Testimonial ─── */}
       <section className="l-section l-quote-section">
-        <div className="l-quote-card">
+        <div className="l-quote-card" data-reveal>
           <div className="l-quote-stars">
             <Star size={16} />
             <Star size={16} />
@@ -263,20 +287,22 @@ export default function LandingPage() {
 
       {/* ─── CTA ─── */}
       <section className="l-section l-cta">
-        <div className="l-cta-card">
+        <div className="l-cta-card" data-reveal>
           <h2 className="l-cta-title">¿Listo para transformar tu gestión de personas?</h2>
           <p className="l-cta-sub">
             Únete a las empresas que ya confían en Kigyo como su sistema operativo de personas.
           </p>
-          <button
-            type="button"
-            className="btn pri"
-            style={{ height: 46, fontSize: 14, fontWeight: 700, padding: '0 28px' }}
-            onClick={() => router.push('/login')}
-          >
-            Comenzar ahora
-            <ArrowRight size={16} />
-          </button>
+          <MetalButton preset="chromatic">
+            <button
+              type="button"
+              className="btn pri"
+              style={{ height: 46, fontSize: 14, fontWeight: 500, padding: '0 28px' }}
+              onClick={() => router.push('/login')}
+            >
+              Comenzar ahora
+              <ArrowRight size={16} />
+            </button>
+          </MetalButton>
         </div>
       </section>
 

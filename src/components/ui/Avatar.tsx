@@ -2,8 +2,8 @@ import { initials } from '@/lib/utils'
 
 // Monochrome palette — light grays on dark bg
 const PALETTE = [
-  'rgba(255,255,255,.72)', 'rgba(255,255,255,.55)', 'rgba(255,255,255,.65)', 'rgba(255,255,255,.45)',
-  'rgba(255,255,255,.60)', 'rgba(255,255,255,.50)', 'rgba(255,255,255,.70)', 'rgba(255,255,255,.40)',
+  'rgb(var(--ink-rgb) / .72)', 'rgb(var(--ink-rgb) / .55)', 'rgb(var(--ink-rgb) / .65)', 'rgb(var(--ink-rgb) / .45)',
+  'rgb(var(--ink-rgb) / .60)', 'rgb(var(--ink-rgb) / .50)', 'rgb(var(--ink-rgb) / .70)', 'rgb(var(--ink-rgb) / .40)',
 ]
 
 function pickColor(name: string): string {
