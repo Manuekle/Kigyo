@@ -65,9 +65,26 @@ const retrievalSchema = z.object({
   AZURE_SEARCH_API_KEY: optionalSecret,
 })
 
+/**
+ * The shared demo account — **optional**.
+ *
+ * One seeded organization (see `scripts/seed-demo.mjs`) that everyone who asks
+ * for a demo is handed. Credentials are read here rather than hardcoded so the
+ * password can be rotated without a deploy, and so a fork that has not seeded
+ * anything does not advertise an account that will not sign in.
+ *
+ * Deliberately not `NEXT_PUBLIC_`: the values reach the browser only in the
+ * response to a successful, rate-limited demo request, never in the bundle.
+ */
+const demoSchema = z.object({
+  DEMO_ACCOUNT_EMAIL: z.email(),
+  DEMO_ACCOUNT_PASSWORD: z.string().min(1),
+})
+
 export type ServerEnv = z.infer<typeof serverSchema>
 export type ModelEnv = z.infer<typeof modelSchema>
 export type RetrievalEnv = z.infer<typeof retrievalSchema>
+export type DemoEnv = z.infer<typeof demoSchema>
 
 function format(issues: z.core.$ZodIssue[]): string {
   return issues.map((i) => `  · ${i.path.join('.') || '(root)'}: ${i.message}`).join('\n')
@@ -139,6 +156,21 @@ export function retrievalEnvOrThrow(): RetrievalEnv {
     )
   }
   return env
+}
+
+let cachedDemo: DemoEnv | null = null
+
+/**
+ * Null when no demo account is configured — an expected state, not an error.
+ * The demo request is still recorded; the requester is told the team will get
+ * in touch instead of being shown credentials that do not exist.
+ */
+export function demoAccount(): DemoEnv | null {
+  if (cachedDemo) return cachedDemo
+  const parsed = demoSchema.safeParse(process.env)
+  if (!parsed.success) return null
+  cachedDemo = parsed.data
+  return cachedDemo
 }
 
 export const isProduction = process.env.NODE_ENV === 'production'

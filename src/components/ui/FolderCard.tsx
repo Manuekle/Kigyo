@@ -92,7 +92,9 @@ export default function Folder({ color = '#5227FF', size = 1, items = [], classN
         aria-label={open ? 'Close folder' : 'Open folder'}
         style={{
           position: 'relative',
-          transition: 'all .2s ease-in',
+          // Only the lift is animated — `all` would sweep in any property
+          // that happens to change later, including layout ones.
+          transition: 'transform 180ms ease-out',
           cursor: 'pointer',
           outline: 'none',
           transform: open ? 'translateY(-8px)' : hover ? 'translateY(-8px)' : undefined,
@@ -142,7 +144,7 @@ export default function Folder({ color = '#5227FF', size = 1, items = [], classN
                   transform: open
                     ? tOpen
                     : `translate(-50%, ${10 - i * 6}%)`,
-                  transition: 'all .3s ease-in-out',
+                  transition: 'transform var(--resize-dur) var(--resize-ease)',
                   ...(open && { zIndex: 20 + (hover ? 1 : 0) }),
                 }}
               >
@@ -161,7 +163,7 @@ export default function Folder({ color = '#5227FF', size = 1, items = [], classN
               transformOrigin: 'bottom center',
               backgroundColor: color,
               borderRadius: '5px 10px 10px 10px',
-              transition: 'all .3s ease-in-out',
+              transition: 'transform var(--resize-dur) var(--resize-ease)',
               ...(open && { transform: 'skew(15deg) scaleY(0.6)' }),
               ...(!open && hover && { transform: 'skew(15deg) scaleY(0.6)' }),
             }}
@@ -177,7 +179,7 @@ export default function Folder({ color = '#5227FF', size = 1, items = [], classN
               transformOrigin: 'bottom center',
               backgroundColor: color,
               borderRadius: '5px 10px 10px 10px',
-              transition: 'all .3s ease-in-out',
+              transition: 'transform var(--resize-dur) var(--resize-ease)',
               ...(open && { transform: 'skew(-15deg) scaleY(0.6)' }),
               ...(!open && hover && { transform: 'skew(-15deg) scaleY(0.6)' }),
             }}

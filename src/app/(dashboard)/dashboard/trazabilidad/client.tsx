@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { FileSpreadsheet } from '@/lib/icons'
 import { useExport } from '@/lib/hooks/use-export'
 import TabBar from '@/components/ui/TabBar'
+import { loadMoreAudit } from '@/server/actions/audit'
 import { AUDIT_CATEGORIES, type AuditCategory, type AuditEntry } from '@/lib/audit'
 
 /**
@@ -12,10 +13,48 @@ import { AUDIT_CATEGORIES, type AuditCategory, type AuditEntry } from '@/lib/aud
  * Entries come from `audit_log`, written by a database trigger on every
  * business table. The screen previously rendered a hardcoded list of three
  * days of invented activity.
+ *
+ * The trail is the one table here that grows forever, so the page reads it a
+ * screenful at a time. Only the pages fetched after the first are held in
+ * state: leaving the first one a prop means a server refresh replaces it
+ * rather than being shadowed by a stale copy taken at mount.
  */
-export default function TrazabilidadPage({ entries }: { entries: AuditEntry[] }) {
+export default function TrazabilidadPage({
+  entries: firstPage,
+  nextCursor,
+}: {
+  entries: AuditEntry[]
+  nextCursor: number | null
+}) {
   const { runExport, exporting } = useExport()
   const [filter, setFilter] = useState<AuditCategory>('Todos')
+  const [older, setOlder] = useState<AuditEntry[]>([])
+  const [cursor, setCursor] = useState<number | null>(nextCursor)
+  const [loadError, setLoadError] = useState('')
+  const [loading, startLoading] = useTransition()
+
+  // Merged by id: a refreshed first page can overlap what was already loaded,
+  // and the same entry appearing twice in an audit trail reads as two events.
+  const entries = useMemo(() => {
+    const byId = new Map<number, AuditEntry>()
+    for (const entry of firstPage) byId.set(entry.id, entry)
+    for (const entry of older) byId.set(entry.id, entry)
+    return [...byId.values()].sort((a, b) => b.id - a.id)
+  }, [firstPage, older])
+
+  const loadMore = () => {
+    if (cursor === null) return
+    setLoadError('')
+    startLoading(async () => {
+      const result = await loadMoreAudit(cursor)
+      if (!result.ok) {
+        setLoadError(result.error)
+        return
+      }
+      setOlder((current) => [...current, ...result.data.entries])
+      setCursor(result.data.nextCursor)
+    })
+  }
 
   const visible = useMemo(
     () => (filter === 'Todos' ? entries : entries.filter((e) => e.category === filter)),
@@ -108,6 +147,27 @@ export default function TrazabilidadPage({ entries }: { entries: AuditEntry[] })
             </li>
           ))}
         </ol>
+      )}
+
+      {(cursor !== null || loadError) && (
+        <div style={{ padding: '4px 20px 20px', textAlign: 'center' }}>
+          {loadError && (
+            <p className="errline" role="alert" style={{ justifyContent: 'center' }}>
+              {loadError}
+            </p>
+          )}
+          {cursor !== null && (
+            <button
+              type="button"
+              className="btn"
+              onClick={loadMore}
+              disabled={loading}
+              aria-busy={loading}
+            >
+              {loading ? 'Cargando…' : 'Cargar más'}
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

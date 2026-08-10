@@ -138,6 +138,6 @@ export const config = {
   // Everything except static assets, so the security headers apply to real
   // documents without paying the cost on every chunk.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.json|font/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|otf|ttf|woff2?)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.json|fonts/|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|otf|ttf|woff2?)$).*)',
   ],
 }

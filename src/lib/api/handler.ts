@@ -1,7 +1,7 @@
 import 'server-only'
 import { NextResponse, type NextRequest } from 'next/server'
 import type { ZodType } from 'zod'
-import { requireMember, type Member } from '@/lib/auth/session'
+import { moduleOf, requireMember, type Member } from '@/lib/auth/session'
 import { can, type Permission } from '@/lib/auth/permissions'
 import { rateLimit, rateLimitHeaders, type RateLimitRule } from './rate-limit'
 import { ApiError, badRequest, forbidden, toResponse } from './errors'
@@ -46,8 +46,19 @@ export function route<TBody = undefined, TParams extends Record<string, string> 
     try {
       const member = await requireMember()
 
-      if (options.permission && !can(member.permissions, options.permission)) {
-        throw forbidden(`Necesitas el permiso "${options.permission}" para esta acción.`)
+      // Two gates, outermost first — the same pair `requirePermission` applies
+      // to Server Functions. Without the module check here, switching a module
+      // off hid its pages but left its HTTP endpoints answering normally, so
+      // /api/ai/chat kept working for an organization that had turned the
+      // assistant off.
+      if (options.permission) {
+        const moduleKey = moduleOf(options.permission)
+        if (!member.modules.has(moduleKey)) {
+          throw forbidden(`El módulo "${moduleKey}" no está activo en esta organización.`)
+        }
+        if (!can(member.permissions, options.permission)) {
+          throw forbidden(`Necesitas el permiso "${options.permission}" para esta acción.`)
+        }
       }
 
       // Keyed by user, not by address: a shared office NAT should not let one

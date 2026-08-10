@@ -175,7 +175,7 @@ export function TypingAnimation({
     <motion.span
       ref={elementRef}
       className={cn(
-        'leading-7 tracking-[-0.02em] inline-block',
+        'leading-7 inline-block',
         className,
       )}
       {...(props as HTMLMotionProps<'span'>)}

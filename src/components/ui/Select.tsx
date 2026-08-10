@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, Check } from '@/lib/icons'
+import { DROPDOWN_CLOSE_MS, dropdownClass, useExitTransition } from '@/lib/hooks/use-exit-transition'
 
 type Opt = string | { value: string; label: string }
 
@@ -22,6 +23,7 @@ export default function Select({ value, onChange, options, placeholder = 'Selecc
   const [active, setActive] = useState(0)
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const ref = useRef<HTMLButtonElement>(null)
+  const menu = useExitTransition(open, DROPDOWN_CLOSE_MS)
   const opts = options.map(norm)
   const selected = opts.find((o) => o.value === value)
 
@@ -91,10 +93,14 @@ export default function Select({ value, onChange, options, placeholder = 'Selecc
         <span className={selected ? '' : 'ph'}>{selected ? selected.label : placeholder}</span>
         <ChevronDown size={16} />
       </button>
-      {open && mounted && pos && createPortal(
+      {menu.render && mounted && pos && createPortal(
         <>
           <div className="nselect-catch" onClick={() => setOpen(false)} />
-          <div className="nselect-menu" role="listbox" style={{ top: pos.top, left: pos.left, width: pos.width }}>
+          <div
+            className={`nselect-menu ${dropdownClass(menu.shown, menu.closing)}`}
+            role="listbox"
+            style={{ top: pos.top, left: pos.left, width: pos.width }}
+          >
             {opts.map((o, i) => (
               <button
                 type="button"

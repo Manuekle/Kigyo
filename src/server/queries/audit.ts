@@ -85,22 +85,46 @@ function groupLabel(date: Date): string {
   return date.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export async function getAuditLog(options: { limit?: number } = {}): Promise<AuditEntry[]> {
+/** One screenful of the trail, plus the cursor that continues it. */
+export interface AuditPage {
+  entries: AuditEntry[]
+  /** Id to pass as `before` for the next page; null once the trail ends. */
+  nextCursor: number | null
+}
+
+/**
+ * @param options.before Keyset cursor — the id of the oldest entry already
+ *   shown. Paging by offset would repeat and skip rows here: the trail grows
+ *   while it is being read, and every new row shifts the window by one.
+ */
+export async function getAuditLog(
+  options: { limit?: number; before?: number } = {},
+): Promise<AuditPage> {
   await requirePermission('trazabilidad:read')
   const supabase = await createClient()
 
-  const { data, error } = await supabase
+  const limit = Math.min(Math.max(options.limit ?? 200, 1), 500)
+
+  // Ordered by id, not `occurred_at`, because the cursor has to be a total
+  // order: rows written by one transaction share a timestamp to the
+  // microsecond, and a tie there loses or duplicates entries at the seam.
+  // `id` is a sequence on an append-only table, so it sorts the same way.
+  let query = supabase
     .from('audit_log')
     .select('id, actor_email, action, table_name, record_code, changes, occurred_at')
-    .order('occurred_at', { ascending: false })
-    .limit(options.limit ?? 200)
+    .order('id', { ascending: false })
+    .limit(limit)
+
+  if (options.before !== undefined) query = query.lt('id', options.before)
+
+  const { data, error } = await query
 
   if (error) {
     console.error('[audit] read failed', error)
-    return []
+    return { entries: [], nextCursor: null }
   }
 
-  return data.map((row) => {
+  const entries = data.map((row) => {
     const occurredAt = new Date(row.occurred_at)
     const noun = TABLE_NOUN[row.table_name] ?? `el registro (${row.table_name})`
     const changes = (row.changes ?? {}) as Record<string, unknown>
@@ -123,6 +147,13 @@ export async function getAuditLog(options: { limit?: number } = {}): Promise<Aud
       destructive: row.action === 'delete',
     }
   })
+
+  // A short page is the end of the trail. A full one only means there may be
+  // more — one extra request that comes back empty is cheaper than a count.
+  return {
+    entries,
+    nextCursor: entries.length === limit ? entries[entries.length - 1].id : null,
+  }
 }
 
 /** Groups entries by day label, preserving the newest-first ordering. */

@@ -1,131 +1,192 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Plus, PenLine, Trash2, X } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
+import Select from '@/components/ui/Select'
+import DatePicker from '@/components/ui/DatePicker'
+import { EVENT_KINDS } from '@/lib/domain'
+import LoadMore from '@/components/ui/LoadMore'
+import type { CalendarioData, EventoRow } from '@/server/queries/calendario'
+import { fetchMoreEventos } from '@/server/actions/calendario'
+import { createEvento, deleteEvento, fetchMonth, updateEvento } from '@/server/mutations/calendario'
 
-interface Meeting {
-  id: string
-  title: string
-  type: string
-  day: number
-  time: string
-  dur: string
-  with: string
-  loc: string
+const MONTH = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' })
+const MONTH_SHORT = new Intl.DateTimeFormat('es-CO', { month: 'short' })
+const TIME = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digit' })
+
+const KIND_TONE: Record<string, string> = {
+  Entrevista: 'blu', Onboarding: 'grn', '1:1': 'vio', 'Consultoría': 'red',
+  Interna: 'neu', Reclutamiento: 'amb', Confidencial: 'neu', Otro: 'neu',
 }
 
-const MEETINGS: Meeting[] = [
-  { id: 'M-01', title: 'Entrevista — Backend Senior', type: 'Entrevista', day: 9, time: '10:00', dur: '45 min', with: 'Juan Pérez', loc: 'Sala 2 · Bogotá' },
-  { id: 'M-02', title: 'Onboarding — Sebastián Cano', type: 'Onboarding', day: 12, time: '09:00', dur: '1 h', with: 'Camila Restrepo', loc: 'Virtual · Meet' },
-  { id: 'M-03', title: '1:1 — Valentina Ruiz', type: '1:1', day: 15, time: '15:30', dur: '30 min', with: 'Camila Restrepo', loc: 'Virtual · Meet' },
-  { id: 'M-04', title: 'Sesión de consultoría laboral', type: 'Consultoría', day: 18, time: '11:00', dur: '1 h', with: 'Asesor externo', loc: 'Virtual · Meet' },
-  { id: 'M-05', title: '1:1 — Daniel Ospina', type: '1:1', day: 22, time: '14:00', dur: '30 min', with: 'Camila Restrepo', loc: 'Sala 1 · Bogotá' },
-  { id: 'M-06', title: 'Entrevista — Diseñador UX', type: 'Entrevista', day: 23, time: '16:00', dur: '45 min', with: 'Sebastián Cano', loc: 'Virtual · Meet' },
-  { id: 'M-07', title: 'Revisión de cumplimiento laboral', type: 'Consultoría', day: 25, time: '10:30', dur: '1 h', with: 'Asesor externo', loc: 'Virtual · Meet' },
-  { id: 'M-08', title: 'Onboarding — Nuevo ingreso Finanzas', type: 'Onboarding', day: 29, time: '09:30', dur: '1 h', with: 'Andrés Mora', loc: 'Sala 2 · Bogotá' },
-]
-
-const MEET_TONE: Record<string, string> = { 'Entrevista': 'blu', 'Onboarding': 'grn', '1:1': 'vio', 'Consultoría': 'red' }
-
-type NewMeetingData = Omit<Meeting, 'id'>
-
-type NewMeetingModalProps = { open: boolean; onClose: () => void; onCreate: (d: NewMeetingData) => void }
-
-function NewMeetingModal(props: NewMeetingModalProps) {
-  // Mounting only while open is what resets the form; the body below holds no
-  // reset effect, which used to cost an extra render on every open.
-  if (!props.open) return null
-  return <NewMeetingModalBody {...props} />
+/** Minutes between two instants, worded. Duration used to be typed free text. */
+function duration(startsAt: string, endsAt: string): string {
+  const minutes = Math.round((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60_000)
+  if (minutes < 60) return `${minutes} min`
+  const hours = minutes / 60
+  return Number.isInteger(hours) ? `${hours} h` : `${hours.toFixed(1)} h`
 }
 
-function NewMeetingModalBody({ onClose, onCreate }: NewMeetingModalProps) {
-  const [title, setTitle] = useState('')
-  const [type, setType] = useState('Entrevista')
-  const [day, setDay] = useState<number | string>(22)
-  const [time, setTime] = useState('10:00')
-  const [withWhom, setWithWhom] = useState('')
-  const types = ['Entrevista', 'Onboarding', '1:1', 'Consultoría']
-  const create = () => {
-    if (!title.trim()) return
-    onCreate({ title, type, day: Math.min(30, Math.max(1, Number(day) || 1)), time, dur: '30 min', with: withWhom.trim() || 'Por confirmar', loc: 'Virtual · Meet' })
-  }
-  return (
-    <div className="mwrap" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="mhead"><div className="mtitle">Agendar reunión</div><button className="ibtn" onClick={onClose}><X size={18} /></button></div>
-        <div className="mbody">
-          <div className="flabel" style={{ marginTop: 0 }}>Título</div>
-          <input className="field" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej. Entrevista — Backend Senior" />
-          <div className="flabel">Tipo</div>
-          <div className="chips">{types.map((t) => <button key={t} className={`chip ${type === t ? 'on' : ''}`} onClick={() => setType(t)}>{t}</button>)}</div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-            <div style={{ flex: 1 }}>
-              <div className="flabel" style={{ marginTop: 0 }}>Día (junio)</div>
-              <input className="field" type="number" min="1" max="30" value={day} onChange={(e) => setDay(e.target.value)} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div className="flabel" style={{ marginTop: 0 }}>Hora</div>
-              <input className="field" value={time} onChange={(e) => setTime(e.target.value)} placeholder="10:00" />
-            </div>
-          </div>
-          <div className="flabel">Con quién</div>
-          <input className="field" value={withWhom} onChange={(e) => setWithWhom(e.target.value)} placeholder="Nombre" />
-        </div>
-        <div className="mfoot">
-          <span />
-          <div style={{ display: 'flex', gap: 9 }}>
-            <button className="btn" onClick={onClose}>Cancelar</button>
-            <button className="btn dark" onClick={create}>Agendar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+/** `datetime-local` wants a local-time string with no zone suffix. */
+function toLocalInput(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export default function CalendarioPage() {
+const fromLocalInput = (value: string) => new Date(value).toISOString()
+
+export default function CalendarioPage({ data }: { data: CalendarioData }) {
   const { addToast } = useApp()
-  const [meetings, setMeetings] = useState<Meeting[]>(MEETINGS)
+  const [pending, startTransition] = useTransition()
+
+  const [state, setState] = useState<CalendarioData>(data)
   const [addOpen, setAddOpen] = useState(false)
-  const [editMeeting, setEditMeeting] = useState<Meeting | null>(null)
-  const today = 21
-  const cells = Array.from({ length: 35 }, (_, i) => (i + 1 <= 30 ? i + 1 : null))
-  const byDay = (d: number) => meetings.filter((m) => m.day === d)
-  const upcoming = meetings.filter((m) => m.day >= today).sort((a, b) => a.day - b.day || a.time.localeCompare(b.time))
-  const addMeeting = (d: NewMeetingData) => {
-    const id = `M-${meetings.length + 1}`
-    setMeetings((m) => [...m, { id, ...d }])
-    addToast('Reunión agendada', 'ok')
+  const [editing, setEditing] = useState<EventoRow | null>(null)
+
+  // `?agendar=1` is how the topbar's "Agendar" lands here with the form
+  // already open. Read straight out of the URL rather than copied into state
+  // by an effect: the topbar can push that param while this page is already
+  // mounted, and a `useState` initializer would only ever see it once.
+  const router = useRouter()
+  const params = useSearchParams()
+  const wantsAdd = params.get('agendar') === '1' && state.canWrite
+  const showAdd = addOpen || wantsAdd
+  function closeAdd() {
     setAddOpen(false)
+    // Drop the param on the way out, so Back and reload do not reopen it.
+    if (wantsAdd) router.replace('/dashboard/calendario')
   }
-  const updateMeeting = (id: string, patch: Partial<Meeting>) => {
-    setMeetings((ms) => ms.map((m) => (m.id === id ? { ...m, ...patch } : m)))
-    addToast('Reunión actualizada', 'ok')
-    setEditMeeting(null)
+
+  const monthStart = useMemo(() => new Date(state.monthStart), [state.monthStart])
+
+  /**
+   * Grid geometry for the displayed month.
+   *
+   * Computed rather than the fixed 35 cells the old page assumed: a month can
+   * need six rows, and the leading blanks depend on which weekday the 1st
+   * falls on. The week starts Monday, matching the L-M-X-J-V-S-D header.
+   */
+  const grid = useMemo(() => {
+    const year = monthStart.getUTCFullYear()
+    const month = monthStart.getUTCMonth()
+    const first = new Date(year, month, 1)
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const lead = (first.getDay() + 6) % 7
+    const cells: Array<number | null> = Array.from({ length: lead }, () => null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+    while (cells.length % 7 !== 0) cells.push(null)
+    return { year, month, cells }
+  }, [monthStart])
+
+  const now = new Date()
+  const isCurrentMonth =
+    now.getFullYear() === grid.year && now.getMonth() === grid.month
+  const today = isCurrentMonth ? now.getDate() : null
+
+  const byDay = useMemo(() => {
+    const map = new Map<number, EventoRow[]>()
+    for (const e of state.eventos) {
+      const d = new Date(e.startsAt)
+      if (d.getFullYear() !== grid.year || d.getMonth() !== grid.month) continue
+      const bucket = map.get(d.getDate())
+      if (bucket) bucket.push(e)
+      else map.set(d.getDate(), [e])
+    }
+    return map
+  }, [state.eventos, grid.year, grid.month])
+
+  /**
+   * "Próximas" against the actual clock, not against a hardcoded 21st.
+   *
+   * The reference instant is pinned once in a lazy initializer rather than
+   * read in render: `Date.now()` in a render body is impure, so the list would
+   * re-derive on every unrelated re-render and an event could drop out of the
+   * list mid-interaction.
+   */
+  const [nowMs] = useState(() => Date.now())
+  const upcoming = useMemo(
+    () => state.eventos
+      .filter((e) => new Date(e.endsAt).getTime() >= nowMs)
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+      .slice(0, 12),
+    [state.eventos, nowMs],
+  )
+
+  function goMonth(delta: number) {
+    const next = new Date(Date.UTC(grid.year, grid.month + delta, 1))
+    startTransition(async () => {
+      const result = await fetchMonth(next.toISOString())
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+    })
   }
-  const deleteMeeting = (id: string) => {
-    const removed = meetings.find((m) => m.id === id)
-    setMeetings((ms) => ms.filter((m) => m.id !== id))
-    addToast('Reunión eliminada', 'info', 'Deshacer', () => { if (removed) setMeetings((ms) => [...ms, removed]) })
+
+  const [loadingMore, startLoadingMore] = useTransition()
+  const [loadMoreError, setLoadMoreError] = useState('')
+
+  /**
+   * The rest of this month.
+   *
+   * Both the grid and the "próximas reuniones" list read `state.eventos`, so a
+   * month busier than one page was missing days from the calendar itself, not
+   * merely entries from a list.
+   */
+  function loadMore() {
+    setLoadMoreError('')
+    startLoadingMore(async () => {
+      const result = await fetchMoreEventos(state.monthStart, state.eventos.length)
+      if (!result.ok) {
+        setLoadMoreError(result.error)
+        return
+      }
+      setState((prev) => {
+        const seen = new Set(prev.eventos.map((e) => e.id))
+        return {
+          ...prev,
+          eventos: [...prev.eventos, ...result.data.rows.filter((e) => !seen.has(e.id))],
+          eventosTotal: result.data.total,
+        }
+      })
+    })
   }
+
+  function remove(e: EventoRow) {
+    startTransition(async () => {
+      const result = await deleteEvento(e.id, state.monthStart)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      setEditing(null)
+      addToast('Reunión eliminada', 'info')
+    })
+  }
+
   return (
     <div className="g2 calgrid">
       <div className="card cpad rise d1">
         <div className="calhead">
-          <button className="ibtn" disabled><ChevronLeft size={16} /></button>
-          <div className="ctitle">Junio 2026</div>
-          <button className="ibtn" disabled><ChevronRight size={16} /></button>
+          {/* The arrows used to be `disabled`: the month was a string. */}
+          <button className="ibtn" onClick={() => goMonth(-1)} disabled={pending} aria-label="Mes anterior"><ChevronLeft size={16} /></button>
+          {/* `cap-first`, not `capitalize`: the latter title-cases every word
+              and prints "Agosto De 2026". */}
+          <div className="ctitle cap-first">
+            {MONTH.format(new Date(grid.year, grid.month, 1))}
+          </div>
+          <button className="ibtn" onClick={() => goMonth(1)} disabled={pending} aria-label="Mes siguiente"><ChevronRight size={16} /></button>
         </div>
         <div className="calgridwrap">
           {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => <div className="caldow" key={d}>{d}</div>)}
-          {cells.map((d, i) => (
-            <div key={i} className={`calcell ${d === today ? 'today' : ''} ${!d ? 'empty' : ''}`}>
+          {grid.cells.map((d, i) => (
+            <div key={i} className={`calcell ${d && d === today ? 'today' : ''} ${!d ? 'empty' : ''}`}>
               {d && (
                 <>
                   <span className="caldnum">{d}</span>
                   <div className="caldots">
-                    {byDay(d).slice(0, 4).map((m) => <span key={m.id} className={`caldot ${MEET_TONE[m.type]}`} />)}
+                    {(byDay.get(d) ?? []).slice(0, 4).map((m) => (
+                      <span key={m.id} className={`caldot ${KIND_TONE[m.kind] ?? 'neu'}`} />
+                    ))}
                   </div>
                 </>
               )}
@@ -133,53 +194,185 @@ export default function CalendarioPage() {
           ))}
         </div>
       </div>
+
       <div className="card cpad rise d2">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div className="ctitle">Próximas reuniones</div>
-          <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={14} />Agendar</button>
+          {state.canWrite && (
+            <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={14} />Agendar</button>
+          )}
         </div>
-        {upcoming.length === 0 ? <div className="dempty">No hay reuniones próximas.</div> : upcoming.map((m) => (
-          <div className="meetrow" key={m.id}>
-            <div className={`meetdate ${MEET_TONE[m.type]}`}><div className="meetday">{m.day}</div><div className="meetmon">Jun</div></div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="eltxt">{m.title}</div>
-              <div className="elsub">{m.time} · {m.dur} · {m.with}</div>
-            </div>
-            <span className={`badge b-${MEET_TONE[m.type]}`}>{m.type}</span>
-            <button className="ibtn" style={{ width: 28, height: 28, flexShrink: 0 }} data-tip="Editar" onClick={() => setEditMeeting(m)}>
-              <PenLine size={13} />
-            </button>
-            <button className="ibtn" style={{ width: 28, height: 28, flexShrink: 0 }} data-tip="Eliminar" onClick={() => deleteMeeting(m.id)}>
-              <Trash2 size={13} />
-            </button>
-          </div>
-        ))}
-      </div>
-      <NewMeetingModal open={addOpen} onClose={() => setAddOpen(false)} onCreate={addMeeting} />
-      {editMeeting && (
-        <div className="mwrap" onClick={() => setEditMeeting(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="mhead"><div className="mtitle">Editar reunión</div><button className="ibtn" onClick={() => setEditMeeting(null)}><X size={18} /></button></div>
-            <div className="mbody">
-              <div className="flabel" style={{ marginTop: 0 }}>Título</div>
-              <input className="field" value={editMeeting.title} onChange={(e) => setEditMeeting((m) => (m ? { ...m, title: e.target.value } : m))} />
-              <div className="flabel">Hora</div>
-              <input className="field" value={editMeeting.time} onChange={(e) => setEditMeeting((m) => (m ? { ...m, time: e.target.value } : m))} />
-              <div className="flabel">Duración</div>
-              <input className="field" value={editMeeting.dur} onChange={(e) => setEditMeeting((m) => (m ? { ...m, dur: e.target.value } : m))} />
-              <div className="flabel">Con quien</div>
-              <input className="field" value={editMeeting.with} onChange={(e) => setEditMeeting((m) => (m ? { ...m, with: e.target.value } : m))} />
-            </div>
-            <div className="mfoot">
-              <button className="btn danger" onClick={() => { deleteMeeting(editMeeting.id) }}>Eliminar</button>
-              <div style={{ display: 'flex', gap: 9 }}>
-                <button className="btn" onClick={() => setEditMeeting(null)}>Cancelar</button>
-                <button className="btn dark" onClick={() => updateMeeting(editMeeting.id, editMeeting)}>Guardar</button>
+        {upcoming.length === 0 ? (
+          <div className="dempty">No hay reuniones próximas.</div>
+        ) : upcoming.map((m) => {
+          const start = new Date(m.startsAt)
+          return (
+            <div className="meetrow" key={m.id}>
+              <div className={`meetdate ${KIND_TONE[m.kind] ?? 'neu'}`}>
+                <div className="meetday">{start.getDate()}</div>
+                <div className="meetmon">{MONTH_SHORT.format(start).replace('.', '')}</div>
               </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="eltxt">{m.title}</div>
+                <div className="elsub">
+                  {TIME.format(start)} · {duration(m.startsAt, m.endsAt)}
+                  {m.location ? ` · ${m.location}` : ''}
+                  {m.attendees.length > 0 ? ` · ${m.attendees.map((a) => a.fullName).join(', ')}` : ''}
+                </div>
+              </div>
+              <span className={`badge b-${KIND_TONE[m.kind] ?? 'neu'}`}>{m.kind}</span>
+              {state.canWrite && (
+                <>
+                  <button className="ibtn" style={{ width: 28, height: 28, flexShrink: 0 }} data-tip="Editar" onClick={() => setEditing(m)} aria-label={`Editar ${m.title}`}>
+                    <PenLine size={13} />
+                  </button>
+                  <button className="ibtn" style={{ width: 28, height: 28, flexShrink: 0 }} data-tip="Eliminar" disabled={pending} onClick={() => remove(m)} aria-label={`Eliminar ${m.title}`}>
+                    <Trash2 size={13} />
+                  </button>
+                </>
+              )}
+            </div>
+          )
+        })}
+
+        <LoadMore
+          loaded={state.eventos.length}
+          total={state.eventosTotal}
+          loading={loadingMore}
+          error={loadMoreError}
+          onLoadMore={loadMore}
+          noun="eventos este mes"
+        />
+      </div>
+
+      {showAdd && (
+        <EventoModal
+          title="Agendar reunión"
+          busy={pending}
+          onClose={closeAdd}
+          onSubmit={(form) =>
+            startTransition(async () => {
+              const result = await createEvento({ ...form, monthIso: state.monthStart })
+              if (!result.ok) { addToast(result.error, 'err'); return }
+              setState(result.data)
+              closeAdd()
+              addToast('Reunión agendada', 'ok')
+            })
+          }
+        />
+      )}
+
+      {editing && (
+        <EventoModal
+          title="Editar reunión"
+          busy={pending}
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onDelete={() => remove(editing)}
+          onSubmit={(form) =>
+            startTransition(async () => {
+              const result = await updateEvento({ ...form, id: editing.id, monthIso: state.monthStart })
+              if (!result.ok) { addToast(result.error, 'err'); return }
+              setState(result.data)
+              setEditing(null)
+              addToast('Reunión actualizada', 'ok')
+            })
+          }
+        />
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Modal                                                              */
+/* ------------------------------------------------------------------ */
+interface EventoForm {
+  title: string
+  kind: (typeof EVENT_KINDS)[number]
+  startsAt: string
+  endsAt: string
+  location: string
+  notes: string
+}
+
+function EventoModal({
+  title, busy, initial, onClose, onSubmit, onDelete,
+}: {
+  title: string
+  busy: boolean
+  initial?: EventoRow
+  onClose: () => void
+  onSubmit: (form: EventoForm) => void
+  onDelete?: () => void
+}) {
+  // Defaults to the next round hour, an hour long — the common case, and it
+  // beats making somebody type a full timestamp to schedule a 1:1.
+  const defaultStart = useMemo(() => {
+    const d = new Date()
+    d.setMinutes(0, 0, 0)
+    d.setHours(d.getHours() + 1)
+    return d
+  }, [])
+
+  const [form, setForm] = useState({
+    title: initial?.title ?? '',
+    kind: (initial?.kind ?? 'Interna') as (typeof EVENT_KINDS)[number],
+    startsAt: initial ? toLocalInput(initial.startsAt) : toLocalInput(defaultStart.toISOString()),
+    endsAt: initial
+      ? toLocalInput(initial.endsAt)
+      : toLocalInput(new Date(defaultStart.getTime() + 3_600_000).toISOString()),
+    location: initial?.location ?? '',
+    notes: initial?.notes ?? '',
+  })
+
+  return (
+    <div className="mwrap" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mhead"><div className="mtitle">{title}</div><button className="ibtn" onClick={onClose} aria-label="Cerrar"><X size={18} /></button></div>
+        <div className="mbody">
+          <div className="flabel" style={{ marginTop: 0 }}>Título</div>
+          <input className="field" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="Ej. Entrevista — Backend Senior" />
+          <div className="flabel">Tipo</div>
+          <Select value={form.kind} onChange={(v) => setForm((f) => ({ ...f, kind: v as (typeof EVENT_KINDS)[number] }))} options={[...EVENT_KINDS]} />
+          <div className="fg2">
+            <div>
+              <div className="flabel">Inicio</div>
+              <DatePicker withTime ariaLabel="Inicio" value={form.startsAt} onChange={(v) => setForm((f) => ({ ...f, startsAt: v }))} />
+            </div>
+            <div>
+              <div className="flabel">Fin</div>
+              <DatePicker withTime ariaLabel="Fin" value={form.endsAt} onChange={(v) => setForm((f) => ({ ...f, endsAt: v }))} />
             </div>
           </div>
+          <div className="flabel">Lugar</div>
+          <input className="field" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="Ej. Sala 2 · Bogotá / Virtual" />
+          <div className="flabel">Notas</div>
+          <textarea className="field" rows={2} style={{ resize: 'none' }} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
         </div>
-      )}
+        <div className="mfoot">
+          {onDelete ? <button className="btn danger" onClick={onDelete} disabled={busy}>Eliminar</button> : <span />}
+          <div style={{ display: 'flex', gap: 9 }}>
+            <button className="btn" onClick={onClose} disabled={busy}>Cancelar</button>
+            <button
+              className="btn dark"
+              disabled={busy}
+              aria-busy={busy}
+              onClick={() => {
+                if (!form.title.trim()) return
+                onSubmit({
+                  ...form,
+                  title: form.title.trim(),
+                  startsAt: fromLocalInput(form.startsAt),
+                  endsAt: fromLocalInput(form.endsAt),
+                })
+              }}
+            >
+              {busy ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

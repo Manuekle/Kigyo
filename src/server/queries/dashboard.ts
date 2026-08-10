@@ -1,0 +1,243 @@
+import 'server-only'
+import { createClient } from '@/lib/supabase/server'
+import { requirePermission } from '@/lib/auth/session'
+import { can, type Permission } from '@/lib/auth/permissions'
+import type { Member } from '@/lib/auth/session'
+
+/**
+ * The overview, counted from real rows.
+ *
+ * Everything on this screen used to be typed into the source: "142 empleados
+ * activos · +4.2% vs. mes anterior" with a six-point sparkline, a six-month
+ * activity chart, an "Índice de salud organizacional" of 82 computed by
+ * weighting six invented factors, three recommendations, and an activity feed
+ * of eight events attributed to named colleagues. None of it moved, and none
+ * of it was about the organization looking at it.
+ *
+ * Every figure below is a count against a table this app now writes to, and
+ * every section is gated on its own module *and* permission — the dashboard
+ * must not become a way to read totals out of a module you cannot open.
+ */
+
+export interface DashboardKpi {
+  key: string
+  label: string
+  value: string
+  sub: string
+  tone: 'blu' | 'grn' | 'amb' | 'red' | 'neu' | 'vio'
+}
+
+export interface DashboardPendiente {
+  id: string
+  title: string
+  detail: string
+  href: string
+}
+
+export interface ActividadPoint {
+  month: string
+  firmas: number
+  documentos: number
+}
+
+export interface DashboardData {
+  kpis: DashboardKpi[]
+  /** Signature requests still waiting, newest first. */
+  pendientes: DashboardPendiente[]
+  /** Real audit-log entries — who did what, from `audit_log`. */
+  actividad: Array<{ id: string; who: string; what: string; at: string }>
+  /** Six months of signed documents vs documents created. */
+  serie: ActividadPoint[]
+  orgName: string
+}
+
+function allows(member: Member, permission: Permission): boolean {
+  return member.modules.has(permission.split(':')[0]) && can(member.permissions, permission)
+}
+
+const MONTH = new Intl.DateTimeFormat('es-CO', { month: 'short' })
+
+/** Reads as a sentence rather than as `insert · signature_requests`. */
+const ACTION_VERB: Record<string, string> = {
+  insert: 'creó', update: 'actualizó', delete: 'eliminó',
+}
+const TABLE_NOUN: Record<string, string> = {
+  employees: 'un empleado',
+  projects: 'un proyecto',
+  tickets: 'un ticket',
+  signature_requests: 'una solicitud de firma',
+  documents: 'un documento',
+  risks: 'un riesgo',
+  hseq_reports: 'un trámite HSEQ',
+  quotes: 'una cotización',
+  purchase_requests: 'una requisición',
+  purchase_orders: 'una orden de compra',
+  inventory_assets: 'un activo',
+  products: 'un producto',
+  absences: 'una ausencia',
+  calendar_events: 'un evento',
+  consultations: 'una consulta',
+}
+
+export async function getDashboard(): Promise<DashboardData> {
+  const member = await requirePermission('dashboard:read')
+  const supabase = await createClient()
+
+  const today = new Date().toISOString().slice(0, 10)
+  const sixMonthsAgo = new Date()
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
+  sixMonthsAgo.setDate(1)
+  const since = sixMonthsAgo.toISOString()
+
+  const wants = {
+    empleados: allows(member, 'empleados:read'),
+    firmas: allows(member, 'firmas:read'),
+    riesgos: allows(member, 'riesgos:read'),
+    tickets: allows(member, 'tickets:read'),
+    proyectos: allows(member, 'proyectos:read'),
+    documentos: allows(member, 'documentos:read'),
+    trazabilidad: allows(member, 'trazabilidad:read'),
+  }
+
+  const [
+    empleados, firmasPend, firmasHist, riesgos, tickets, proyectos, documentos, audit,
+  ] = await Promise.all([
+    wants.empleados
+      ? supabase.from('employees').select('id', { count: 'exact', head: true })
+          .eq('org_id', member.orgId).is('deleted_at', null).eq('status', 'Activo')
+      : Promise.resolve({ count: null }),
+    wants.firmas
+      ? supabase.from('signature_requests')
+          .select('id, title, requested_on, due_on, employees ( full_name )')
+          .eq('org_id', member.orgId).is('deleted_at', null).eq('status', 'Pendiente')
+          .order('requested_on', { ascending: true }).limit(6)
+      : Promise.resolve({ data: [] }),
+    wants.firmas
+      ? supabase.from('signature_requests').select('signed_at')
+          .eq('org_id', member.orgId).is('deleted_at', null)
+          .not('signed_at', 'is', null).gte('signed_at', since)
+      : Promise.resolve({ data: [] }),
+    wants.riesgos
+      ? supabase.from('risks').select('severity')
+          .eq('org_id', member.orgId).is('deleted_at', null).eq('status', 'Abierto')
+      : Promise.resolve({ data: [] }),
+    wants.tickets
+      ? supabase.from('tickets').select('id', { count: 'exact', head: true })
+          .eq('org_id', member.orgId).is('deleted_at', null).in('status', ['Abierto', 'En proceso'])
+      : Promise.resolve({ count: null }),
+    wants.proyectos
+      ? supabase.from('projects').select('id', { count: 'exact', head: true })
+          .eq('org_id', member.orgId).is('deleted_at', null).eq('status', 'En ejecución')
+      : Promise.resolve({ count: null }),
+    wants.documentos
+      ? supabase.from('documents').select('created_at')
+          .eq('org_id', member.orgId).is('deleted_at', null).gte('created_at', since)
+      : Promise.resolve({ data: [] }),
+    wants.trazabilidad
+      ? supabase.from('audit_log')
+          // `occurred_at`, not `created_at`, and the actor is denormalised to
+          // `actor_email` so the entry survives the person being deleted.
+          .select('id, action, table_name, record_code, occurred_at, actor_email, profiles ( full_name )')
+          .eq('org_id', member.orgId)
+          .order('occurred_at', { ascending: false }).limit(8)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const kpis: DashboardKpi[] = []
+
+  const empleadoCount = (empleados as { count: number | null }).count
+  if (empleadoCount !== null) {
+    kpis.push({
+      key: 'empleados', label: 'Empleados activos', tone: 'blu',
+      value: String(empleadoCount), sub: 'en el directorio',
+    })
+  }
+
+  const pendientes = ((firmasPend as { data: Array<{
+    id: string; title: string; requested_on: string; due_on: string | null
+    employees: { full_name: string } | null
+  }> | null }).data ?? [])
+
+  if (wants.firmas) {
+    kpis.push({
+      key: 'firmas', label: 'Firmas pendientes', tone: 'amb',
+      value: String(pendientes.length),
+      sub: pendientes.length === 0 ? 'nada por firmar' : 'esperando firma',
+    })
+  }
+
+  const riesgoRows = ((riesgos as { data: Array<{ severity: string }> | null }).data ?? [])
+  if (wants.riesgos) {
+    const alta = riesgoRows.filter((r) => r.severity === 'Alta').length
+    kpis.push({
+      key: 'riesgos', label: 'Riesgos altos', tone: 'red',
+      value: String(alta), sub: `${riesgoRows.length} abiertos en total`,
+    })
+  }
+
+  const ticketCount = (tickets as { count: number | null }).count
+  if (ticketCount !== null) {
+    kpis.push({
+      key: 'tickets', label: 'Tickets abiertos', tone: 'vio',
+      value: String(ticketCount), sub: 'sin resolver',
+    })
+  }
+
+  const proyectoCount = (proyectos as { count: number | null }).count
+  if (proyectoCount !== null) {
+    kpis.push({
+      key: 'proyectos', label: 'Proyectos activos', tone: 'grn',
+      value: String(proyectoCount), sub: 'en ejecución',
+    })
+  }
+
+  // Six buckets, oldest first, keyed by year-month so December and January of
+  // different years do not collapse into the same column.
+  const buckets = new Map<string, ActividadPoint>()
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(1)
+    d.setMonth(d.getMonth() - i)
+    buckets.set(`${d.getFullYear()}-${d.getMonth()}`, {
+      month: MONTH.format(d).replace('.', ''),
+      firmas: 0,
+      documentos: 0,
+    })
+  }
+  const bump = (iso: string, field: 'firmas' | 'documentos') => {
+    const d = new Date(iso)
+    const bucket = buckets.get(`${d.getFullYear()}-${d.getMonth()}`)
+    if (bucket) bucket[field] += 1
+  }
+  for (const row of ((firmasHist as { data: Array<{ signed_at: string }> | null }).data ?? [])) {
+    bump(row.signed_at, 'firmas')
+  }
+  for (const row of ((documentos as { data: Array<{ created_at: string }> | null }).data ?? [])) {
+    bump(row.created_at, 'documentos')
+  }
+
+  return {
+    kpis,
+    pendientes: pendientes.map((f) => ({
+      id: f.id,
+      title: f.title,
+      detail: [
+        f.employees?.full_name,
+        f.due_on && f.due_on < today ? 'vencido' : null,
+      ].filter(Boolean).join(' · ') || 'Sin firmante asignado',
+      href: '/dashboard/firmas',
+    })),
+    actividad: ((audit as { data: Array<{
+      id: number; action: string; table_name: string; record_code: string | null
+      occurred_at: string; actor_email: string | null
+      profiles: { full_name: string } | null
+    }> | null }).data ?? []).map((a) => ({
+      id: String(a.id),
+      who: a.profiles?.full_name ?? a.actor_email ?? 'Sistema',
+      what: `${ACTION_VERB[a.action] ?? a.action} ${TABLE_NOUN[a.table_name] ?? a.table_name}${a.record_code ? ` ${a.record_code}` : ''}`,
+      at: a.occurred_at,
+    })),
+    serie: [...buckets.values()],
+    orgName: member.orgName,
+  }
+}

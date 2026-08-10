@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { TrendingUp } from '@/lib/icons'
+import PopNumber from '@/components/ui/PopNumber'
 
 interface KpiProps {
   label: string
@@ -21,7 +22,7 @@ export default function Kpi({ label, value, sub, delta, dir = 'up', iconBg = 'va
         <span className="kico" style={{ background: iconBg }}>{icon}</span>
         {label}
       </div>
-      <div className="kval">{value}</div>
+      <div className="kval"><PopNumber value={value} /></div>
       <div className="kfoot">
         {delta && (
           <span className={`delta ${dir}`}>

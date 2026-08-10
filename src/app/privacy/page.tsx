@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
-import PublicNav from '@/components/marketing/PublicNav'
-import PublicFooter from '@/components/marketing/PublicFooter'
+import Link from 'next/link'
+import PublicPageShell from '@/components/marketing/PublicPageShell'
+import PublicCta from '@/components/marketing/PublicCta'
 
 export const metadata: Metadata = {
   title: 'Política de privacidad',
@@ -9,16 +10,17 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="landing">
-      <PublicNav />
-
+    <PublicPageShell>
       <div className="pub-page-head">
         <span className="pub-page-eyebrow">Legal</span>
         <h1 className="pub-page-title">Política de privacidad</h1>
+        <p className="pub-page-sub">
+          Cómo recopilamos, usamos y protegemos los datos personales de tu equipo.
+        </p>
       </div>
 
-      <section className="l-section" style={{ paddingTop: 12 }}>
-        <div className="legal-body">
+      <section className="l-section pub-section-tight">
+        <div className="legal-body" data-reveal>
           <p className="legal-updated">Última actualización: 1 de julio de 2026</p>
 
           <h2>1. Información que recopilamos</h2>
@@ -61,9 +63,10 @@ export default function PrivacyPage() {
 
           <h2>6. Tus derechos</h2>
           <p>
-            Puedes solicitar acceso, corrección o eliminación de tus datos
-            personales, así como oponerte a ciertos usos, escribiendo a
-            hola@kigyo.mx.
+            Conforme a la Ley 1581 de 2012 y sus decretos reglamentarios, puedes
+            conocer, actualizar, rectificar y suprimir tus datos personales, así
+            como revocar la autorización para su tratamiento, a través de
+            nuestro <Link href="/contact">formulario de contacto</Link>.
           </p>
 
           <h2>7. Cookies</h2>
@@ -82,12 +85,17 @@ export default function PrivacyPage() {
 
           <h2>9. Contacto</h2>
           <p>
-            Para dudas sobre esta política, escríbenos a hola@kigyo.mx.
+            Para dudas sobre esta política, escríbenos desde la{' '}
+            <Link href="/contact">página de contacto</Link>.
           </p>
         </div>
       </section>
 
-      <PublicFooter />
-    </div>
+      <PublicCta
+        title="¿Tienes dudas sobre privacidad?"
+        subtitle="Nuestro equipo puede aclarar cómo protegemos los datos de tu organización."
+        primary={{ href: '/contact', label: 'Contactar equipo' }}
+      />
+    </PublicPageShell>
   )
 }

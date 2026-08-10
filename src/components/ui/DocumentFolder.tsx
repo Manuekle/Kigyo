@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import { useState } from 'react'
+import { DUR_RESIZE_S, EASE_STANDARD } from '@/lib/motion'
 import {
   FileText,
   FileImage,
@@ -60,9 +61,9 @@ const listVariants: Variants = {
   show: {
     height: 'auto',
     opacity: 1,
-    transition: { height: { duration: 0.25, ease: [0.22, 1, 0.36, 1] }, staggerChildren: 0.04, delayChildren: 0.08 },
+    transition: { height: { duration: DUR_RESIZE_S, ease: EASE_STANDARD }, staggerChildren: 0.04, delayChildren: 0.08 },
   },
-  exit: { height: 0, opacity: 0, transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } },
+  exit: { height: 0, opacity: 0, transition: { duration: DUR_RESIZE_S, ease: EASE_STANDARD } },
 }
 const rowVariants: Variants = {
   hidden: { opacity: 0, y: 16 },
@@ -155,8 +156,8 @@ export function DocumentFolder({ title = 'Documentos', documents, onSelect }: Do
 
               {/* contenido: solo nombre + conteo en mono */}
               <div className="relative z-10">
-                <h3 className="text-[19px] font-semibold tracking-[-0.03em] text-white">{title}</h3>
-                <p className="mt-1 font-mono text-xs tracking-[0.01em] text-white/50 tabular-nums">
+                <h3 className="text-[19px] font-medium tracking-[-0.01em] text-white">{title}</h3>
+                <p className="mt-1 font-mono text-xs text-white/50 tabular-nums">
                   {documents.length} {documents.length === 1 ? 'archivo' : 'archivos'}
                 </p>
               </div>
@@ -190,7 +191,7 @@ export function DocumentFolder({ title = 'Documentos', documents, onSelect }: Do
                       <Icon size={20} strokeWidth={1.8} />
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold tracking-[-0.02em] text-[#1e2536]">{doc.name}</span>
+                      <span className="block truncate text-sm font-medium tracking-[-0.01em] text-[#1e2536]">{doc.name}</span>
                       <span className="mt-0.5 block font-mono text-[11.5px] text-[#98a1b6] tabular-nums">{doc.size}</span>
                     </span>
                     <ChevronRight size={18} className="ml-auto shrink-0 text-[#c2cad9] transition group-hover:translate-x-[3px] group-hover:text-[#5b647a]" />

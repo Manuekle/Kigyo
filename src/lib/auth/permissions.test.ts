@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -12,19 +12,39 @@ import {
   type Permission,
 } from './permissions'
 
-const MIGRATION = resolve(
-  process.cwd(),
-  'supabase/migrations/20260806090000_01_core.sql',
-)
+const MIGRATIONS_DIR = resolve(process.cwd(), 'supabase/migrations')
 
-/** The permission keys the migration inserts into public.permissions. */
-function permissionsInMigration(): string[] {
-  const sql = readFileSync(MIGRATION, 'utf8')
-  const block = sql.match(
-    /insert into public\.permissions \(key, module, action, label\) values([\s\S]*?);/,
-  )
-  if (!block) throw new Error('permission INSERT block not found in the migration')
-  return [...block[1].matchAll(/\('([a-z-]+:[a-z]+)'/g)].map((m) => m[1])
+/** The core migration, which is also where the role catalogue is seeded. */
+const CORE_MIGRATION = resolve(MIGRATIONS_DIR, '20260806090000_01_core.sql')
+
+/**
+ * Every permission key inserted into `public.permissions`, across all
+ * migrations.
+ *
+ * This used to read only 01_core.sql, on the assumption that the catalogue was
+ * seeded once and never grown. It was grown — migration 14 adds thirty-two
+ * keys for the sector modules — and the assumption turned a correct schema
+ * into a failing test. Scanning the directory means the next migration to add
+ * a permission needs no change here at all.
+ */
+function permissionsInMigrations(): string[] {
+  const keys: string[] = []
+
+  for (const file of readdirSync(MIGRATIONS_DIR).sort()) {
+    if (!file.endsWith('.sql')) continue
+    const sql = readFileSync(resolve(MIGRATIONS_DIR, file), 'utf8')
+
+    for (const block of sql.matchAll(
+      /insert into public\.permissions \(key, module, action, label\) values([\s\S]*?);/g,
+    )) {
+      keys.push(...[...block[1].matchAll(/\('([a-z-]+:[a-z]+)'/g)].map((m) => m[1]))
+    }
+  }
+
+  if (keys.length === 0) {
+    throw new Error('no permission INSERT block found in supabase/migrations')
+  }
+  return keys
 }
 
 describe('permission catalogue', () => {
@@ -35,8 +55,16 @@ describe('permission catalogue', () => {
    * by the database, or vice versa.
    */
   it('matches the database catalogue exactly', () => {
-    const inDatabase = permissionsInMigration()
+    const inDatabase = permissionsInMigrations()
     expect([...inDatabase].sort()).toEqual([...PERMISSIONS].sort())
+  })
+
+  it('inserts each permission key into the catalogue exactly once', () => {
+    // Two migrations inserting the same key is only harmless while the second
+    // keeps its `on conflict do nothing`. Catching the duplicate here is
+    // cheaper than discovering it as a failed deploy.
+    const inDatabase = permissionsInMigrations()
+    expect(new Set(inDatabase).size).toBe(inDatabase.length)
   })
 
   it('has no duplicates', () => {
@@ -106,7 +134,7 @@ describe('can', () => {
 
 describe('roles', () => {
   it('matches the roles seeded by the migration', () => {
-    const sql = readFileSync(MIGRATION, 'utf8')
+    const sql = readFileSync(CORE_MIGRATION, 'utf8')
     const block = sql.match(/insert into public\.roles \(key, label, rank\) values([\s\S]*?);/)
     expect(block).toBeTruthy()
     const inDatabase = [...block![1].matchAll(/\('([^']+)',/g)].map((m) => m[1])

@@ -2,6 +2,7 @@ import { AppProvider } from '@/lib/context/AppContext'
 import { MemberProvider } from '@/lib/context/MemberContext'
 import { SoundProvider } from '@/lib/context/SoundContext'
 import { requireMember } from '@/lib/auth/session'
+import { getNotificaciones } from '@/server/queries/notificaciones'
 import Sidebar from '@/components/layout/Sidebar'
 import Topbar from '@/components/layout/Topbar'
 import Toasts from '@/components/ui/Toasts'
@@ -25,6 +26,9 @@ export const dynamic = 'force-dynamic'
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const member = await requireMember()
+  // Derived from live rows rather than a fixture, so the bell's count is
+  // something that can actually go to zero.
+  const notificaciones = await getNotificaciones()
 
   return (
     <MemberProvider
@@ -35,6 +39,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         avatarUrl: member.avatarUrl,
         orgId: member.orgId,
         orgName: member.orgName,
+        companyType: member.companyType,
+        plan: member.plan,
+        modules: [...member.modules],
         role: member.role,
         permissions: [...member.permissions],
       }}
@@ -44,7 +51,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <a href="#contenido" className="skip-link">Saltar al contenido</a>
           <Sidebar />
           <main className="main">
-            <Topbar />
+            <Topbar notificaciones={notificaciones} />
             <div className="content" id="contenido" tabIndex={-1}>
               {children}
             </div>

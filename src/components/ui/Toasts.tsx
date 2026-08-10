@@ -1,14 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { CheckCircle, XCircle, Info, AlertTriangle, X } from '@/lib/icons'
+import { XCircle, Info, AlertTriangle, X } from '@/lib/icons'
+import SuccessCheck from '@/components/ui/SuccessCheck'
 import { useApp } from '@/lib/context/AppContext'
 import { useSound } from '@/lib/context/SoundContext'
 import type { Toast } from '@/lib/types'
 import type { SoundName } from 'cuelume'
 
 const ICONS = {
-  ok: <CheckCircle size={13} />,
+  // The success toast draws its check on arrival — the one toast that reports
+  // something finished, rather than something happening.
+  ok: <SuccessCheck size={14} />,
   err: <XCircle size={13} />,
   info: <Info size={13} />,
   warn: <AlertTriangle size={13} />,
@@ -23,7 +26,7 @@ const CUES: Record<Toast['type'], SoundName> = {
 }
 
 const VISIBLE_MS = 4000
-const EXIT_MS = 220 // matches .toast.out (toastout .22s)
+const EXIT_MS = 220 // matches --toast-out-dur
 
 function ToastItem({ t, onRemove }: { t: Toast; onRemove: (id: number) => void }) {
   const [out, setOut] = useState(false)

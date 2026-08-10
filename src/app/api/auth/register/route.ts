@@ -25,10 +25,15 @@ export const POST = publicRoute({
       email: body.email,
       password: body.password,
       options: {
-        // Read by handle_new_user() to name the organization.
+        // Read by handle_new_user() to name the organization and record its
+        // sector. The trigger re-validates `company_type` against the same
+        // list the check constraint uses and drops anything it does not
+        // recognise — user metadata is client-supplied, and an account that
+        // fails to be created is a far worse outcome than one with no sector.
         data: {
           full_name: body.name,
           company: body.company?.trim() || body.name,
+          company_type: body.companyType || null,
         },
         emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`,
       },

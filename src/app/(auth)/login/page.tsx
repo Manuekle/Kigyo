@@ -3,8 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff } from '@/lib/icons'
+import { ArrowLeft, Eye, EyeOff } from '@/lib/icons'
 import { apiFetch, errorMessage } from '@/lib/api/client'
+import OtpInput from '@/components/ui/OtpInput'
+import TextSwap from '@/components/ui/TextSwap'
+import { useErrorShake } from '@/lib/hooks/use-error-shake'
 
 /**
  * Where to land after signing in. Read at submit time rather than through
@@ -24,100 +27,193 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  // Set when the password succeeded but the account carries a second factor.
+  // The session exists at this point and is deliberately useless until the
+  // code lands: `getMember` refuses an aal1 session on an enrolled account.
+  const [factorId, setFactorId] = useState<string | null>(null)
+  const [code, setCode] = useState('')
+  const { ref: formRef, message: error, isError, setError, clearError } = useErrorShake()
+
+  function enter() {
+    // The session cookie was just set. Refresh so Server Components re-run
+    // with it before navigating, otherwise the dashboard renders as signed
+    // out and bounces straight back here.
+    router.refresh()
+    router.replace(redirectTarget())
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
+    clearError()
     if (!email.trim() || !password) { setError('Completa todos los campos.'); return }
     setLoading(true)
     try {
-      await apiFetch('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      })
-      // The session cookie was just set. Refresh so Server Components re-run
-      // with it before navigating, otherwise the dashboard renders as signed
-      // out and bounces straight back here.
-      router.refresh()
-      router.replace(redirectTarget())
+      const result = await apiFetch<{ ok: true; mfaRequired: boolean; factorId?: string }>(
+        '/api/auth/login',
+        { method: 'POST', body: JSON.stringify({ email, password }) },
+      )
+
+      if (result.mfaRequired && result.factorId) {
+        setFactorId(result.factorId)
+        setLoading(false)
+        return
+      }
+
+      enter()
     } catch (err) {
       setError(errorMessage(err, 'Error al iniciar sesión.'))
       setLoading(false)
     }
   }
 
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault()
+    clearError()
+    if (!factorId || code.length !== 6) { setError('Escribe los 6 dígitos.'); return }
+    setLoading(true)
+    try {
+      await apiFetch('/api/auth/mfa', {
+        method: 'PUT',
+        body: JSON.stringify({ factorId, code }),
+      })
+      enter()
+    } catch (err) {
+      setCode('')
+      setError(errorMessage(err, 'El código no es válido.'))
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="loginwrap">
-      <div className="loginbox">
-        <div className="loginlogo">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="Kigyo" width={46} height={46} style={{ borderRadius: 14, boxShadow: '0 4px 10px rgba(0,0,0,.25)' }} />
+    <div className="auth-shell">
+      <div className="auth-stage">
+        <div className="auth-top">
+          <Link href="/" className="auth-home">
+            <ArrowLeft size={14} />
+            Volver
+          </Link>
         </div>
-        <div className="logintitle" style={{ fontSize: 22 }}>Bienvenido a Kigyo</div>
-        <div className="loginsub">Sistema operativo de personas</div>
 
-        <form onSubmit={handleSubmit} style={{ marginTop: 24 }}>
-          <label className="flabel" htmlFor="login-email">Correo electrónico</label>
-          <input
-            id="login-email"
-            className="field"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            placeholder="correo@empresa.co"
-          />
-
-          <label className="flabel" htmlFor="login-password" style={{ marginTop: 14 }}>Contraseña</label>
-          <div style={{ position: 'relative' }}>
-            <input
-              id="login-password"
-              className="field"
-              type={showPw ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              placeholder="••••••••"
-              style={{ paddingRight: 44 }}
-            />
-            <button
-              type="button"
-              aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              onClick={() => setShowPw((v) => !v)}
-              style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)' }}
-            >
-              {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-            </button>
-          </div>
-
-          {error && (
-            <div className="errline" role="alert" style={{ marginTop: 8 }}>
-              <span>{error}</span>
+        <div className="auth-body">
+          <div className="auth-card">
+            <div className="auth-logo">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icon.svg" alt="Kigyo" width={54} height={54} />
             </div>
-          )}
 
-          <div className="loginrow">
-            <label className="remember">
-              <input type="checkbox" defaultChecked />
-              Recordarme
-            </label>
-            <Link href="/forgot-password" className="loginlink">¿Olvidaste tu contraseña?</Link>
+            <h1 className="auth-title">
+              {factorId ? 'Un paso más' : '¡Qué gusto verte de nuevo!'}
+            </h1>
+            <p className="auth-sub">
+              {factorId
+                ? 'Escribe el código de 6 dígitos de tu app de autenticación.'
+                : <>¿Primera vez por aquí? <Link href="/register">Crea tu cuenta gratis</Link></>}
+            </p>
+
+            {factorId ? (
+              <form
+                onSubmit={handleVerify}
+                className={`auth-form-shell t-input-wrap${isError ? ' is-error' : ''}`}
+              >
+                <div ref={formRef} className={`auth-form t-input${isError ? ' is-error' : ''}`}>
+                  <OtpInput
+                    value={code}
+                    onChange={(v) => { setCode(v); clearError() }}
+                    disabled={loading}
+                  />
+                </div>
+
+                {error && (
+                  <div className="errline auth-err t-error-msg" role="alert">
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="btn ink auth-submit"
+                  disabled={loading || code.length !== 6}
+                >
+                  <TextSwap>{loading ? 'Verificando…' : 'Verificar'}</TextSwap>
+                </button>
+              </form>
+            ) : (
+            <form
+              onSubmit={handleSubmit}
+              className={`auth-form-shell t-input-wrap${isError ? ' is-error' : ''}`}
+            >
+              {/* The whole field group is the shake target: a failed sign-in
+                  can't say which of the two fields was wrong. */}
+              <div ref={formRef} className={`auth-form t-input${isError ? ' is-error' : ''}`}>
+                {/* Placeholder-only fields, as the design asks — the labels stay
+                    in the accessibility tree so the form is still announced. */}
+                <label className="sr-only" htmlFor="login-email">Correo electrónico</label>
+                <input
+                  id="login-email"
+                  className="field"
+                  type="email"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); clearError() }}
+                  autoComplete="email"
+                  placeholder="Tu correo"
+                />
+
+                <label className="sr-only" htmlFor="login-password">Contraseña</label>
+                <div className="auth-pw">
+                  <input
+                    id="login-password"
+                    className="field"
+                    type={showPw ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); clearError() }}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    className="auth-pw-eye"
+                    aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    onClick={() => setShowPw((v) => !v)}
+                  >
+                    <span className="t-icon-swap" data-state={showPw ? 'b' : 'a'} aria-hidden="true">
+                      <span className="t-icon" data-icon="a"><Eye size={16} /></span>
+                      <span className="t-icon" data-icon="b"><EyeOff size={16} /></span>
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <div className="errline auth-err t-error-msg" role="alert">
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <button type="submit" className="btn ink auth-submit" disabled={loading}>
+                <TextSwap>{loading ? 'Iniciando sesión…' : 'Iniciar sesión'}</TextSwap>
+              </button>
+            </form>
+            )}
+
+            {!factorId && (
+              <>
+                <Link href="/forgot-password" className="auth-textlink">
+                  ¿Olvidaste tu contraseña?
+                </Link>
+
+                <div className="auth-or">o</div>
+
+                <Link href="/register" className="btn auth-alt">
+                  Crear una cuenta
+                </Link>
+              </>
+            )}
+
+            <p className="auth-legal">
+              Al continuar aceptas nuestros <Link href="/terms">Términos de servicio</Link> y
+              nuestra <Link href="/privacy">Política de privacidad</Link>.
+            </p>
           </div>
-
-          <button
-            type="submit"
-            className="btn pri"
-            style={{ width: '100%', height: 36, fontSize: 13.5, fontWeight: 600 }}
-            disabled={loading}
-          >
-            {loading ? 'Iniciando sesión…' : 'Iniciar sesión'}
-          </button>
-        </form>
-
-        <div className="loginfoot">
-          ¿No tienes cuenta?{' '}
-          <Link href="/register" className="loginlink">Crear cuenta</Link>
         </div>
       </div>
     </div>

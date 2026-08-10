@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isCompanyType } from '@/lib/modules'
 
 /**
  * Shared by the forms and the route handlers, so the browser and the server
@@ -34,6 +35,17 @@ export const registerSchema = z.object({
   name: z.string().trim().min(2, 'Ingresa tu nombre.').max(160, 'El nombre es demasiado largo.'),
   email: emailSchema,
   company: z.string().trim().max(120, 'El nombre de la empresa es demasiado largo.').optional(),
+  /**
+   * The company's sector, which decides the module preset the account starts
+   * with. Optional and validated against the catalogue: an invited signup has
+   * no organization to describe, and a stale or tampered value should land the
+   * account on "no sector yet" rather than fail the whole registration.
+   */
+  companyType: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || isCompanyType(v), 'Selecciona un sector válido.')
+    .optional(),
   password: passwordSchema,
 })
 

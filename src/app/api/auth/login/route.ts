@@ -34,7 +34,20 @@ export const POST = publicRoute({
       })
     }
 
-    return { ok: true }
+    // The password bought a session at aal1. If the account carries a verified
+    // TOTP factor, that session is not enough — `getMember` refuses it — so the
+    // caller is told to finish the second step rather than being sent to a
+    // dashboard that would bounce it straight back to /login.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+
+    if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      const { data: factors } = await supabase.auth.mfa.listFactors()
+      const factorId = (factors?.totp ?? []).find((f) => f.status === 'verified')?.id
+
+      if (factorId) return { ok: true, mfaRequired: true as const, factorId }
+    }
+
+    return { ok: true, mfaRequired: false as const }
   },
 })
 

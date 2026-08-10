@@ -113,6 +113,20 @@ import {
   VolumeOffIcon,
   Sun03Icon,
   Moon02Icon,
+  // Sector and operations modules. Every one of these names a thing the
+  // business physically has — a vehicle, a bed, a plot of land — so the glyph
+  // carries more than a generic document would.
+  Wrench01Icon,
+  Car01Icon,
+  Factory01Icon,
+  StethoscopeIcon,
+  School01Icon,
+  Restaurant01Icon,
+  Plant01Icon,
+  Home01Icon,
+  BedIcon,
+  Agreement01Icon,
+  UserSearch01Icon,
 } from '@hugeicons/core-free-icons'
 
 export interface IconProps {
@@ -243,3 +257,16 @@ export const Volume = make(VolumeHighIcon)
 export const VolumeOff = make(VolumeOffIcon)
 export const Sun = make(Sun03Icon)
 export const Moon = make(Moon02Icon)
+
+// Sector and operations modules.
+export const Wrench = make(Wrench01Icon)
+export const Car = make(Car01Icon)
+export const Factory = make(Factory01Icon)
+export const Stethoscope = make(StethoscopeIcon)
+export const School = make(School01Icon)
+export const Restaurant = make(Restaurant01Icon)
+export const Sprout = make(Plant01Icon)
+export const Home = make(Home01Icon)
+export const Bed = make(BedIcon)
+export const Handshake = make(Agreement01Icon)
+export const UserSearch = make(UserSearch01Icon)

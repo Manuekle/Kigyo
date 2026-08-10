@@ -19,6 +19,6 @@ export default function Page() {
 }
 
 async function AuditLoader() {
-  const entries = await getAuditLog({ limit: 200 })
-  return <Client entries={entries} />
+  const { entries, nextCursor } = await getAuditLog({ limit: 200 })
+  return <Client entries={entries} nextCursor={nextCursor} />
 }

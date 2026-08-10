@@ -1,22 +1,38 @@
 'use client'
 
-import { useCallback, useState, useTransition } from 'react'
+import { useCallback, useOptimistic, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Users, Bell, Lock, Building2, Shield, Check, Upload, PenLine, Ticket,
   Sparkles, Mail, LogOut, Globe, ChevronDown, Star,
-  Eye, EyeOff, AlertTriangle,
+  Eye, EyeOff, AlertTriangle, LayoutGrid, Plus, Trash2, Copy,
 } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import { initials } from '@/lib/utils'
 import { useApp } from '@/lib/context/AppContext'
 import TabBar from '@/components/ui/TabBar'
-import { PERMISSION_LABELS, permissionsByModule, ROLES, type Permission, type RoleKey } from '@/lib/auth/permissions'
+import Toggle from '@/components/ui/Toggle'
+import OtpInput from '@/components/ui/OtpInput'
+import { apiFetch, errorMessage } from '@/lib/api/client'
+import type { MfaEnrollment } from '@/app/api/auth/mfa/route'
+import {
+  ACTION_LABELS, MODULE_LABELS, PERMISSION_LABELS, permissionsByModule, ROLES,
+  type Permission, type RoleKey,
+} from '@/lib/auth/permissions'
+import { COMPANY_TYPES, MODULE_KEYS, modulesByGroup, presetFor } from '@/lib/modules'
+import { lowestPlanWith } from '@/lib/plans'
+import { useMember } from '@/lib/context/MemberContext'
 import type { SettingsData } from '@/server/queries/settings'
+import Select from '@/components/ui/Select'
 import {
   changePassword,
+  inviteMember,
+  revokeInvitation,
   setMemberRole,
   setRolePermission,
+  signOutEverywhere,
+  updateModules,
   updateOrganization,
   updateProfile,
   type ActionResult,
@@ -29,6 +45,8 @@ import {
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
+const INVITE_DATE = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short' })
+
 const AV_GRADS: [string, string][] = [
   ['#7aa2ff', '#3b82f6'], ['#3ed694', '#1f9d63'], ['#f0bd5a', '#bf8410'],
   ['#b298f2', '#7c5cd6'], ['#ff8a8d', '#e5484d'], ['#5ed3d6', '#1f9098'],
@@ -36,6 +54,18 @@ const AV_GRADS: [string, string][] = [
 ]
 const avHash = (n = '') => { let h = 0; for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) | 0; return Math.abs(h) % AV_GRADS.length }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const MODULE_COUNT = MODULE_KEYS.length
+
+const ROLE_TONE: Record<RoleKey, string> = {
+  'Administrador': 'is-admin',
+  'Líder de equipo': 'is-lead',
+  'Empleado': 'is-member',
+}
+const ROLE_SUB: Record<RoleKey, string> = {
+  'Administrador': 'Acceso total',
+  'Líder de equipo': 'Gestión de equipo',
+  'Empleado': 'Acceso básico',
+}
 
 function passwordStrength(pw: string): { level: number; label: string; color: string; pct: number } {
   if (!pw) return { level: 0, label: '', color: 'transparent', pct: 0 }
@@ -61,11 +91,6 @@ function Avatar({ name, size = 34 }: { name: string; size?: number }) {
   )
 }
 
-function Toggle({ on, onClick, disabled }: { on: boolean; onClick: () => void; disabled?: boolean }) {
-  return <button className={`sw ${on ? 'on' : ''}`} onClick={onClick} disabled={disabled} aria-label="toggle" />
-}
-
-
 /* ------------------------------------------------------------------ */
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
@@ -85,11 +110,39 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
   const email = data.profile.email  // changing it re-verifies the address; not here
   const role = data.profile.role
   const [notifs, setNotifs] = useState({ firmas: true, tickets: true, menciones: false, resumen: true })
-  const [sec, setSec] = useState({ twofa: false })
   const [pw, setPw] = useState({ current: '', new: '', confirm: '' })
   const [showPw, setShowPw] = useState<Record<string, boolean>>({})
   const [company, setCompany] = useState(data.organization.name)
   const [industry, setIndustry] = useState(data.organization.industry ?? '')
+
+  /**
+   * Modules are the only thing on this screen that is org-wide rather than
+   * per-person, so they get their own tab rather than a section under Empresa.
+   *
+   * Kept as local state behind a Guardar, unlike the permission switches:
+   * switching a module off removes pages from everyone's sidebar at once, and
+   * choosing a company type replaces the whole selection. Saving each toggle
+   * the instant it moves would make picking a preset a stream of a dozen
+   * writes, and would leave no moment to change your mind.
+   */
+  const member = useMember()
+  const [companyTypeKey, setCompanyTypeKey] = useState(data.organization.companyType)
+  const [modules, setModules] = useState<Set<string>>(new Set(data.organization.modules))
+  /**
+   * The sector's preset, narrowed to what the plan actually allows.
+   *
+   * A clinic on Starter should still be able to pick "Salud" — the sector is a
+   * true statement about the business regardless of what it pays for. What it
+   * must not do is propose `pacientes` and then have the save refused by the
+   * server, which is what an unfiltered preset would produce.
+   */
+  const preset = presetFor(companyTypeKey).filter((key) => member.planIncludes(key))
+  // Whether the selection still matches the type's preset, so the screen can
+  // say "personalizado" instead of implying the type describes what is on.
+  const matchesPreset =
+    modules.size === preset.length && preset.every((m) => modules.has(m))
+  /** How much of the catalogue this plan can reach, for the summary line. */
+  const availableCount = MODULE_KEYS.filter((key) => member.planIncludes(key)).length
 
   /**
    * The permission matrix and member roles are server state.
@@ -98,8 +151,19 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
    * meant to restrict, and read by nothing on the server. They are now
    * `role_permissions` and `memberships`, which is also what RLS reads, so a
    * revoked permission is enforced by the database and not just hidden.
+   *
+   * Because the truth is on the server, the switch used to sit still until the
+   * action and the `router.refresh()` behind it had both come back — long
+   * enough to read as a dead control and get clicked twice. The optimistic
+   * copy moves it now and React rolls it back on its own if the write fails.
    */
-  const permissions = data.matrix
+  const [permissions, applyPermission] = useOptimistic(
+    data.matrix,
+    (matrix, patch: { role: RoleKey; permission: Permission; on: boolean }) => ({
+      ...matrix,
+      [patch.role]: { ...matrix[patch.role], [patch.permission]: patch.on },
+    }),
+  )
   const members = data.members
   const canManage = data.canManage
 
@@ -147,6 +211,9 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
 
       if (tab === 'perfil') result = await updateProfile({ fullName: name })
       else if (tab === 'empresa') result = await updateOrganization({ name: company, industry })
+      else if (tab === 'modulos') {
+        result = await updateModules({ companyType: companyTypeKey, modules: [...modules] })
+      }
       else if (tab === 'seguridad' && pw.new) {
         result = await changePassword({ currentPassword: pw.current, newPassword: pw.new })
         if (result.ok) setPw({ current: '', new: '', confirm: '' })
@@ -169,10 +236,111 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
   const togglePerm = (r: RoleKey, permission: Permission) => {
     const next = !permissions[r][permission]
     startTransition(async () => {
+      applyPermission({ role: r, permission, on: next })
       const result = await setRolePermission(r, permission, next)
       if (!result.ok) { addToast(result.error, 'err'); return }
       router.refresh()
     })
+  }
+
+  /* ---- two-step verification ---- */
+  const [enrolment, setEnrolment] = useState<MfaEnrollment | null>(null)
+  const [mfaCode, setMfaCode] = useState('')
+  const [mfaBusy, setMfaBusy] = useState(false)
+  const [disabling, setDisabling] = useState(false)
+
+  const startMfa = async () => {
+    setMfaBusy(true)
+    try {
+      const data = await apiFetch<MfaEnrollment>('/api/auth/mfa', { method: 'POST' })
+      setMfaCode('')
+      setEnrolment(data)
+    } catch (err) {
+      addToast(errorMessage(err, 'No se pudo iniciar la verificación en dos pasos.'), 'err')
+    } finally {
+      setMfaBusy(false)
+    }
+  }
+
+  const confirmMfa = async () => {
+    if (!enrolment || mfaCode.length !== 6) return
+    setMfaBusy(true)
+    try {
+      await apiFetch('/api/auth/mfa', {
+        method: 'PUT',
+        body: JSON.stringify({ factorId: enrolment.factorId, code: mfaCode }),
+      })
+      setEnrolment(null)
+      setMfaCode('')
+      addToast('Verificación en dos pasos activada', 'ok')
+      router.refresh()
+    } catch (err) {
+      setMfaCode('')
+      addToast(errorMessage(err, 'El código no es válido.'), 'err')
+    } finally {
+      setMfaBusy(false)
+    }
+  }
+
+  const disableMfa = async () => {
+    if (mfaCode.length !== 6) return
+    setMfaBusy(true)
+    try {
+      await apiFetch('/api/auth/mfa', {
+        method: 'DELETE',
+        body: JSON.stringify({ code: mfaCode }),
+      })
+      setDisabling(false)
+      setMfaCode('')
+      addToast('Verificación en dos pasos desactivada', 'info')
+      router.refresh()
+    } catch (err) {
+      setMfaCode('')
+      addToast(errorMessage(err, 'El código no es válido.'), 'err')
+    } finally {
+      setMfaBusy(false)
+    }
+  }
+
+  /* ---- invitations ---- */
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<RoleKey>('Empleado')
+
+  const invite = () => {
+    const email = inviteEmail.trim()
+    if (!email) return
+    startTransition(async () => {
+      const result = await inviteMember({ email, role: inviteRole })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setInviteEmail('')
+      addToast(`Invitación creada para ${email}`, 'ok')
+      // The list is server-rendered, so it needs the route re-read to appear.
+      router.refresh()
+    })
+  }
+
+  const revoke = (id: string, email: string) => {
+    startTransition(async () => {
+      const result = await revokeInvitation(id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      addToast(`Invitación a ${email} cancelada`, 'info')
+      router.refresh()
+    })
+  }
+
+  /**
+   * The address is what the signup trigger matches on, so the link only
+   * prefills the form — it is not a credential, and a copied link used with a
+   * different address creates a new organization instead of joining this one.
+   */
+  const copyInviteLink = async (email: string) => {
+    const url = `${window.location.origin}/register?email=${encodeURIComponent(email)}`
+    try {
+      await navigator.clipboard.writeText(url)
+      addToast('Enlace copiado', 'ok')
+    } catch {
+      addToast('No se pudo copiar el enlace.', 'err')
+    }
   }
 
   const cycleMemberRole = (membershipId: string, current: RoleKey) => {
@@ -193,11 +361,12 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
     { id: 'notificaciones', label: 'Notificaciones', ico: Bell },
     { id: 'seguridad', label: 'Seguridad', ico: Lock },
     { id: 'empresa', label: 'Empresa', ico: Building2 },
+    { id: 'modulos', label: 'Módulos', ico: LayoutGrid },
     { id: 'roles', label: 'Roles y permisos', ico: Shield },
   ]
 
   /* ---- field error helper ---- */
-  const fe = (key: string) => errors[key] ? <div style={{ fontSize: 11.5, color: '#ef4444', fontWeight: 500, marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}><AlertTriangle size={12} />{errors[key]}</div> : null
+  const fe = (key: string) => errors[key] ? <div style={{ fontSize: 11.5, color: '#ef4444', fontWeight: 400, marginTop: 4, display: 'flex', alignItems: 'center', gap: 5 }}><AlertTriangle size={12} />{errors[key]}</div> : null
   const fi = (key: string) => errors[key] ? 'rgba(239,68,68,.35)' : undefined
 
   return (
@@ -239,20 +408,31 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
         {tab === 'notificaciones' && (
           <>
             <div className="ctitle" style={{ marginBottom: 4 }}>Preferencias de notificación</div>
-            <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 10 }}>Elige qué notificaciones quieres recibir.</div>
+            {/* These four switches have never been persisted: `save()` has no
+                branch for this tab, so "Cambios guardados correctamente" was
+                reporting a write that did not happen, and the selection reset
+                on the next load. Kigyo also sends no mail yet. Said plainly
+                until there is a preferences table and something that reads it. */}
+            <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 10 }}>
+              Elige qué notificaciones quieres recibir. Kigyo todavía no envía correos:
+              esta selección queda anotada para cuando se activen los envíos.
+            </div>
             <div className="acc"><span className="acico"><PenLine size={16} /></span>
               <div style={{ flex: 1 }}><div className="act">Firmas pendientes</div><div className="acs">Recordatorios de documentos por firmar</div></div>
-              <Toggle on={notifs.firmas} onClick={() => toggleNotif('firmas')} /></div>
+              <Toggle on={notifs.firmas} onChange={() => toggleNotif('firmas')} ariaLabel="Firmas pendientes" /></div>
             <div className="acc"><span className="acico"><Ticket size={16} /></span>
               <div style={{ flex: 1 }}><div className="act">Tickets asignados</div><div className="acs">Cuando un ticket se asigna a tu equipo</div></div>
-              <Toggle on={notifs.tickets} onClick={() => toggleNotif('tickets')} /></div>
+              <Toggle on={notifs.tickets} onChange={() => toggleNotif('tickets')} ariaLabel="Tickets asignados" /></div>
             <div className="acc"><span className="acico"><Sparkles size={16} /></span>
               <div style={{ flex: 1 }}><div className="act">Menciones en IA</div><div className="acs">Cuando el asistente te incluye en un resumen</div></div>
-              <Toggle on={notifs.menciones} onClick={() => toggleNotif('menciones')} /></div>
+              <Toggle on={notifs.menciones} onChange={() => toggleNotif('menciones')} ariaLabel="Menciones en IA" /></div>
             <div className="acc"><span className="acico"><Mail size={16} /></span>
               <div style={{ flex: 1 }}><div className="act">Resumen semanal por correo</div><div className="acs">Cada lunes a las 8:00 a. m.</div></div>
-              <Toggle on={notifs.resumen} onClick={() => toggleNotif('resumen')} /></div>
-            <button className="btn dark" style={{ marginTop: 18 }} onClick={save}><Check size={15} />Guardar cambios</button>
+              <Toggle on={notifs.resumen} onChange={() => toggleNotif('resumen')} ariaLabel="Resumen semanal por correo" /></div>
+            {/* No Guardar button: `save()` has no branch for this tab, so the
+                one that used to be here always fell through to the generic
+                "Cambios guardados correctamente". A button whose only effect
+                is a success message is the thing worth deleting. */}
           </>
         )}
 
@@ -282,7 +462,7 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
                   <div style={{ flex: 1, height: 4, background: 'var(--line2)', borderRadius: 999, overflow: 'hidden' }}>
                     <div style={{ width: `${str.pct}%`, height: '100%', borderRadius: 999, background: str.color, transition: 'width .3s ease-out, background .3s ease-out' }} />
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: str.color, flexShrink: 0 }}>{str.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 400, color: str.color, flexShrink: 0 }}>{str.label}</span>
                 </div>
               </div>
             )}
@@ -296,15 +476,114 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
             <div style={{ height: 1, background: 'var(--line2)', margin: '24px 0' }} />
 
             <div className="ctitle" style={{ marginBottom: 10 }}>Seguridad de la cuenta</div>
-            <div className="acc" style={{ padding: 0 }}><span className="acico"><Lock size={16} /></span>
-              <div style={{ flex: 1 }}><div className="act">Verificación en dos pasos</div><div className="acs">Código adicional al iniciar sesión</div></div>
-              <Toggle on={sec.twofa} onClick={() => { setSec((s) => ({ ...s, twofa: !s.twofa })); mark() }} /></div>
 
-            <button className="btn danger" style={{ marginTop: 18 }} onClick={() => {
-              if (window.confirm('¿Cerrar sesión en todos tus dispositivos? Tendrás que volver a iniciar sesión en cada uno.')) {
-                addToast('Sesión cerrada en todos los dispositivos', 'ok')
-              }
-            }}><LogOut size={15} />Cerrar sesión en todos los dispositivos</button>
+            {/* The switch here used to flip, mark the form dirty and get
+                dropped on save — nothing sent it anywhere, and a control that
+                reports "activada" while enrolling nothing is worse than one
+                that is missing. It enrols now: Supabase Auth speaks TOTP, so
+                the factor is real, and `getMember` refuses a session that
+                stopped at the password on an enrolled account. */}
+            <div className="acc"><span className="acico"><Lock size={16} /></span>
+              <div style={{ flex: 1 }}>
+                <div className="act">Verificación en dos pasos</div>
+                <div className="acs">
+                  {data.mfaEnabled
+                    ? 'Activa · te pedimos un código al iniciar sesión'
+                    : 'Código adicional al iniciar sesión, desde tu app de autenticación'}
+                </div>
+              </div>
+              {data.mfaEnabled ? (
+                <button
+                  className="btn"
+                  disabled={mfaBusy}
+                  onClick={() => { setDisabling((v) => !v); setMfaCode('') }}
+                >
+                  {disabling ? 'Cancelar' : 'Desactivar'}
+                </button>
+              ) : (
+                <button
+                  className="btn dark"
+                  disabled={mfaBusy}
+                  aria-busy={mfaBusy}
+                  onClick={() => { if (enrolment) setEnrolment(null); else void startMfa() }}
+                >
+                  {enrolment ? 'Cancelar' : 'Activar'}
+                </button>
+              )}
+            </div>
+
+            {enrolment && (
+              <div className="card cpad" style={{ marginTop: 10, background: 'var(--bg)' }}>
+                <div className="act" style={{ marginBottom: 8 }}>Escanea el código</div>
+                <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  {/* Supabase hands back the QR as an SVG data URI, so it goes
+                      in an <img> rather than anywhere near innerHTML. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={enrolment.qrCode}
+                    alt="Código QR para tu app de autenticación"
+                    width={168}
+                    height={168}
+                    style={{ background: '#fff', borderRadius: 'var(--r)', padding: 8 }}
+                  />
+                  <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                    <p style={{ fontSize: 12.5, color: 'var(--ink3)', lineHeight: 1.55, marginTop: 0 }}>
+                      Ábrelo con Google Authenticator, 1Password, Authy o el gestor que uses.
+                      ¿Sin cámara? Escribe esta clave a mano:
+                    </p>
+                    <code
+                      className="mono"
+                      style={{ fontSize: 12, wordBreak: 'break-all', display: 'block', marginBottom: 12 }}
+                    >
+                      {enrolment.secret}
+                    </code>
+                    <div className="flabel" style={{ marginTop: 0 }}>Código de 6 dígitos</div>
+                    <OtpInput value={mfaCode} onChange={setMfaCode} disabled={mfaBusy} />
+                    <button
+                      className="btn dark"
+                      style={{ marginTop: 12 }}
+                      disabled={mfaBusy || mfaCode.length !== 6}
+                      aria-busy={mfaBusy}
+                      onClick={() => void confirmMfa()}
+                    ><Check size={15} />Activar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {data.mfaEnabled && disabling && (
+              <div className="card cpad" style={{ marginTop: 10, background: 'var(--bg)' }}>
+                <div className="act" style={{ marginBottom: 4 }}>Confirma con un código</div>
+                <p style={{ fontSize: 12.5, color: 'var(--ink3)', lineHeight: 1.55, marginTop: 0 }}>
+                  Pedimos un código para desactivarla: si bastara con esta sesión, una pestaña
+                  abierta alcanzaría para quitarle la protección a la cuenta.
+                </p>
+                <OtpInput value={mfaCode} onChange={setMfaCode} disabled={mfaBusy} />
+                <button
+                  className="btn danger"
+                  style={{ marginTop: 12 }}
+                  disabled={mfaBusy || mfaCode.length !== 6}
+                  aria-busy={mfaBusy}
+                  onClick={() => void disableMfa()}
+                >Desactivar</button>
+              </div>
+            )}
+
+            <button
+              className="btn danger"
+              style={{ marginTop: 18 }}
+              disabled={pending}
+              onClick={() => {
+                if (!window.confirm('¿Cerrar sesión en todos tus dispositivos? Tendrás que volver a iniciar sesión en cada uno, incluido este.')) return
+                startTransition(async () => {
+                  const result = await signOutEverywhere()
+                  if (!result.ok) { addToast(result.error, 'err'); return }
+                  // This session was revoked too, so there is nothing left to
+                  // render here. `replace` keeps the dashboard out of history.
+                  router.replace('/login')
+                })
+              }}
+            ><LogOut size={15} />Cerrar sesión en todos los dispositivos</button>
           </>
         )}
 
@@ -315,7 +594,7 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
             <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 10 }}>Estos datos se usan en reportes, facturación y comunicaciones oficiales.</div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
-              <div style={{ width: 56, height: 56, borderRadius: 'var(--r)', background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 500, color: '#fff', flexShrink: 0, boxShadow: '0 4px 14px rgba(59,130,246,.30)' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 'var(--r)', background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 400, color: '#fff', flexShrink: 0, boxShadow: '0 4px 14px rgba(59,130,246,.30)' }}>
                 {company.charAt(0)}
               </div>
               <div>
@@ -328,10 +607,146 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
             {fe('company')}
             <div className="flabel">Industria</div>
             <input className="field" value={industry} onChange={(e) => { setIndustry(e.target.value); mark() }} />
-            <div className="acc" style={{ marginTop: 6, padding: '11px 0' }}><span className="acico"><Globe size={16} /></span>
+            <div className="acc" style={{ marginTop: 6 }}><span className="acico"><Globe size={16} /></span>
               <div style={{ flex: 1 }}><div className="act">Idioma y región</div><div className="acs">Español (Colombia) · COP</div></div>
-              <div style={{ fontSize: 11.5, color: 'var(--ink3)', fontWeight: 500 }}>Próximamente</div></div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink3)', fontWeight: 400 }}>Próximamente</div></div>
             <button className="btn dark" style={{ marginTop: 18 }} onClick={save}><Check size={15} />Guardar cambios</button>
+          </>
+        )}
+
+        {/* ========== MÓDULOS ========== */}
+        {tab === 'modulos' && (
+          <>
+            <div className="ctitle" style={{ marginBottom: 6 }}>Módulos de la plataforma</div>
+            <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 16, maxWidth: 620, lineHeight: 1.55 }}>
+              Kigyo trae {MODULE_COUNT} módulos y ninguna empresa usa todos. Elige el sector de
+              tu empresa para partir de una selección razonable y ajusta lo que sobre o falte.
+              Un módulo apagado desaparece del menú para toda la organización, incluida
+              administración. Dashboard y Configuración siempre están activos.
+            </div>
+
+            {/* The plan, stated before the toggles rather than discovered
+                through a locked one. Two different limits get named: which
+                modules are reachable at all, and how many people fit. */}
+            <div className="plan-banner">
+              <div className="plan-banner-main">
+                <div className="plan-banner-name">
+                  Plan {member.planDef.label}
+                  <span className="plan-banner-count">
+                    {availableCount} de {MODULE_COUNT} módulos disponibles
+                  </span>
+                </div>
+                <div className="plan-banner-desc">
+                  {member.planDef.description}{' '}
+                  {member.planDef.seats === null
+                    ? 'Colaboradores ilimitados.'
+                    : `Hasta ${member.planDef.seats} colaboradores.`}
+                </div>
+              </div>
+              {availableCount < MODULE_COUNT && (
+                <Link className="btn" href="/pricing">Ver planes</Link>
+              )}
+            </div>
+
+            <div className="flabel" style={{ marginTop: 0 }}>Sector de tu empresa</div>
+            <div className="mod-types">
+              {COMPANY_TYPES.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  className={`mod-type${companyTypeKey === t.key ? ' on' : ''}`}
+                  disabled={!canManage || pending}
+                  aria-pressed={companyTypeKey === t.key}
+                  // Picking a type replaces the selection outright. Merging
+                  // would make the button do nothing visible on a second click
+                  // and would quietly keep modules from a type you moved away
+                  // from — the point of choosing a type is to start over.
+                  onClick={() => {
+                    setCompanyTypeKey(t.key)
+                    setModules(new Set(presetFor(t.key).filter((k) => member.planIncludes(k))))
+                    mark()
+                  }}
+                >
+                  <span className="mod-type-name">{t.label}</span>
+                  <span className="mod-type-desc">{t.description}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="mod-summary">
+              <span>
+                {modules.size} de {availableCount} módulos activos
+              </span>
+              {companyTypeKey && !matchesPreset && (
+                <button
+                  type="button"
+                  className="mod-reset"
+                  disabled={!canManage || pending}
+                  onClick={() => { setModules(new Set(preset)); mark() }}
+                >
+                  Selección personalizada · restablecer el preset
+                </button>
+              )}
+            </div>
+
+            {modulesByGroup().map(({ group, modules: defs }) => (
+              <div key={group} style={{ marginTop: 18 }}>
+                <div className="mod-group">{group}</div>
+                {defs.map((m) => {
+                  // Three states, not two. A module outside the plan is not
+                  // "off" — no toggle here will turn it on — so it says which
+                  // plan it needs instead of pretending to be switchable.
+                  const locked = !member.planIncludes(m.key)
+                  const required = locked ? lowestPlanWith(m.key) : null
+                  return (
+                    <div className="acc" key={m.key} data-locked={locked ? 'true' : undefined}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="act">
+                          {m.label}
+                          {locked && (
+                            <span className="mod-lock">
+                              <Lock size={11} aria-hidden="true" />
+                              {required ? required.label : 'No disponible'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="acs">{m.description}</div>
+                      </div>
+                      {locked ? (
+                        <Link className="btn mod-upgrade" href="/pricing">
+                          Ver planes
+                        </Link>
+                      ) : (
+                        <Toggle
+                          on={modules.has(m.key)}
+                          disabled={!canManage || pending}
+                          ariaLabel={`Módulo ${m.label}`}
+                          onChange={(next) => {
+                            setModules((prev) => {
+                              const copy = new Set(prev)
+                              if (next) copy.add(m.key)
+                              else copy.delete(m.key)
+                              return copy
+                            })
+                            mark()
+                          }}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+
+            {!canManage ? (
+              <p style={{ fontSize: 12.5, color: 'var(--ink3)', marginTop: 18 }}>
+                Solo una persona administradora puede cambiar los módulos de la organización.
+              </p>
+            ) : (
+              <button className="btn dark" style={{ marginTop: 20 }} onClick={save} disabled={pending}>
+                <Check size={15} />Guardar módulos
+              </button>
+            )}
           </>
         )}
 
@@ -341,44 +756,65 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
             <div className="ctitle" style={{ marginBottom: 6 }}>Permisos por rol</div>
             <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 14 }}>Define qué módulos puede ver y gestionar cada nivel de la organización.</div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 14, marginBottom: 24 }}>
-              {ROLES.map((r) => (
-                <div key={r} className="card" style={{ padding: 16, background: 'var(--bg)', borderColor: 'var(--line2)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 12, borderBottom: '1px solid var(--line2)' }}>
-                    <span style={{
-                      width: 30, height: 30, borderRadius: 'var(--r-sm)', display: 'grid', placeItems: 'center',
-                      background: r === 'Administrador' ? 'rgba(239,68,68,.12)' : r === 'Líder de equipo' ? 'rgba(245,158,11,.12)' : 'rgb(var(--ink-rgb) / .06)',
-                      color: r === 'Administrador' ? '#ef4444' : r === 'Líder de equipo' ? '#f59e0b' : 'var(--ink2)',
-                    }}>
-                      {r === 'Administrador' ? <Shield size={15} /> : r === 'Líder de equipo' ? <Star size={15} /> : <Users size={15} />}
+            {/*
+              One matrix instead of three stacked lists. The previous layout
+              repeated all 39 permission labels once per role — 117 labelled
+              rows to read — and threw away the module grouping the data
+              already carries. Here each label is written once and the three
+              roles line up in columns, which is the comparison this screen
+              exists to make.
+            */}
+            <div className="permwrap">
+              <div className="permmatrix">
+                <div className="permcorner">Módulo</div>
+                {ROLES.map((r) => (
+                  <div key={r} className="permrole">
+                    <span className={`permrole-ico ${ROLE_TONE[r]}`}>
+                      {r === 'Administrador' ? <Shield size={14} /> : r === 'Líder de equipo' ? <Star size={14} /> : <Users size={14} />}
                     </span>
-                    <div>
-                      <div style={{ fontWeight: 500, fontSize: 13 }}>{r}</div>
-                      <div style={{ fontSize: 10.5, color: 'var(--ink3)' }}>{r === 'Administrador' ? 'Acceso total' : r === 'Líder de equipo' ? 'Gestión de equipo' : 'Acceso básico'}</div>
-                    </div>
+                    <span className="permrole-name">{r}</span>
+                    <span className="permrole-sub">{ROLE_SUB[r]}</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {permissionsByModule().flatMap((group) =>
-                      group.permissions.map((permission) => (
-                        <div key={permission} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink2)' }}>{PERMISSION_LABELS[permission]}</span>
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={permissions[r][permission]}
-                            className={`sw ${permissions[r][permission] ? 'on' : ''}`}
-                            onClick={() => togglePerm(r, permission)}
-                            disabled={!canManage || pending || r === 'Administrador'}
-                            aria-label={`${PERMISSION_LABELS[permission]} para ${r}`}
-                            style={{ transform: 'scale(.85)', transformOrigin: 'right center' }}
-                          />
-                        </div>
-                      )),
-                    )}
-                  </div>
-                </div>
-              ))}
+                ))}
+
+                {permissionsByModule().flatMap((group) => [
+                  <div key={`m-${group.module}`} className="permmodule">
+                    {MODULE_LABELS[group.module] ?? group.module}
+                  </div>,
+                  ...group.permissions.flatMap((permission) => [
+                    <div key={`l-${permission}`} className="permlabel">
+                      {ACTION_LABELS[permission.split(':')[1]] ?? PERMISSION_LABELS[permission]}
+                    </div>,
+                    ...ROLES.map((r) => (
+                      <div key={`c-${permission}-${r}`} className="permcell">
+                        <Toggle
+                          size="sm"
+                          on={permissions[r][permission]}
+                          onChange={() => togglePerm(r, permission)}
+                          /* Not gated on `pending`: one in-flight write used to
+                             grey out all 117 switches, and the flip is
+                             optimistic now anyway. */
+                          disabled={!canManage || r === 'Administrador'}
+                          ariaLabel={`${PERMISSION_LABELS[permission]} para ${r}`}
+                        />
+                      </div>
+                    )),
+                  ]),
+                ])}
+              </div>
             </div>
+
+            {!canManage && (
+              <p style={{ fontSize: 12.5, color: 'var(--ink3)', marginTop: 10 }}>
+                Solo una persona administradora puede cambiar estos permisos.
+              </p>
+            )}
+            {canManage && (
+              <p style={{ fontSize: 12.5, color: 'var(--ink3)', marginTop: 10 }}>
+                El rol Administrador conserva el acceso total y no se puede editar. Los demás
+                cambios se guardan al instante.
+              </p>
+            )}
 
             <div className="ctitle" style={{ marginBottom: 12 }}>Rol por persona</div>
             <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 10 }}>Asigna el nivel de acceso individual de cada colaborador.</div>
@@ -388,8 +824,8 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <Avatar name={m.fullName} size={32} />
                     <div>
-                      <div className="eltxt" style={{ fontSize: 13, fontWeight: 600 }}>
-                        {m.fullName}{m.isSelf && <span style={{ color: 'var(--ink3)', fontWeight: 500 }}> · tú</span>}
+                      <div className="eltxt" style={{ fontSize: 13, fontWeight: 400 }}>
+                        {m.fullName}{m.isSelf && <span style={{ color: 'var(--ink3)', fontWeight: 400 }}> · tú</span>}
                       </div>
                       <div className="elsub" style={{ fontSize: 11.5 }}>{m.email}</div>
                     </div>
@@ -411,6 +847,95 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
                 </p>
               )}
             </div>
+
+            {canManage && (
+              <>
+                <div style={{ height: 1, background: 'var(--line2)', margin: '24px 0' }} />
+
+                <div className="ctitle" style={{ marginBottom: 6 }}>Invitar a alguien</div>
+                {/*
+                  No email leaves Kigyo yet — that needs a mail provider this
+                  install does not have. The invitation still works without
+                  one: the signup trigger looks for a pending invitation
+                  matching the address, so whoever registers with that correo
+                  lands in this organization with this role. What the
+                  administrator sends, and how, is up to them.
+                */}
+                <p style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 12, maxWidth: 620, lineHeight: 1.55 }}>
+                  Quien se registre con ese correo entra directo a {data.organization.name} con
+                  el rol que elijas, sin crear otra organización. Todavía no enviamos el correo
+                  desde aquí: copia el enlace y hazlo llegar tú.
+                </p>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    className="field"
+                    type="email"
+                    placeholder="persona@empresa.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') invite() }}
+                    style={{ flex: '1 1 240px', minWidth: 0 }}
+                    aria-label="Correo de la persona a invitar"
+                  />
+                  <Select
+                    value={inviteRole}
+                    onChange={(v) => setInviteRole(v as RoleKey)}
+                    options={[...ROLES]}
+                    style={{ width: 190 }}
+                  />
+                  <button
+                    className="btn dark"
+                    disabled={pending || inviteEmail.trim() === ''}
+                    aria-busy={pending}
+                    onClick={invite}
+                  >
+                    <Plus size={15} />Invitar
+                  </button>
+                </div>
+
+                {data.invitations.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 14 }}>
+                    {data.invitations.map((inv) => (
+                      <div
+                        className="elrow"
+                        key={inv.id}
+                        style={{ padding: '10px 12px', borderRadius: 'var(--r)', background: 'var(--bg)' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                          <span className="acico"><Mail size={15} /></span>
+                          <div style={{ minWidth: 0 }}>
+                            <div className="eltxt" style={{ fontSize: 13, fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {inv.email}
+                            </div>
+                            <div className="elsub" style={{ fontSize: 11.5 }}>
+                              {inv.role} · vence el {INVITE_DATE.format(new Date(inv.expiresAt))}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                          <button
+                            className="ibtn"
+                            style={{ width: 28, height: 28 }}
+                            data-tip="Copiar enlace de registro"
+                            onClick={() => void copyInviteLink(inv.email)}
+                            aria-label={`Copiar el enlace de registro de ${inv.email}`}
+                          ><Copy size={13} /></button>
+                          <button
+                            className="ibtn"
+                            style={{ width: 28, height: 28, color: 'var(--redd)' }}
+                            data-tip="Cancelar invitación"
+                            disabled={pending}
+                            onClick={() => revoke(inv.id, inv.email)}
+                            aria-label={`Cancelar la invitación de ${inv.email}`}
+                          ><Trash2 size={13} /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
       </div>

@@ -34,8 +34,14 @@ export const RATE_LIMITS = {
   register: { key: 'auth:register', limit: 5, windowSeconds: 3600 },
   passwordReset: { key: 'auth:password-reset', limit: 5, windowSeconds: 900 },
   otpVerify: { key: 'auth:otp-verify', limit: 10, windowSeconds: 900 },
+  // Tighter than the auth endpoints: a successful call hands back the shared
+  // demo credentials, so the form doubles as the only way to obtain them.
+  demoRequest: { key: 'demo:request', limit: 3, windowSeconds: 3600 },
   aiChat: { key: 'ai:chat', limit: 30, windowSeconds: 300 },
   aiInsights: { key: 'ai:insights', limit: 10, windowSeconds: 3600 },
+  // Per document rather than per dashboard, so the ceiling is higher — but a
+  // review reads a file and calls the model, so it is not free either.
+  aiReview: { key: 'ai:review', limit: 40, windowSeconds: 3600 },
   export: { key: 'export', limit: 20, windowSeconds: 3600 },
   mutation: { key: 'mutation', limit: 120, windowSeconds: 60 },
 } as const satisfies Record<string, RateLimitRule>

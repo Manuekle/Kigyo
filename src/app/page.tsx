@@ -3,11 +3,11 @@
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Ferrofluid from '@/components/ui/Ferrofluid'
-import MetalButton from '@/components/ui/MetalButton'
+import BeamButton from '@/components/ui/BeamButton'
+import TiltCard from '@/components/ui/TiltCard'
 import { useTheme } from '@/lib/context/ThemeContext'
-import { useReveal } from '@/lib/hooks/use-reveal'
-import PublicNav from '@/components/marketing/PublicNav'
-import PublicFooter from '@/components/marketing/PublicFooter'
+import PublicPageShell from '@/components/marketing/PublicPageShell'
+import PublicCta from '@/components/marketing/PublicCta'
 import Ledger from '@/components/marketing/Ledger'
 import {
   ArrowRight,
@@ -37,12 +37,9 @@ export default function LandingPage() {
   const router = useRouter()
   const { theme } = useTheme()
   const colors = useMemo(() => [...FERRO_COLORS[theme]], [theme])
-  useReveal()
 
   return (
-    <div className="landing">
-      <PublicNav />
-
+    <PublicPageShell>
       {/* ─── Hero ─── */}
       <section className="l-hero">
         <div className="l-ferro">
@@ -74,26 +71,26 @@ export default function LandingPage() {
             y más. Todo en un solo lugar, diseñado para equipos modernos.
           </p>
           <div className="l-hero-actions">
-            {/* The shader ring is painted on a canvas sized from the child, so
-                the button keeps owning its own layout and text — and falls
-                back to a plain button wherever WebGL isn't available. */}
-            <MetalButton preset="silver">
+            {/* The ring is drawn on layers behind the child, so the button
+                keeps owning its own layout and text. 22px is half the 44px
+                hero control — the pill's real corner. */}
+            <BeamButton borderRadius={22}>
               <button
                 type="button"
-                className="btn pri"
-                style={{ height: 44, fontSize: 14, fontWeight: 500, padding: '0 24px' }}
+                className="btn ink"
+                style={{ height: 44, fontSize: 14, fontWeight: 400, padding: '0 24px' }}
                 onClick={() => router.push('/login')}
               >
                 Iniciar sesión
                 <ArrowRight size={16} />
               </button>
-            </MetalButton>
+            </BeamButton>
             <button
               type="button"
               className="btn"
-              style={{ height: 44, fontSize: 14, fontWeight: 500, padding: '0 24px' }}
+              style={{ height: 44, fontSize: 14, fontWeight: 400, padding: '0 24px' }}
               onClick={() => {
-                document.getElementById('l-features')?.scrollIntoView({ behavior: 'smooth' })
+                document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
               }}
             >
               Conocer más
@@ -134,7 +131,9 @@ export default function LandingPage() {
       <Ledger />
 
       {/* ─── Features ─── */}
-      <section id="l-features" className="l-section">
+      {/* `features`, not `l-features`: the nav and the footer both link to
+          `/#features`, so this id is part of the URL contract, not styling. */}
+      <section id="features" className="l-section">
         <div className="l-section-head" data-reveal>
           <span className="l-eyebrow">Plataforma</span>
           <h2 className="l-section-title">Todo lo que necesitas para gestionar tu equipo</h2>
@@ -145,7 +144,7 @@ export default function LandingPage() {
         </div>
 
         <div className="l-features-grid">
-          <div className="card l-feature" data-reveal>
+          <TiltCard className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <Users size={22} />
             </div>
@@ -154,9 +153,9 @@ export default function LandingPage() {
               Perfiles completos, organigrama interactivo, documentos
               y control de asistencia en tiempo real.
             </p>
-          </div>
+          </TiltCard>
 
-          <div className="card l-feature" data-reveal>
+          <TiltCard className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <FileText size={22} />
             </div>
@@ -165,9 +164,9 @@ export default function LandingPage() {
               Crea, envía y firma contratos, anexos y políticas.
               Todo con validez legal y trazabilidad completa.
             </p>
-          </div>
+          </TiltCard>
 
-          <div className="card l-feature" data-reveal>
+          <TiltCard className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <Calendar size={22} />
             </div>
@@ -176,9 +175,9 @@ export default function LandingPage() {
               Solicitudes, aprobaciones y calendario de equipo.
               Control de días disponibles y políticas personalizadas.
             </p>
-          </div>
+          </TiltCard>
 
-          <div className="card l-feature" data-reveal>
+          <TiltCard className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <LayoutDashboard size={22} />
             </div>
@@ -187,20 +186,20 @@ export default function LandingPage() {
               KPIs, rotación, clima laboral y headcount en
               tiempo real. Toda la data de tu equipo en un solo lugar.
             </p>
-          </div>
+          </TiltCard>
 
-          <div className="card l-feature" data-reveal>
+          <TiltCard className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <Shield size={22} />
             </div>
             <h3 className="l-feature-title">Seguridad y cumplimiento</h3>
             <p className="l-feature-desc">
               Datos encriptados, backups automáticos y cumplimiento
-              con normativas laborales mexicanas.
+              con la normativa laboral colombiana.
             </p>
-          </div>
+          </TiltCard>
 
-          <div className="card l-feature" data-reveal>
+          <TiltCard className="card l-feature" data-reveal>
             <div className="l-feature-icon">
               <Sparkles size={22} />
             </div>
@@ -209,7 +208,7 @@ export default function LandingPage() {
               Asistente inteligente para consultas, generación de reportes
               y análisis predictivo de tu equipo.
             </p>
-          </div>
+          </TiltCard>
         </div>
       </section>
 
@@ -231,8 +230,8 @@ export default function LandingPage() {
             </div>
             <h3 className="l-step-title">Crea tu equipo</h3>
             <p className="l-step-desc">
-              Importa tu plantilla actual o agrega colaboradores manualmente.
-              Sin plantillas complicadas ni configuraciones extensas.
+              Importa tu nómina actual o agrega colaboradores manualmente.
+              Sin archivos complicados ni configuraciones extensas.
             </p>
           </div>
 
@@ -285,28 +284,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── CTA ─── */}
-      <section className="l-section l-cta">
-        <div className="l-cta-card" data-reveal>
-          <h2 className="l-cta-title">¿Listo para transformar tu gestión de personas?</h2>
-          <p className="l-cta-sub">
-            Únete a las empresas que ya confían en Kigyo como su sistema operativo de personas.
-          </p>
-          <MetalButton preset="chromatic">
-            <button
-              type="button"
-              className="btn pri"
-              style={{ height: 46, fontSize: 14, fontWeight: 500, padding: '0 28px' }}
-              onClick={() => router.push('/login')}
-            >
-              Comenzar ahora
-              <ArrowRight size={16} />
-            </button>
-          </MetalButton>
-        </div>
-      </section>
-
-      <PublicFooter />
-    </div>
+      <PublicCta
+        title="¿Listo para transformar tu gestión de personas?"
+        subtitle="Únete a las empresas que ya confían en Kigyo como su sistema operativo de personas."
+        primary={{ href: '/login', label: 'Comenzar ahora' }}
+      />
+    </PublicPageShell>
   )
 }

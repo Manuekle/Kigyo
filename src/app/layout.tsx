@@ -3,11 +3,11 @@ import { headers } from 'next/headers'
 import { THEME_INIT_SCRIPT, ThemeProvider } from '@/lib/context/ThemeContext'
 import './globals.css'
 
-// Typography is the self-hosted Saans variable font, declared in globals.css.
-// Its MONO axis covers the monospace faces too, so there is no second family
-// and no Google Fonts request.
+// Typography is declared in globals.css: Saans for display and Inter for text,
+// both self-hosted from /public/fonts, plus the platform's own monospace for
+// figures. No Google Fonts request.
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://whitebox.com'
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://kigyo.vercel.app'
 
 export const viewport: Viewport = {
   // One entry per scheme so the browser chrome matches the rendered theme.
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     default: 'Kigyo — People Operating System',
   },
   description:
-    'People Operating System para equipos modernos. Gestión de personas, nómina, documentos, vacaciones y más. Simplifica la administración de tu empresa.',
+    'People Operating System para equipos modernos en Colombia. Nómina, prestaciones sociales, documentos, vacaciones y más. Simplifica la administración de tu empresa.',
   keywords: [
     'recursos humanos',
     'RRHH',
@@ -41,6 +41,14 @@ export const metadata: Metadata = {
     'documentos laborales',
     'vacaciones',
     'administración de personal',
+    // The terms someone actually searches for here — the generic ones above
+    // compete with the whole Spanish-speaking web.
+    'software de nómina Colombia',
+    'RRHH Colombia',
+    'prestaciones sociales',
+    'cesantías',
+    'prima de servicios',
+    'seguridad social',
     'Kigyo',
   ],
   authors: [{ name: 'Kigyo', url: BASE_URL }],
@@ -72,9 +80,9 @@ export const metadata: Metadata = {
     siteName: 'Kigyo — People Operating System',
     title: 'Kigyo — People Operating System',
     description:
-      'People Operating System para equipos modernos. Gestión de personas, nómina, documentos, vacaciones y más.',
+      'People Operating System para equipos modernos en Colombia. Nómina, prestaciones sociales, documentos, vacaciones y más.',
     url: BASE_URL,
-    locale: 'es_MX',
+    locale: 'es_CO',
     images: [
       {
         url: '/og-image.png',
@@ -88,7 +96,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Kigyo — People Operating System',
     description:
-      'People Operating System para equipos modernos. Gestión de personas, nómina, documentos, vacaciones y más.',
+      'People Operating System para equipos modernos en Colombia. Nómina, prestaciones sociales, documentos, vacaciones y más.',
     images: ['/og-image.png'],
   },
   robots: {
@@ -118,7 +126,7 @@ const jsonLd = {
   offers: {
     '@type': 'Offer',
     price: '0',
-    priceCurrency: 'MXN',
+    priceCurrency: 'COP',
   },
 }
 

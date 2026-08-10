@@ -1,271 +1,69 @@
 'use client'
 
-import { useState, useRef, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useMemo, useRef, useState, useTransition } from 'react'
+import { motion } from 'framer-motion'
 import {
-  Sparkles, Upload, FileText,
-  X, ChevronDown, Users, Link2, Check, ShieldCheck, Copy, Type, Bold, Italic,
-  Underline, Strikethrough, List, ListOrdered, Image as ImageIcon, Quote,
-  Calendar, ChevronLeft, PenLine, Trash2, Share2,
+  Sparkles, Upload, FileText, X, Check, Calendar, ChevronLeft, PenLine, Trash2, Download, Plus,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
+import LoadMore from '@/components/ui/LoadMore'
+import Select from '@/components/ui/Select'
+import DatePicker from '@/components/ui/DatePicker'
 import { useApp } from '@/lib/context/AppContext'
-import { apiFetch, errorMessage } from '@/lib/api/client'
+import { DUR_RESIZE_S } from '@/lib/motion'
+import { createClient } from '@/lib/supabase/client'
+import { DOCUMENT_KINDS, DOCUMENT_STATUSES } from '@/lib/domain'
+import type { DocumentosData, DocumentoRow } from '@/server/queries/documentos'
+import type { DocumentoRevision } from '@/app/api/ai/documento/route'
+import {
+  createCarpeta, createDocumento, deleteDocumento, documentoDownloadUrl, updateDocumento,
+} from '@/server/mutations/documentos'
+import { fetchMoreDocumentos } from '@/server/actions/documentos'
 
-type RewriteInstruction =
-  | 'mejorar' | 'acortar' | 'ampliar'
-  | 'formal' | 'profesional' | 'cercano' | 'conciso' | 'optimista'
+const MONTH = new Intl.DateTimeFormat('es-CO', { month: 'short', year: 'numeric' })
 
-type Doc = {
-  id: string
-  name: string
-  type: string
-  folder: string
-  who: string
-  date: string
-  tags: string[]
-  ai: string
-  url?: string
+/** Mirrors the bucket's `allowed_mime_types`; the upload is rejected without it. */
+const ACCEPT = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain', 'text/csv',
+  'image/png', 'image/jpeg', 'image/webp',
+].join(',')
+
+const MAX_BYTES = 50 * 1024 * 1024
+
+function humanSize(bytes: number | null): string {
+  if (bytes === null) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
-const FOLDERS = [
-  { key: 'contratos', name: 'Contratos', color: '#7aa2ff' },
-  { key: 'politicas', name: 'Políticas', color: '#3ed694' },
-  { key: 'actas', name: 'Actas', color: '#f0bd5a' },
-  { key: 'planes', name: 'Planes', color: '#b298f2' },
-  { key: 'manuales', name: 'Manuales', color: '#a6a6b2' },
-  { key: 'otros', name: 'Otros', color: '#5ed3d6' },
-]
-
-const DOCS_SEED: Doc[] = [
-  { id: 'F-9001', name: 'Manual de convivencia', type: 'Política', folder: 'manuales', who: 'Personas', date: 'Jun 2026', tags: ['Vigente', 'Reglamento'], ai: 'Sin riesgos' },
-  { id: 'F-9002', name: 'Contrato laboral — plantilla', type: 'Contrato', folder: 'contratos', who: 'Legal', date: 'May 2026', tags: ['Plantilla'], ai: 'Cláusula a revisar' },
-  { id: 'F-9003', name: 'Política de datos personales', type: 'Política', folder: 'politicas', who: 'Legal', date: 'Abr 2026', tags: ['Habeas Data', 'Confidencial'], ai: 'Vence 30 sep' },
-  { id: 'F-9004', name: 'Acta de entrega de equipo', type: 'Acta', folder: 'actas', who: 'TI', date: 'Jun 2026', tags: ['Inventario'], ai: 'Sin riesgos' },
-  { id: 'F-9005', name: 'Plan de capacitación 2026', type: 'Plan', folder: 'planes', who: 'Personas', date: 'Feb 2026', tags: ['Formación'], ai: 'Sin riesgos' },
-  { id: 'F-9006', name: 'Reglamento de seguridad', type: 'Política', folder: 'politicas', who: 'SST', date: 'Ene 2026', tags: ['SST', 'Obligatorio'], ai: 'Falta firma' },
-  { id: 'F-9007', name: 'Contrato de confidencialidad', type: 'Contrato', folder: 'contratos', who: 'Legal', date: 'Mar 2026', tags: ['Confidencial'], ai: 'Sin riesgos' },
-  { id: 'F-9008', name: 'Acta de comité SST', type: 'Acta', folder: 'actas', who: 'SST', date: 'May 2026', tags: ['SST'], ai: 'Pendiente revisión' },
-]
-
-const UPLOAD_NAMES = [
-  'Política de vacaciones 2026.pdf',
-  'Acta de comité SST — junio.pdf',
-  'Anexo contractual — teletrabajo.pdf',
-]
-
-const SHARE_PEOPLE = [
-  { name: 'Camila Restrepo', email: 'camila.r@empresa.co', owner: true, role: 'Propietario' },
-  { name: 'Juan Pérez', email: 'juan.p@empresa.co', role: 'Puede editar' },
-  { name: 'Laura Jiménez', email: 'laura.j@empresa.co', role: 'Puede ver' },
-]
-
-const COMPOSER_SEED = 'Estimado equipo,\n\nLes compartimos la actualización de la política de teletrabajo, vigente a partir del próximo mes. Por favor revisen los puntos clave y confirmen su lectura.\n\nQuedamos atentos a sus comentarios.'
 /**
- * Rewrite instructions the server accepts. The set is fixed on both sides —
- * /api/ai/rewrite validates against the same keys — because the document body
- * is user-authored content and letting the client also supply the instruction
- * would turn the endpoint into an open prompt.
+ * Object key for the private bucket.
+ *
+ * `{org_id}/…` is not decoration: every storage policy pins the first path
+ * segment to an organization the caller belongs to, so the prefix is the
+ * tenant boundary. The random segment keeps two uploads of "contrato.pdf" from
+ * overwriting each other.
  */
-const TONOS = [
-  { key: 'formal', label: 'Formal' },
-  { key: 'profesional', label: 'Profesional' },
-  { key: 'cercano', label: 'Cercano' },
-  { key: 'conciso', label: 'Conciso' },
-  { key: 'optimista', label: 'Optimista' },
-] as const
-
-/* ── Modales existentes (ShareModal, AIComposer, EditDocModal, UploadCard) ── */
-const AV_GRADS: [string, string][] = [
-  ['#7aa2ff', '#3b82f6'], ['#3ed694', '#1f9d63'], ['#f0bd5a', '#bf8410'],
-  ['#b298f2', '#7c5cd6'], ['#ff8a8d', '#e5484d'], ['#5ed3d6', '#1f9098'],
-  ['#f79bc4', '#db5897'], ['#8fd16a', '#4f9e2e'],
-]
-const avHash = (n = '') => { let h = 0; for (let i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) | 0; return Math.abs(h) % AV_GRADS.length }
-const initials = (n = '') => n.split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]).join('').toUpperCase()
-const Avatar = ({ name, size = 34 }: { name: string; size?: number }) => {
-  const [c1, c2] = AV_GRADS[avHash(name)]
-  return (
-    <div className="av" style={{ width: size, height: size, fontSize: size * 0.36, background: `linear-gradient(145deg,${c1},${c2})`, boxShadow: `0 4px 10px -4px ${c2}88` }}>{initials(name)}</div>
-  )
+function objectKey(orgId: string, fileName: string): string {
+  const safe = fileName.replace(/[^\w.\-]+/g, '_').slice(-80)
+  return `${orgId}/${crypto.randomUUID()}-${safe}`
 }
 
-type SharePerson = { name: string; email: string; owner?: boolean; role?: string }
-
-type ShareModalProps = { open: boolean; name: string | null; onClose: () => void; notify: (msg: string, kind?: 'ok' | 'err' | 'info' | 'warn') => void }
-
-function ShareModal(props: ShareModalProps) {
-  if (!props.open) return null
-  return <ShareModalBody {...props} />
+interface UploadState {
+  name: string
+  stage: 'uploading' | 'saving'
 }
 
-function ShareModalBody({ name, onClose, notify }: ShareModalProps) {
-  const [people, setPeople] = useState<SharePerson[]>(SHARE_PEOPLE)
-  const [email, setEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState('Puede ver')
-  const [access, setAccess] = useState('invited')
-  const cycleRole = (r?: string) => (r === 'Puede ver' ? 'Puede editar' : 'Puede ver')
-  const invite = () => {
-    const v = email.trim(); if (!v) return
-    const nm = v.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-    setPeople((p) => [...p, { name: nm, email: v, role: inviteRole }])
-    setEmail(''); notify('Invitación enviada', 'ok')
-  }
-  return (
-    <div className="mwrap" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="mhead"><div><div className="mtitle">Compartir</div><div className="kvs" style={{ marginTop: 2 }}>{name}</div></div><button className="ibtn" onClick={onClose}><X size={18} /></button></div>
-        <div className="mbody">
-          <div className="invite">
-            <input className="field" style={{ flex: 1, minWidth: 0 }} placeholder="Correo o nombre…" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && invite()} />
-            <button className="role" onClick={() => setInviteRole(cycleRole)}>{inviteRole} <ChevronDown size={13} /></button>
-            <button className="btn dark" onClick={invite}>Invitar</button>
-          </div>
-          <div className="flabel" style={{ marginTop: 14 }}>Acceso general</div>
-          <button className="acc" onClick={() => { setAccess('invited'); notify('Acceso limitado a invitados', 'ok') }}><span className="acico"><Users size={17} /></span><div style={{ flex: 1 }}><div className="act">Solo invitados</div><div className="acs">{people.length} personas con acceso</div></div>{access === 'invited' ? <Check size={16} color="var(--grn)" /> : <ChevronDown size={16} color="var(--ink3)" />}</button>
-          <button className="acc" onClick={() => { setAccess('link'); notify('Acceso por enlace activado', 'ok') }}><span className="acico"><Link2 size={17} /></span><div style={{ flex: 1 }}><div className="act">Acceso por enlace</div><div className="acs">Solo quien tenga el enlace</div></div>{access === 'link' ? <Check size={16} color="var(--grn)" /> : <ChevronDown size={16} color="var(--ink3)" />}</button>
-          <div className="flabel">Personas con acceso</div>
-          {people.map((p, i) => (
-            <div className="prow" key={i}>
-              <Avatar name={p.name} size={34} />
-              <div style={{ flex: 1, minWidth: 0 }}><div className="cename">{p.name}</div><div className="ceid" style={{ fontSize: 12 }}>{p.email}</div></div>
-              {p.owner ? <span className="prole" style={{ color: 'var(--grn)' }}><ShieldCheck size={13} />Propietario</span> : <><button className="prole" onClick={() => setPeople((x) => x.map((pp, j) => j === i ? { ...pp, role: cycleRole(pp.role) } : pp))}>{p.role} <ChevronDown size={13} /></button><button className="premove" title="Quitar" onClick={() => setPeople((x) => x.filter((_, j) => j !== i))}><X size={14} /></button></>}
-            </div>
-          ))}
-          <div className="copybar"><span className="lk">nucleo.rh/doc/{(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 18)}</span><button className="btn ghost" onClick={() => notify('Enlace copiado', 'ok')}><Copy size={14} />Copiar enlace</button></div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-type AIComposerProps = { open: boolean; onClose: () => void; notify: (msg: string, kind?: 'ok' | 'err' | 'info' | 'warn') => void }
-
-function AIComposer(props: AIComposerProps) {
-  if (!props.open) return null
-  return <AIComposerBody {...props} />
-}
-
-function AIComposerBody({ onClose, notify }: AIComposerProps) {
-  const [text, setText] = useState(COMPOSER_SEED)
-  const [loading, setLoading] = useState(false)
-  const [tone, setTone] = useState(false)
-  const taRef = useRef<HTMLTextAreaElement>(null)
-  const wrap = (before: string, after: string = before) => {
-    const ta = taRef.current; if (!ta) return
-    const { selectionStart: s, selectionEnd: e } = ta
-    const sel = text.slice(s, e) || 'texto'
-    const next = text.slice(0, s) + before + sel + after + text.slice(e)
-    setText(next)
-    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(s + before.length, s + before.length + sel.length) })
-  }
-  const linePrefix = (prefix: string, numbered = false) => {
-    const ta = taRef.current; if (!ta) return
-    const { selectionStart: s, selectionEnd: e } = ta
-    const lineStart = text.lastIndexOf('\n', s - 1) + 1
-    const lineEnd = text.indexOf('\n', e); const end = lineEnd === -1 ? text.length : lineEnd
-    const block = text.slice(lineStart, end)
-    const lines = block.split('\n').map((l, i) => (numbered ? `${i + 1}. ` : prefix) + l)
-    const next = text.slice(0, lineStart) + lines.join('\n') + text.slice(end)
-    setText(next)
-    requestAnimationFrame(() => ta.focus())
-  }
-  async function run(instruction: RewriteInstruction) {
-    if (loading) return
-    setLoading(true); setTone(false)
-    try {
-      const result = await apiFetch<{ text: string }>('/api/ai/rewrite', {
-        method: 'POST',
-        body: JSON.stringify({ instruction, text }),
-      })
-      if (result.text) setText(result.text)
-    } catch (error) {
-      notify(errorMessage(error, 'No se pudo conectar con la IA'), 'err')
-    } finally {
-      setLoading(false)
-    }
-  }
-  if (!open) return null
-  return (
-    <div className="mwrap" onClick={onClose}>
-      <div className="modal modalw" onClick={(e) => e.stopPropagation()}>
-        <div className="mhead"><div className="mtitle">Redactar con IA</div><button className="ibtn" onClick={onClose}><X size={18} /></button></div>
-        <div className="mbody">
-          <div className="fbar">
-            <button className="aipill" onClick={() => run('mejorar')}><Sparkles size={14} />Editar con IA</button><span className="fsep" />
-            <button className="ftxt" onClick={() => linePrefix('# ')}><Type size={14} />Texto <ChevronDown size={12} /></button><span className="fsep" />
-            <button className="fbtn" onClick={() => wrap('**')}><Bold size={15} /></button>
-            <button className="fbtn" onClick={() => wrap('*')}><Italic size={15} /></button>
-            <button className="fbtn" onClick={() => wrap('<u>', '</u>')}><Underline size={15} /></button>
-            <button className="fbtn" onClick={() => wrap('~~')}><Strikethrough size={15} /></button><span className="fsep" />
-            <button className="fbtn" onClick={() => linePrefix('- ')}><List size={15} /></button>
-            <button className="fbtn" onClick={() => linePrefix('', true)}><ListOrdered size={15} /></button><span className="fsep" />
-            <button className="fbtn" onClick={() => wrap('[', '](enlace)')}><Link2 size={15} /></button>
-            <button className="fbtn" onClick={() => wrap('![', '](imagen)')}><ImageIcon size={15} /></button>
-            <button className="fbtn" onClick={() => linePrefix('> ')}><Quote size={15} /></button>
-          </div>
-          <textarea ref={taRef} className="editor" value={text} onChange={(e) => setText(e.target.value)} />
-          <div className="aibar">
-            <div className="aibar-h"><Sparkles size={14} style={{ color: 'var(--red)' }} />{loading ? 'La IA está escribiendo…' : tone ? 'Cambiar tono a…' : 'Preguntar a la IA'}</div>
-            {loading ? <div className="typing" role="status" aria-label="La IA está escribiendo"><i /><i /><i /></div> : tone ? (<div className="aichips">{TONOS.map((t) => <button key={t.key} className="aichip" onClick={() => run(t.key)}>{t.label}</button>)}<button className="aichip" onClick={() => setTone(false)}>Cancelar</button></div>) : (<div className="aichips"><button className="aichip" onClick={() => run('mejorar')}><Sparkles size={12} />Mejorar redacción</button><button className="aichip" onClick={() => setTone(true)}>Cambiar tono</button><button className="aichip" onClick={() => run('acortar')}>Hacer más corto</button><button className="aichip" onClick={() => run('ampliar')}>Ampliar</button></div>)}
-          </div>
-        </div>
-        <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}><button className="btn" onClick={onClose}>Cancelar</button><button className="btn dark" onClick={() => { notify('Documento guardado', 'ok'); onClose() }}>Guardar documento</button></div></div>
-      </div>
-    </div>
-  )
-}
-
-type Upload = { id: number; name: string; pct: number; stage: string }
-function UploadCard({ u, onCancel }: { u: Upload; onCancel: (id: number) => void }) {
-  const tone = u.stage === 'done' ? 'grn' : u.stage === 'uploading' ? 'blu' : 'ink'
-  return (
-    <div className="upcard">
-      <div className="uphead"><span className={`upico ${tone}`}>{u.stage === 'done' ? <Check size={14} /> : <Upload size={14} />}</span><div className="uptxt"><div className="uptitle">{u.stage === 'done' ? 'Subido' : 'Subiendo'} &quot;<b>{u.name}</b>&quot;</div><div className="upsub">{u.stage === 'done' ? '¡Subido correctamente!' : u.stage === 'uploading' ? 'Subiendo tu archivo…' : 'Preparando la subida…'}</div></div><button className="upx" onClick={() => onCancel(u.id)}><X size={14} /></button></div>
-      <div className="upbar"><div className="upfill" style={{ width: `${u.pct}%`, background: tone === 'grn' ? 'var(--grn)' : tone === 'blu' ? 'var(--blu)' : 'var(--ink3)' }} /></div>
-      <div className="upfoot"><span className="uppct">{u.pct}% subido{u.stage !== 'done' ? '…' : ''}</span></div>
-    </div>
-  )
-}
-
-type EditDocModalProps = { doc: Doc | null; onClose: () => void; onSave: (id: string, patch: Partial<Doc>) => void }
-
-function EditDocModal(props: EditDocModalProps) {
-  if (!props.doc) return null
-  // Keyed on the document, so switching rows while the modal is open remounts
-  // with the new values instead of syncing them in through an effect.
-  return <EditDocModalBody key={props.doc.id} {...props} doc={props.doc} />
-}
-
-function EditDocModalBody({ doc, onClose, onSave }: EditDocModalProps & { doc: Doc }) {
-  const [name, setName] = useState(doc.name)
-  const [type, setType] = useState(doc.type)
-  const types = ['Contrato', 'Política', 'Acta', 'Plan', 'Manual']
-  return (
-    <div className="mwrap" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="mhead"><div className="mtitle">Editar documento</div><button className="ibtn" onClick={onClose}><X size={18} /></button></div>
-        <div className="mbody">
-          <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
-          <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
-          <div className="flabel">Tipo</div>
-          <div className="chips">{types.map((t) => <button key={t} className={`chip ${type === t ? 'on' : ''}`} onClick={() => setType(t)}>{t}</button>)}</div>
-        </div>
-        <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}><button className="btn" onClick={onClose}>Cancelar</button><button className="btn dark" onClick={() => name.trim() && onSave(doc.id, { name, type })}>Guardar</button></div></div>
-      </div>
-    </div>
-  )
-}
-
-/* ── Botón de carpeta glass ── */
-const GLASS_BACK = 'rgba(26,26,26,.82)'
-const GLASS_FRONT = 'rgba(26,26,26,.86)'
-const SHADOW = '0 22px 45px -14px rgba(0,0,0,.55)'
-// The folder is a physical object, not a themed surface: dark glass holding
-// white paper. Its own highlights therefore stay white in both themes —
-// following the ink channel would erase them against the dark glass.
-const HL = 'rgba(255,255,255,.14)'
-
+/* ── Botón de carpeta ── */
+// Every colour here comes from the `--folder-*` tokens in globals.css, which
+// is what lets the folder flip with the theme — smoked glass on dark, a pale
+// card on light — while the paper inside it stays white in both.
 const paperDefs = [
   { rotate: -8, x: -14, y: -28, z: 1 },
   { rotate: 8, x: 14, y: -28, z: 2 },
@@ -283,7 +81,9 @@ function FolderButton({ name, count, onClick }: { name: string; count: number; o
       onHoverEnd={() => setHover(false)}
       whileHover={empty ? {} : { y: -6 }}
       whileTap={{ scale: 0.97 }}
-      className="relative block w-full cursor-pointer rounded-[1.8rem] outline-none focus-visible:ring-[3px] focus-visible:ring-[#1a1a1a]/70 focus-visible:ring-offset-[6px] focus-visible:ring-offset-transparent"
+      // The ring was pinned to #1a1a1a, which is the dark page colour itself —
+      // invisible in the theme it was written for. It reads from the token now.
+      className="relative block w-full cursor-pointer rounded-[1.8rem] outline-none focus-visible:ring-[3px] focus-visible:ring-[var(--focus-ring-color)] focus-visible:ring-offset-[6px] focus-visible:ring-offset-transparent"
       style={{ maxWidth: 260, opacity: empty ? 0.55 : 1, filter: empty ? 'grayscale(0.4)' : undefined }}
     >
       <div style={{ perspective: 1200 }} className="relative h-[160px]">
@@ -292,11 +92,11 @@ function FolderButton({ name, count, onClick }: { name: string; count: number; o
           className="absolute inset-0"
           style={{
             borderRadius: '1.8rem',
-            border: `1px solid ${empty ? 'rgba(255,255,255,.06)' : HL}`,
-            backgroundColor: GLASS_BACK,
+            border: `1px solid ${empty ? 'var(--folder-edge-soft)' : 'var(--folder-edge)'}`,
+            backgroundColor: 'var(--folder-back)',
             backdropFilter: 'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
-            boxShadow: empty ? '0 8px 24px -8px rgba(0,0,0,.25)' : SHADOW,
+            boxShadow: empty ? 'var(--folder-shadow-soft)' : 'var(--folder-shadow)',
           }}
         />
         {/* Papeles — solo si tiene archivos */}
@@ -305,8 +105,14 @@ function FolderButton({ name, count, onClick }: { name: string; count: number; o
             {paperDefs.map((p, i) => (
               <motion.div
                 key={i}
-                className="absolute aspect-[4/3] w-[80%] rounded-[1.4rem] border border-black/5 bg-white"
-                style={{ zIndex: p.z, transformOrigin: 'bottom center', boxShadow: '0 6px 16px rgba(0,0,0,.14)' }}
+                className="absolute aspect-[4/3] w-[80%] rounded-[1.4rem]"
+                style={{
+                  zIndex: p.z,
+                  transformOrigin: 'bottom center',
+                  backgroundColor: 'var(--folder-paper)',
+                  border: '1px solid var(--folder-paper-line)',
+                  boxShadow: 'var(--folder-paper-shadow)',
+                }}
                 animate={{
                   rotate: hover ? p.rotate : 0,
                   x: hover ? p.x : 0,
@@ -329,34 +135,46 @@ function FolderButton({ name, count, onClick }: { name: string; count: number; o
             className="relative flex h-full w-full flex-col justify-end overflow-hidden p-5"
             style={{
               borderRadius: '1.8rem',
-              border: `1px solid ${empty ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.16)'}`,
-              backgroundColor: GLASS_FRONT,
+              border: `1px solid ${empty ? 'var(--folder-edge-soft)' : 'var(--folder-edge-front)'}`,
+              backgroundColor: 'var(--folder-front)',
               backdropFilter: 'blur(32px)',
               WebkitBackdropFilter: 'blur(32px)',
-              boxShadow: empty ? 'none' : 'inset 0 1px 0 rgba(255,255,255,.10)',
+              boxShadow: empty ? 'none' : 'var(--folder-inset)',
             }}
           >
             {!empty && (
               <motion.div
                 className="pointer-events-none absolute inset-0"
-                style={{ borderRadius: '1.8rem', background: 'radial-gradient(circle at 50% 100%, #fff, transparent 68%)' }}
-                animate={{ opacity: hover ? 0.12 : 0 }}
-                transition={{ duration: 0.25 }}
+                style={{ borderRadius: '1.8rem', background: 'radial-gradient(circle at 50% 100%, var(--folder-glow), transparent 68%)' }}
+                animate={{ opacity: hover ? 1 : 0 }}
+                transition={{ duration: DUR_RESIZE_S }}
               />
             )}
             {/* 3 puntos */}
             <motion.div
               className="absolute right-5 top-5 z-10 flex gap-1"
               animate={{ scale: hover ? 1.08 : 1 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: DUR_RESIZE_S }}
             >
-              <span className={`h-1 w-1 rounded-full ${empty ? 'bg-white/15' : 'bg-white/30'}`} />
-              <span className={`h-1 w-1 rounded-full ${empty ? 'bg-white/15' : 'bg-white/30'}`} />
-              <span className={`h-1 w-1 rounded-full ${empty ? 'bg-white/15' : 'bg-white/30'}`} />
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="h-1 w-1 rounded-full"
+                  style={{ backgroundColor: empty ? 'var(--folder-dot-soft)' : 'var(--folder-dot)' }}
+                />
+              ))}
             </motion.div>
             <div className="relative z-10">
-              <h3 className={`text-[17px] font-semibold tracking-[-0.03em] ${empty ? 'text-white/60' : 'text-white'}`}>{name}</h3>
-              <p className={`mt-1 font-mono text-[11px] tracking-[0.01em] tabular-nums ${empty ? 'text-white/30' : 'text-white/50'}`}>
+              <h3
+                className="truncate text-[17px] font-medium tracking-[-0.01em]"
+                style={{ color: empty ? 'var(--folder-ink-soft)' : 'var(--folder-ink)' }}
+              >
+                {name}
+              </h3>
+              <p
+                className="mt-1 font-mono text-[11px] tabular-nums"
+                style={{ color: empty ? 'var(--folder-ink-faint)' : 'var(--folder-ink-dim)' }}
+              >
                 {empty ? 'Vacía' : `${count} ${count === 1 ? 'archivo' : 'archivos'}`}
               </p>
             </div>
@@ -367,191 +185,538 @@ function FolderButton({ name, count, onClick }: { name: string; count: number; o
   )
 }
 
-/* Cambio de vista lado a lado: entrada y salida comparten duración y curva
-   para que se lea como un solo desplazamiento, no como un par abrir/cerrar. */
-const viewVariants = {
-  hidden: { opacity: 0, y: 8, filter: 'blur(3px)' },
-  show: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] as const } },
-  exit: { opacity: 0, y: -8, filter: 'blur(3px)', transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] as const } },
-}
-
-/* ── Página principal ── */
-export default function DocumentosPage() {
+export default function DocumentosPage({ data }: { data: DocumentosData }) {
   const { addToast } = useApp()
-  const [docs, setDocs] = useState<Doc[]>(DOCS_SEED)
-  const [uploads, setUploads] = useState<Upload[]>([])
-  const [shareDoc, setShareDoc] = useState<string | null>(null)
-  const [editDoc, setEditDoc] = useState<Doc | null>(null)
-  const [aiOpen, setAiOpen] = useState(false)
-  const [activeFolder, setActiveFolder] = useState<string | null>(null)
-  const upId = useRef(0)
+  const [pending, startTransition] = useTransition()
 
-  const folderDocs = useMemo(() => {
-    const map: Record<string, Doc[]> = {}
-    FOLDERS.forEach((f) => { map[f.key] = [] })
-    docs.forEach((d) => {
-      if (!map[d.folder]) map[d.folder] = []
-      map[d.folder].push(d)
+  const [state, setState] = useState<DocumentosData>(data)
+  const [activeFolder, setActiveFolder] = useState<string | null>(null)
+  const [editing, setEditing] = useState<DocumentoRow | null>(null)
+  const [upload, setUpload] = useState<UploadState | null>(null)
+  const [folderOpen, setFolderOpen] = useState(false)
+  const [folderName, setFolderName] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const targetFolder = useRef<string | null>(null)
+
+  const [loadingMore, startLoadingMore] = useTransition()
+  const [loadMoreError, setLoadMoreError] = useState('')
+  /** Id of the document whose review is in flight, so only its button spins. */
+  const [reviewing, setReviewing] = useState<string | null>(null)
+
+  const { carpetas, documentos } = state
+
+  /**
+   * Runs the AI review of one document and writes the verdict.
+   *
+   * The row is patched in place rather than re-reading the page: a review is
+   * about the one document, and refetching would throw away everything the
+   * reader paged in to find it.
+   */
+  function review(doc: DocumentoRow) {
+    setReviewing(doc.id)
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/ai/documento?id=${doc.id}`, { method: 'POST' })
+        const payload = await response.json()
+
+        if (!response.ok) {
+          // The API answers with a problem document; `detail` is the sentence
+          // written for a person, `title` the fallback when there is none.
+          addToast(payload?.detail ?? payload?.title ?? 'No se pudo revisar el documento.', 'err')
+          return
+        }
+
+        const revision = payload as DocumentoRevision
+        setState((prev) => ({
+          ...prev,
+          documentos: prev.documentos.map((d) =>
+            d.id === doc.id
+              ? {
+                  ...d,
+                  aiStatus: revision.estado,
+                  aiVerdict: revision.veredicto,
+                  aiCheckedAt: revision.revisadoEn,
+                }
+              : d,
+          ),
+        }))
+        addToast(
+          revision.alcance === 'contenido'
+            ? `Revisado: ${revision.estado.toLowerCase()}`
+            : `Ficha revisada: ${revision.estado.toLowerCase()}`,
+          revision.estado === 'Correcto' ? 'ok' : 'info',
+        )
+      } catch (error) {
+        console.error('[documentos] review', error)
+        addToast('No se pudo contactar la revisión con IA.', 'err')
+      } finally {
+        setReviewing(null)
+      }
     })
+  }
+
+  function loadMore() {
+    setLoadMoreError('')
+    startLoadingMore(async () => {
+      const result = await fetchMoreDocumentos(documentos.length)
+      if (!result.ok) {
+        setLoadMoreError(result.error)
+        return
+      }
+      setState((prev) => {
+        const seen = new Set(prev.documentos.map((d) => d.id))
+        return {
+          ...prev,
+          documentos: [...prev.documentos, ...result.data.rows.filter((d) => !seen.has(d.id))],
+          documentosTotal: result.data.total,
+        }
+      })
+    })
+  }
+
+  const byFolder = useMemo(() => {
+    const map = new Map<string | null, DocumentoRow[]>()
+    for (const d of documentos) {
+      const bucket = map.get(d.folderId)
+      if (bucket) bucket.push(d)
+      else map.set(d.folderId, [d])
+    }
     return map
-  }, [docs])
+  }, [documentos])
 
   const stats = useMemo(() => {
-    const totalDocs = docs.length
-    const totalFolders = FOLDERS.length
-    const foldersWithContent = FOLDERS.filter((f) => (folderDocs[f.key]?.length || 0) > 0).length
-    const recientes = docs.filter((d) => d.date.includes('Jun 2026')).length
-    return { totalDocs, totalFolders, foldersWithContent, recientes }
-  }, [docs, folderDocs])
+    const thisMonth = new Date()
+    const recientes = documentos.filter((d) => {
+      const created = new Date(d.createdAt)
+      return created.getFullYear() === thisMonth.getFullYear() && created.getMonth() === thisMonth.getMonth()
+    }).length
+    // Reviews that ran and found something. Counted over what is loaded, like
+    // the other two: a verdict only exists for a document somebody reviewed.
+    const revisados = documentos.filter((d) => d.aiStatus !== null).length
+    const porAtender = documentos.filter(
+      (d) => d.aiStatus === 'Revisar' || d.aiStatus === 'Incompleto',
+    ).length
+    return {
+      // The repository's size, not the page's: the other three tiles measure
+      // what is loaded and say so, but "Documentos: 200" on an org with 900
+      // would just be wrong.
+      total: state.documentosTotal,
+      carpetasConContenido: carpetas.filter((c) => c.count > 0).length,
+      recientes,
+      revisados,
+      porAtender,
+    }
+  }, [documentos, carpetas, state.documentosTotal])
 
-  const activeFolderInfo = FOLDERS.find((f) => f.key === activeFolder)
-  const activeDocs = activeFolder ? (folderDocs[activeFolder] || []) : []
+  const activeInfo = carpetas.find((c) => c.id === activeFolder) ?? null
+  const activeDocs = activeFolder ? (byFolder.get(activeFolder) ?? []) : []
+  const looseDocs = byFolder.get(null) ?? []
 
-  const startUpload = (folderKey: string) => {
-    const id = ++upId.current
-    const name = UPLOAD_NAMES[Math.floor(Math.random() * UPLOAD_NAMES.length)]
-    setUploads((u) => [...u, { id, name, pct: 0, stage: 'queued' }])
-    setTimeout(() => setUploads((u) => u.map((x) => (x.id === id ? { ...x, pct: 50, stage: 'uploading' } : x))), 650)
-    setTimeout(() => setUploads((u) => u.map((x) => (x.id === id ? { ...x, pct: 100, stage: 'done' } : x))), 1650)
-    setTimeout(() => {
-      setUploads((u) => u.filter((x) => x.id !== id))
-      setDocs((d) => [{ id: `F-${9010 + Math.floor(Math.random() * 89)}`, name: name.replace(/\.pdf$/, ''), type: 'Política', folder: folderKey, who: 'Personas', date: 'Jun 2026', tags: ['Nuevo'], ai: 'Sin riesgos' }, ...d])
-      addToast('Documento subido correctamente', 'ok')
-    }, 2950)
+  /**
+   * Real upload.
+   *
+   * The browser writes straight into the private bucket — the storage policy
+   * is what authorizes it, and going through a Server Function would mean
+   * pushing a 50 MB body through the app server for no benefit. Only once the
+   * object exists does the row get created, so a failed transfer leaves no
+   * document pointing at nothing.
+   *
+   * This used to be three `setTimeout`s animating a progress bar over a
+   * filename picked at random from a list of three.
+   */
+  async function handleFile(file: File) {
+    if (file.size > MAX_BYTES) {
+      addToast('El archivo supera el límite de 50 MB.', 'err')
+      return
+    }
+
+    setUpload({ name: file.name, stage: 'uploading' })
+    const key = objectKey(state.orgId, file.name)
+
+    const supabase = createClient()
+    const { error } = await supabase.storage
+      .from(state.bucket)
+      .upload(key, file, { contentType: file.type || undefined, upsert: false })
+
+    if (error) {
+      setUpload(null)
+      console.error('[documentos] upload', error)
+      addToast('No se pudo subir el archivo.', 'err')
+      return
+    }
+
+    setUpload({ name: file.name, stage: 'saving' })
+    startTransition(async () => {
+      const result = await createDocumento({
+        name: file.name.replace(/\.[^.]+$/, ''),
+        kind: 'Otro',
+        folderId: targetFolder.current,
+        storagePath: key,
+        mimeType: file.type || null,
+        sizeBytes: file.size,
+        department: '',
+        ownerId: null,
+        tags: [],
+        expiresOn: null,
+      })
+      setUpload(null)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      addToast('Documento subido', 'ok')
+    })
   }
 
-  const cancelUpload = (id: number) => setUploads((u) => u.filter((x) => x.id !== id))
-
-  const updateDoc = (id: string, patch: Partial<Doc>) => {
-    setDocs((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x)))
-    addToast('Documento actualizado', 'ok')
-    setEditDoc(null)
+  function pickFile(folderId: string | null) {
+    targetFolder.current = folderId
+    fileRef.current?.click()
   }
 
-  const deleteDoc = (id: string) => {
-    const removed = docs.find((d) => d.id === id)
-    setDocs((d) => d.filter((x) => x.id !== id))
-    if (removed) addToast(`"${removed.name}" eliminado`, 'info', 'Deshacer', () => setDocs((d) => [removed, ...d]))
+  async function download(d: DocumentoRow) {
+    const result = await documentoDownloadUrl(d.id)
+    if (!result.ok) { addToast(result.error, 'err'); return }
+    // Opened rather than navigated to: the signed URL lives 60 seconds and the
+    // response is an attachment, so this must not replace the current page.
+    window.open(result.url, '_blank', 'noopener,noreferrer')
   }
+
+  function remove(d: DocumentoRow) {
+    if (!window.confirm(`¿Eliminar "${d.name}"? El archivo se conserva pero deja de aparecer.`)) return
+    startTransition(async () => {
+      const result = await deleteDocumento(d.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      addToast(`"${d.name}" eliminado`, 'info')
+    })
+  }
+
+  function addFolder() {
+    if (!folderName.trim()) return
+    startTransition(async () => {
+      const result = await createCarpeta({ name: folderName.trim() })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      setFolderOpen(false)
+      setFolderName('')
+      addToast('Carpeta creada', 'ok')
+    })
+  }
+
+  const rows = activeFolder ? activeDocs : documentos
 
   return (
     <>
-      <div className="g3" style={{ marginBottom: 28 }}>
-        <div className="rise d1"><Stat icon={<FileText size={16} />} tone="blu" label="Documentos" value={stats.totalDocs} /></div>
-        <div className="rise d2"><Stat icon={<FileText size={16} />} tone="grn" label="Carpetas" value={stats.foldersWithContent} sub={`de ${stats.totalFolders} totales`} /></div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={ACCEPT}
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          if (file) void handleFile(file)
+        }}
+      />
+
+      <div className="g3" style={{ marginBottom: 20 }}>
+        <div className="rise d1"><Stat icon={<FileText size={16} />} tone="blu" label="Documentos" value={stats.total} /></div>
+        <div className="rise d2"><Stat icon={<FileText size={16} />} tone="grn" label="Carpetas" value={stats.carpetasConContenido} sub={`de ${carpetas.length} totales`} /></div>
         <div className="rise d3"><Stat icon={<Calendar size={16} />} tone="amb" label="Recientes" value={stats.recientes} sub="este mes" /></div>
-        <div className="rise d4"><Stat icon={<Sparkles size={16} />} tone="vio" label="IA" value="Activa" sub="Análisis automático" /></div>
+        {/*
+          "IA · Activa · Análisis automático" used to sit here beside a per-row
+          verdict typed into the fixture — nothing analysed anything. The review
+          is real now (POST /api/ai/documento writes `ai_status`, `ai_verdict`
+          and `ai_checked_at`), so the tile counts what it found. A document
+          nobody reviewed is not counted as clean: `revisados` is the
+          denominator, not the page.
+        */}
+        <div className="rise d4">
+          <Stat
+            icon={<Sparkles size={16} />}
+            tone={stats.porAtender > 0 ? 'amb' : 'vio'}
+            label="Por atender"
+            value={stats.porAtender}
+            sub={`de ${stats.revisados} revisados`}
+          />
+        </div>
       </div>
 
-      <AnimatePresence mode="wait">
-        {activeFolder ? (
-          <motion.div key={`docs-${activeFolder}`} variants={viewVariants} initial="hidden" animate="show" exit="exit">
-            {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-              <button className="ibtn" style={{ width: 34, height: 34 }} onClick={() => setActiveFolder(null)}>
-                <ChevronLeft size={18} />
-              </button>
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: '-.02em' }}>{activeFolderInfo?.name}</div>
-                <div className="kvs">{activeDocs.length} {activeDocs.length === 1 ? 'documento' : 'documentos'}</div>
-              </div>
-              <div style={{ flex: 1 }} />
-              <button className="btn ghost" onClick={() => setAiOpen(true)}>
-                <Sparkles size={15} style={{ color: 'var(--red)' }} />Redactar con IA
-              </button>
-              <button className="btn dark" onClick={() => startUpload(activeFolder!)}>
-                <Upload size={14} />Subir archivo
-              </button>
+      {activeFolder ? (
+        <div className="card rise d1">
+          <div className="chead">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button className="ibtn" onClick={() => setActiveFolder(null)} aria-label="Volver a carpetas"><ChevronLeft size={16} /></button>
+              <div className="ctitle">{activeInfo?.name}</div>
+              <span className="kvs">{activeDocs.length} documentos</span>
             </div>
-
-            {/* Tabla */}
-            <div className="card rise d1" style={{ overflow: 'hidden' }}>
-              {activeDocs.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', gap: 16 }}>
-                  <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--bg2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <FileText size={24} style={{ color: 'var(--ink3)' }} />
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', marginBottom: 4 }}>Carpeta vacía</div>
-                    <div style={{ fontSize: 13, color: 'var(--ink3)' }}>No hay documentos en esta carpeta todavía.</div>
-                  </div>
-                  <button className="btn dark" onClick={() => startUpload(activeFolder!)}>
-                    <Upload size={14} />Subir primer archivo
-                  </button>
-                </div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--line)' }}>
-                      <th scope="col" style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Nombre</th>
-                      <th scope="col" style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Tipo</th>
-                      <th scope="col" style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Departamento</th>
-                      <th scope="col" style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Fecha</th>
-                      <th scope="col" style={{ padding: '12px 16px', textAlign: 'right', fontSize: 11, fontWeight: 600, color: 'var(--ink3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeDocs.map((d) => (
-                      <tr key={d.id} style={{ borderBottom: '1px solid var(--line)', transition: 'background .15s' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg2)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <td style={{ padding: '12px 16px' }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{d.name}</div>
-                          <div className="ceid mono" style={{ fontSize: 10, marginTop: 2 }}>{d.id}</div>
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <span className="badge b-neu"><span className="bd" />{d.type}</span>
-                        </td>
-                        <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--ink2)' }}>{d.who}</td>
-                        <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--ink2)' }}>{d.date}</td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                            <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Compartir" onClick={() => setShareDoc(d.name)}>
-                              <Share2 size={13} />
-                            </button>
-                            <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Editar" onClick={() => setEditDoc(d)}>
-                              <PenLine size={13} />
-                            </button>
-                            <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }} data-tip="Eliminar" onClick={() => deleteDoc(d.id)}>
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {state.canWrite && (
+              <button className="btn pri" onClick={() => pickFile(activeFolder)} disabled={pending || upload !== null}>
+                <Upload size={15} />Subir documento
+              </button>
+            )}
+          </div>
+          <DocTable rows={activeDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} onEdit={setEditing} onDelete={remove} onDownload={download} onReview={review} />
+        </div>
+      ) : (
+        <>
+          <div className="card rise d1" style={{ marginBottom: 16 }}>
+            <div className="chead">
+              <div className="ctitle">Carpetas</div>
+              {state.canWrite && (
+                <button className="btn ghost" onClick={() => setFolderOpen(true)}><Plus size={14} />Nueva carpeta</button>
               )}
             </div>
-          </motion.div>
-        ) : (
-          <motion.div key="folders" variants={viewVariants} initial="hidden" animate="show" exit="exit">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: 40, justifyItems: 'center', padding: '12px 0' }}>
-              {FOLDERS.map((f) => {
-                const count = folderDocs[f.key]?.length || 0
-                return (
-                  <FolderButton
-                    key={f.key}
-                    name={f.name}
-                    count={count}
-                    onClick={() => setActiveFolder(f.key)}
-                  />
-                )
-              })}
+            <div className="cpad">
+              {carpetas.length === 0 ? (
+                <div className="dempty">
+                  Todavía no hay carpetas. Los documentos sueltos aparecen abajo.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: 40, justifyItems: 'center', padding: '12px 0' }}>
+                  {carpetas.map((c) => (
+                    <FolderButton
+                      key={c.id}
+                      name={c.name}
+                      count={c.count}
+                      onClick={() => setActiveFolder(c.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
 
-      <AIComposer open={aiOpen} onClose={() => setAiOpen(false)} notify={addToast} />
-      <ShareModal open={!!shareDoc} name={shareDoc} onClose={() => setShareDoc(null)} notify={addToast} />
-      <EditDocModal doc={editDoc} onClose={() => setEditDoc(null)} onSave={updateDoc} />
-      {uploads.length > 0 && (
-        <div className="upwrap">
-          {uploads.map((u) => <UploadCard key={u.id} u={u} onCancel={cancelUpload} />)}
+          <div className="card rise d2">
+            <div className="chead">
+              <div className="ctitle">{carpetas.length > 0 ? 'Todos los documentos' : 'Documentos'}</div>
+              {state.canWrite && (
+                <button className="btn pri" onClick={() => pickFile(null)} disabled={pending || upload !== null}>
+                  <Upload size={15} />Subir documento
+                </button>
+              )}
+            </div>
+            <DocTable rows={rows.length > 0 ? rows : looseDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} onEdit={setEditing} onDelete={remove} onDownload={download} onReview={review} />
+          </div>
+        </>
+      )}
+
+      {upload && (
+        <div className="card cpad" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Upload size={16} style={{ color: 'var(--ink3)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="eltxt" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{upload.name}</div>
+            <div className="elsub">{upload.stage === 'uploading' ? 'Subiendo archivo…' : 'Registrando documento…'}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Outside the folder/overview switch: both views draw on the same page
+          of documents, and a folder holding more than is loaded is exactly
+          when the reader needs the rest. */}
+      <LoadMore
+        loaded={documentos.length}
+        total={state.documentosTotal}
+        loading={loadingMore}
+        error={loadMoreError}
+        onLoadMore={loadMore}
+        noun="documentos"
+      />
+
+      {editing && (
+        <EditModal
+          key={editing.id}
+          doc={editing}
+          carpetas={carpetas}
+          busy={pending}
+          onClose={() => setEditing(null)}
+          onSave={(patch) =>
+            startTransition(async () => {
+              const result = await updateDocumento({ id: editing.id, ...patch })
+              if (!result.ok) { addToast(result.error, 'err'); return }
+              setState(result.data)
+              setEditing(null)
+              addToast('Documento actualizado', 'ok')
+            })
+          }
+        />
+      )}
+
+      {folderOpen && (
+        <div className="mwrap" onClick={() => setFolderOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="mhead"><div className="mtitle">Nueva carpeta</div><button className="ibtn" onClick={() => setFolderOpen(false)} aria-label="Cerrar"><X size={18} /></button></div>
+            <div className="mbody">
+              <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
+              <input className="field" value={folderName} onChange={(e) => setFolderName(e.target.value)} placeholder="Ej. Contratos" autoFocus />
+            </div>
+            <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
+              <button className="btn" onClick={() => setFolderOpen(false)} disabled={pending}>Cancelar</button>
+              <button className="btn dark" onClick={addFolder} disabled={pending}>Crear</button>
+            </div></div>
+          </div>
         </div>
       )}
     </>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Table                                                              */
+/* ------------------------------------------------------------------ */
+const AI_TONE: Record<string, string> = {
+  Correcto: 'grn',
+  Revisar: 'amb',
+  Incompleto: 'red',
+}
+
+function DocTable({
+  rows, canWrite, busy, reviewing, onEdit, onDelete, onDownload, onReview,
+}: {
+  rows: DocumentoRow[]
+  canWrite: boolean
+  busy: boolean
+  /** Id of the row whose review is running, or null. */
+  reviewing: string | null
+  onEdit: (d: DocumentoRow) => void
+  onDelete: (d: DocumentoRow) => void
+  onDownload: (d: DocumentoRow) => void
+  onReview: (d: DocumentoRow) => void
+}) {
+  return (
+    <div className="tblwrap">
+      <table className="tbl">
+        <thead><tr><th scope="col">Documento</th><th scope="col">Tipo</th><th scope="col">Responsable</th><th scope="col">Tamaño</th><th scope="col">Fecha</th><th scope="col"></th></tr></thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+              {canWrite ? 'Todavía no hay documentos aquí. Sube el primero.' : 'Todavía no hay documentos aquí.'}
+            </div></td></tr>
+          ) : rows.map((d) => (
+            <tr className="trow" key={d.id}>
+              <td>
+                <div className="cename">{d.name}</div>
+                <div className="ceid mono">{d.code ?? '—'}</div>
+                {/* Only shown once a review has actually run. A document with
+                    no verdict says nothing, rather than "sin observaciones". */}
+                {d.aiStatus && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 5 }}>
+                    <span className={`badge b-${AI_TONE[d.aiStatus] ?? 'neu'}`}>
+                      <span className="bd" />{d.aiStatus}
+                    </span>
+                    <span className="elsub" style={{ whiteSpace: 'normal' }}>{d.aiVerdict}</span>
+                  </div>
+                )}
+              </td>
+              <td className="muted">{d.kind}</td>
+              <td className="muted">{d.ownerName ?? (d.department || '—')}</td>
+              <td className="muted mono" style={{ fontSize: 12 }}>{humanSize(d.sizeBytes)}</td>
+              <td className="muted mono" style={{ fontSize: 12 }}>{MONTH.format(new Date(d.createdAt))}</td>
+              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                  {d.storagePath && (
+                    <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Descargar" onClick={() => onDownload(d)} aria-label={`Descargar ${d.name}`}>
+                      <Download size={13} />
+                    </button>
+                  )}
+                  {canWrite && (
+                    <>
+                      <button
+                        className="ibtn"
+                        style={{ width: 28, height: 28 }}
+                        data-tip={d.aiCheckedAt ? 'Revisar de nuevo con IA' : 'Revisar con IA'}
+                        disabled={busy || reviewing !== null}
+                        aria-busy={reviewing === d.id}
+                        onClick={() => onReview(d)}
+                        aria-label={`Revisar ${d.name} con IA`}
+                      >
+                        <Sparkles size={13} />
+                      </button>
+                      <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Editar" onClick={() => onEdit(d)} aria-label={`Editar ${d.name}`}>
+                        <PenLine size={13} />
+                      </button>
+                      <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }} data-tip="Eliminar" disabled={busy} onClick={() => onDelete(d)} aria-label={`Eliminar ${d.name}`}>
+                        <Trash2 size={13} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Edit                                                               */
+/* ------------------------------------------------------------------ */
+function EditModal({
+  doc, carpetas, busy, onClose, onSave,
+}: {
+  doc: DocumentoRow
+  carpetas: DocumentosData['carpetas']
+  busy: boolean
+  onClose: () => void
+  onSave: (patch: {
+    name: string
+    kind: (typeof DOCUMENT_KINDS)[number]
+    folderId: string | null
+    status: (typeof DOCUMENT_STATUSES)[number]
+    expiresOn: string | null
+  }) => void
+}) {
+  const [form, setForm] = useState({
+    name: doc.name,
+    kind: doc.kind as (typeof DOCUMENT_KINDS)[number],
+    folderId: doc.folderId ?? '',
+    status: doc.status as (typeof DOCUMENT_STATUSES)[number],
+    expiresOn: doc.expiresOn ?? '',
+  })
+
+  return (
+    <div className="mwrap" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mhead"><div className="mtitle">Editar documento</div><button className="ibtn" onClick={onClose} aria-label="Cerrar"><X size={18} /></button></div>
+        <div className="mbody">
+          <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
+          <input className="field" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+          <div className="fg2">
+            <div>
+              <div className="flabel">Tipo</div>
+              <Select value={form.kind} onChange={(v) => setForm((f) => ({ ...f, kind: v as (typeof DOCUMENT_KINDS)[number] }))} options={[...DOCUMENT_KINDS]} />
+            </div>
+            <div>
+              <div className="flabel">Estado</div>
+              <Select value={form.status} onChange={(v) => setForm((f) => ({ ...f, status: v as (typeof DOCUMENT_STATUSES)[number] }))} options={[...DOCUMENT_STATUSES]} />
+            </div>
+          </div>
+          <div className="flabel">Carpeta</div>
+          <Select
+            value={form.folderId}
+            onChange={(v) => setForm((f) => ({ ...f, folderId: v }))}
+            placeholder="Sin carpeta"
+            options={[{ value: '', label: 'Sin carpeta' }, ...carpetas.map((c) => ({ value: c.id, label: c.name }))]}
+          />
+          <div className="flabel">Vence</div>
+          <DatePicker ariaLabel="Vence" value={form.expiresOn} onChange={(v) => setForm((f) => ({ ...f, expiresOn: v }))} />
+        </div>
+        <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
+          <button className="btn" onClick={onClose} disabled={busy}>Cancelar</button>
+          <button
+            className="btn dark"
+            disabled={busy || !form.name.trim()}
+            aria-busy={busy}
+            onClick={() => onSave({
+              name: form.name.trim(),
+              kind: form.kind,
+              folderId: form.folderId || null,
+              status: form.status,
+              expiresOn: form.expiresOn || null,
+            })}
+          ><Check size={15} />{busy ? 'Guardando…' : 'Guardar'}</button>
+        </div></div>
+      </div>
+    </div>
   )
 }

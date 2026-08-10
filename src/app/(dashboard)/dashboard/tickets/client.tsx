@@ -1,52 +1,77 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useMemo, useState, useTransition } from 'react'
 import {
   Ticket, Clock, Check, Activity, LayoutGrid, List, Plus, FileSpreadsheet,
-  Sparkles, X, PenLine, Trash2,
+  X, PenLine, Trash2,
 } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
 import { useExport } from '@/lib/hooks/use-export'
 import NuevoTicketModal from '@/components/ui/NuevoTicketModal'
+import LoadMore from '@/components/ui/LoadMore'
+import Drawer from '@/components/ui/Drawer'
 import TabBar from '@/components/ui/TabBar'
+import Select from '@/components/ui/Select'
 import { activatable } from '@/lib/a11y'
+import type { TicketsData, TicketRow } from '@/server/queries/tickets'
+import { TICKET_AREAS, TICKET_PRIORITIES, TICKET_STATUSES } from '@/lib/domain'
+import { createTicket, deleteTicket, moveTicket, updateTicket } from '@/server/mutations/tickets'
+import { fetchMoreTickets } from '@/server/actions/tickets'
 
-type TicketItem = {
-  id: string
-  asunto: string
-  quien: string
-  area: string
-  prio: string
-  st: string
-  t: string
-  ai?: boolean
+/* ------------------------------------------------------------------ */
+/*  Formatting                                                         */
+/* ------------------------------------------------------------------ */
+const DAY = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short' })
+
+/**
+ * "hace 2 h" computed from `created_at`.
+ *
+ * The fixture stored this as a literal string, so a ticket "opened 2 hours
+ * ago" was still two hours old a week later.
+ */
+function relativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const minutes = Math.round(diff / 60_000)
+  if (minutes < 1) return 'ahora'
+  if (minutes < 60) return `hace ${minutes} min`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `hace ${hours} h`
+  const days = Math.round(hours / 24)
+  if (days === 1) return 'ayer'
+  if (days < 7) return `hace ${days} días`
+  return DAY.format(new Date(iso))
 }
 
-const TICKETS_SEED: TicketItem[] = [
-  { id: 'TK-1287', asunto: 'Solicitud de certificado laboral', quien: 'Juan Pérez', area: 'Personas', prio: 'Media', st: 'Abierto', t: 'hace 2 h', ai: true },
-  { id: 'TK-1286', asunto: 'Error al acceder al correo corporativo', quien: 'Valentina Ruiz', area: 'TI', prio: 'Alta', st: 'En proceso', t: 'hace 4 h' },
-  { id: 'TK-1285', asunto: 'Solicitud de vacaciones', quien: 'Sebastián Cano', area: 'Personas', prio: 'Baja', st: 'Abierto', t: 'hace 5 h' },
-  { id: 'TK-1284', asunto: 'Ajuste en liquidación de nómina de mayo', quien: 'Andrés Mora', area: 'Nómina', prio: 'Alta', st: 'Abierto', t: 'hace 6 h', ai: true },
-  { id: 'TK-1283', asunto: 'Reembolso de gastos de viaje', quien: 'Laura Jiménez', area: 'Finanzas', prio: 'Baja', st: 'En proceso', t: 'Ayer' },
-  { id: 'TK-1282', asunto: 'Cambio de equipo de cómputo', quien: 'Daniel Ospina', area: 'TI', prio: 'Media', st: 'En proceso', t: 'Ayer' },
-  { id: 'TK-1281', asunto: 'Revisión de contrato de proveedor', quien: 'Camila Restrepo', area: 'Legal', prio: 'Media', st: 'Abierto', t: 'Ayer', ai: true },
-  { id: 'TK-1280', asunto: 'Certificado de ingresos y retenciones', quien: 'María González', area: 'Finanzas', prio: 'Media', st: 'Resuelto', t: '18 jun' },
-  { id: 'TK-1279', asunto: 'Restablecer contraseña de la VPN', quien: 'Juan Pérez', area: 'TI', prio: 'Alta', st: 'Resuelto', t: '18 jun' },
-  { id: 'TK-1278', asunto: 'Actualización de datos de contacto', quien: 'Valentina Ruiz', area: 'Personas', prio: 'Baja', st: 'Resuelto', t: '17 jun' },
-  { id: 'TK-1277', asunto: 'Anticipo de nómina', quien: 'Andrés Mora', area: 'Nómina', prio: 'Media', st: 'Resuelto', t: '16 jun' },
-  { id: 'TK-1276', asunto: 'Consulta sobre afiliación a EPS', quien: 'Sebastián Cano', area: 'Personas', prio: 'Baja', st: 'Resuelto', t: '16 jun' },
-]
+/** Mean hours from opened to resolved, over tickets that actually closed. */
+function meanResolution(tickets: TicketRow[]): string {
+  const closed = tickets.filter((t) => t.resolvedAt)
+  if (closed.length === 0) return '—'
+  const total = closed.reduce(
+    (sum, t) => sum + (new Date(t.resolvedAt as string).getTime() - new Date(t.createdAt).getTime()),
+    0,
+  )
+  const hours = total / closed.length / 3_600_000
+  return hours < 1 ? '< 1 h' : `${hours.toFixed(1)} h`
+}
 
-const AREA: Record<string, string> = { TI: '#3b82f6', 'Nómina': '#8b5cf6', Personas: '#e5484d', Finanzas: '#1f9d63', Legal: '#bf8410' }
+/* ------------------------------------------------------------------ */
+/*  Presentation                                                       */
+/* ------------------------------------------------------------------ */
+const AREA: Record<string, string> = {
+  TI: '#3b82f6', 'Nómina': '#8b5cf6', Personas: '#e5484d', Finanzas: '#1f9d63',
+  Legal: '#bf8410', Contratos: '#0ea5e9', Onboarding: '#14b8a6', Permisos: '#f97316',
+  'Capacitación': '#a855f7', 'Administración': '#64748b', Beneficios: '#ec4899', Otro: '#94a3b8',
+}
 const AREA_GRAD: Record<string, [string, string]> = {
   TI: ['#7aa2ff', '#3b82f6'], 'Nómina': ['#b298f2', '#8b5cf6'], Personas: ['#ff8a8d', '#e5484d'],
   Finanzas: ['#3ed694', '#1f9d63'], Legal: ['#f0bd5a', '#bf8410'],
 }
-const COLDOT: Record<string, string> = { Abierto: '#9494a0', 'En proceso': '#bf8410', Resuelto: '#1f9d63' }
-
+const COLDOT: Record<string, string> = {
+  Abierto: '#9494a0', 'En proceso': '#bf8410', Resuelto: '#1f9d63', Cerrado: '#6b7280',
+}
 
 const tone = (st: string): string =>
-  ({ Resuelto: 'grn', 'En proceso': 'amb', Abierto: 'neu' }[st] || 'neu')
+  ({ Resuelto: 'grn', Cerrado: 'grn', 'En proceso': 'amb', Abierto: 'neu' }[st] || 'neu')
 
 const Badge = ({ st }: { st: string }) => (
   <span className={`badge b-${tone(st)}`}><span className="bd" />{st}</span>
@@ -71,13 +96,7 @@ const Avatar = ({ name, size = 34 }: { name: string; size?: number }) => {
   )
 }
 
-function Stat({
-  ico: Ico,
-  tone: t = 'ink',
-  label,
-  value,
-  sub,
-}: {
+function Stat({ ico: Ico, tone: t = 'ink', label, value, sub }: {
   ico: (p: { size?: number }) => React.ReactElement
   tone?: string
   label: string
@@ -97,176 +116,274 @@ function Stat({
   )
 }
 
-const descOf = (t: TicketItem) => `${t.quien} solicita: ${t.asunto.toLowerCase()}. Pendiente de gestión por el equipo de ${t.area}.`
-const aiSugOf = (t: TicketItem) => `Clasificado automáticamente para el área de ${t.area}. Prioridad sugerida: ${t.prio}. Tiempo de respuesta estimado: 5 h.`
-
-function TicketCard({ t, onOpen }: { t: TicketItem; onOpen: (id: string) => void }) {
+function TicketCard({ t, onOpen }: { t: TicketRow; onOpen: (id: string) => void }) {
   return (
-    <div className="tkcard" {...activatable(() => onOpen(t.id), `Abrir ticket ${t.id}: ${t.asunto}`)}>
+    <div className="tkcard" {...activatable(() => onOpen(t.id), `Abrir ticket ${t.code ?? ''}: ${t.subject}`)}>
       <div className="tktop">
         <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] }} />{t.area}
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] ?? AREA.Otro }} />{t.area}
         </span>
-        <Prio prio={t.prio} />
+        <Prio prio={t.priority} />
       </div>
-      <div className="tkas">{t.asunto}{t.ai && <Sparkles size={13} style={{ color: 'var(--red)', flexShrink: 0, marginTop: 2 }} />}</div>
-      <div className="ceid mono" style={{ marginTop: 4 }}>{t.id}</div>
+      <div className="tkas">{t.subject}</div>
+      <div className="ceid mono" style={{ marginTop: 4 }}>{t.code ?? '—'}</div>
       <div className="tkmeta">
-        <span className="tkwho"><Avatar name={t.quien} size={22} />{t.quien.split(' ')[0]}</span>
-        <span className="tltime mono">{t.t}</span>
+        <span className="tkwho"><Avatar name={t.requesterName} size={22} />{t.requesterName.split(' ')[0]}</span>
+        <span className="tltime mono">{relativeTime(t.createdAt)}</span>
       </div>
     </div>
   )
 }
 
-const ATAGS = ['TI', 'Nómina', 'Personas', 'Finanzas', 'Legal']
-
-function TicketDrawer({
-  t,
-  onClose,
-  onStatus,
-  onUpdate,
-  onDelete,
-}: TicketDrawerProps) {
-  // Keyed remount in the wrapper below gives each ticket a fresh draft, so
-  // there is no effect syncing form state and no render where the drawer
-  // still shows the previously selected ticket's values.
-  if (!t) return null
-  return <TicketDrawerBody key={t.id} t={t} onClose={onClose} onStatus={onStatus} onUpdate={onUpdate} onDelete={onDelete} />
-}
-
-type TicketDrawerProps = {
-  t: TicketItem | null
+/* ------------------------------------------------------------------ */
+/*  Drawer                                                             */
+/* ------------------------------------------------------------------ */
+type DrawerProps = {
+  t: TicketRow | null
+  roster: TicketsData['roster']
+  canWrite: boolean
+  busy: boolean
   onClose: () => void
-  onStatus: (id: string, to: string) => void
-  onUpdate: (id: string, patch: Partial<TicketItem>) => void
-  onDelete: (id: string) => void
+  onStatus: (t: TicketRow, to: string) => void
+  onUpdate: (id: string, patch: { subject?: string; area?: string; priority?: string; assigneeId?: string | null }) => void
+  onDelete: (t: TicketRow) => void
 }
 
-function TicketDrawerBody({
-  t,
-  onClose,
-  onStatus,
-  onUpdate,
-  onDelete,
-}: TicketDrawerProps & { t: TicketItem }) {
+function TicketDrawer({ t, onClose, ...rest }: DrawerProps) {
+  return (
+    <Drawer value={t} onClose={onClose}>
+      {/* Keyed remount gives each ticket a fresh draft, so there is no effect
+          syncing form state and no render showing the previous ticket's
+          values. */}
+      {(ticket) => <TicketDrawerBody key={ticket.id} {...rest} t={ticket} onClose={onClose} />}
+    </Drawer>
+  )
+}
+
+function TicketDrawerBody({ t, roster, canWrite, busy, onClose, onStatus, onUpdate, onDelete }: DrawerProps & { t: TicketRow }) {
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState<{ asunto: string; area: string; prio: string }>({
-    asunto: t.asunto, area: t.area, prio: t.prio,
+  const [form, setForm] = useState({
+    subject: t.subject, area: t.area, priority: t.priority, assigneeId: t.assigneeId ?? '',
   })
-  const trans = t.st === 'Abierto' ? { label: 'Tomar ticket', to: 'En proceso' }
-    : t.st === 'En proceso' ? { label: 'Marcar como resuelto', to: 'Resuelto' }
+
+  const trans = t.status === 'Abierto' ? { label: 'Tomar ticket', to: 'En proceso' }
+    : t.status === 'En proceso' ? { label: 'Marcar como resuelto', to: 'Resuelto' }
     : { label: 'Reabrir ticket', to: 'Abierto' }
-  let acts: { txt: string }[] = [{ txt: `${t.quien} creó el ticket` }]
-  if (t.st !== 'Abierto') acts.push({ txt: `Asignado al equipo de ${t.area}` })
-  if (t.st === 'Resuelto') acts.push({ txt: 'Resuelto y cerrado' })
-  acts = acts.reverse()
-  const [g1, g2] = AREA_GRAD[t.area] || ['#a6a6b2', '#6b6b76']
-  const save = () => { onUpdate(t.id, form); setEditing(false) }
+
+  const [g1, g2] = AREA_GRAD[t.area] ?? ['#a6a6b2', '#6b6b76']
+
   return (
     <>
-      <div className="ovl" onClick={onClose} />
-      <aside className="drawer">
-        <div className="dhead tkhead">
-          <div className="kglow" style={{ background: g1 }} />
-          <div className="dmark" style={{ background: `linear-gradient(145deg,${g1},${g2})`, boxShadow: `0 8px 18px -8px ${g2}99` }}>
-            <Ticket size={19} color="#fff" />
-          </div>
-          <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
-            <div className="dh-t mono">{t.id}</div>
-            <div className="dh-s">{t.area} · creado {t.t}</div>
-          </div>
-          <button className="ibtn" onClick={onClose} style={{ position: 'relative', zIndex: 1 }}><X size={18} /></button>
+      <div className="dhead tkhead">
+        <div className="kglow" style={{ background: g1 }} />
+        <div className="dmark" style={{ background: `linear-gradient(145deg,${g1},${g2})`, boxShadow: `0 8px 18px -8px ${g2}99` }}>
+          <Ticket size={19} color="#fff" />
         </div>
-        <div className="dbody">
-          {editing ? (
-            <>
-              <div className="flabel" style={{ marginTop: 0 }}>Asunto</div>
-              <input className="field" value={form.asunto} onChange={(ev) => setForm((f) => f && ({ ...f, asunto: ev.target.value }))} />
-              <div className="flabel">Área</div>
-              <div className="chips">{ATAGS.map((a) => <button key={a} className={`chip ${form.area === a ? 'on' : ''}`} onClick={() => setForm((f) => f && ({ ...f, area: a }))}>{a}</button>)}</div>
-              <div className="flabel">Prioridad</div>
-              <div className="chips">{['Alta', 'Media', 'Baja'].map((p) => <button key={p} className={`chip ${form.prio === p ? 'on' : ''}`} onClick={() => setForm((f) => f && ({ ...f, prio: p }))}>{p}</button>)}</div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-.04em' }}>{t.asunto}</div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-                <Badge st={t.st} />
-                <Prio prio={t.prio} />
-              </div>
-              <div className="treq">
-                <Avatar name={t.quien} size={24} />
-                <span><b>{t.quien}</b> · equipo de</span>
-                <span className="treqarea">
-                  <span className="areadot" style={{ background: AREA[t.area] }} />{t.area}
-                </span>
-              </div>
-
-              <div className="dsect">Sugerencia IA</div>
-              <div className="aibox">
-                <div className="kglow" />
-                <div className="aii"><Sparkles size={16} /></div>
-                <div><div className="at">Acción recomendada</div><div className="ad">{aiSugOf(t)}</div></div>
-              </div>
-
-              <div className="dsect">Descripción</div>
-              <p style={{ fontSize: 13.5, color: 'var(--ink2)', margin: 0, lineHeight: 1.55 }}>{descOf(t)}</p>
-
-              <div className="dsect">Actividad</div>
-              <div>
-                {acts.map((a, i) => (
-                  <div className={`tli ${i === acts.length - 1 ? 'last' : ''}`} key={i}>
-                    <div className="tlrail"><div className={`tlnode ${i === 0 ? 'red' : ''}`} /></div>
-                    <div className="tlbody"><div className="tltxt">{a.txt}</div></div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+        <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+          <div className="dh-t mono">{t.code ?? '—'}</div>
+          <div className="dh-s">{t.area} · creado {relativeTime(t.createdAt)}</div>
         </div>
+        <button className="ibtn" onClick={onClose} style={{ position: 'relative', zIndex: 1 }} aria-label="Cerrar"><X size={18} /></button>
+      </div>
+      <div className="dbody">
+        {editing ? (
+          <>
+            <div className="flabel" style={{ marginTop: 0 }}>Asunto</div>
+            <input className="field" value={form.subject} onChange={(ev) => setForm((f) => ({ ...f, subject: ev.target.value }))} />
+            <div className="flabel">Área</div>
+            <div className="chips">
+              {TICKET_AREAS.map((a) => (
+                <button key={a} className={`chip ${form.area === a ? 'on' : ''}`} onClick={() => setForm((f) => ({ ...f, area: a }))}>{a}</button>
+              ))}
+            </div>
+            <div className="flabel">Prioridad</div>
+            <div className="chips">
+              {TICKET_PRIORITIES.map((p) => (
+                <button key={p} className={`chip ${form.priority === p ? 'on' : ''}`} onClick={() => setForm((f) => ({ ...f, priority: p }))}>{p}</button>
+              ))}
+            </div>
+            {roster.length > 0 && (
+              <>
+                <div className="flabel">Asignado a</div>
+                <Select
+                  value={form.assigneeId}
+                  onChange={(v) => setForm((f) => ({ ...f, assigneeId: v }))}
+                  placeholder="Sin asignar"
+                  options={[
+                    { value: '', label: 'Sin asignar' },
+                    ...roster.map((r) => ({ value: r.employeeId, label: r.fullName })),
+                  ]}
+                />
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ fontWeight: 500, fontSize: 17, letterSpacing: '-0.005em' }}>{t.subject}</div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+              <Badge st={t.status} />
+              <Prio prio={t.priority} />
+            </div>
+            <div className="treq">
+              <Avatar name={t.requesterName} size={24} />
+              <span><b>{t.requesterName}</b> · equipo de</span>
+              <span className="treqarea">
+                <span className="areadot" style={{ background: AREA[t.area] ?? AREA.Otro }} />{t.area}
+              </span>
+            </div>
+
+            {/*
+              A "Sugerencia IA" box used to sit here, printing
+              "Clasificado automáticamente… Tiempo de respuesta estimado: 5 h"
+              from a template string. No model ran, nothing was classified,
+              and the five hours were typed into the source. Same for the
+              description, which was `${quien} solicita: ${asunto}` restated.
+              The ticket's own body is shown instead — and only if it has one.
+            */}
+            {t.body && (
+              <>
+                <div className="dsect">Descripción</div>
+                <p style={{ fontSize: 13.5, color: 'var(--ink2)', margin: 0, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{t.body}</p>
+              </>
+            )}
+
+            <div className="dsect">Detalles</div>
+            <div className="elrow"><div className="eltxt">Asignado a</div><div className="elsub">{t.assigneeName ?? 'Sin asignar'}</div></div>
+            <div className="elrow"><div className="eltxt">Comentarios</div><div className="elsub">{t.commentCount}</div></div>
+            {t.resolvedAt && (
+              <div className="elrow"><div className="eltxt">Resuelto</div><div className="elsub">{relativeTime(t.resolvedAt)}</div></div>
+            )}
+          </>
+        )}
+      </div>
+      {canWrite && (
         <div className="dacts">
           {editing ? (
             <>
-              <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setEditing(false)}>Cancelar</button>
-              <button className="btn dark" style={{ flex: 1, justifyContent: 'center' }} onClick={save}><Check size={15} />Guardar</button>
+              <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setEditing(false)} disabled={busy}>Cancelar</button>
+              <button
+                className="btn dark"
+                style={{ flex: 1, justifyContent: 'center' }}
+                disabled={busy}
+                onClick={() => {
+                  onUpdate(t.id, {
+                    subject: form.subject,
+                    area: form.area,
+                    priority: form.priority,
+                    assigneeId: form.assigneeId || null,
+                  })
+                  setEditing(false)
+                }}
+              ><Check size={15} />Guardar</button>
             </>
           ) : (
             <>
-              <button className="btn pri" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onStatus(t.id, trans.to)}>{trans.label}</button>
-              <button className="btn" onClick={() => setEditing(true)}><PenLine size={15} /></button>
-              <button className="ibtn" style={{ color: 'var(--redd)', borderColor: '#f7cbcb' }} title="Eliminar ticket" onClick={() => onDelete(t.id)}><Trash2 size={17} /></button>
+              <button className="btn pri" style={{ flex: 1, justifyContent: 'center' }} disabled={busy} onClick={() => onStatus(t, trans.to)}>{trans.label}</button>
+              <button className="btn" onClick={() => setEditing(true)} disabled={busy} aria-label="Editar ticket"><PenLine size={15} /></button>
+              <button className="ibtn" style={{ color: 'var(--redd)', borderColor: '#f7cbcb' }} title="Eliminar ticket" disabled={busy} onClick={() => onDelete(t)}><Trash2 size={17} /></button>
             </>
           )}
         </div>
-      </aside>
+      )}
     </>
   )
 }
 
-export default function TicketsPage() {
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
+const BOARD_COLUMNS = ['Abierto', 'En proceso', 'Resuelto'] as const
+
+export default function TicketsPage({ data }: { data: TicketsData }) {
   const { addToast } = useApp()
   const { runExport, exporting } = useExport()
-  const [items, setItems] = useState<TicketItem[]>(TICKETS_SEED)
+  const [pending, startTransition] = useTransition()
+
+  // Server state. Twelve fixture tickets used to live in `useState`; a drag
+  // between columns rearranged the array and a reload put it all back.
+  const [items, setItems] = useState<TicketRow[]>(data.tickets)
+  const [total, setTotal] = useState(data.ticketsTotal)
+  const [loadingMore, startLoadingMore] = useTransition()
+  const [loadMoreError, setLoadMoreError] = useState('')
   const [area, setArea] = useState('Todos')
   const [mode, setMode] = useState('board')
   const [sel, setSel] = useState<string | null>(null)
   const [addOpen, setAddOpen] = useState(false)
-  const areas = ['Todos', 'TI', 'Nómina', 'Personas', 'Finanzas', 'Legal']
-  const cols = ['Abierto', 'En proceso', 'Resuelto']
+
+  // Only areas that actually appear, plus the standard five, so the filter is
+  // not twelve tabs wide on an org that files everything under "TI".
+  const areas = useMemo(() => {
+    const used = new Set(items.map((t) => t.area))
+    return ['Todos', ...TICKET_AREAS.filter((a) => used.has(a))]
+  }, [items])
+
   const rows = items.filter((t) => area === 'Todos' || t.area === area)
-  const count = (st: string) => items.filter((t) => t.st === st).length
-  const setStatus = (id: string, to: string, silent?: boolean) => {
-    const prev = items.find((x) => x.id === id)?.st
-    setItems((xs) => xs.map((x) => (x.id === id ? { ...x, st: to } : x)))
-    setSel(null)
-    if (!silent && prev) addToast(`Estado actualizado: ${to}`, to === 'Resuelto' ? 'ok' : 'info', 'Deshacer', () => setStatus(id, prev, true))
-  }
+  const count = (st: string) => items.filter((t) => t.status === st).length
+  const selected = items.find((t) => t.id === sel) ?? null
+
   const [dragId, setDragId] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState<string | null>(null)
   const [dropIdx, setDropIdx] = useState<number | null>(null)
 
+  function apply(next: TicketsData, message?: string) {
+    setItems(next.tickets)
+    // A mutation re-reads the first page, so anything paged in is gone with it
+    // — and the total it carries is the one that matches what is on screen.
+    setTotal(next.ticketsTotal)
+    if (message) addToast(message, 'ok')
+  }
+
+  function loadMore() {
+    setLoadMoreError('')
+    startLoadingMore(async () => {
+      const result = await fetchMoreTickets(items.length)
+      if (!result.ok) {
+        setLoadMoreError(result.error)
+        return
+      }
+      setItems((prev) => {
+        const seen = new Set(prev.map((t) => t.id))
+        return [...prev, ...result.data.rows.filter((t) => !seen.has(t.id))]
+      })
+      setTotal(result.data.total)
+    })
+  }
+
+  function setStatus(t: TicketRow, to: string) {
+    startTransition(async () => {
+      const result = await updateTicket({ id: t.id, status: to as (typeof TICKET_STATUSES)[number] })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setSel(null)
+      apply(result.data, `Estado actualizado: ${to}`)
+    })
+  }
+
+  function patchTicket(id: string, patch: { subject?: string; area?: string; priority?: string; assigneeId?: string | null }) {
+    startTransition(async () => {
+      const result = await updateTicket({
+        id,
+        subject: patch.subject,
+        area: patch.area as (typeof TICKET_AREAS)[number] | undefined,
+        priority: patch.priority as (typeof TICKET_PRIORITIES)[number] | undefined,
+        assigneeId: patch.assigneeId,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data, 'Ticket actualizado')
+    })
+  }
+
+  function removeTicket(t: TicketRow) {
+    if (!window.confirm(`¿Eliminar el ticket ${t.code ?? ''}? Se conservará su historial pero dejará de aparecer.`)) return
+    startTransition(async () => {
+      const result = await deleteTicket(t.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setSel(null)
+      apply(result.data, `Ticket ${t.code ?? ''} eliminado`)
+    })
+  }
+
+  /* ---- drag and drop ---- */
   const onDragStart = (e: React.DragEvent, id: string) => {
     setDragId(id)
     e.dataTransfer.effectAllowed = 'move'
@@ -275,21 +392,17 @@ export default function TicketsPage() {
     }, 0)
   }
 
-  const getDropIdx = (e: React.DragEvent, cardEls: Element[], col: string) => {
-    const colCards = items.filter((t) => t.st === col && (area === 'Todos' || t.area === area))
-    for (let i = 0; i < cardEls.length; i++) {
-      const rect = cardEls[i].getBoundingClientRect()
-      if (e.clientY < rect.top + rect.height / 2) return i
-    }
-    return colCards.length
-  }
-
   const onColDragOver = (e: React.DragEvent, col: string) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDragOver(col)
     const cardEls = [...e.currentTarget.querySelectorAll('[data-tkid]')]
-    setDropIdx(getDropIdx(e, cardEls, col))
+    let idx = cardEls.length
+    for (let i = 0; i < cardEls.length; i++) {
+      const rect = cardEls[i].getBoundingClientRect()
+      if (e.clientY < rect.top + rect.height / 2) { idx = i; break }
+    }
+    setDropIdx(idx)
   }
 
   const onDragLeave = (e: React.DragEvent) => {
@@ -298,69 +411,86 @@ export default function TicketsPage() {
     }
   }
 
+  /**
+   * Fractional index between the two neighbours at the drop point.
+   *
+   * The board used to reorder the local array and persist nothing, so every
+   * drag was undone by the next reload. Midpoints mean one row is written per
+   * drop instead of renumbering the whole column.
+   */
+  function positionFor(col: string, insertAt: number, movingId: string): number {
+    const colCards = items
+      .filter((t) => t.status === col && t.id !== movingId)
+      .sort((a, b) => a.boardPosition - b.boardPosition)
+    const before = colCards[insertAt - 1]
+    const after = colCards[insertAt]
+    if (!before && !after) return 0
+    if (!before) return after.boardPosition - 1
+    if (!after) return before.boardPosition + 1
+    return (before.boardPosition + after.boardPosition) / 2
+  }
+
   const onDrop = (e: React.DragEvent, col: string) => {
     e.preventDefault()
-    if (!dragId) { setDragOver(null); setDropIdx(null); return }
-    const dragged = items.find((x) => x.id === dragId)
-    if (!dragged) { setDragId(null); setDragOver(null); setDropIdx(null); return }
-
-    const withoutDragged = items.filter((x) => x.id !== dragId)
-    const colItems = withoutDragged.filter((x) => x.st === col)
-    const otherItems = withoutDragged.filter((x) => x.st !== col)
-    const insertAt = Math.min(dropIdx ?? colItems.length, colItems.length)
-    const updated = { ...dragged, st: col }
-    colItems.splice(insertAt, 0, updated)
-    setItems([...otherItems, ...colItems])
-
-    const prevSt = dragged.st
-    if (prevSt !== col) {
-      addToast(`Movido a ${col}`, col === 'Resuelto' ? 'ok' : 'info',
-        'Deshacer', () => setItems((prev) => {
-          const w = prev.filter((x) => x.id !== dragId)
-          return [...w, { ...(prev.find((x) => x.id === dragId) || dragged), st: prevSt }]
-        }))
-    }
-
-    setTimeout(() => {
-      const el = document.querySelector(`[data-tkid="${dragId}"]`)
-      if (el) {
-        el.classList.remove('card-enter'); void (el as HTMLElement).offsetWidth
-        el.classList.add('card-enter')
-        el.addEventListener('animationend', () => el.classList.remove('card-enter'), { once: true })
-      }
-    }, 20)
-
+    const id = dragId
     setDragId(null); setDragOver(null); setDropIdx(null)
+    if (!id) return
+
+    const dragged = items.find((x) => x.id === id)
+    if (!dragged) return
+
+    const insertAt = dropIdx ?? items.filter((t) => t.status === col).length
+    const boardPosition = positionFor(col, insertAt, id)
+
+    // Optimistic: the card lands where it was dropped and the write follows.
+    // React rolls it back by replacing the list if the server refuses.
+    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, status: col, boardPosition } : t)))
+
+    startTransition(async () => {
+      const result = await moveTicket({
+        id,
+        status: col as (typeof TICKET_STATUSES)[number],
+        boardPosition,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); setItems(data.tickets); return }
+      setItems(result.data.tickets)
+      if (dragged.status !== col) addToast(`Movido a ${col}`, col === 'Resuelto' ? 'ok' : 'info')
+    })
   }
 
   const onDragEnd = () => {
     document.querySelectorAll('.tkcard.is-dragging').forEach((el) => el.classList.remove('is-dragging'))
     setDragId(null); setDragOver(null); setDropIdx(null)
   }
-  const updateTicket = (id: string, patch: Partial<TicketItem>) => {
-    setItems((xs) => xs.map((x) => (x.id === id ? { ...x, ...patch } : x)))
-    addToast('Ticket actualizado', 'ok')
-  }
-  const deleteTicket = (id: string) => {
-    const removed = items.find((x) => x.id === id)
-    setItems((xs) => xs.filter((x) => x.id !== id))
-    setSel(null)
-    if (removed) addToast(`Ticket ${id} eliminado`, 'info', 'Deshacer', () => setItems((xs) => [removed, ...xs]))
-  }
-  const selected = items.find((t) => t.id === sel) || null
+
   const exportRows = () => {
-    void runExport(rows.map((t) => ({ ID: t.id, Asunto: t.asunto, Área: t.area, Solicitante: t.quien, Prioridad: t.prio, Estado: t.st, Creado: t.t })), 'tickets-kigyo', 'tickets')
+    void runExport(
+      rows.map((t) => ({
+        Código: t.code ?? '',
+        Asunto: t.subject,
+        Área: t.area,
+        Solicitante: t.requesterName,
+        Asignado: t.assigneeName ?? '',
+        Prioridad: t.priority,
+        Estado: t.status,
+        Creado: new Date(t.createdAt).toISOString(),
+      })),
+      'tickets-kigyo',
+      'tickets',
+    )
   }
+
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
         <div className="rise d1"><Stat ico={Ticket} tone="amb" label="Abiertos" value={count('Abierto')} /></div>
         <div className="rise d2"><Stat ico={Clock} tone="blu" label="En proceso" value={count('En proceso')} /></div>
         <div className="rise d3"><Stat ico={Check} tone="grn" label="Resueltos" value={count('Resuelto')} /></div>
-        <div className="rise d4"><Stat ico={Activity} tone="vio" label="Tiempo medio" value="5.2 h" sub="primera respuesta" /></div>
+        {/* Was a hardcoded "5.2 h". Computed from resolved_at − created_at, and
+            "—" while nothing has been resolved yet. */}
+        <div className="rise d4"><Stat ico={Activity} tone="vio" label="Tiempo medio" value={meanResolution(items)} sub="hasta resolver" /></div>
       </div>
 
-      {/* toolbar — sin card wrapper, limpio */}
       <div className="ptools">
         <TabBar
           value={area}
@@ -369,7 +499,7 @@ export default function TicketsPage() {
             key: a,
             label: (
               <>
-                {a !== 'Todos' && <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: AREA[a], marginRight: 5, verticalAlign: 'middle' }} />}
+                {a !== 'Todos' && <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: AREA[a] ?? AREA.Otro, marginRight: 5, verticalAlign: 'middle' }} />}
                 {a}
               </>
             ),
@@ -384,34 +514,37 @@ export default function TicketsPage() {
               { key: 'list', label: <><List size={14} />Lista</> },
             ]}
           />
-          <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={15} />Nuevo ticket</button>
+          {data.canWrite && (
+            <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={15} />Nuevo ticket</button>
+          )}
           <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows} title="Exportar"><FileSpreadsheet size={15} /></button>
         </div>
       </div>
 
       {mode === 'board' ? (
         <div className="board">
-          {cols.map((c) => {
-            const cards = rows.filter((t) => t.st === c)
+          {BOARD_COLUMNS.map((c) => {
+            const cards = rows
+              .filter((t) => t.status === c)
+              .sort((a, b) => a.boardPosition - b.boardPosition)
             const isOver = dragOver === c
             return (
               <div className={`col${isOver ? ' drag-over' : ''}`} key={c}
-                onDragOver={(e) => onColDragOver(e, c)}
+                onDragOver={(e) => data.canWrite && onColDragOver(e, c)}
                 onDragLeave={onDragLeave}
-                onDrop={(e) => onDrop(e, c)}>
+                onDrop={(e) => data.canWrite && onDrop(e, c)}>
                 <div className="colh">
                   <span className="cdot" style={{ background: COLDOT[c] }} />
                   {c}
                   <span className="cn">{cards.length}</span>
                 </div>
                 <div className="col-cards">
-                  {/* line before first card */}
                   {isOver && dropIdx === 0 && <div className="drop-line" key="dl-0" />}
                   {cards.length === 0 && !isOver && <div className="colempty">Sin tickets</div>}
                   {cards.length === 0 && isOver && <div className="colempty" style={{ opacity: .4 }}>Soltar aquí</div>}
                   {cards.map((t, idx) => (
                     <React.Fragment key={t.id}>
-                      <div data-tkid={t.id} draggable
+                      <div data-tkid={t.id} draggable={data.canWrite}
                         onDragStart={(e) => onDragStart(e, t.id)}
                         onDragEnd={onDragEnd}>
                         <TicketCard t={t} onOpen={setSel} />
@@ -431,15 +564,19 @@ export default function TicketsPage() {
               <thead><tr><th scope="col">Ticket</th><th scope="col">Solicitante</th><th scope="col">Área</th><th scope="col">Prioridad</th><th scope="col">Estado</th><th scope="col">Tiempo</th></tr></thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay tickets.</div></td></tr>
+                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    {items.length === 0
+                      ? (data.canWrite ? 'Todavía no hay tickets. Crea el primero.' : 'Todavía no hay tickets.')
+                      : 'No hay tickets en esta área.'}
+                  </div></td></tr>
                 ) : rows.map((t) => (
-                  <tr className="trow" key={t.id} style={{ cursor: 'pointer' }} {...activatable(() => setSel(t.id), `Abrir ticket ${t.id}: ${t.asunto}`)}>
-                    <td><div className="cename" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>{t.asunto}{t.ai && <Sparkles size={13} style={{ color: 'var(--red)' }} />}</div><div className="ceid mono">{t.id}</div></td>
-                    <td className="muted">{t.quien}</td>
-                    <td><span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] }} />{t.area}</span></td>
-                    <td><Prio prio={t.prio} /></td>
-                    <td><Badge st={t.st} /></td>
-                    <td className="muted mono" style={{ fontSize: 12 }}>{t.t}</td>
+                  <tr className="trow" key={t.id} style={{ cursor: 'pointer' }} {...activatable(() => setSel(t.id), `Abrir ticket ${t.code ?? ''}: ${t.subject}`)}>
+                    <td><div className="cename">{t.subject}</div><div className="ceid mono">{t.code ?? '—'}</div></td>
+                    <td className="muted">{t.requesterName}</td>
+                    <td><span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] ?? AREA.Otro }} />{t.area}</span></td>
+                    <td><Prio prio={t.priority} /></td>
+                    <td><Badge st={t.status} /></td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{relativeTime(t.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -447,24 +584,52 @@ export default function TicketsPage() {
           </div>
         </div>
       )}
-      <TicketDrawer t={selected} onClose={() => setSel(null)} onStatus={setStatus} onUpdate={updateTicket} onDelete={deleteTicket} />
-      <NuevoTicketModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        areas={areas.filter((a) => a !== 'Todos')}
-        onCreate={(data) => {
-          const next: TicketItem = {
-            id: `TK-${Math.floor(Math.random() * 9000) + 1000}`,
-            asunto: data.asunto,
-            quien: data.quien,
-            area: data.area,
-            prio: data.prio,
-            st: 'Abierto',
-            t: 'ahora',
-          }
-          setItems((prev) => [next, ...prev])
-        }}
+
+      {/* Outside the board/list switch: both views render the same page of
+          tickets, and both stop at the same place. */}
+      <LoadMore
+        loaded={items.length}
+        total={total}
+        loading={loadingMore}
+        error={loadMoreError}
+        onLoadMore={loadMore}
+        noun="tickets"
       />
+
+      <TicketDrawer
+        t={selected}
+        roster={data.roster}
+        canWrite={data.canWrite}
+        busy={pending}
+        onClose={() => setSel(null)}
+        onStatus={setStatus}
+        onUpdate={patchTicket}
+        onDelete={removeTicket}
+      />
+
+      {data.canWrite && (
+        <NuevoTicketModal
+          open={addOpen}
+          busy={pending}
+          areas={[...TICKET_AREAS]}
+          roster={data.roster}
+          onClose={() => setAddOpen(false)}
+          onCreate={(form) =>
+            startTransition(async () => {
+              const result = await createTicket({
+                subject: form.subject,
+                body: form.body,
+                area: form.area as (typeof TICKET_AREAS)[number],
+                priority: form.priority as (typeof TICKET_PRIORITIES)[number],
+                assigneeId: form.assigneeId,
+              })
+              if (!result.ok) { addToast(result.error, 'err'); return }
+              setAddOpen(false)
+              apply(result.data, 'Ticket creado')
+            })
+          }
+        />
+      )}
     </>
   )
 }

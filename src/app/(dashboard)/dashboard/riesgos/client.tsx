@@ -1,42 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { ShieldAlert, Clock, Info, Check, AlertCircle, Plus, Trash2, X, Zap } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import TabBar from '@/components/ui/TabBar'
 import { useApp } from '@/lib/context/AppContext'
+import { RISK_CATEGORIES, RISK_SEVERITIES } from '@/lib/domain'
+import LoadMore from '@/components/ui/LoadMore'
+import type { RiesgosData, RiesgoRow } from '@/server/queries/riesgos'
+import { createRiesgo, deleteRiesgo, setRiesgoStatus } from '@/server/mutations/riesgos'
+import { fetchMoreRiesgos } from '@/server/actions/riesgos'
 
-/* ------------------------------------------------------------------ */
-/*  Page-local data (matches original nucleo-rh.jsx shapes verbatim)   */
-/* ------------------------------------------------------------------ */
-interface Riesgo {
-  id: string
-  tipo: string
-  empleado: string | null
-  area: string
-  sev: string
-  detalle: string
-  accion: string
-}
-
-const RIESGOS_SEED: Riesgo[] = [
-  { id: 'R-01', tipo: 'Contrato vence', empleado: 'Andrés Mora', area: 'Finanzas', sev: 'Alta', detalle: 'Contrato vence en 8 días (30 jun 2026)', accion: 'Renovar antes del 30 jun' },
-  { id: 'R-02', tipo: 'Firma vencida', empleado: 'María González', area: 'Personas', sev: 'Alta', detalle: 'Anexo de teletrabajo vencido hace 18 días sin firma', accion: 'Reenviar con urgencia hoy' },
-  { id: 'R-03', tipo: 'Bajo rendimiento', empleado: 'Valentina Ruiz', area: 'Marketing', sev: 'Alta', detalle: 'Score 3.2 / 5 · solo 2 de 5 objetivos Q2 cumplidos', accion: 'Iniciar plan de mejora de desempeño' },
-  { id: 'R-04', tipo: 'Rotación alta', empleado: null, area: 'Marketing', sev: 'Alta', detalle: 'Tasa del 14.5% — mayor de toda la empresa', accion: 'Análisis de retención urgente' },
-  { id: 'R-05', tipo: 'Vacaciones acumuladas', empleado: 'Juan Pérez', area: 'Ingeniería', sev: 'Media', detalle: '18 días disponibles sin tomar — riesgo de vencimiento', accion: 'Programar antes del cierre de Q3' },
-  { id: 'R-06', tipo: 'Evaluación pendiente', empleado: 'Daniel Ospina', area: 'Ingeniería', sev: 'Media', detalle: 'Evaluación Q2 sin completar (21 días pendiente)', accion: 'Completar antes del viernes' },
-  { id: 'R-07', tipo: 'Ausencia activa', empleado: 'Andrés Mora', area: 'Finanzas', sev: 'Media', detalle: 'Incapacidad de 7 días activa hasta el 23 jun', accion: 'Asegurar cobertura del rol' },
-  { id: 'R-08', tipo: 'Vacante sin cubrir', empleado: null, area: 'Finanzas', sev: 'Media', detalle: 'Analista de Nómina sin cubrir hace 11 días', accion: 'Priorizar entrevistas esta semana' },
-  { id: 'R-09', tipo: 'Ticket sin respuesta', empleado: null, area: 'Nómina', sev: 'Baja', detalle: 'TK-1284 lleva 4 días sin primera respuesta', accion: 'Escalar al líder del área' },
-  { id: 'R-10', tipo: 'Capacitación atrasada', empleado: null, area: 'General', sev: 'Baja', detalle: '2 cursos con menos del 30% de avance', accion: 'Enviar recordatorio al equipo' },
-]
-
-/* ------------------------------------------------------------------ */
-/*  Page-local Stat (replicate original ico/tone gradient primitive)   */
-/* ------------------------------------------------------------------ */
 function Stat({ ico: Ico, tone = 'ink', label, value, sub }: {
   ico: (p: IconProps) => React.ReactElement
   tone?: string
@@ -57,124 +33,253 @@ function Stat({ ico: Ico, tone = 'ink', label, value, sub }: {
   )
 }
 
-const SEV_ICO: Record<string, (p: IconProps) => React.ReactElement> = { Alta: AlertCircle, Media: Clock, Baja: Info }
+const SEV_ICO: Record<string, (p: IconProps) => React.ReactElement> = {
+  Alta: AlertCircle, Media: Clock, Baja: Info,
+}
 
-export default function RiesgosPage() {
+const EMPTY = { category: 'Otro', severity: 'Media', area: '', detail: '', action: '', employeeId: '' }
+
+export default function RiesgosPage({ data }: { data: RiesgosData }) {
   const { addToast } = useApp()
-  const [riesgos, setRiesgos] = useState<Riesgo[]>(RIESGOS_SEED)
-  const [sevFilter, setSevFilter] = useState('Todos')
-  const [tipoFilter, setTipoFilter] = useState('Todos')
-  const [addOpen, setAddOpen] = useState(false)
-  const [rTipo, setRTipo] = useState('Contractual')
-  const [rSev, setRSev] = useState('Media')
-  const [rArea, setRArea] = useState('General')
-  const [rDetalle, setRDetalle] = useState('')
-  const [rAccion, setRAccion] = useState('')
+  const [pending, startTransition] = useTransition()
 
-  const altas = riesgos.filter((r) => r.sev === 'Alta').length
-  const medias = riesgos.filter((r) => r.sev === 'Media').length
-  const bajas = riesgos.filter((r) => r.sev === 'Baja').length
-  const gestionados = RIESGOS_SEED.length - riesgos.length
-  const tipos = ['Todos', ...new Set(riesgos.map((r) => r.tipo))]
-  const filtered = riesgos.filter((r) =>
-    (sevFilter === 'Todos' || r.sev === sevFilter) &&
-    (tipoFilter === 'Todos' || r.tipo === tipoFilter)
-  )
+  const [riesgos, setRiesgos] = useState<RiesgoRow[]>(data.riesgos)
+  const [total, setTotal] = useState(data.riesgosTotal)
+  const [loadingMore, startLoadingMore] = useTransition()
+  const [loadMoreError, setLoadMoreError] = useState('')
 
-  const resolver = (id: string) => {
-    const r = riesgos.find((x) => x.id === id)!
-    setRiesgos((rs) => rs.filter((x) => x.id !== id))
-    addToast(`Riesgo "${r.tipo}" gestionado`, 'ok', 'Deshacer', () => setRiesgos((rs) => [r, ...rs]))
+  /** A mutation returns the fresh first page, and the total that matches it. */
+  function applyRiesgos(next: RiesgosData) {
+    setRiesgos(next.riesgos)
+    setTotal(next.riesgosTotal)
   }
 
-  const addRiesgo = () => {
-    if (!rDetalle.trim()) return
-    const id = `R-${(riesgos.length + 10).toString().padStart(2, '0')}`
-    setRiesgos((rs) => [{ id, tipo: rTipo, sev: rSev, area: rArea, detalle: rDetalle, accion: rAccion || 'Revisar con el equipo responsable', empleado: null }, ...rs])
-    addToast('Riesgo registrado', 'ok')
-    setAddOpen(false)
-    setRDetalle(''); setRAccion('')
+  function loadMore() {
+    setLoadMoreError('')
+    startLoadingMore(async () => {
+      const result = await fetchMoreRiesgos(riesgos.length)
+      if (!result.ok) {
+        setLoadMoreError(result.error)
+        return
+      }
+      setRiesgos((prev) => {
+        const seen = new Set(prev.map((r) => r.id))
+        return [...prev, ...result.data.rows.filter((r) => !seen.has(r.id))]
+      })
+      setTotal(result.data.total)
+    })
+  }
+  const [sevFilter, setSevFilter] = useState('Todos')
+  const [catFilter, setCatFilter] = useState('Todos')
+  const [addOpen, setAddOpen] = useState(false)
+  const [form, setForm] = useState(EMPTY)
+
+  // Open risks are the register; closed ones are the record of what was done.
+  // The old page conflated them by deleting from an array, so "Gestionados"
+  // was `seed.length - current.length` and reset to zero on every reload.
+  const open = useMemo(() => riesgos.filter((r) => r.status === 'Abierto'), [riesgos])
+  const managed = riesgos.length - open.length
+
+  const counts = useMemo(() => ({
+    alta: open.filter((r) => r.severity === 'Alta').length,
+    media: open.filter((r) => r.severity === 'Media').length,
+    baja: open.filter((r) => r.severity === 'Baja').length,
+  }), [open])
+
+  const categories = useMemo(
+    () => ['Todos', ...new Set(open.map((r) => r.category))],
+    [open],
+  )
+
+  const filtered = open.filter((r) =>
+    (sevFilter === 'Todos' || r.severity === sevFilter) &&
+    (catFilter === 'Todos' || r.category === catFilter),
+  )
+
+  function manage(r: RiesgoRow) {
+    startTransition(async () => {
+      const result = await setRiesgoStatus({ id: r.id, status: 'Mitigado' })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      applyRiesgos(result.data)
+      // Undo restores the row rather than re-inserting a copy of it, which is
+      // what a delete-based "Deshacer" was doing before.
+      addToast('Riesgo marcado como mitigado', 'ok', 'Deshacer', () => {
+        startTransition(async () => {
+          const undo = await setRiesgoStatus({ id: r.id, status: 'Abierto' })
+          if (undo.ok) applyRiesgos(undo.data)
+        })
+      })
+    })
+  }
+
+  function remove(r: RiesgoRow) {
+    if (!window.confirm('¿Eliminar este riesgo? Úsalo solo si se registró por error; para cerrarlo, usa Gestionar.')) return
+    startTransition(async () => {
+      const result = await deleteRiesgo(r.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      applyRiesgos(result.data)
+      addToast('Riesgo eliminado', 'info')
+    })
+  }
+
+  function submit() {
+    if (!form.detail.trim()) { addToast('Describe el riesgo identificado', 'err'); return }
+    startTransition(async () => {
+      const result = await createRiesgo({
+        category: form.category as (typeof RISK_CATEGORIES)[number],
+        severity: form.severity as (typeof RISK_SEVERITIES)[number],
+        area: form.area.trim(),
+        detail: form.detail.trim(),
+        action: form.action.trim(),
+        employeeId: form.employeeId || null,
+        title: '',
+        dueOn: null,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      applyRiesgos(result.data)
+      setAddOpen(false)
+      setForm(EMPTY)
+      addToast('Riesgo registrado', 'ok')
+    })
   }
 
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
-        <div className="rise d1"><Stat ico={ShieldAlert} tone="red" label="Riesgos críticos" value={altas} sub="Alta prioridad" /></div>
-        <div className="rise d2"><Stat ico={Clock} tone="amb" label="Riesgos medios" value={medias} sub="Atención pronto" /></div>
-        <div className="rise d3"><Stat ico={Info} tone="neu" label="Riesgos bajos" value={bajas} sub="Monitorear" /></div>
-        <div className="rise d4"><Stat ico={Check} tone="grn" label="Gestionados" value={gestionados} sub="este ciclo" /></div>
+        <div className="rise d1"><Stat ico={ShieldAlert} tone="red" label="Riesgos críticos" value={counts.alta} sub="Alta prioridad" /></div>
+        <div className="rise d2"><Stat ico={Clock} tone="amb" label="Riesgos medios" value={counts.media} sub="Atención pronto" /></div>
+        <div className="rise d3"><Stat ico={Info} tone="neu" label="Riesgos bajos" value={counts.baja} sub="Monitorear" /></div>
+        <div className="rise d4"><Stat ico={Check} tone="grn" label="Gestionados" value={managed} sub="mitigados o cerrados" /></div>
       </div>
+
       <div className="card rise d2">
         <div className="chead" style={{ flexWrap: 'wrap', gap: 10 }}>
           <TabBar
             value={sevFilter}
             onChange={setSevFilter}
-            items={['Todos', 'Alta', 'Media', 'Baja'].map((s) => ({
+            items={['Todos', ...RISK_SEVERITIES].map((s) => ({
               key: s,
-              label: s === 'Todos' ? `Todos · ${riesgos.length}` : `${s} · ${riesgos.filter((r) => r.sev === s).length}`,
+              label: s === 'Todos'
+                ? `Todos · ${open.length}`
+                : `${s} · ${open.filter((r) => r.severity === s).length}`,
             }))}
           />
           <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-            <Select value={tipoFilter} onChange={setTipoFilter} options={tipos} style={{ width: 190 }} />
-            <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={14} />Nuevo riesgo</button>
+            <Select value={catFilter} onChange={setCatFilter} options={categories} style={{ width: 190 }} />
+            {data.canWrite && (
+              <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={14} />Nuevo riesgo</button>
+            )}
           </div>
         </div>
+
         {filtered.length === 0 ? (
           <div className="dempty" style={{ padding: '48px 0', textAlign: 'center' }}>
             <Check size={22} style={{ color: 'var(--grn)', margin: '0 auto 8px', display: 'block' }} />
-            No hay riesgos en esta categoría.
+            {riesgos.length === 0
+              ? 'Todavía no hay riesgos registrados.'
+              : open.length === 0
+                ? 'No hay riesgos abiertos. Todo lo registrado está gestionado.'
+                : 'No hay riesgos en esta categoría.'}
           </div>
         ) : (
           <div className="riskgrid">
             {filtered.map((r) => {
-              const SevIco = SEV_ICO[r.sev] || Info
+              const SevIco = SEV_ICO[r.severity] ?? Info
               return (
-                <div className={`riskcard sev-${r.sev.toLowerCase()}`} key={r.id}>
+                <div className={`riskcard sev-${r.severity.toLowerCase()}`} key={r.id}>
                   <div className="riskhead">
-                    <Badge st={r.sev} />
-                    <span className="tag">{r.tipo}</span>
-                    <button className="ibtn" style={{ width: 26, height: 26, marginLeft: 'auto' }} data-tip="Eliminar" onClick={() => resolver(r.id)}><Trash2 size={13} /></button>
+                    <Badge st={r.severity} />
+                    <span className="tag">{r.category}</span>
+                    {data.canWrite && (
+                      <button
+                        className="ibtn"
+                        style={{ width: 26, height: 26, marginLeft: 'auto' }}
+                        data-tip="Eliminar"
+                        disabled={pending}
+                        onClick={() => remove(r)}
+                        aria-label="Eliminar riesgo"
+                      ><Trash2 size={13} /></button>
+                    )}
                   </div>
-                  {r.empleado && <div className="riskname">{r.empleado}</div>}
-                  <div className="riskarea"><SevIco size={13} />{r.area}</div>
-                  <div className="riskdetail">{r.detalle}</div>
+                  {r.employeeName && <div className="riskname">{r.employeeName}</div>}
+                  <div className="riskarea"><SevIco size={13} />{r.area || r.category}</div>
+                  <div className="riskdetail">{r.detail}</div>
                   <div className="riskfooter">
-                    <div className="riskaction"><Zap size={13} style={{ flexShrink: 0 }} /><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.accion}</span></div>
-                    <button className="btn ghost" style={{ fontSize: 11, height: 28, padding: '0 10px', flexShrink: 0 }} onClick={() => resolver(r.id)}>
-                      Gestionar
-                    </button>
+                    <div className="riskaction">
+                      <Zap size={13} style={{ flexShrink: 0 }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {r.action || 'Sin acción definida'}
+                      </span>
+                    </div>
+                    {data.canWrite && (
+                      <button
+                        className="btn ghost"
+                        style={{ fontSize: 11, height: 28, padding: '0 10px', flexShrink: 0 }}
+                        disabled={pending}
+                        onClick={() => manage(r)}
+                      >
+                        Gestionar
+                      </button>
+                    )}
                   </div>
                 </div>
               )
             })}
           </div>
         )}
+
+        <LoadMore
+          loaded={riesgos.length}
+          total={total}
+          loading={loadingMore}
+          error={loadMoreError}
+          onLoadMore={loadMore}
+          noun="riesgos"
+        />
       </div>
+
       {addOpen && (
         <div className="mwrap" onClick={() => setAddOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="mhead"><div className="mtitle">Nuevo riesgo</div><button className="ibtn" onClick={() => setAddOpen(false)}><X size={18} /></button></div>
+            <div className="mhead"><div className="mtitle">Nuevo riesgo</div><button className="ibtn" onClick={() => setAddOpen(false)} aria-label="Cerrar"><X size={18} /></button></div>
             <div className="mbody">
               <div className="fg2">
                 <div>
-                  <div className="flabel" style={{ marginTop: 0 }}>Tipo</div>
-                  <Select value={rTipo} onChange={setRTipo} options={['Contractual', 'Operacional', 'Cumplimiento', 'Financiero', 'Técnico', 'HSE', 'Otro']} />
+                  <div className="flabel" style={{ marginTop: 0 }}>Categoría</div>
+                  <Select value={form.category} onChange={(v) => setForm((f) => ({ ...f, category: v }))} options={[...RISK_CATEGORIES]} />
                 </div>
                 <div>
                   <div className="flabel" style={{ marginTop: 0 }}>Severidad</div>
-                  <Select value={rSev} onChange={setRSev} options={['Alta', 'Media', 'Baja']} />
+                  <Select value={form.severity} onChange={(v) => setForm((f) => ({ ...f, severity: v }))} options={[...RISK_SEVERITIES]} />
                 </div>
               </div>
               <div className="flabel">Área afectada</div>
-              <input className="field" value={rArea} onChange={(e) => setRArea(e.target.value)} placeholder="Ej. Interventoría, Energía, Obras" />
+              <input className="field" value={form.area} onChange={(e) => setForm((f) => ({ ...f, area: e.target.value }))} placeholder="Ej. Interventoría, Energía, Obras" />
+              {/* Only offered when the caller can read the directory. */}
+              {data.roster.length > 0 && (
+                <>
+                  <div className="flabel">Persona relacionada</div>
+                  <Select
+                    value={form.employeeId}
+                    onChange={(v) => setForm((f) => ({ ...f, employeeId: v }))}
+                    placeholder="Ninguna"
+                    options={[
+                      { value: '', label: 'Ninguna' },
+                      ...data.roster.map((r) => ({ value: r.employeeId, label: r.fullName })),
+                    ]}
+                  />
+                </>
+              )}
               <div className="flabel">Descripción del riesgo</div>
-              <textarea className="field" rows={3} style={{ resize: 'none' }} value={rDetalle} onChange={(e) => setRDetalle(e.target.value)} placeholder="Describe el riesgo identificado…" />
+              <textarea className="field" rows={3} style={{ resize: 'none' }} value={form.detail} onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))} placeholder="Describe el riesgo identificado…" />
               <div className="flabel">Acción recomendada</div>
-              <input className="field" value={rAccion} onChange={(e) => setRAccion(e.target.value)} placeholder="Ej. Revisar contrato con asesor legal" />
+              <input className="field" value={form.action} onChange={(e) => setForm((f) => ({ ...f, action: e.target.value }))} placeholder="Ej. Revisar contrato con asesor legal" />
             </div>
             <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
-              <button className="btn" onClick={() => setAddOpen(false)}>Cancelar</button>
-              <button className="btn dark" onClick={addRiesgo}>Registrar riesgo</button>
+              <button className="btn" onClick={() => setAddOpen(false)} disabled={pending}>Cancelar</button>
+              <button className="btn dark" onClick={submit} disabled={pending} aria-busy={pending}>
+                {pending ? 'Registrando…' : 'Registrar riesgo'}
+              </button>
             </div></div>
           </div>
         </div>

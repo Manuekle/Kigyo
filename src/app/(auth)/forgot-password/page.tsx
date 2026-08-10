@@ -4,12 +4,17 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import OtpInput from '@/components/ui/OtpInput'
-import { ArrowLeft, Eye, EyeOff, CheckCircle } from '@/lib/icons'
+import PageSlide from '@/components/ui/PageSlide'
+import SuccessCheck from '@/components/ui/SuccessCheck'
+import TextSwap from '@/components/ui/TextSwap'
+import { ArrowLeft, Eye, EyeOff } from '@/lib/icons'
 import { apiFetch, errorMessage } from '@/lib/api/client'
+import { useErrorShake } from '@/lib/hooks/use-error-shake'
 
 type Step = 'email' | 'otp' | 'reset' | 'done'
 
 const RESEND_COOLDOWN = 30
+const STEP_INDEX: Record<Step, number> = { email: 1, otp: 2, reset: 3, done: 4 }
 
 /**
  * Three-step recovery: request a code, verify it, set a new password.
@@ -28,8 +33,8 @@ export default function ForgotPasswordPage() {
   const [confirm, setConfirm] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const [cooldown, setCooldown] = useState(0)
+  const { ref: shakeRef, message: error, isError, setError, clearError } = useErrorShake()
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -39,7 +44,7 @@ export default function ForgotPasswordPage() {
 
   async function requestOtp(e?: React.FormEvent) {
     e?.preventDefault()
-    setError('')
+    clearError()
     if (!email.trim()) {
       setError('Ingresa tu correo electrónico.')
       return
@@ -64,7 +69,7 @@ export default function ForgotPasswordPage() {
 
   async function verifyCode(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
+    clearError()
     if (code.length !== 6) {
       setError('Ingresa el código de 6 dígitos.')
       return
@@ -87,7 +92,7 @@ export default function ForgotPasswordPage() {
 
   async function resetPassword(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
+    clearError()
     if (password.length < 8) {
       setError('La contraseña debe tener al menos 8 caracteres.')
       return
@@ -110,184 +115,208 @@ export default function ForgotPasswordPage() {
     }
   }
 
-  const stepIndex = { email: 0, otp: 1, reset: 2, done: 3 }[step]
+  const stepIndex = STEP_INDEX[step] - 1
+
+  // One error region for the whole wizard: only one step is on screen at a
+  // time, so the message and the shake follow whichever that is.
+  const errorLine = error ? (
+    <div className="errline auth-err t-error-msg" role="alert">
+      <span>{error}</span>
+    </div>
+  ) : null
 
   return (
-    <div className="loginwrap">
-      <div className="loginbox">
-        <div className="loginlogo">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icon.svg" alt="Kigyo" width={46} height={46} style={{ borderRadius: 14, boxShadow: '0 4px 10px rgba(0,0,0,.25)' }} />
-        </div>
-
-        {step !== 'done' && (
-          <div className="auth-steps">
-            {[0, 1, 2].map((i) => (
-              <span key={i} className={`auth-step-dot${i === stepIndex ? ' on' : ''}${i < stepIndex ? ' done' : ''}`} />
-            ))}
-          </div>
-        )}
-
-        {step === 'email' && (
-          <>
-            <div className="logintitle" style={{ fontSize: 22 }}>Recupera tu contraseña</div>
-            <div className="loginsub">Te enviaremos un código de verificación a tu correo</div>
-
-            <form onSubmit={requestOtp} style={{ marginTop: 24 }}>
-              <label className="flabel" htmlFor="fp-email">Correo electrónico</label>
-              <input
-                id="fp-email"
-                className="field"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                placeholder="correo@empresa.co"
-              />
-
-              {error && (
-                <div className="errline" role="alert" style={{ marginTop: 8 }}>
-                  <span>{error}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="btn pri"
-                style={{ width: '100%', height: 36, fontSize: 13.5, fontWeight: 600, marginTop: 20 }}
-                disabled={loading}
-              >
-                {loading ? 'Enviando código…' : 'Enviar código'}
-              </button>
-            </form>
-          </>
-        )}
-
-        {step === 'otp' && (
-          <>
-            <button type="button" className="auth-back" onClick={() => setStep('email')}>
+    <div className="auth-shell">
+      <div className="auth-stage">
+        <div className="auth-top">
+          {step === 'otp' ? (
+            <button type="button" className="auth-home" onClick={() => { clearError(); setStep('email') }}>
               <ArrowLeft size={14} />
               Cambiar correo
             </button>
-            <div className="logintitle" style={{ fontSize: 22 }}>Ingresa el código</div>
-            <div className="loginsub">
-              Si existe una cuenta con {email}, enviamos un código de 6 dígitos.
+          ) : (
+            <Link href="/login" className="auth-home">
+              <ArrowLeft size={14} />
+              Iniciar sesión
+            </Link>
+          )}
+        </div>
+
+        <div className="auth-body">
+          <div className="auth-card">
+            <div className="auth-logo">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icon.svg" alt="Kigyo" width={54} height={54} />
             </div>
 
-            <form onSubmit={verifyCode} style={{ marginTop: 20 }}>
-              <OtpInput value={code} onChange={setCode} disabled={loading} />
+            {step !== 'done' && (
+              <div className="auth-steps">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className={`auth-step-dot${i === stepIndex ? ' on' : ''}${i < stepIndex ? ' done' : ''}`} />
+                ))}
+              </div>
+            )}
 
-              {error && (
-                <div className="errline" role="alert" style={{ marginTop: 14, justifyContent: 'center' }}>
-                  <span>{error}</span>
+            <PageSlide page={STEP_INDEX[step]}>
+              <>
+                <h1 className="auth-title">Recupera tu contraseña</h1>
+                <p className="auth-sub">Te enviamos un código de verificación a tu correo</p>
+
+                <form
+                  onSubmit={requestOtp}
+                  className={`auth-form-shell t-input-wrap${isError ? ' is-error' : ''}`}
+                >
+                  <div
+                    ref={step === 'email' ? shakeRef : undefined}
+                    className={`auth-form t-input${isError ? ' is-error' : ''}`}
+                  >
+                    <label className="sr-only" htmlFor="fp-email">Correo electrónico</label>
+                    <input
+                      id="fp-email"
+                      className="field"
+                      type="email"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); clearError() }}
+                      autoComplete="email"
+                      placeholder="Tu correo"
+                    />
+                  </div>
+
+                  {step === 'email' && errorLine}
+
+                  <button type="submit" className="btn ink auth-submit" disabled={loading}>
+                    <TextSwap>{loading ? 'Enviando código…' : 'Enviar código'}</TextSwap>
+                  </button>
+                </form>
+
+                <div className="auth-or">o</div>
+
+                <Link href="/register" className="btn auth-alt">
+                  Crear una cuenta
+                </Link>
+              </>
+
+              <>
+                <h1 className="auth-title">Ingresa el código</h1>
+                <p className="auth-sub">
+                  Si existe una cuenta con {email}, enviamos un código de 6 dígitos.
+                </p>
+
+                <form
+                  onSubmit={verifyCode}
+                  className={`auth-form-shell t-input-wrap${isError ? ' is-error' : ''}`}
+                >
+                  <div
+                    ref={step === 'otp' ? shakeRef : undefined}
+                    className={`auth-form t-input${isError ? ' is-error' : ''}`}
+                  >
+                    <OtpInput value={code} onChange={(v) => { setCode(v); clearError() }} disabled={loading} />
+                  </div>
+
+                  {step === 'otp' && errorLine}
+
+                  <button type="submit" className="btn ink auth-submit" disabled={loading}>
+                    <TextSwap>{loading ? 'Verificando…' : 'Verificar código'}</TextSwap>
+                  </button>
+                </form>
+
+                <div className="auth-resend">
+                  ¿No recibiste el código?{' '}
+                  {/* No text swap on the countdown: it changes every second,
+                      and animating each tick is motion for its own sake. */}
+                  <button type="button" onClick={() => requestOtp()} disabled={cooldown > 0 || loading}>
+                    {cooldown > 0 ? `Reenviar en ${cooldown}s` : 'Reenviar código'}
+                  </button>
                 </div>
-              )}
+              </>
 
-              <button
-                type="submit"
-                className="btn pri"
-                style={{ width: '100%', height: 36, fontSize: 13.5, fontWeight: 600, marginTop: 20 }}
-                disabled={loading}
-              >
-                {loading ? 'Verificando…' : 'Verificar código'}
-              </button>
-            </form>
+              <>
+                <h1 className="auth-title">Nueva contraseña</h1>
+                <p className="auth-sub">Elige una contraseña segura para tu cuenta</p>
 
-            <div className="auth-resend">
-              ¿No recibiste el código?{' '}
-              <button type="button" onClick={() => requestOtp()} disabled={cooldown > 0 || loading}>
-                {cooldown > 0 ? `Reenviar en ${cooldown}s` : 'Reenviar código'}
-              </button>
-            </div>
-          </>
-        )}
+                <form
+                  onSubmit={resetPassword}
+                  className={`auth-form-shell t-input-wrap${isError ? ' is-error' : ''}`}
+                >
+                  <div
+                    ref={step === 'reset' ? shakeRef : undefined}
+                    className={`auth-form t-input${isError ? ' is-error' : ''}`}
+                  >
+                    <label className="sr-only" htmlFor="fp-password">Nueva contraseña</label>
+                    <div className="auth-pw">
+                      <input
+                        id="fp-password"
+                        className="field"
+                        type={showPw ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => { setPassword(e.target.value); clearError() }}
+                        autoComplete="new-password"
+                        placeholder="Nueva contraseña (mínimo 8 caracteres)"
+                      />
+                      <button
+                        type="button"
+                        className="auth-pw-eye"
+                        aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        onClick={() => setShowPw((v) => !v)}
+                      >
+                        <span className="t-icon-swap" data-state={showPw ? 'b' : 'a'} aria-hidden="true">
+                          <span className="t-icon" data-icon="a"><Eye size={16} /></span>
+                          <span className="t-icon" data-icon="b"><EyeOff size={16} /></span>
+                        </span>
+                      </button>
+                    </div>
 
-        {step === 'reset' && (
-          <>
-            <div className="logintitle" style={{ fontSize: 22 }}>Nueva contraseña</div>
-            <div className="loginsub">Elige una contraseña segura para tu cuenta</div>
+                    <label className="sr-only" htmlFor="fp-confirm">Confirmar contraseña</label>
+                    <input
+                      id="fp-confirm"
+                      className="field"
+                      type={showPw ? 'text' : 'password'}
+                      value={confirm}
+                      onChange={(e) => { setConfirm(e.target.value); clearError() }}
+                      autoComplete="new-password"
+                      placeholder="Confirma tu contraseña"
+                    />
+                  </div>
 
-            <form onSubmit={resetPassword} style={{ marginTop: 24 }}>
-              <label className="flabel" htmlFor="fp-password">Nueva contraseña</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  id="fp-password"
-                  className="field"
-                  type={showPw ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
-                  placeholder="Mínimo 8 caracteres"
-                  style={{ paddingRight: 44 }}
-                />
+                  {step === 'reset' && errorLine}
+
+                  <button type="submit" className="btn ink auth-submit" disabled={loading}>
+                    <TextSwap>{loading ? 'Guardando…' : 'Restablecer contraseña'}</TextSwap>
+                  </button>
+                </form>
+              </>
+
+              <>
+                {/* Mounted only once the step is reached, so the draw animation
+                    plays on arrival rather than behind the previous step. */}
+                {step === 'done' && (
+                  <div className="auth-icon">
+                    <SuccessCheck />
+                  </div>
+                )}
+                <h1 className="auth-title">Contraseña restablecida</h1>
+                <p className="auth-note">
+                  Tu contraseña se actualizó correctamente. Ya puedes acceder a tu cuenta.
+                </p>
                 <button
                   type="button"
-                  aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  onClick={() => setShowPw((v) => !v)}
-                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink3)' }}
+                  className="btn ink auth-submit"
+                  style={{ marginTop: 22 }}
+                  onClick={() => {
+                    router.refresh()
+                    router.replace('/dashboard')
+                  }}
                 >
-                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  Ir al dashboard
                 </button>
-              </div>
+              </>
+            </PageSlide>
 
-              <label className="flabel" htmlFor="fp-confirm" style={{ marginTop: 14 }}>Confirmar contraseña</label>
-              <input
-                id="fp-confirm"
-                className="field"
-                type={showPw ? 'text' : 'password'}
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                autoComplete="new-password"
-                placeholder="••••••••"
-              />
-
-              {error && (
-                <div className="errline" role="alert" style={{ marginTop: 8 }}>
-                  <span>{error}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="btn pri"
-                style={{ width: '100%', height: 36, fontSize: 13.5, fontWeight: 600, marginTop: 20 }}
-                disabled={loading}
-              >
-                {loading ? 'Guardando…' : 'Restablecer contraseña'}
-              </button>
-            </form>
-          </>
-        )}
-
-        {step === 'done' && (
-          <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-              <CheckCircle size={32} />
-            </div>
-            <div className="logintitle" style={{ fontSize: 20 }}>Contraseña restablecida</div>
-            <div className="loginsub" style={{ marginTop: 6 }}>
-              Tu contraseña se actualizó correctamente. Ya puedes acceder a tu cuenta.
-            </div>
-            <button
-              type="button"
-              className="btn pri"
-              style={{ width: '100%', height: 36, fontSize: 13.5, fontWeight: 600, marginTop: 22 }}
-              onClick={() => {
-                router.refresh()
-                router.replace('/dashboard')
-              }}
-            >
-              Ir al dashboard
-            </button>
+            <p className="auth-legal">
+              ¿Necesitas ayuda? <Link href="/contact">Escríbenos</Link>.
+            </p>
           </div>
-        )}
-
-        {step !== 'done' && (
-          <div className="loginfoot">
-            ¿Recordaste tu contraseña?{' '}
-            <Link href="/login" className="loginlink">Iniciar sesión</Link>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   )

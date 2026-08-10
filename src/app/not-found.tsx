@@ -1,18 +1,23 @@
-import Link from 'next/link'
+import PublicPageShell from '@/components/marketing/PublicPageShell'
+import PublicCta from '@/components/marketing/PublicCta'
 
 export default function NotFound() {
   return (
-    <div className="loginwrap">
-      <div style={{ textAlign: 'center', padding: '0 24px' }}>
-        <div style={{ fontSize: 72, fontWeight: 900, letterSpacing: '-.06em', lineHeight: 1, color: 'var(--red)', marginBottom: 8 }}>404</div>
-        <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: '-.04em', marginBottom: 8 }}>Página no encontrada</div>
-        <div style={{ fontSize: 14, color: 'var(--ink2)', marginBottom: 28, lineHeight: 1.5 }}>
+    <PublicPageShell>
+      <div className="pub-page-head">
+        <span className="pub-page-eyebrow">404</span>
+        <h1 className="pub-page-title">Página no encontrada</h1>
+        <p className="pub-page-sub">
           La ruta que buscas no existe o fue movida.
-        </div>
-        <Link href="/dashboard" className="btn pri" style={{ textDecoration: 'none' }}>
-          Ir al dashboard
-        </Link>
+        </p>
       </div>
-    </div>
+
+      <PublicCta
+        title="¿Te perdiste?"
+        subtitle="Vuelve al inicio o explora nuestras funciones."
+        primary={{ href: '/', label: 'Ir al inicio' }}
+        secondary={{ href: '/contact', label: 'Contactar soporte' }}
+      />
+    </PublicPageShell>
   )
 }

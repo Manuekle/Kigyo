@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import PopNumber from '@/components/ui/PopNumber'
 
 interface StatProps {
   label: string
@@ -17,7 +18,7 @@ export default function Stat({ label, value, sub, tone = 'ink', icon, className 
         <span className={`kico-soft ${tone}`}>{icon}</span>
         {label}
       </div>
-      <div className="kval">{value}</div>
+      <div className="kval"><PopNumber value={value} /></div>
       {sub && <div className="kvs" style={{ marginTop: 3 }}>{sub}</div>}
     </div>
   )

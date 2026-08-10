@@ -1,116 +1,156 @@
 'use client'
 
-import type { StatusTone } from '@/lib/types'
-
-import { useState, useMemo } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import { Plus, Trash2, PenLine, X, Search, Package, DollarSign, TrendingUp, Layers } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import Badge from '@/components/ui/Badge'
 import TabBar from '@/components/ui/TabBar'
 import Select from '@/components/ui/Select'
+import FormDrawer from '@/components/ui/FormDrawer'
+import Toggle from '@/components/ui/Toggle'
 import { useApp } from '@/lib/context/AppContext'
 import { cop } from '@/lib/utils'
+import { PRODUCT_UNITS } from '@/lib/domain'
+import LoadMore from '@/components/ui/LoadMore'
+import type { ProductosData, ProductoRow } from '@/server/queries/productos'
+import { createProducto, deleteProducto, updateProducto } from '@/server/mutations/productos'
+import { fetchMoreProductos } from '@/server/actions/productos'
 
-interface CatalogoItem {
-  id: number
-  nombre: string
-  categoria: string
-  precio: number
-  costo: number
-  stock: number
-  unidad: string
-  sku: string
-  proveedor: string
-  activo: boolean
+const UNIT_LABEL: Record<string, string> = {
+  UN: 'Unidad', KIT: 'Kit', RL: 'Rollo', KW: 'kW', SERV: 'Servicio', M: 'Metro', HR: 'Hora',
+}
+const UNIT_OPTIONS = PRODUCT_UNITS.map((u) => ({ value: u, label: UNIT_LABEL[u] ?? u }))
+
+/** Margin over price. 0 when there is no price to divide by. */
+const margin = (priceCents: number, costCents: number) =>
+  priceCents > 0 ? Math.round(((priceCents - costCents) / priceCents) * 100) : 0
+
+const EMPTY = {
+  sku: '', name: '', category: '', description: '', unit: 'UN',
+  price: '', cost: '', stock: '', supplier: '', isActive: true, inStorefront: true,
 }
 
-const CATS = ['Paneles', 'Inversores', 'Baterías', 'Estructuras', 'Cableado', 'Protecciones', 'Servicios', 'Herramientas']
+type FormState = typeof EMPTY
 
-const UNIDADES = [
-  { value: 'UN', label: 'Unidad' },
-  { value: 'KIT', label: 'Kit' },
-  { value: 'RL', label: 'Rollo' },
-  { value: 'KW', label: 'kW' },
-  { value: 'SERV', label: 'Servicio' },
-]
+function toForm(p: ProductoRow): FormState {
+  return {
+    sku: p.sku,
+    name: p.name,
+    category: p.category,
+    description: p.description,
+    unit: p.unit,
+    // Cents in the column, pesos in the field.
+    price: String(p.priceCents / 100),
+    cost: String((p.costCents ?? 0) / 100),
+    stock: String(p.stock),
+    supplier: p.supplier,
+    isActive: p.isActive,
+    inStorefront: p.inStorefront,
+  }
+}
 
-const SEED: CatalogoItem[] = [
-  { id: 1, nombre: 'Panel Solar 540W Monocristalino', categoria: 'Paneles', precio: 380000, costo: 290000, stock: 60, unidad: 'UN', sku: 'PAN-540-M', proveedor: 'Soltek Solar', activo: true },
-  { id: 2, nombre: 'Panel Solar 640W Bifacial', categoria: 'Paneles', precio: 470000, costo: 350000, stock: 30, unidad: 'UN', sku: 'PAN-640-B', proveedor: 'Soltek Solar', activo: true },
-  { id: 3, nombre: 'Microinversor 3kW', categoria: 'Inversores', precio: 1850000, costo: 1400000, stock: 24, unidad: 'UN', sku: 'INV-3K-M', proveedor: 'EnerSol', activo: true },
-  { id: 4, nombre: 'Inversor Central 150kW', categoria: 'Inversores', precio: 32000000, costo: 25000000, stock: 5, unidad: 'UN', sku: 'INV-150K-C', proveedor: 'EnerSol', activo: true },
-  { id: 5, nombre: 'Batería Litio 10kWh', categoria: 'Baterías', precio: 8500000, costo: 6200000, stock: 12, unidad: 'UN', sku: 'BAT-10K-L', proveedor: 'EnerSol', activo: true },
-  { id: 6, nombre: 'Batería Litio 50kWh', categoria: 'Baterías', precio: 28300000, costo: 21000000, stock: 4, unidad: 'UN', sku: 'BAT-50K-L', proveedor: 'EnerSol', activo: true },
-  { id: 7, nombre: 'Kit Estructura Techo', categoria: 'Estructuras', precio: 720000, costo: 510000, stock: 18, unidad: 'KIT', sku: 'EST-TECHO', proveedor: 'Metálicas SAS', activo: true },
-  { id: 8, nombre: 'Kit Estructura Suelo', categoria: 'Estructuras', precio: 950000, costo: 680000, stock: 10, unidad: 'KIT', sku: 'EST-SUELO', proveedor: 'Metálicas SAS', activo: true },
-  { id: 9, nombre: 'Cable Solar 6mm x 100m', categoria: 'Cableado', precio: 185000, costo: 120000, stock: 40, unidad: 'RL', sku: 'CAB-6MM', proveedor: 'ElectroAndina', activo: true },
-  { id: 10, nombre: 'Protección DC 1000V', categoria: 'Protecciones', precio: 45000, costo: 28000, stock: 200, unidad: 'UN', sku: 'PRO-DC-1K', proveedor: 'ElectroAndina', activo: false },
-  { id: 11, nombre: 'Instalación por kW', categoria: 'Servicios', precio: 1250000, costo: 800000, stock: 999, unidad: 'KW', sku: 'SERV-INST', proveedor: 'Interno', activo: true },
-  { id: 12, nombre: 'Taladro Percutor 20V', categoria: 'Herramientas', precio: 520000, costo: 380000, stock: 8, unidad: 'UN', sku: 'HERR-TAL-20', proveedor: 'Ferrenergía', activo: true },
-]
-
-const margen = (p: number, c: number) => p > 0 ? Math.round(((p - c) / p) * 100) : 0
-
-const CAT_TABS = ['Todas', ...CATS]
-
-const emptyForm = { nombre: '', categoria: 'Paneles', precio: '', costo: '', stock: '', unidad: 'UN', sku: '', proveedor: '' }
-
-export default function CatalogosPage() {
+export default function CatalogosPage({ data }: { data: ProductosData }) {
   const { addToast } = useApp()
-  const [items, setItems] = useState(SEED)
+  const [pending, startTransition] = useTransition()
+
+  const [state, setState] = useState<ProductosData>(data)
   const [search, setSearch] = useState('')
   const [cat, setCat] = useState('Todas')
   const [addOpen, setAddOpen] = useState(false)
-  const [editItem, setEditItem] = useState<CatalogoItem | null>(null)
-  const [form, setForm] = useState(emptyForm)
+  const [editing, setEditing] = useState<ProductoRow | null>(null)
+  const [form, setForm] = useState<FormState>(EMPTY)
 
-  const filtered = useMemo(() => items.filter(i => {
-    if (cat !== 'Todas' && i.categoria !== cat) return false
-    if (search && !`${i.nombre} ${i.sku} ${i.proveedor}`.toLowerCase().includes(search.toLowerCase())) return false
+  const [loadingMore, startLoadingMore] = useTransition()
+  const [loadMoreError, setLoadMoreError] = useState('')
+
+  const { productos } = state
+
+  function loadMore() {
+    setLoadMoreError('')
+    startLoadingMore(async () => {
+      const result = await fetchMoreProductos('catalogos', productos.length)
+      if (!result.ok) {
+        setLoadMoreError(result.error)
+        return
+      }
+      setState((prev) => {
+        const seen = new Set(prev.productos.map((p) => p.id))
+        return {
+          ...prev,
+          productos: [...prev.productos, ...result.data.rows.filter((p) => !seen.has(p.id))],
+          productosTotal: result.data.total,
+        }
+      })
+    })
+  }
+
+  const filtered = useMemo(() => productos.filter((p) => {
+    if (cat !== 'Todas' && p.category !== cat) return false
+    if (search && !`${p.name} ${p.sku} ${p.supplier}`.toLowerCase().includes(search.toLowerCase())) return false
     return true
-  }), [items, search, cat])
+  }), [productos, search, cat])
 
   const stats = useMemo(() => {
-    const cats = new Set(items.map(i => i.categoria)).size
-    const valor = items.reduce((s, i) => s + i.costo * i.stock, 0)
-    const margenes = items.filter(i => i.precio > 0).map(i => margen(i.precio, i.costo))
-    const margenAvg = margenes.length > 0 ? Math.round(margenes.reduce((a, b) => a + b, 0) / margenes.length) : 0
-    const inactivos = items.filter(i => !i.activo).length
-    return { total: items.length, cats, valor, margenAvg, inactivos }
-  }, [items])
-
-  const openAdd = () => { setForm(emptyForm); setAddOpen(true) }
-
-  const addItem = () => {
-    if (!form.nombre || !form.precio) { addToast('Nombre y precio requeridos', 'warn'); return }
-    const item: CatalogoItem = {
-      id: Date.now(), nombre: form.nombre, categoria: form.categoria,
-      precio: Number(form.precio), costo: Number(form.costo) || 0,
-      stock: Number(form.stock) || 0, unidad: form.unidad,
-      sku: form.sku || `SKU-${Date.now()}`, proveedor: form.proveedor || 'Proveedor pendiente', activo: true,
+    // Inventory value at *cost*, which is what it is worth to the company.
+    const value = productos.reduce((s, p) => s + (p.costCents ?? 0) * p.stock, 0)
+    const margins = productos.filter((p) => p.priceCents > 0).map((p) => margin(p.priceCents, p.costCents ?? 0))
+    return {
+      total: state.productosTotal,
+      cats: state.categories.length,
+      value,
+      avgMargin: margins.length > 0 ? Math.round(margins.reduce((a, b) => a + b, 0) / margins.length) : 0,
+      inactive: productos.filter((p) => !p.isActive).length,
     }
-    setItems(prev => [item, ...prev])
-    setAddOpen(false)
-    addToast('Producto agregado al catálogo', 'ok')
+  }, [productos, state.categories, state.productosTotal])
+
+  function payload(f: FormState) {
+    return {
+      sku: f.sku.trim(),
+      name: f.name.trim(),
+      category: f.category.trim() || 'Otro',
+      description: f.description.trim(),
+      unit: f.unit as (typeof PRODUCT_UNITS)[number],
+      priceCents: Math.round((Number(f.price) || 0) * 100),
+      costCents: Math.round((Number(f.cost) || 0) * 100),
+      stock: Math.max(0, Math.round(Number(f.stock) || 0)),
+      supplier: f.supplier.trim(),
+      isActive: f.isActive,
+      inStorefront: f.inStorefront,
+    }
   }
 
-  const openEdit = (item: CatalogoItem) => {
-    setEditItem(item)
-    setForm({ nombre: item.nombre, categoria: item.categoria, precio: String(item.precio), costo: String(item.costo), stock: String(item.stock), unidad: item.unidad, sku: item.sku, proveedor: item.proveedor })
+  function submitNew() {
+    if (!form.name.trim() || !form.sku.trim()) { addToast('Nombre y SKU son obligatorios', 'err'); return }
+    startTransition(async () => {
+      const result = await createProducto(payload(form))
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      setAddOpen(false)
+      setForm(EMPTY)
+      addToast('Producto agregado al catálogo', 'ok')
+    })
   }
 
-  const saveEdit = () => {
-    if (!editItem) return
-    if (!form.nombre || !form.precio) { addToast('Nombre y precio requeridos', 'warn'); return }
-    setItems(prev => prev.map(i => i.id === editItem.id ? { ...i, nombre: form.nombre, categoria: form.categoria, precio: Number(form.precio), costo: Number(form.costo) || 0, stock: Number(form.stock) || 0, unidad: form.unidad, sku: form.sku, proveedor: form.proveedor } : i))
-    setEditItem(null)
-    addToast('Producto actualizado', 'ok')
+  function submitEdit() {
+    if (!editing) return
+    if (!form.name.trim() || !form.sku.trim()) { addToast('Nombre y SKU son obligatorios', 'err'); return }
+    startTransition(async () => {
+      const result = await updateProducto({ id: editing.id, ...payload(form) })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      setEditing(null)
+      addToast('Producto actualizado', 'ok')
+    })
   }
 
-  const deleteItem = (id: number) => {
-    const removed = items.find(i => i.id === id)
-    setItems(prev => prev.filter(i => i.id !== id))
-    if (removed) addToast(`"${removed.nombre}" eliminado`, 'info', 'Deshacer', () => setItems(prev => [removed, ...prev]))
+  function remove(p: ProductoRow) {
+    if (!window.confirm(`¿Eliminar "${p.name}"? Seguirá apareciendo en las cotizaciones y órdenes donde ya se usó.`)) return
+    startTransition(async () => {
+      const result = await deleteProducto(p.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      addToast(`"${p.name}" eliminado`, 'info')
+    })
   }
 
   return (
@@ -118,28 +158,36 @@ export default function CatalogosPage() {
       <div className="g3" style={{ marginBottom: 16 }}>
         <div className="rise d1"><Stat icon={<Package size={16} />} tone="blu" label="Productos" value={stats.total} /></div>
         <div className="rise d2"><Stat icon={<Layers size={16} />} tone="grn" label="Categorías" value={stats.cats} /></div>
-        <div className="rise d3"><Stat icon={<DollarSign size={16} />} tone="vio" label="Valor inventario" value={cop(stats.valor)} /></div>
-        <div className="rise d4"><Stat icon={<TrendingUp size={16} />} tone="amb" label="Margen promedio" value={`${stats.margenAvg}%`} sub={stats.inactivos > 0 ? `${stats.inactivos} inactivos` : undefined} /></div>
+        <div className="rise d3"><Stat icon={<DollarSign size={16} />} tone="vio" label="Valor inventario" value={cop(stats.value / 100)} sub="a costo" /></div>
+        <div className="rise d4"><Stat icon={<TrendingUp size={16} />} tone="amb" label="Margen promedio" value={`${stats.avgMargin}%`} sub={stats.inactive > 0 ? `${stats.inactive} inactivos` : undefined} /></div>
       </div>
 
       <div className="card rise d1">
         <div className="chead" style={{ flexWrap: 'wrap', gap: 10 }}>
+          {/* Categories come from the products themselves, not a fixed list of
+              solar parts every organization was assumed to sell. */}
           <TabBar
             value={cat}
             onChange={(k) => setCat(k as string)}
-            items={CAT_TABS.map(s => ({ key: s, label: s }))}
+            items={['Todas', ...state.categories].map((s) => ({ key: s, label: s }))}
           />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <Search size={14} style={{ position: 'absolute', left: 10, color: 'var(--ink3)', pointerEvents: 'none' }} />
-              <input className="field" style={{ paddingLeft: 32, width: 200 }} placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} />
-              {search && <button className="ibtn" style={{ marginLeft: 4 }} onClick={() => setSearch('')}><X size={14} /></button>}
+              <input className="field" style={{ paddingLeft: 32, width: 200 }} placeholder="Buscar…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              {search && <button className="ibtn" style={{ marginLeft: 4 }} onClick={() => setSearch('')} aria-label="Limpiar búsqueda"><X size={14} /></button>}
             </div>
-            <button className="btn dark" onClick={openAdd}><Plus size={14} />Nuevo producto</button>
+            {state.canWrite && (
+              <button className="btn dark" onClick={() => { setForm(EMPTY); setAddOpen(true) }}><Plus size={14} />Nuevo producto</button>
+            )}
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {productos.length === 0 ? (
+          <div className="dempty">
+            {state.canWrite ? 'Todavía no hay productos. Crea el primero.' : 'Todavía no hay productos.'}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="dempty">No se encontraron productos con los filtros actuales.</div>
         ) : (
           <div className="tblwrap">
@@ -151,39 +199,56 @@ export default function CatalogosPage() {
                   <th scope="col">Precio / Costo</th>
                   <th scope="col">Margen</th>
                   <th scope="col">Stock</th>
-                  <th scope="col">Activo</th>
+                  <th scope="col">Tienda</th>
                   <th scope="col"></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(item => (
-                  <tr className="trow" key={item.id}>
+                {filtered.map((p) => (
+                  <tr className="trow" key={p.id}>
                     <td>
-                      <div className="cename">{item.nombre}</div>
+                      <div className="cename">{p.name}</div>
                       <div className="ceid" style={{ display: 'flex', gap: 8 }}>
-                        <span className="mono">{item.sku}</span>
-                        <span className="muted">{item.proveedor}</span>
+                        <span className="mono">{p.sku}</span>
+                        <span className="muted">{p.supplier || '—'}</span>
                       </div>
                     </td>
-                    <td><Badge st={item.categoria} tone={({ Paneles: 'blu', Inversores: 'amb', Baterías: 'vio', Estructuras: 'neu', Cableado: 'neu', Protecciones: 'red', Servicios: 'grn', Herramientas: 'neu' } as Record<string, StatusTone>)[item.categoria] ?? 'neu'} /></td>
+                    <td className="muted">{p.category}</td>
                     <td>
-                      <div className="cename">{cop(item.precio)}</div>
-                      <div className="elsub">{cop(item.costo)} costo</div>
+                      <div className="cename">{cop(p.priceCents / 100)}</div>
+                      <div className="elsub">{cop((p.costCents ?? 0) / 100)} costo</div>
                     </td>
                     <td>
-                      <Badge st={`${margen(item.precio, item.costo)}%`} tone={item.precio > item.costo ? 'grn' : 'red'} filled />
+                      <Badge
+                        st={`${margin(p.priceCents, p.costCents ?? 0)}%`}
+                        tone={p.priceCents > (p.costCents ?? 0) ? 'grn' : 'red'}
+                        filled
+                      />
                     </td>
                     <td>
-                      <Badge st={`${item.stock} ${item.unidad}`} tone={item.stock > 10 ? 'grn' : item.stock > 0 ? 'amb' : 'red'} filled />
+                      <Badge
+                        st={`${p.stock} ${p.unit}`}
+                        tone={p.stock > 10 ? 'grn' : p.stock > 0 ? 'amb' : 'red'}
+                        filled
+                      />
                     </td>
                     <td>
-                      <Badge st={item.activo ? 'Activo' : 'Inactivo'} tone={item.activo ? 'grn' : 'neu'} filled />
+                      {/* Two independent flags: `is_active` retires a product
+                          from procurement, `in_storefront` only hides it from
+                          the shop. The old page had one boolean for both. */}
+                      <Badge
+                        st={!p.isActive ? 'Inactivo' : p.inStorefront ? 'En tienda' : 'Solo interno'}
+                        tone={!p.isActive ? 'neu' : p.inStorefront ? 'grn' : 'amb'}
+                        filled
+                      />
                     </td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                        <button className="ibtn" style={{ width: 30, height: 30, borderRadius: 9 }} data-tip="Editar" onClick={() => openEdit(item)}><PenLine size={14} /></button>
-                        <button className="ibtn" style={{ width: 30, height: 30, borderRadius: 9, color: 'var(--redd)' }} data-tip="Eliminar" onClick={() => deleteItem(item.id)}><Trash2 size={14} /></button>
-                      </div>
+                      {state.canWrite && (
+                        <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                          <button className="ibtn" style={{ width: 30, height: 30, borderRadius: 9 }} data-tip="Editar" onClick={() => { setForm(toForm(p)); setEditing(p) }} aria-label={`Editar ${p.name}`}><PenLine size={14} /></button>
+                          <button className="ibtn" style={{ width: 30, height: 30, borderRadius: 9, color: 'var(--redd)' }} data-tip="Eliminar" disabled={pending} onClick={() => remove(p)} aria-label={`Eliminar ${p.name}`}><Trash2 size={14} /></button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -191,105 +256,116 @@ export default function CatalogosPage() {
             </table>
           </div>
         )}
+
+        <LoadMore
+          loaded={productos.length}
+          total={state.productosTotal}
+          loading={loadingMore}
+          error={loadMoreError}
+          onLoadMore={loadMore}
+          noun="productos"
+        />
       </div>
 
-      {/* Modal nuevo producto */}
-      {addOpen && (
-        <div className="mwrap" onClick={() => setAddOpen(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="mhead"><div className="mtitle">Nuevo producto</div><button className="ibtn" onClick={() => setAddOpen(false)}><X size={18} /></button></div>
-            <div className="mbody">
-              <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
-              <input className="field" placeholder="Nombre del producto" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
-              <div className="fg2">
-                <div>
-                  <div className="flabel">Categoría</div>
-                  <Select options={CATS} value={form.categoria} onChange={v => setForm(p => ({ ...p, categoria: v }))} />
-                </div>
-                <div>
-                  <div className="flabel">Unidad</div>
-                  <Select options={UNIDADES} value={form.unidad} onChange={v => setForm(p => ({ ...p, unidad: v }))} />
-                </div>
-              </div>
-              <div className="fg2">
-                <div>
-                  <div className="flabel">Precio venta</div>
-                  <input className="field" type="number" placeholder="0" value={form.precio} onChange={e => setForm(p => ({ ...p, precio: e.target.value }))} />
-                </div>
-                <div>
-                  <div className="flabel">Costo</div>
-                  <input className="field" type="number" placeholder="0" value={form.costo} onChange={e => setForm(p => ({ ...p, costo: e.target.value }))} />
-                </div>
-              </div>
-              <div className="fg2">
-                <div>
-                  <div className="flabel">Stock</div>
-                  <input className="field" type="number" placeholder="0" value={form.stock} onChange={e => setForm(p => ({ ...p, stock: e.target.value }))} />
-                </div>
-                <div>
-                  <div className="flabel">SKU</div>
-                  <input className="field" placeholder="Auto-generado" value={form.sku} onChange={e => setForm(p => ({ ...p, sku: e.target.value }))} />
-                </div>
-              </div>
-              <div className="flabel">Proveedor</div>
-              <input className="field" placeholder="Nombre del proveedor" value={form.proveedor} onChange={e => setForm(p => ({ ...p, proveedor: e.target.value }))} />
-            </div>
-            <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
-              <button className="btn" onClick={() => setAddOpen(false)}>Cancelar</button>
-              <button className="btn dark" onClick={addItem}><Plus size={14} />Añadir producto</button>
-            </div></div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal editar producto */}
-      {editItem && (
-        <div className="mwrap" onClick={() => setEditItem(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="mhead"><div className="mtitle">Editar producto</div><button className="ibtn" onClick={() => setEditItem(null)}><X size={18} /></button></div>
-            <div className="mbody">
-              <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
-              <input className="field" placeholder="Nombre del producto" value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} />
-              <div className="fg2">
-                <div>
-                  <div className="flabel">Categoría</div>
-                  <Select options={CATS} value={form.categoria} onChange={v => setForm(p => ({ ...p, categoria: v }))} />
-                </div>
-                <div>
-                  <div className="flabel">Unidad</div>
-                  <Select options={UNIDADES} value={form.unidad} onChange={v => setForm(p => ({ ...p, unidad: v }))} />
-                </div>
-              </div>
-              <div className="fg2">
-                <div>
-                  <div className="flabel">Precio venta</div>
-                  <input className="field" type="number" placeholder="0" value={form.precio} onChange={e => setForm(p => ({ ...p, precio: e.target.value }))} />
-                </div>
-                <div>
-                  <div className="flabel">Costo</div>
-                  <input className="field" type="number" placeholder="0" value={form.costo} onChange={e => setForm(p => ({ ...p, costo: e.target.value }))} />
-                </div>
-              </div>
-              <div className="fg2">
-                <div>
-                  <div className="flabel">Stock</div>
-                  <input className="field" type="number" placeholder="0" value={form.stock} onChange={e => setForm(p => ({ ...p, stock: e.target.value }))} />
-                </div>
-                <div>
-                  <div className="flabel">SKU</div>
-                  <input className="field" placeholder="SKU" value={form.sku} onChange={e => setForm(p => ({ ...p, sku: e.target.value }))} />
-                </div>
-              </div>
-              <div className="flabel">Proveedor</div>
-              <input className="field" placeholder="Nombre del proveedor" value={form.proveedor} onChange={e => setForm(p => ({ ...p, proveedor: e.target.value }))} />
-            </div>
-            <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
-              <button className="btn" onClick={() => setEditItem(null)}>Cancelar</button>
-              <button className="btn dark" onClick={saveEdit}>Guardar cambios</button>
-            </div></div>
-          </div>
-        </div>
+      {(addOpen || editing) && (
+        <ProductoModal
+          title={editing ? 'Editar producto' : 'Nuevo producto'}
+          form={form}
+          setForm={setForm}
+          busy={pending}
+          categories={state.categories}
+          onClose={() => { setAddOpen(false); setEditing(null) }}
+          onSubmit={editing ? submitEdit : submitNew}
+        />
       )}
     </>
+  )
+}
+
+function ProductoModal({
+  title, form, setForm, busy, categories, onClose, onSubmit,
+}: {
+  title: string
+  form: FormState
+  setForm: React.Dispatch<React.SetStateAction<FormState>>
+  busy: boolean
+  categories: string[]
+  onClose: () => void
+  onSubmit: () => void
+}) {
+  return (
+    // Eight fields plus two toggles. In a 440px dialog the toggles sat below
+    // the fold and the Guardar button below them again.
+    <FormDrawer
+      open
+      onClose={onClose}
+      title={title}
+      footer={
+        <>
+          <span />
+          <div style={{ display: 'flex', gap: 9 }}>
+            <button className="btn" onClick={onClose} disabled={busy}>Cancelar</button>
+            <button className="btn dark" onClick={onSubmit} disabled={busy} aria-busy={busy}>
+              <Plus size={14} />{busy ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        </>
+      }
+    >
+          <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
+          <input className="field" placeholder="Nombre del producto" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+          <div className="fg2">
+            <div>
+              <div className="flabel">SKU</div>
+              {/* Required now: `(org_id, sku)` is unique and the old form
+                  generated `SKU-1718…` from a timestamp when left blank, which
+                  is not a code anyone can look up. */}
+              <input className="field" placeholder="PAN-540-M" value={form.sku} onChange={(e) => setForm((p) => ({ ...p, sku: e.target.value }))} />
+            </div>
+            <div>
+              <div className="flabel">Unidad</div>
+              <Select options={UNIT_OPTIONS} value={form.unit} onChange={(v) => setForm((p) => ({ ...p, unit: v }))} />
+            </div>
+          </div>
+          <div className="flabel">Categoría</div>
+          <input className="field" list="cat-options" placeholder="Ej. Paneles" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} />
+          <datalist id="cat-options">
+            {categories.map((c) => <option key={c} value={c} />)}
+          </datalist>
+          <div className="fg2">
+            <div>
+              <div className="flabel">Precio venta (COP)</div>
+              <input className="field" type="number" min={0} placeholder="0" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} />
+            </div>
+            <div>
+              <div className="flabel">Costo (COP)</div>
+              <input className="field" type="number" min={0} placeholder="0" value={form.cost} onChange={(e) => setForm((p) => ({ ...p, cost: e.target.value }))} />
+            </div>
+          </div>
+          <div className="fg2">
+            <div>
+              <div className="flabel">Stock</div>
+              <input className="field" type="number" min={0} placeholder="0" value={form.stock} onChange={(e) => setForm((p) => ({ ...p, stock: e.target.value }))} />
+            </div>
+            <div>
+              <div className="flabel">Proveedor</div>
+              <input className="field" placeholder="Nombre del proveedor" value={form.supplier} onChange={(e) => setForm((p) => ({ ...p, supplier: e.target.value }))} />
+            </div>
+          </div>
+          <div className="acc" style={{ padding: '10px 0' }}>
+            <div style={{ flex: 1 }}>
+              <div className="act">Activo</div>
+              <div className="acs">Disponible para cotizaciones y compras</div>
+            </div>
+            <Toggle on={form.isActive} ariaLabel="Producto activo" onChange={(v) => setForm((p) => ({ ...p, isActive: v }))} />
+          </div>
+          <div className="acc" style={{ padding: '10px 0' }}>
+            <div style={{ flex: 1 }}>
+              <div className="act">Visible en la tienda</div>
+              <div className="acs">Aparece en el catálogo de venta</div>
+            </div>
+            <Toggle on={form.inStorefront} ariaLabel="Visible en la tienda" onChange={(v) => setForm((p) => ({ ...p, inStorefront: v }))} />
+          </div>
+    </FormDrawer>
   )
 }

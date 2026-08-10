@@ -4,28 +4,32 @@ import { useState } from 'react'
 
 const FAQS = [
   {
-    q: '¿Necesito tarjeta de crédito para probar Kigyo?',
-    a: 'No. El plan Starter es gratuito y no requiere método de pago. Puedes usarlo el tiempo que necesites con hasta 10 colaboradores.',
+    q: '¿Necesito tarjeta de crédito para usar Kigyo?',
+    a: 'No. Los tres planes cuestan $0 y no pedimos método de pago en ningún momento.',
   },
   {
-    q: '¿Kigyo cumple con la legislación laboral mexicana?',
-    a: 'Sí. Nuestros módulos de nómina, documentos y vacaciones están diseñados conforme a la normativa laboral vigente en México, y se actualizan cuando la legislación cambia.',
-  },
-  {
-    q: '¿Puedo migrar la información de mi equipo desde otra herramienta?',
-    a: 'Sí. Puedes importar tu plantilla actual mediante una plantilla de datos, o nuestro equipo puede ayudarte con la migración en planes Growth y Enterprise.',
+    q: '¿Puedo agendar una demo con mi equipo?',
+    a: 'Sí. Escríbenos desde la página de contacto y coordinamos una sesión para recorrer la plataforma con los datos y procesos de tu operación.',
   },
   {
     q: '¿Qué pasa si supero el número de colaboradores de mi plan?',
-    a: 'Te avisaremos antes de que esto ocurra. Puedes actualizar tu plan en cualquier momento desde la configuración de tu cuenta, sin perder información.',
+    a: 'Te avisaremos antes de que esto ocurra. Puedes cambiar de plan en cualquier momento desde la configuración de tu cuenta, sin perder información y sin costo.',
+  },
+  {
+    q: '¿Kigyo cumple con la legislación laboral colombiana?',
+    a: 'Sí. Nómina, prestaciones sociales, vacaciones y documentos siguen lo que exige el Código Sustantivo del Trabajo, incluidas cesantías, prima de servicios y los aportes a seguridad social. Se actualizan cuando la normativa cambia.',
+  },
+  {
+    q: '¿Puedo migrar la información de mi equipo desde otra herramienta?',
+    a: 'Sí. Puedes importar tu nómina actual desde un archivo de Excel, o nuestro equipo puede acompañarte en la migración si nos escribes.',
   },
   {
     q: '¿Cómo protege Kigyo los datos de mis empleados?',
     a: 'Todos los datos se almacenan encriptados, con respaldos automáticos y control de acceso por rol. Consulta nuestra Política de privacidad para más detalle.',
   },
   {
-    q: '¿Puedo cancelar mi suscripción en cualquier momento?',
-    a: 'Sí, no hay contratos forzosos. Puedes cancelar cuando quieras desde la configuración de tu cuenta y mantendrás acceso hasta el fin de tu ciclo de facturación.',
+    q: '¿Puedo dejar de usar Kigyo cuando quiera?',
+    a: 'Sí, no hay contratos ni permanencia. Puedes exportar la información de tu equipo y eliminar tu cuenta desde la configuración en cualquier momento.',
   },
 ]
 

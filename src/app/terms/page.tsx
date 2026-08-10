@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
-import PublicNav from '@/components/marketing/PublicNav'
-import PublicFooter from '@/components/marketing/PublicFooter'
+import Link from 'next/link'
+import PublicPageShell from '@/components/marketing/PublicPageShell'
+import PublicCta from '@/components/marketing/PublicCta'
 
 export const metadata: Metadata = {
   title: 'Términos de servicio',
@@ -9,16 +10,17 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="landing">
-      <PublicNav />
-
+    <PublicPageShell>
       <div className="pub-page-head">
         <span className="pub-page-eyebrow">Legal</span>
         <h1 className="pub-page-title">Términos de servicio</h1>
+        <p className="pub-page-sub">
+          Condiciones de uso de la plataforma Kigyo para tu organización.
+        </p>
       </div>
 
-      <section className="l-section" style={{ paddingTop: 12 }}>
-        <div className="legal-body">
+      <section className="l-section pub-section-tight">
+        <div className="legal-body" data-reveal>
           <p className="legal-updated">Última actualización: 1 de julio de 2026</p>
 
           <h2>1. Aceptación de los términos</h2>
@@ -49,11 +51,12 @@ export default function TermsPage() {
             <li>No interferir con la seguridad o el funcionamiento normal de la plataforma.</li>
           </ul>
 
-          <h2>5. Pagos y suscripciones</h2>
+          <h2>5. Costo del Servicio</h2>
           <p>
-            Los planes de pago se facturan de forma recurrente según el ciclo
-            elegido. Puedes cancelar tu suscripción en cualquier momento; el acceso
-            se mantendrá vigente hasta el final del periodo ya pagado.
+            El Servicio se presta actualmente sin costo y no requiere método de
+            pago. Si en el futuro se introducen planes pagos, lo informaremos con
+            anticipación y ninguna función que hoy uses se cobrará de forma
+            retroactiva.
           </p>
 
           <h2>6. Propiedad de los datos</h2>
@@ -70,22 +73,33 @@ export default function TermsPage() {
             consecuentes derivados del uso de la plataforma.
           </p>
 
-          <h2>8. Cambios a estos términos</h2>
+          <h2>8. Ley aplicable</h2>
+          <p>
+            Estos Términos se rigen por las leyes de la República de Colombia.
+            Cualquier controversia se someterá a los jueces competentes de
+            Bogotá D.C.
+          </p>
+
+          <h2>9. Cambios a estos términos</h2>
           <p>
             Podemos actualizar estos Términos de servicio ocasionalmente. Te
             notificaremos sobre cambios significativos por correo electrónico o
             mediante un aviso dentro de la plataforma.
           </p>
 
-          <h2>9. Contacto</h2>
+          <h2>10. Contacto</h2>
           <p>
-            Si tienes preguntas sobre estos términos, escríbenos a
-            hola@kigyo.mx.
+            Si tienes preguntas sobre estos términos, escríbenos desde la{' '}
+            <Link href="/contact">página de contacto</Link>.
           </p>
         </div>
       </section>
 
-      <PublicFooter />
-    </div>
+      <PublicCta
+        title="¿Tienes preguntas sobre los términos?"
+        subtitle="Escríbenos y con gusto te ayudamos a entender cómo funciona el servicio."
+        primary={{ href: '/contact', label: 'Contactar equipo' }}
+      />
+    </PublicPageShell>
   )
 }

@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:seed": "node --env-file=.env.local scripts/seed-demo.mjs",
-    "db:push": "node --env-file=.env.local scripts/db-push.mjs"
+    "db:push": "node --env-file=.env.local scripts/db-push.mjs",
+    "db:plan": "node --env-file=.env.local scripts/set-plan.mjs"
   },
   "dependencies": {
     "@ai-sdk/azure": "^4.0.34",
@@ -32,7 +33,6 @@
     "exceljs": "^4.4.0",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.22.0",
-    "metal-fx": "^1.0.4",
     "next": "^16.3.0",
     "ogl": "^1.0.11",
     "react": "19.2.4",
