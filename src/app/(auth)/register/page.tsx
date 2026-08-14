@@ -5,10 +5,21 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Eye, EyeOff } from '@/lib/icons'
 import { apiFetch, errorMessage } from '@/lib/api/client'
-import { COMPANY_TYPES } from '@/lib/modules'
 import SuccessCheck from '@/components/ui/SuccessCheck'
 import TextSwap from '@/components/ui/TextSwap'
 import { useErrorShake } from '@/lib/hooks/use-error-shake'
+
+/**
+ * Signing up registers a person.
+ *
+ * The company's name and its sector used to be asked here, and then asked again
+ * by the wizard at /onboarding — which is the screen that can show what a sector
+ * proposes, which modules the plan covers and which it does not. Two screens
+ * asking the same question is one screen too many, and the one that had to go is
+ * the one with no room to explain itself.
+ *
+ * @see src/app/onboarding/client.tsx
+ */
 
 /**
  * `useSearchParams` opts the whole tree into client-side rendering unless it
@@ -31,11 +42,6 @@ function RegisterForm() {
   // treated as a token.
   const invitedEmail = useSearchParams().get('email')?.trim().toLowerCase() ?? ''
   const [name, setName] = useState('')
-  const [company, setCompany] = useState('')
-  // Empty means "not answered". The account is created either way and the
-  // sector can be set later in Configuración — blocking signup on a dropdown
-  // is not worth the accounts it costs.
-  const [companyType, setCompanyType] = useState('')
   const [email, setEmail] = useState(invitedEmail)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -67,7 +73,7 @@ function RegisterForm() {
         '/api/auth/register',
         {
           method: 'POST',
-          body: JSON.stringify({ name, company, companyType, email, password }),
+          body: JSON.stringify({ name, email, password }),
         },
       )
 
@@ -169,45 +175,6 @@ function RegisterForm() {
                 autoComplete="name"
                 placeholder="Tu nombre"
               />
-
-              {/* An invited account joins an organization that already exists,
-                  so asking it to name one would be asking for something the
-                  signup ignores. */}
-              {!invitedEmail && (
-                <>
-                  <label className="sr-only" htmlFor="reg-company">Empresa</label>
-                  <input
-                    id="reg-company"
-                    className="field"
-                    type="text"
-                    value={company}
-                    onChange={(e) => { setCompany(e.target.value); clearError() }}
-                    autoComplete="organization"
-                    placeholder="Nombre de tu empresa"
-                  />
-
-                  {/* The sector decides which modules the account starts with,
-                      so asking here is what stops a new clinic landing on a
-                      sidebar built for a construction firm. A native select
-                      keeps the whole form one keyboard flow and needs no
-                      portal inside the auth shell. */}
-                  <label className="sr-only" htmlFor="reg-sector">Sector de tu empresa</label>
-                  <span className="select-shell">
-                    <select
-                      id="reg-sector"
-                      className="field"
-                      value={companyType}
-                      onChange={(e) => { setCompanyType(e.target.value); clearError() }}
-                      data-empty={companyType === '' ? 'true' : undefined}
-                    >
-                      <option value="">¿A qué se dedica tu empresa?</option>
-                      {COMPANY_TYPES.map((type) => (
-                        <option key={type.key} value={type.key}>{type.label}</option>
-                      ))}
-                    </select>
-                  </span>
-                </>
-              )}
 
               <label className="sr-only" htmlFor="reg-email">Correo electrónico</label>
               <input

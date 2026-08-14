@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { isCompanyType } from '@/lib/modules'
 
 /**
  * Shared by the forms and the route handlers, so the browser and the server
@@ -31,21 +30,22 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Ingresa tu contraseña.'),
 })
 
+/**
+ * Signing up registers a *person*, and nothing else.
+ *
+ * It used to also ask for a company name and a sector, which the signup trigger
+ * turned into an organization — and then the wizard at /onboarding asked for
+ * both again, because it is the screen that can actually explain what a sector
+ * does and show what it proposes. The customer answered twice and the second
+ * answer won.
+ *
+ * So the questions live in one place now, and it is the one with room for them.
+ * The trigger names the first company after the person; the wizard's first step
+ * renames it.
+ */
 export const registerSchema = z.object({
   name: z.string().trim().min(2, 'Ingresa tu nombre.').max(160, 'El nombre es demasiado largo.'),
   email: emailSchema,
-  company: z.string().trim().max(120, 'El nombre de la empresa es demasiado largo.').optional(),
-  /**
-   * The company's sector, which decides the module preset the account starts
-   * with. Optional and validated against the catalogue: an invited signup has
-   * no organization to describe, and a stale or tampered value should land the
-   * account on "no sector yet" rather than fail the whole registration.
-   */
-  companyType: z
-    .string()
-    .trim()
-    .refine((v) => v === '' || isCompanyType(v), 'Selecciona un sector válido.')
-    .optional(),
   password: passwordSchema,
 })
 

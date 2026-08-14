@@ -83,11 +83,11 @@ export async function rateLimit(
 
   try {
     const supabase = createAdminClient()
-    const { data, error } = await supabase.rpc('rate_limit_hit' as never, {
+    const { data, error } = await supabase.rpc('rate_limit_hit', {
       p_bucket: bucket,
       p_limit: rule.limit,
       p_window_secs: rule.windowSeconds,
-    } as never)
+    })
 
     if (error) throw error
 

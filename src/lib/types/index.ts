@@ -309,7 +309,11 @@ export interface Toast {
   onAction?: () => void
 }
 
-export type Role = 'Administrador' | 'Líder de equipo' | 'Empleado'
+// `Role` used to live here as a three-value union. Nothing imported it, and
+// since migration 24 roles are rows the organization creates — see `RoleKey`
+// and `SYSTEM_ROLES` in src/lib/auth/permissions.ts. Leaving a closed union
+// here would be an invitation to reach for it and rediscover, at runtime, that
+// «Médico» is a role too.
 
 export interface Permission {
   label: string
@@ -326,6 +330,14 @@ export interface NavItem {
   icon: string
   badge?: string | number
   badgeTone?: 'a' | 'g' | 'r'
+  /**
+   * Routes that belong to this one and are indented under it.
+   *
+   * `ordenes-compra` is the only case today. It is a second screen of Compras,
+   * gated on the same permission, and it used to sit beside its parent as a
+   * top-level entry — two lines for one module, which read as two features.
+   */
+  children?: Array<{ key: string; label: string; icon: string }>
 }
 
 export interface NavSection {

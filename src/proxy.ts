@@ -41,8 +41,11 @@ function securityHeaders(nonce: string, isDev: boolean): Record<string, string> 
     "form-action 'self'",
     "base-uri 'self'",
     "object-src 'none'",
-    'upgrade-insecure-requests',
-  ].join('; ')
+    // Production-only: behind HTTPS it protects against mixed content. In dev
+    // it rewrites http://localhost RSC fetches to https, which the plain-HTTP
+    // dev server rejects — Next then falls back to full browser navigation.
+    !isDev ? 'upgrade-insecure-requests' : '',
+  ].filter(Boolean).join('; ')
 
   const headers: Record<string, string> = {
     'Content-Security-Policy': csp,

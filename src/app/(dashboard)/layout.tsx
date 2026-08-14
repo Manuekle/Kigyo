@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { AppProvider } from '@/lib/context/AppContext'
 import { MemberProvider } from '@/lib/context/MemberContext'
 import { SoundProvider } from '@/lib/context/SoundContext'
@@ -26,6 +27,28 @@ export const dynamic = 'force-dynamic'
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const member = await requireMember()
+
+  /**
+   * A company whose setup is unfinished goes to the wizard.
+   *
+   * Per company, not per account. The old condition asked whether the *account*
+   * had ever been through onboarding, which meant the second company an account
+   * created skipped setup entirely — no sector question, no module selection, no
+   * branches, no invitations — because the first one had answered for it.
+   *
+   * Only for somebody who could actually finish it. An invited colleague never
+   * sees the wizard: the company they joined is somebody else's to configure,
+   * and showing them a half-finished setup they cannot complete would be both
+   * confusing and a small disclosure about how the business is run.
+   *
+   * The company already exists and works by this point (the signup trigger
+   * builds the first, `createCompany` the rest), so this is a redirect toward
+   * something useful rather than a gate in front of something broken. Skipping
+   * the wizard costs the customer a better-configured company, not a working one.
+   */
+  if (!member.setupCompleted && member.permissions.has('configuracion:manage')) {
+    redirect('/onboarding')
+  }
   // Derived from live rows rather than a fixture, so the bell's count is
   // something that can actually go to zero.
   const notificaciones = await getNotificaciones()
@@ -40,10 +63,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
         orgId: member.orgId,
         orgName: member.orgName,
         companyType: member.companyType,
+        subsector: member.subsector,
         plan: member.plan,
         modules: [...member.modules],
         role: member.role,
         permissions: [...member.permissions],
+        account: member.account,
+        companies: member.companies,
+        accounts: member.accounts,
       }}
     >
       <AppProvider>
@@ -52,6 +79,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Sidebar />
           <main className="main">
             <Topbar notificaciones={notificaciones} />
+            {/*
+              A suspended company is fully readable and refuses every write.
+              Without this banner the customer learns that from a failed save —
+              an error about a permission they do have, for a reason nothing on
+              screen mentions. Said once, at the top, on every page.
+
+              Rendered here rather than per page because it is a property of the
+              company, not of what is being looked at.
+            */}
+            {member.status === 'suspended' && (
+              <div className="suspend-banner" role="status">
+                <strong>{member.orgName} está en modo solo lectura.</strong>{' '}
+                El plan de la cuenta no cubre esta empresa o el pago está pendiente. Tus datos
+                siguen completos y vuelven a estar disponibles al regularizar el plan.
+              </div>
+            )}
             <div className="content" id="contenido" tabIndex={-1}>
               {children}
             </div>

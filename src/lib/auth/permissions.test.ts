@@ -5,7 +5,9 @@ import {
   PERMISSIONS,
   PERMISSION_LABELS,
   ROUTE_PERMISSIONS,
-  ROLES,
+  SYSTEM_ROLES,
+  DEFAULT_ROLE,
+  isSystemRole,
   can,
   isPermission,
   permissionsByModule,
@@ -14,8 +16,15 @@ import {
 
 const MIGRATIONS_DIR = resolve(process.cwd(), 'supabase/migrations')
 
-/** The core migration, which is also where the role catalogue is seeded. */
+/** The core migration, which is where the permission catalogue is seeded. */
 const CORE_MIGRATION = resolve(MIGRATIONS_DIR, '20260806090000_01_core.sql')
+
+/**
+ * Where roles stopped being global reference data and became tenant rows.
+ * `app.seed_default_roles` is what every new organization starts with, and
+ * `SYSTEM_ROLES` is the app's copy of that list.
+ */
+const ROLES_MIGRATION = resolve(MIGRATIONS_DIR, '20260810220000_24_custom_roles.sql')
 
 /**
  * Every permission key inserted into `public.permissions`, across all
@@ -133,11 +142,37 @@ describe('can', () => {
 })
 
 describe('roles', () => {
-  it('matches the roles seeded by the migration', () => {
-    const sql = readFileSync(CORE_MIGRATION, 'utf8')
-    const block = sql.match(/insert into public\.roles \(key, label, rank\) values([\s\S]*?);/)
+  it('matches what app.seed_default_roles gives a new organization', () => {
+    const sql = readFileSync(ROLES_MIGRATION, 'utf8')
+    const block = sql.match(
+      /insert into public\.roles \(org_id, key, label, rank, is_system\) values([\s\S]*?);/,
+    )
     expect(block).toBeTruthy()
-    const inDatabase = [...block![1].matchAll(/\('([^']+)',/g)].map((m) => m[1])
-    expect(inDatabase.sort()).toEqual([...ROLES].sort())
+    const inDatabase = [...block![1].matchAll(/\(p_org_id, '([^']+)',/g)].map((m) => m[1])
+    expect(inDatabase.sort()).toEqual([...SYSTEM_ROLES].sort())
+  })
+
+  it('defaults to a role the seed actually creates', () => {
+    expect(isSystemRole(DEFAULT_ROLE)).toBe(true)
+  })
+
+  /**
+   * The point of migration 24. A union type here would have compiled and then
+   * rejected «Médico» at runtime, which is the failure mode the change exists
+   * to remove — so the openness is pinned rather than left to be re-narrowed
+   * by a future refactor that finds `string` too loose.
+   */
+  it('treats a role the customer invented as a role', () => {
+    expect(isSystemRole('Médico')).toBe(false)
+  })
+
+  it('no longer seeds a global role catalogue in the core migration', () => {
+    const sql = readFileSync(CORE_MIGRATION, 'utf8')
+    const later = readFileSync(ROLES_MIGRATION, 'utf8')
+    // The core migration still creates the old global table — migrations are
+    // append-only history, not a description of the current schema — so what
+    // is pinned is that migration 24 replaces it.
+    expect(sql).toContain('insert into public.roles (key, label, rank) values')
+    expect(later).toContain('drop table if exists public.roles')
   })
 })

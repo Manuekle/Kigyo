@@ -1,3 +1,5 @@
+import { REGISTRY, type ModuleAction } from '@/lib/modules/registry'
+
 /**
  * The single permission model.
  *
@@ -13,260 +15,146 @@
  * src/lib/auth/permissions.test.ts pins that.
  */
 
-export const PERMISSIONS = [
-  'dashboard:read',
-  'empleados:read',
-  'empleados:write',
-  'asistencia:read',
-  'asistencia:write',
-  'nomina:read',
-  'nomina:write',
-  'riesgos:read',
-  'riesgos:write',
-  'reclutamiento:read',
-  'reclutamiento:write',
-  'capacitacion:read',
-  'capacitacion:write',
-  'desempeno:read',
-  'desempeno:write',
-  'proyectos:read',
-  'proyectos:write',
-  'mantenimiento:read',
-  'mantenimiento:write',
-  'flota:read',
-  'flota:write',
-  'produccion:read',
-  'produccion:write',
-  'clientes:read',
-  'clientes:write',
-  'facturacion:read',
-  'facturacion:write',
-  'contratos:read',
-  'contratos:write',
-  'ecommerce:read',
-  'ecommerce:write',
-  'pacientes:read',
-  'pacientes:write',
-  'estudiantes:read',
-  'estudiantes:write',
-  'restaurante:read',
-  'restaurante:write',
-  'agro:read',
-  'agro:write',
-  'inmobiliario:read',
-  'inmobiliario:write',
-  'hoteleria:read',
-  'hoteleria:write',
-  'cotizaciones:read',
-  'cotizaciones:write',
-  'compras:read',
-  'compras:write',
-  'tienda:read',
-  'tienda:write',
-  'catalogos:read',
-  'catalogos:write',
-  'firmas:read',
-  'firmas:write',
-  'inventario:read',
-  'inventario:write',
-  'documentos:read',
-  'documentos:write',
-  'consultoria:read',
-  'consultoria:write',
-  'hseq:read',
-  'hseq:write',
-  'tickets:read',
-  'tickets:write',
-  'canales:read',
-  'canales:write',
-  'calendario:read',
-  'calendario:write',
-  'trazabilidad:read',
-  'ia:use',
-  'configuracion:read',
-  'configuracion:manage',
-] as const
+/**
+ * Every `<module>:<action>` in the product, derived from the module registry.
+ *
+ * This used to be a hand-written list of seventy-one strings that had to agree
+ * with `MODULES`, with `NAV`, and with the INSERTs in the migrations. It is now
+ * a projection: a module declares which actions it defines, and its permissions
+ * follow. Adding `write` to a module that only had `read` is one word.
+ *
+ * `as const` is gone, and with it the literal union — the keys are no longer
+ * knowable at compile time from this file alone. `Permission` is derived from
+ * the registry's own shape below, which keeps the type exact without the list.
+ */
+export const PERMISSIONS: Permission[] = REGISTRY.flatMap((m) =>
+  m.actions.map((action) => `${m.key}:${action}` as Permission),
+)
 
-export type Permission = (typeof PERMISSIONS)[number]
+/**
+ * A permission key.
+ *
+ * Widened to a template literal rather than a union of the seventy-one actual
+ * keys. The union was worth having when the list was written by hand — it made
+ * a typo a compile error — but deriving the list from the registry means the
+ * union could only come from a mapped type over `REGISTRY`, and that requires
+ * the registry to be `as const` all the way down, which makes every entry
+ * readonly and breaks the array methods the projections below use.
+ *
+ * `isPermission()` is the runtime check, and it is exact: it tests membership
+ * of the derived list. The template literal stops `'nonsense'` and keeps
+ * `'empleados:read'`; the test suite pins the whole set against the database.
+ */
+export type Permission = `${string}:${ModuleAction}`
 
-export const ROLES = ['Administrador', 'Líder de equipo', 'Empleado'] as const
-export type RoleKey = (typeof ROLES)[number]
+/**
+ * A role key.
+ *
+ * Deliberately `string` and not a union. Roles are tenant rows since migration
+ * 24 — an administrator creates «Médico» or «Residente de obra» from the
+ * Configuración screen — so the set is not knowable at compile time, and a
+ * union here would have been a lie the moment the first customer used the
+ * feature. Every value that reaches a write is checked against the
+ * organization's own `roles` table instead; see `assertRole` in
+ * src/server/mutations/settings.ts.
+ */
+export type RoleKey = string
+
+/**
+ * The three roles seeded into every new organization.
+ *
+ * A starting point, not a vocabulary: they can be renamed, stripped of every
+ * permission and deleted like any other row. Nothing in the product derives
+ * authority from these names — «administrator» means *holds
+ * `configuracion:manage`*, which is what `app.is_org_admin` asks. They are
+ * listed here only so the seed and the tests agree on what signup creates.
+ */
+export const SYSTEM_ROLES = ['Administrador', 'Líder de equipo', 'Empleado'] as const
+export type SystemRoleKey = (typeof SYSTEM_ROLES)[number]
+
+/** The role a new person gets when nothing more specific was chosen. */
+export const DEFAULT_ROLE: SystemRoleKey = 'Empleado'
+
+/** Presentation only: a stable colour per role, for organizations that kept the seeded three. */
+export function isSystemRole(key: string): key is SystemRoleKey {
+  return (SYSTEM_ROLES as readonly string[]).includes(key)
+}
 
 export function isPermission(value: string): value is Permission {
   return (PERMISSIONS as readonly string[]).includes(value)
 }
 
-/** Maps a dashboard route segment to the permission needed to open it. */
-export const ROUTE_PERMISSIONS: Record<string, Permission> = {
-  dashboard: 'dashboard:read',
-  empleados: 'empleados:read',
-  asistencia: 'asistencia:read',
-  nomina: 'nomina:read',
-  riesgos: 'riesgos:read',
-  reclutamiento: 'reclutamiento:read',
-  capacitacion: 'capacitacion:read',
-  desempeno: 'desempeno:read',
-  proyectos: 'proyectos:read',
-  mantenimiento: 'mantenimiento:read',
-  flota: 'flota:read',
-  produccion: 'produccion:read',
-  clientes: 'clientes:read',
-  facturacion: 'facturacion:read',
-  contratos: 'contratos:read',
-  ecommerce: 'ecommerce:read',
-  pacientes: 'pacientes:read',
-  estudiantes: 'estudiantes:read',
-  restaurante: 'restaurante:read',
-  agro: 'agro:read',
-  inmobiliario: 'inmobiliario:read',
-  hoteleria: 'hoteleria:read',
-  cotizaciones: 'cotizaciones:read',
-  compras: 'compras:read',
-  'ordenes-compra': 'compras:read',
-  tienda: 'tienda:read',
-  catalogos: 'catalogos:read',
-  firmas: 'firmas:read',
-  inventario: 'inventario:read',
-  documentos: 'documentos:read',
-  consultoria: 'consultoria:read',
-  hseq: 'hseq:read',
-  tickets: 'tickets:read',
-  canales: 'canales:read',
-  calendario: 'calendario:read',
-  trazabilidad: 'trazabilidad:read',
-  ia: 'ia:use',
-  configuracion: 'configuracion:read',
-}
-
-/** Human labels for the configuración permission matrix. */
-export const PERMISSION_LABELS: Record<Permission, string> = {
-  'dashboard:read': 'Ver dashboard',
-  'empleados:read': 'Ver empleados',
-  'empleados:write': 'Gestionar empleados',
-  'asistencia:read': 'Ver asistencia',
-  'asistencia:write': 'Gestionar asistencia',
-  'nomina:read': 'Ver nómina',
-  'nomina:write': 'Gestionar nómina',
-  'riesgos:read': 'Ver riesgos',
-  'riesgos:write': 'Gestionar riesgos',
-  'reclutamiento:read': 'Ver reclutamiento',
-  'reclutamiento:write': 'Gestionar reclutamiento',
-  'capacitacion:read': 'Ver capacitación',
-  'capacitacion:write': 'Gestionar capacitación',
-  'desempeno:read': 'Ver desempeño',
-  'desempeno:write': 'Gestionar desempeño',
-  'proyectos:read': 'Ver proyectos',
-  'proyectos:write': 'Gestionar proyectos',
-  'mantenimiento:read': 'Ver mantenimiento',
-  'mantenimiento:write': 'Gestionar mantenimiento',
-  'flota:read': 'Ver flota',
-  'flota:write': 'Gestionar flota',
-  'produccion:read': 'Ver producción',
-  'produccion:write': 'Gestionar producción',
-  'clientes:read': 'Ver clientes',
-  'clientes:write': 'Gestionar clientes',
-  'facturacion:read': 'Ver facturación',
-  'facturacion:write': 'Gestionar facturación',
-  'contratos:read': 'Ver contratos',
-  'contratos:write': 'Gestionar contratos',
-  'ecommerce:read': 'Ver ecommerce',
-  'ecommerce:write': 'Gestionar ecommerce',
-  'pacientes:read': 'Ver pacientes',
-  'pacientes:write': 'Gestionar pacientes',
-  'estudiantes:read': 'Ver estudiantes',
-  'estudiantes:write': 'Gestionar estudiantes',
-  'restaurante:read': 'Ver restaurante',
-  'restaurante:write': 'Gestionar restaurante',
-  'agro:read': 'Ver agro',
-  'agro:write': 'Gestionar agro',
-  'inmobiliario:read': 'Ver inmuebles',
-  'inmobiliario:write': 'Gestionar inmuebles',
-  'hoteleria:read': 'Ver hotelería',
-  'hoteleria:write': 'Gestionar hotelería',
-  'cotizaciones:read': 'Ver cotizaciones',
-  'cotizaciones:write': 'Gestionar cotizaciones',
-  'compras:read': 'Ver compras',
-  'compras:write': 'Gestionar compras',
-  'tienda:read': 'Ver tienda',
-  'tienda:write': 'Gestionar tienda',
-  'catalogos:read': 'Ver catálogos',
-  'catalogos:write': 'Gestionar catálogos',
-  'firmas:read': 'Ver firmas',
-  'firmas:write': 'Gestionar firmas',
-  'inventario:read': 'Ver inventario',
-  'inventario:write': 'Gestionar inventario',
-  'documentos:read': 'Ver documentos',
-  'documentos:write': 'Gestionar documentos',
-  'consultoria:read': 'Ver consultoría',
-  'consultoria:write': 'Gestionar consultoría',
-  'hseq:read': 'Ver HSEQ',
-  'hseq:write': 'Gestionar HSEQ',
-  'tickets:read': 'Ver tickets',
-  'tickets:write': 'Gestionar tickets',
-  'canales:read': 'Ver canales',
-  'canales:write': 'Gestionar canales',
-  'calendario:read': 'Ver calendario',
-  'calendario:write': 'Gestionar calendario',
-  'trazabilidad:read': 'Ver trazabilidad',
-  'ia:use': 'Usar el asistente de IA',
-  'configuracion:read': 'Ver configuración',
-  'configuracion:manage': 'Administrar la organización',
-}
+/**
+ * Route segment → the permission that opens it.
+ *
+ * Aliases are folded in: `/dashboard/ordenes-compra` is its own screen but part
+ * of Compras, so it maps to `compras:read` rather than to a permission of its
+ * own. Deriving that removes the copy of the mapping that used to sit here and
+ * could disagree with the nav.
+ *
+ * The action chosen is the *first* one the module declares, which is `read`
+ * everywhere except `ia` (`use`) and — deliberately — `configuracion`, whose
+ * screen opens on `configuracion:read` while changing anything needs `manage`.
+ */
+export const ROUTE_PERMISSIONS: Record<string, Permission> = Object.fromEntries(
+  REGISTRY.flatMap((m) => {
+    const permission = `${m.key}:${m.actions[0]}` as Permission
+    return [
+      [m.key, permission],
+      ...(m.aliases ?? []).map((alias) => [alias.key, permission] as const),
+    ]
+  }),
+)
 
 /**
- * Display name of each module the permissions are grouped under.
+ * The verb a single permission grants, once its module is already named.
  *
- * The matrix renders one row per module, so it needs the module's own name —
- * `PERMISSION_LABELS` only carries the verb-prefixed form ("Ver empleados"),
- * which reads as noise once the verb is already the column.
+ * Indexed by `string` rather than by `ModuleAction`: the configuración matrix
+ * splits a permission key and looks the half up, and narrowing that back to the
+ * union at every call site would be ceremony for a map that is total by
+ * construction.
  */
-export const MODULE_LABELS: Record<string, string> = {
-  dashboard: 'Dashboard',
-  empleados: 'Empleados',
-  asistencia: 'Asistencia',
-  nomina: 'Nómina',
-  riesgos: 'Riesgos',
-  reclutamiento: 'Reclutamiento',
-  capacitacion: 'Capacitación',
-  desempeno: 'Desempeño',
-  proyectos: 'Proyectos',
-  mantenimiento: 'Mantenimiento',
-  flota: 'Flota',
-  produccion: 'Producción',
-  clientes: 'Clientes',
-  facturacion: 'Facturación',
-  contratos: 'Contratos',
-  ecommerce: 'Ecommerce',
-  pacientes: 'Pacientes',
-  estudiantes: 'Estudiantes',
-  restaurante: 'Restaurante',
-  agro: 'Agro',
-  inmobiliario: 'Inmobiliario',
-  hoteleria: 'Hotelería',
-  cotizaciones: 'Cotizaciones',
-  compras: 'Compras',
-  tienda: 'Tienda',
-  catalogos: 'Catálogos',
-  firmas: 'Firmas',
-  inventario: 'Inventario',
-  documentos: 'Documentos',
-  consultoria: 'Consultoría',
-  hseq: 'HSEQ',
-  tickets: 'Tickets',
-  canales: 'Canales',
-  calendario: 'Calendario',
-  trazabilidad: 'Trazabilidad',
-  ia: 'Asistente de IA',
-  configuracion: 'Configuración',
-}
-
-/** The verb a single permission grants, once its module is already named. */
 export const ACTION_LABELS: Record<string, string> = {
   read: 'Ver',
   write: 'Gestionar',
   manage: 'Administrar',
   use: 'Usar',
 }
+
+/**
+ * Human labels, derived where a formula works and stated where it does not.
+ *
+ * Twelve of the seventy-one are not `verb + module name`. «Ver riesgos», not
+ * «Ver centro de riesgos»; «Ver inmuebles», not «Ver inmobiliario»; «Usar el
+ * asistente de IA», which is a sentence. Those live on the registry entry as
+ * `permissionNoun` or `permissionLabels`, so the exception sits next to the
+ * module it belongs to instead of in a parallel map of seventy-one lines where
+ * a missing entry is invisible.
+ *
+ * The test pins that this covers exactly `PERMISSIONS`, in both directions.
+ */
+export const PERMISSION_LABELS: Record<Permission, string> = Object.fromEntries(
+  REGISTRY.flatMap((m) =>
+    m.actions.map((action) => {
+      const override = m.permissionLabels?.[action]
+      const noun = m.permissionNoun ?? (m.shortLabel ?? m.label).toLowerCase()
+      return [`${m.key}:${action}`, override ?? `${ACTION_LABELS[action]} ${noun}`]
+    }),
+  ),
+)
+
+/**
+ * Display name of each module the permission matrix groups under.
+ *
+ * The matrix renders one row per module, so it needs a name that fits a row
+ * heading — which is not always the sidebar's. «Centro de Riesgos» is a good
+ * nav item and a bad table heading, so the registry carries a `shortLabel` for
+ * the three where they differ.
+ */
+export const MODULE_LABELS: Record<string, string> = Object.fromEntries(
+  REGISTRY.map((m) => [m.key, m.shortLabel ?? m.label]),
+)
+
 
 /** Groups permissions by module, for rendering the permission matrix. */
 export function permissionsByModule(): Array<{ module: string; permissions: Permission[] }> {
