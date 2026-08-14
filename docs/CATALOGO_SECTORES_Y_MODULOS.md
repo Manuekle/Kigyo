@@ -104,9 +104,10 @@ No son módulos: son pantallas dentro del módulo que ya existe, para que
 | `inmobiliario` | avalúos, mantenimiento por inmueble, liquidación al propietario |
 | `produccion` | lista de materiales (BOM), órdenes por lote |
 
-**Tres tablas ya existen y no tienen pantalla:** `delivery_routes`,
-`room_cleaning_tasks`, `menu_item_ingredients`. Trabajo hecho a medias que
-cuesta poco terminar.
+**Las tres tablas huérfanas ya tienen pantalla:** `delivery_routes` vive en el
+módulo Flota (crear ruta, estado, borrado), `room_cleaning_tasks` en Hotelería
+(crear tarea de limpieza) y `menu_item_ingredients` en Restaurante
+(`agregarInsumo`/`eliminarInsumo`). El trabajo a medias quedó cerrado.
 
 ---
 
@@ -383,9 +384,11 @@ Por hueco más grande y por reutilización, no por tamaño del sector.
    subsector: tablas bajo el permiso del módulo sectorial, pantallas que
    aparecen según `subsector`. Faltan las imágenes (radiografías), que
    necesitan storage, y los consentimientos, que pueden salir de `firmas`.
-4. **`tiempos`.** Desbloquea servicios, tecnología y medios de una vez.
-5. **Las tres pantallas huérfanas:** `delivery_routes`, `room_cleaning_tasks`,
-   `menu_item_ingredients`. Trabajo ya pagado sin cobrar.
+4. ~~**`tiempos`**~~ ✅ — **hecho** (migración 47): pantalla completa con
+   presets para servicios, tecnologia y medios. Disponible en el plan Growth.
+5. ~~**Las tres pantallas huérfanas**~~ ✅ — **hecho**: `delivery_routes` en
+   Flota (crear ruta, estado, borrado), `room_cleaning_tasks` en Hotelería y
+   `menu_item_ingredients` en Restaurante.
 6. **Verticales que faltan por completo:** `suscriptores`, `puestos`,
    `donantes`, `creditos`, `obra`, `ph`.
 7. **Subsectores de los once sectores que no tienen.**

@@ -389,7 +389,7 @@ divide en tres capas:
 
 | Módulo | Para quién | Estado |
 |---|---|---|
-| `tiempos` | servicios, tecnologia, medios, construccion, legal | no existe — horas facturables |
+| ~~`tiempos`~~ ✅ | servicios, tecnologia, medios, construccion, legal | hecho (mig. 47) — horas facturables |
 | `reportes` | todos | no existe |
 | `notificaciones` | salud, educacion, fitness, inmobiliario, hoteleria | no existe |
 | `portal` | paciente, acudiente, inquilino, huésped | no existe |
@@ -408,7 +408,7 @@ divide en tres capas:
 | `puestos` | seguridad | no existe |
 | `donantes` | ong | no existe |
 | `creditos` | financiero | no existe |
-| `rutas` | logistica | `delivery_routes` existe sin pantalla |
+| `rutas` | logistica | ✅ pantalla de rutas en Flota (crear/estado/borrar) |
 | `ph` | inmobiliario | no existe |
 | `calidad` | manufactura, alimentos, agro | no existe |
 | `contratacion` | gobierno | no existe |
@@ -419,17 +419,18 @@ divide en tres capas:
 |---|---|
 | `pacientes` | veterinaria (mascota/propietario, vacunas, hospitalización), radiografías, consentimientos |
 | `estudiantes` | notas por periodo, boletín, portal del acudiente |
-| `restaurante` | escandallo, delivery (tablas existen sin pantalla), propinas |
+| `restaurante` | propinas — escandallo y delivery ya tienen pantalla |
 | `agro` | sanidad, riego, clima, certificaciones |
-| `hoteleria` | tarifas por temporada, canales, housekeeping (tabla existe) |
+| `hoteleria` | tarifas por temporada, canales — housekeeping ✅ pantalla en Hotelería |
 | `inmobiliario` | avalúos, liquidación al propietario |
 | `produccion` | BOM, órdenes por lote |
 
 ### Orden de trabajo sugerido
 
-1. `tiempos` — desbloquea servicios, tecnologia y medios de un golpe
-2. Pantallas huérfanas: `delivery_routes`, `room_cleaning_tasks`,
-   `menu_item_ingredients` — trabajo ya pagado sin cobrar
+1. ~~`tiempos`~~ ✅ — hecho (migración 47): pantalla completa, presets para
+   servicios, tecnologia y medios
+2. ~~Pantallas huérfanas~~ ✅ — `delivery_routes` en Flota (crear/estado/borrar),
+   `room_cleaning_tasks` en Hotelería, `menu_item_ingredients` en Restaurante
 3. Veterinaria vertical (patrón odontología ya probado)
 4. `suscripciones` + `cartera` — cierran fitness, educacion, financiero
 5. Verticales completos restantes: `suscriptores`, `puestos`, `donantes`,
