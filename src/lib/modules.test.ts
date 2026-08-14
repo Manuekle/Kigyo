@@ -10,8 +10,10 @@ import {
   modulesByGroup,
   presetFor,
   resolveModules,
+  sectorStart,
 } from './modules'
 import { PERMISSIONS, ROUTE_PERMISSIONS } from './auth/permissions'
+import { DEFAULT_PLAN, planModules } from './plans'
 
 /**
  * The module catalogue is the outer half of the access model: it answers
@@ -88,15 +90,26 @@ describe('company type presets', () => {
    * catch the other direction: a sector the *database* accepts and this
    * catalogue never offers is a value `handle_new_user` would happily store and
    * no screen could ever display.
+   *
+   * The comparison used to be against the CHECK constraint in migration 14;
+   * migration 29 replaced that constraint with a foreign key to
+   * `public.sectors`, so the seed there is now the database's copy of the
+   * list — plus any later sector migrations (33 added Fitness y bienestar).
+   * Only top-level rows count — a subsector is a refinement of a sector
+   * the catalogue already offers, not a new sector.
    */
   it('offers every sector the database accepts', () => {
-    const sql = readFileSync(
-      resolve(process.cwd(), 'supabase/migrations/20260810120000_14_plans_and_sectors.sql'),
-      'utf8',
+    const seeds = [
+      '20260811120000_29_sectors_and_dependencies.sql',
+      '20260812100000_33_fitness_sector.sql',
+    ].map((file) =>
+      readFileSync(resolve(process.cwd(), 'supabase/migrations', file), 'utf8'),
     )
-    const block = sql.match(/add constraint organizations_company_type_check[\s\S]*?in \(([\s\S]*?)\)\);/)
-    expect(block, 'company_type check constraint not found in migration 14').toBeTruthy()
-    const inDatabase = [...block![1].matchAll(/'([a-z]+)'/g)].map((m) => m[1])
+    const inDatabase = seeds.flatMap((sql) => {
+      const block = sql.match(/insert into public\.sectors \(key, label, sort\) values([\s\S]*?);/)
+      if (!block) return []
+      return [...block[1].matchAll(/'([a-z][a-z0-9-]+)'/g)].map((m) => m[1])
+    })
     expect(inDatabase.sort()).toEqual(COMPANY_TYPES.map((t) => t.key).sort())
   })
 
@@ -161,5 +174,102 @@ describe('resolveModules', () => {
     // Returning `[]` here would read as "all modules off" and lock the account
     // out of its own sidebar.
     expect(presetFor('no-existe').sort()).toEqual([...MODULE_KEYS].sort())
+  })
+})
+
+describe('sectorStart', () => {
+  it('accounts for the whole preset, losing nothing between the halves', () => {
+    const allowed = planModules(DEFAULT_PLAN)
+    for (const type of COMPANY_TYPES) {
+      const { included, locked } = sectorStart(type.key, allowed)
+      const seen = [...included, ...locked].map((m) => m.key).sort()
+      expect(seen, type.key).toEqual([...new Set(type.modules)].sort())
+    }
+  })
+
+  it('locks nothing when no plan gate is passed', () => {
+    expect(sectorStart('salud').locked).toEqual([])
+  })
+
+  /**
+   * The finding this function exists to stop hiding.
+   *
+   * On the plan every new account starts on, the vertical module that gives a
+   * sector its name is not included — a clinic that picks «Salud» at signup
+   * does not get `pacientes`. That is a pricing decision and this test does
+   * not argue with it; it pins that the signup screen is *told*, so the fact
+   * reaches the customer at the moment they choose rather than an hour later
+   * as an unexplained absence from the sidebar.
+   *
+   * If Starter ever grows to include these, this test failing is the reminder
+   * to soften the copy that currently warns about them.
+   */
+  it('reports the sector-defining module as locked on the entry plan', () => {
+    const allowed = planModules(DEFAULT_PLAN)
+    const vertical: Record<string, string> = {
+      salud: 'pacientes',
+      educacion: 'estudiantes',
+      alimentos: 'restaurante',
+      agro: 'agro',
+      inmobiliario: 'inmobiliario',
+      hoteleria: 'hoteleria',
+    }
+    for (const [sector, moduleKey] of Object.entries(vertical)) {
+      const { included, locked } = sectorStart(sector, allowed)
+      expect(locked.map((m) => m.key), sector).toContain(moduleKey)
+      expect(included.map((m) => m.key), sector).not.toContain(moduleKey)
+    }
+  })
+
+  it('still leaves every sector with something to land on', () => {
+    // A preview that reads "Empiezas con 0 módulos" would be a reason not to
+    // finish signing up.
+    const allowed = planModules(DEFAULT_PLAN)
+    for (const type of COMPANY_TYPES) {
+      expect(sectorStart(type.key, allowed).included.length, type.key).toBeGreaterThan(0)
+    }
+  })
+})
+
+describe('sector verticals', () => {
+  /**
+   * `vertical` exists because the sector key and its module key are not the
+   * same vocabulary: `salud` runs on `pacientes`, `alimentos` on `restaurante`,
+   * `educacion` on `estudiantes`. Four of the seven do coincide, which is
+   * exactly enough for a `key === key` shortcut to survive a spot check and be
+   * wrong everywhere else — it had already named the wrong module on the
+   * first-run panel. These pin the declared mapping instead.
+   */
+  it('names a module that exists', () => {
+    for (const type of COMPANY_TYPES) {
+      if (!type.vertical) continue
+      expect(isModuleKey(type.vertical), `${type.key} → ${type.vertical}`).toBe(true)
+    }
+  })
+
+  it('is always enabled by the sector that declares it', () => {
+    for (const type of COMPANY_TYPES) {
+      if (!type.vertical) continue
+      expect(type.modules, `${type.key} does not enable ${type.vertical}`).toContain(type.vertical)
+    }
+  })
+
+  it('belongs to exactly one sector', () => {
+    // A vertical two sectors claim is a vertical that is not a vertical — the
+    // module exists precisely because one industry needs its own vocabulary.
+    const claimed = COMPANY_TYPES.map((t) => t.vertical).filter(Boolean)
+    expect(new Set(claimed).size).toBe(claimed.length)
+  })
+
+  it('covers every module in the Sectoriales group', () => {
+    // A sector module nobody claims would never be named by the first-run
+    // panel, which is the one screen that explains why it is missing.
+    const sectorModules = modulesByGroup()
+      .find((g) => g.group === 'Sectoriales')!
+      .modules.map((m) => m.key)
+    const claimed = new Set(COMPANY_TYPES.map((t) => t.vertical).filter(Boolean))
+    for (const key of sectorModules) {
+      expect(claimed.has(key), `no sector claims ${key}`).toBe(true)
+    }
   })
 })

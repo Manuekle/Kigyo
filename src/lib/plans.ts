@@ -57,6 +57,30 @@ export interface PlanDef {
    * its way past the cap.
    */
   seats: number | null
+  /**
+   * How many companies one account may own, or `null` for no limit.
+   *
+   * A customer buys one subscription and may run several businesses under it —
+   * a group with a clinic and a restaurant, a holding with three construction
+   * firms. This is the number that makes that a paid capability rather than a
+   * free one.
+   *
+   * Unlike `seats`, this is enforced by the database as well: a trigger on
+   * `organizations` refuses the insert (migration 28). Seats can stay
+   * application-level because only an administrator writes invitations, so
+   * exceeding them is a billing discrepancy; a company is an object being
+   * charged for, and the row should not exist at all.
+   */
+  maxCompanies: number | null
+  /**
+   * Branches per company, or `null` for no limit.
+   *
+   * Declared now and inert until phase 6 builds `sites`. It lives here rather
+   * than being added later so that `public.plan_limits` and this catalogue can
+   * be pinned against each other from the day the table exists — a limit that
+   * only one of the two knows about is a limit that disagrees with itself.
+   */
+  maxSitesPerCompany: number | null
 }
 
 /**
@@ -76,18 +100,24 @@ const STARTER = [
  * inventory and a commercial pipeline needs, plus the sector modules.
  *
  * The verticals (pacientes, estudiantes, restaurante, agro, inmobiliario,
- * hoteleria) sit here rather than in Enterprise on purpose. A twelve-table
- * restaurant and a rural clinic are Growth-sized businesses; putting their one
- * essential module behind the top tier would price them out of the product
- * that was built for them.
+ * hoteleria, socios) sit here rather than in Enterprise on purpose. A
+ * twelve-table restaurant, a rural clinic and a neighbourhood gym are
+ * Growth-sized businesses; putting their one essential module behind the top
+ * tier would price them out of the product that was built for them.
  */
 const GROWTH = [
   ...STARTER,
   'nomina', 'riesgos', 'firmas', 'reclutamiento', 'capacitacion', 'desempeno',
   'proyectos', 'hseq', 'inventario', 'mantenimiento', 'flota', 'produccion',
   'cotizaciones', 'compras', 'facturacion', 'catalogos',
+  // The counter and the till are operating tools, not scale ones. `tienda` and
+  // `ecommerce` sit in Enterprise because selling to the public over the
+  // internet is a different business; charging the person standing in front of
+  // you is what a Growth-sized shop does all day.
+  'pos', 'caja',
   'consultoria', 'ia',
   'pacientes', 'estudiantes', 'restaurante', 'agro', 'inmobiliario', 'hoteleria',
+  'socios',
 ]
 
 /**
@@ -102,13 +132,25 @@ export const PLANS: PlanDef[] = [
     description: 'Equipos pequeños ordenando personas, clientes y documentos.',
     modules: STARTER,
     seats: 10,
+    // One business. Running a second is what Growth is for, and it is the
+    // clearest reason to move up a tier that the product has.
+    maxCompanies: 1,
+    maxSitesPerCompany: 1,
   },
   {
     key: 'growth',
     label: 'Growth',
     description: 'Empresas que además manejan operación, comercial y su sector.',
     modules: GROWTH,
+    // Unlimited, decided rather than defaulted. docs/FASE_0_CONTRATOS.md §7.2
+    // had proposed 50; the call went the other way, and for a reason worth
+    // keeping written down: Growth is differentiated by which modules it opens
+    // and how many companies it allows, not by headcount. Charging per seat in
+    // an ERP for small business penalises exactly the customer who is rolling
+    // it out to their team — the one adoption depends on.
     seats: null,
+    maxCompanies: 3,
+    maxSitesPerCompany: 5,
   },
   {
     key: 'enterprise',
@@ -119,6 +161,8 @@ export const PLANS: PlanDef[] = [
     // which is a bug that looks exactly like "the feature does not work".
     modules: [...MODULE_KEYS],
     seats: null,
+    maxCompanies: null,
+    maxSitesPerCompany: null,
   },
 ]
 
@@ -163,4 +207,17 @@ export function lowestPlanWith(module: string): PlanDef | null {
 export function seatsAvailable(key: string | null | undefined, used: number): boolean {
   const seats = planFor(key).seats
   return seats === null || used < seats
+}
+
+/**
+ * Whether the account can own one more company.
+ *
+ * `used` is how many it already has. The database enforces the same rule on the
+ * insert (migration 28); this exists so the screen can say "tu plan Starter
+ * permite 1 empresa" instead of surfacing a constraint violation, and so the
+ * "Nueva empresa" button can be disabled rather than only failing when pressed.
+ */
+export function companiesAvailable(key: string | null | undefined, used: number): boolean {
+  const max = planFor(key).maxCompanies
+  return max === null || used < max
 }

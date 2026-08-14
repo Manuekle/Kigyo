@@ -424,7 +424,7 @@ export const PATIENT_STATUSES = ['Activo', 'Inactivo', 'Egresado'] as const
 export type PatientStatus = (typeof PATIENT_STATUSES)[number]
 
 export const VISIT_KINDS = [
-  'Consulta', 'Control', 'Urgencia', 'Procedimiento', 'Teleconsulta',
+  'Consulta', 'Control', 'Urgencia', 'Procedimiento', 'Teleconsulta', 'Vacunación', 'Examen', 'Otro',
 ] as const
 export type VisitKind = (typeof VISIT_KINDS)[number]
 
@@ -457,6 +457,67 @@ export const RESTAURANT_ORDER_STATUSES = [
   'Abierta', 'En cocina', 'Servida', 'Pagada', 'Anulada',
 ] as const
 export type RestaurantOrderStatus = (typeof RESTAURANT_ORDER_STATUSES)[number]
+
+/* ─── restaurant: reservas, costeo, caja y domicilios (migration 25) ─────── */
+
+/**
+ * Named apart from `RESERVATION_STATUSES`, which belongs to hotelería.
+ *
+ * The two vocabularies look similar and are not the same: a table is «Sentada»
+ * where a room is «Check-in», and a hotel's «Check-out» has no table
+ * equivalent. Sharing one list would have forced a restaurant to explain what
+ * checking out of a table means.
+ */
+export const TABLE_RESERVATION_STATUSES = [
+  'Confirmada', 'Sentada', 'Cumplida', 'Cancelada', 'No show',
+] as const
+export type TableReservationStatus = (typeof TABLE_RESERVATION_STATUSES)[number]
+
+export const INGREDIENT_UNITS = ['g', 'kg', 'ml', 'L', 'UN', 'Porción'] as const
+export type IngredientUnit = (typeof INGREDIENT_UNITS)[number]
+
+export const CASH_SESSION_STATUSES = ['Abierta', 'Cerrada'] as const
+export type CashSessionStatus = (typeof CASH_SESSION_STATUSES)[number]
+
+export const SERVICE_KINDS = ['Salón', 'Domicilio', 'Para llevar'] as const
+export type ServiceKind = (typeof SERVICE_KINDS)[number]
+
+export const DELIVERY_STATUSES = [
+  'Pendiente', 'En preparación', 'En camino', 'Entregado', 'Cancelado',
+] as const
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number]
+
+/**
+ * Food cost: what the plate costs to make, as a share of what it sells for.
+ *
+ * The number the whole costeo tab exists to produce. Returns null rather than
+ * 0 for a dish with no price — a free dish has no food cost, and reporting one
+ * as 0 % would put it at the top of a "most profitable" list.
+ *
+ * Rounded to one decimal because the inputs are estimates of estimates;
+ * printing 31.4159 % would imply a precision the recipe does not have.
+ */
+export function foodCostPct(costCents: number, priceCents: number): number | null {
+  if (!Number.isFinite(costCents) || !Number.isFinite(priceCents)) return null
+  if (priceCents <= 0) return null
+  return Math.round((costCents / priceCents) * 1000) / 10
+}
+
+/**
+ * The arqueo: what the drawer holds against what it should.
+ *
+ * Positive is a surplus, negative a shortfall. The opening float is part of
+ * the count but not of the takings — conflating the two is the arithmetic
+ * mistake every hand-kept cash sheet makes, and it makes every session look
+ * short by exactly the float.
+ */
+export function cashDifferenceCents(
+  countedCents: number,
+  expectedCents: number,
+  openingFloatCents: number,
+): number {
+  return countedCents - (expectedCents + openingFloatCents)
+}
 
 /* ─── agriculture ──────────────────────────────────────────────────────── */
 export const LOT_STATUSES = [
@@ -498,3 +559,182 @@ export const RESERVATION_STATUSES = [
   'Confirmada', 'Check-in', 'Check-out', 'Cancelada', 'No show',
 ] as const
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number]
+
+/* ─── socios (fitness y bienestar) ─────────────────────────────────────── */
+
+export const MEMBER_STATUSES = [
+  'Activo', 'Inactivo', 'Suspendido', 'Retirado',
+] as const
+export type MemberStatus = (typeof MEMBER_STATUSES)[number]
+
+/**
+ * Cómo se cobra un plan.
+ *
+ * Los tres modelos que cubren los cuatro subsectores del sector: la
+ * mensualidad de un gimnasio, el bono de diez clases de un estudio y la sesión
+ * suelta de un spa. «Bono» es el único que consume créditos; los demás dan
+ * acceso libre mientras la vigencia esté abierta.
+ */
+export const PLAN_BILLINGS = [
+  'Mensual', 'Trimestral', 'Semestral', 'Anual', 'Bono', 'Sesión',
+] as const
+export type PlanBilling = (typeof PLAN_BILLINGS)[number]
+
+export const SUBSCRIPTION_STATUSES = [
+  'Vigente', 'Vencida', 'Cancelada', 'Congelada',
+] as const
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number]
+
+export const CLASS_STATUSES = [
+  'Programada', 'En curso', 'Dictada', 'Cancelada',
+] as const
+export type ClassStatus = (typeof CLASS_STATUSES)[number]
+
+/**
+ * Nombrado aparte de `BOOKING_*` de hotelería y restaurante a propósito: aquí
+ * «En espera» es la lista cuando el cupo se llenó, que no existe en las otras
+ * dos, y la diferencia entre «Asistió» y «No asistió» es justamente lo que un
+ * estudio de clases quiere medir.
+ */
+export const CLASS_BOOKING_STATUSES = [
+  'Reservada', 'En espera', 'Asistió', 'No asistió', 'Cancelada',
+] as const
+export type ClassBookingStatus = (typeof CLASS_BOOKING_STATUSES)[number]
+
+export const CHECKIN_METHODS = ['Manual', 'Documento', 'Código', 'Huella'] as const
+export type CheckinMethod = (typeof CHECKIN_METHODS)[number]
+
+/* ─── caja y punto de venta ────────────────────────────────────────────── */
+
+// `CASH_SESSION_STATUSES` vive más arriba, en el bloque de restaurante, donde
+// nació. Se queda ahí: moverlo sería un cambio sin lector, y el vocabulario es
+// el mismo turno de caja lo abra un mesero o una recepcionista.
+
+/**
+ * Lo que entra y sale del cajón aparte de las ventas.
+ *
+ * Las ventas no están aquí a propósito: llegan solas por `pos_sales` y por las
+ * comandas del restaurante, y meterlas como un movimiento más las contaría dos
+ * veces en el arqueo. Esto es lo *otro* — la propina que se paga en efectivo,
+ * el domicilio que se le paga al mensajero, el retiro a la caja fuerte.
+ */
+export const CASH_MOVEMENT_KINDS = [
+  'Ingreso', 'Egreso', 'Retiro', 'Gasto',
+] as const
+export type CashMovementKind = (typeof CASH_MOVEMENT_KINDS)[number]
+
+export const POS_SALE_STATUSES = ['Pagada', 'Anulada'] as const
+export type PosSaleStatus = (typeof POS_SALE_STATUSES)[number]
+
+/* ─── odontología ──────────────────────────────────────────────────────── */
+
+/**
+ * Numeración FDI, la que usa el mundo entero salvo Estados Unidos.
+ *
+ * Primer dígito el cuadrante, segundo la pieza contando desde la línea media.
+ * Los cuadrantes 1-4 son permanentes y van del 1 al 8; los 5-8 son temporales
+ * y solo llegan al 5, porque un niño no tiene premolares ni terceros molares.
+ *
+ * Ordenados como se dibuja un odontograma —- del fondo derecho al fondo
+ * izquierdo en el arco superior, y al revés en el inferior—- para que la
+ * pantalla los recorra sin reordenar nada.
+ */
+/*
+ * Cada arreglo va en el orden en que se pinta de izquierda a derecha en
+ * pantalla, que es el orden del papel: el cuadrante derecho del paciente
+ * primero —- y por lo tanto de fondo hacia la línea media—- y el izquierdo
+ * después, de la línea media hacia el fondo.
+ *
+ * Escrito así y no ordenado por número para que la pantalla los recorra tal
+ * cual. Un `.sort()` en el componente daría 41, 42, 43… en el arco inferior
+ * derecho, que es correcto como número y está espejado como boca.
+ */
+export const FDI_UPPER_RIGHT = [18, 17, 16, 15, 14, 13, 12, 11] as const
+export const FDI_UPPER_LEFT  = [21, 22, 23, 24, 25, 26, 27, 28] as const
+export const FDI_LOWER_RIGHT = [48, 47, 46, 45, 44, 43, 42, 41] as const
+export const FDI_LOWER_LEFT  = [31, 32, 33, 34, 35, 36, 37, 38] as const
+
+/** Temporales, en el mismo orden. */
+export const FDI_DECIDUOUS_UPPER_RIGHT = [55, 54, 53, 52, 51] as const
+export const FDI_DECIDUOUS_UPPER_LEFT  = [61, 62, 63, 64, 65] as const
+export const FDI_DECIDUOUS_LOWER_RIGHT = [85, 84, 83, 82, 81] as const
+export const FDI_DECIDUOUS_LOWER_LEFT  = [71, 72, 73, 74, 75] as const
+
+export const TOOTH_SURFACES = [
+  'Oclusal', 'Mesial', 'Distal', 'Vestibular', 'Lingual', 'Palatina',
+] as const
+export type ToothSurface = (typeof TOOTH_SURFACES)[number]
+
+export const TOOTH_CONDITIONS = [
+  'Sano', 'Caries', 'Obturado', 'Corona', 'Ausente', 'Implante',
+  'Endodoncia', 'Fracturado', 'Sellante', 'Extracción indicada',
+  'Protesis', 'Ortodoncia',
+] as const
+export type ToothCondition = (typeof TOOTH_CONDITIONS)[number]
+
+/**
+ * El color con el que se pinta cada hallazgo en el odontograma.
+ *
+ * Convención de la profesión, no una paleta inventada: rojo lo que hay que
+ * tratar, azul lo que ya se trató, gris lo que no está. Un odontólogo lee el
+ * cuadro de un vistazo porque lleva veinte años viendo esos colores, y
+ * cambiarlos por los de la marca lo obligaría a leer cada pieza.
+ */
+export const TOOTH_CONDITION_TONE: Record<ToothCondition, 'neu' | 'red' | 'blu' | 'grn' | 'amb'> = {
+  'Sano': 'grn',
+  'Caries': 'red',
+  'Extracción indicada': 'red',
+  'Fracturado': 'red',
+  'Obturado': 'blu',
+  'Corona': 'blu',
+  'Endodoncia': 'blu',
+  'Sellante': 'blu',
+  'Implante': 'blu',
+  'Protesis': 'blu',
+  'Ortodoncia': 'amb',
+  'Ausente': 'neu',
+}
+
+export const DENTAL_CHART_KINDS = ['Inicial', 'Control', 'Final'] as const
+export type DentalChartKind = (typeof DENTAL_CHART_KINDS)[number]
+
+export const TREATMENT_PLAN_STATUSES = [
+  'Propuesto', 'Aceptado', 'En curso', 'Terminado', 'Rechazado',
+] as const
+export type TreatmentPlanStatus = (typeof TREATMENT_PLAN_STATUSES)[number]
+
+export const TREATMENT_ITEM_STATUSES = [
+  'Pendiente', 'En curso', 'Hecho', 'Cancelado',
+] as const
+export type TreatmentItemStatus = (typeof TREATMENT_ITEM_STATUSES)[number]
+
+export const DENTAL_LAB_WORK_TYPES = [
+  'Corona', 'Puente', 'Prótesis total', 'Prótesis parcial',
+  'Incrustación', 'Carilla', 'Férula', 'Placa', 'Otro',
+] as const
+export type DentalLabWorkType = (typeof DENTAL_LAB_WORK_TYPES)[number]
+
+export const DENTAL_LAB_STATUSES = [
+  'Enviado', 'En proceso', 'Recibido', 'Reproceso', 'Cancelado',
+] as const
+export type DentalLabStatus = (typeof DENTAL_LAB_STATUSES)[number]
+
+/** El subsector cuyo `pacientes` muestra las pantallas dentales. */
+export const DENTAL_SUBSECTOR = 'salud-odontologia'
+
+/**
+ * Cómo se nombra una pieza y su cara en una línea de texto.
+ *
+ * Aquí y no junto a la consulta porque la usan el odontograma, el plan y el
+ * laboratorio —- los tres en el cliente—- y `server/queries` lleva
+ * `server-only`: importar de ahí una función arrastra Supabase, `next/headers`
+ * y el entorno al bundle del navegador. Es un fallo de compilación que
+ * TypeScript no ve, porque el límite es de Next y no de tipos.
+ *
+ * Y una sola redacción: tres formas distintas de escribir «16 oclusal» en la
+ * misma pantalla es como se acaba dudando de si hablan de lo mismo.
+ */
+export function toothLabel(tooth: number | null, surface: string | null): string {
+  if (tooth === null) return 'Boca completa'
+  return surface ? `${tooth} · ${surface.toLowerCase()}` : String(tooth)
+}
