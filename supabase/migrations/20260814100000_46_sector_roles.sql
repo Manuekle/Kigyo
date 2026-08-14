@@ -218,6 +218,105 @@ insert into public.sector_roles (sector_key, role_key, label, rank, permissions)
   ('agro-poscosecha', 'operario', 'Operario/a', 50, array['produccion:read','produccion:write','agro:read'])
 ;
 
+insert into public.sector_roles (sector_key, role_key, label, rank, permissions) values
+
+  -- Construcción ────────────────────────────────────────────────────────
+  ('construccion-civil', 'residente', 'Residente de obra', 30, array['proyectos:read','proyectos:write','riesgos:read','hseq:read','calendario:read']),
+  ('construccion-civil', 'almacenista', 'Almacenista', 40, array['inventario:read','inventario:write','compras:read','proyectos:read']),
+  ('construccion-civil', 'administrativo', 'Administrativo/a de obra', 50, array['clientes:read','facturacion:read','contratos:read','documentos:read','flota:read']),
+
+  ('construccion-mep', 'ingeniero', 'Ingeniero/a', 30, array['proyectos:read','proyectos:write','catalogos:read','catalogos:write','cotizaciones:read','cotizaciones:write','compras:read']),
+  ('construccion-mep', 'instalador', 'Instalador/a', 40, array['proyectos:read','catalogos:read','inventario:read']),
+  ('construccion-mep', 'almacenista', 'Almacenista', 50, array['inventario:read','inventario:write','compras:read','proyectos:read']),
+
+  ('construccion-remodel', 'disenador', 'Diseñador/a', 30, array['proyectos:read','proyectos:write','cotizaciones:read','cotizaciones:write','catalogos:read','clientes:read','clientes:write']),
+  ('construccion-remodel', 'oficial', 'Oficial de obra', 40, array['proyectos:read','inventario:read']),
+  ('construccion-remodel', 'administrativo', 'Administrativo/a', 50, array['clientes:read','facturacion:read','cotizaciones:read','documentos:read']),
+
+  ('construccion-interv', 'supervisor', 'Supervisor/a', 30, array['proyectos:read','proyectos:write','trazabilidad:read','riesgos:read','calendario:read']),
+  ('construccion-interv', 'inspector', 'Inspector/a', 40, array['trazabilidad:read','proyectos:read','documentos:read','firmas:read']),
+  ('construccion-interv', 'coordinador', 'Coordinador/a', 50, array['proyectos:read','proyectos:write','clientes:read','calendario:read','calendario:write']),
+
+  -- Manufactura ─────────────────────────────────────────────────────────
+  ('manufactura-metal', 'jefe-produccion', 'Jefe/a de producción', 30, array['produccion:read','produccion:write','inventario:read','compras:read','proyectos:read']),
+  ('manufactura-metal', 'operario', 'Operario/a', 40, array['produccion:read','inventario:read','asistencia:read']),
+  ('manufactura-metal', 'calidad', 'Control de calidad', 50, array['produccion:read','inventario:read']),
+
+  ('manufactura-plastico', 'jefe-produccion', 'Jefe/a de producción', 30, array['produccion:read','produccion:write','inventario:read','compras:read']),
+  ('manufactura-plastico', 'operario', 'Operario/a', 40, array['produccion:read','inventario:read']),
+  ('manufactura-plastico', 'calidad', 'Control de calidad', 50, array['trazabilidad:read','produccion:read']),
+
+  ('manufactura-textil', 'disenador', 'Diseñador/a', 30, array['catalogos:read','catalogos:write','produccion:read','tienda:read']),
+  ('manufactura-textil', 'patronista', 'Patronista', 40, array['produccion:read','produccion:write','catalogos:read']),
+  ('manufactura-textil', 'despachador', 'Despachador/a', 50, array['tienda:read','inventario:read','facturacion:read']),
+
+  ('manufactura-alimentos', 'jefe-produccion', 'Jefe/a de producción', 30, array['produccion:read','produccion:write','inventario:read','compras:read']),
+  ('manufactura-alimentos', 'operario', 'Operario/a', 40, array['produccion:read','inventario:read']),
+  ('manufactura-alimentos', 'calidad', 'Control de calidad', 50, array['trazabilidad:read','produccion:read']),
+
+  -- Servicios profesionales ─────────────────────────────────────────────
+  ('servicios-consultoria', 'consultor', 'Consultor/a', 30, array['proyectos:read','proyectos:write','consultoria:read','consultoria:write','clientes:read','cotizaciones:read','calendario:read']),
+  ('servicios-consultoria', 'analista', 'Analista', 40, array['proyectos:read','consultoria:read','documentos:read']),
+  ('servicios-consultoria', 'gerente-cuenta', 'Gerente/a de cuenta', 50, array['clientes:read','clientes:write','facturacion:read','contratos:read','desempeno:read']),
+
+  ('servicios-contable', 'contador', 'Contador/a', 30, array['clientes:read','clientes:write','facturacion:read','facturacion:write','trazabilidad:read','documentos:read']),
+  ('servicios-contable', 'auxiliar', 'Auxiliar contable', 40, array['clientes:read','facturacion:read','trazabilidad:read']),
+  ('servicios-contable', 'socio', 'Socio/a', 50, array['clientes:read','clientes:write','cotizaciones:read','cotizaciones:write','firmas:read','calendario:read']),
+
+  ('servicios-legal', 'abogado', 'Abogado/a', 30, array['clientes:read','clientes:write','contratos:read','contratos:write','firmas:read','firmas:write','trazabilidad:read','calendario:read']),
+  ('servicios-legal', 'paralegal', 'Paralegal', 40, array['clientes:read','documentos:read','documentos:write','trazabilidad:read','calendario:read']),
+
+  ('servicios-agencia', 'creativo', 'Creativo/a', 30, array['proyectos:read','proyectos:write','clientes:read','documentos:read','calendario:read']),
+  ('servicios-agencia', 'ejecutivo-cuenta', 'Ejecutivo/a de cuenta', 40, array['clientes:read','clientes:write','cotizaciones:read','cotizaciones:write','proyectos:read','calendario:read']),
+  ('servicios-agencia', 'reclutador', 'Reclutador/a', 50, array['reclutamiento:read','reclutamiento:write','desempeno:read','clientes:read']),
+
+  ('servicios-ti', 'ingeniero', 'Ingeniero/a', 30, array['proyectos:read','proyectos:write','clientes:read','inventario:read','tickets:read','tickets:write']),
+  ('servicios-ti', 'soporte', 'Soporte', 40, array['tickets:read','tickets:write','clientes:read','inventario:read']),
+  ('servicios-ti', 'gerente', 'Gerente/a', 50, array['clientes:read','clientes:write','facturacion:read','desempeno:read','cotizaciones:read']),
+
+  -- Logística ───────────────────────────────────────────────────────────
+  ('logistica-carga', 'conductor', 'Conductor/a', 30, array['flota:read','calendario:read','documentos:read']),
+  ('logistica-carga', 'despachador', 'Despachador/a', 40, array['flota:read','flota:write','inventario:read','calendario:read','calendario:write']),
+  ('logistica-carga', 'comercial', 'Comercial', 50, array['clientes:read','clientes:write','contratos:read','facturacion:read','cotizaciones:read']),
+
+  ('logistica-ultima', 'repartidor', 'Repartidor/a', 30, array['flota:read','tienda:read','ecommerce:read','calendario:read']),
+  ('logistica-ultima', 'despachador', 'Despachador/a', 40, array['flota:read','flota:write','inventario:read','ecommerce:read','calendario:read','calendario:write']),
+  ('logistica-ultima', 'soporte', 'Soporte al cliente', 50, array['clientes:read','clientes:write','tickets:read','tickets:write','ecommerce:read']),
+
+  ('logistica-bodegaje', 'jefe-bodega', 'Jefe/a de bodega', 30, array['inventario:read','inventario:write','compras:read','calendario:read']),
+  ('logistica-bodegaje', 'operario', 'Operario/a', 40, array['inventario:read','asistencia:read']),
+  ('logistica-bodegaje', 'comercial', 'Comercial', 50, array['clientes:read','clientes:write','contratos:read','facturacion:read']),
+
+  -- Inmobiliario ────────────────────────────────────────────────────────
+  ('inmobiliario-arriendo', 'asesor', 'Asesor/a', 30, array['inmobiliario:read','inmobiliario:write','clientes:read','clientes:write','contratos:read','contratos:write','calendario:read']),
+  ('inmobiliario-arriendo', 'administrador', 'Administrador/a', 40, array['inmobiliario:read','inmobiliario:write','facturacion:read','mantenimiento:read','tickets:read']),
+  ('inmobiliario-arriendo', 'conserje', 'Conserje', 50, array['mantenimiento:read','mantenimiento:write','tickets:read','tickets:write','calendario:read']),
+
+  ('inmobiliario-ph', 'administrador', 'Administrador/a', 30, array['inmobiliario:read','inmobiliario:write','facturacion:read','contratos:read','tickets:read','tickets:write','calendario:read']),
+  ('inmobiliario-ph', 'consejo', 'Consejo de administración', 40, array['documentos:read','firmas:read','calendario:read']),
+  ('inmobiliario-ph', 'conserje', 'Conserje', 50, array['mantenimiento:read','mantenimiento:write','riesgos:read','hseq:read','tickets:read','tickets:write']),
+
+  ('inmobiliario-corretaje', 'agente', 'Agente inmobiliario/a', 30, array['inmobiliario:read','inmobiliario:write','clientes:read','clientes:write','calendario:read','calendario:write']),
+  ('inmobiliario-corretaje', 'coordinador', 'Coordinador/a', 40, array['inmobiliario:read','clientes:read','clientes:write','desempeno:read','documentos:read']),
+  ('inmobiliario-corretaje', 'cierre', 'Gestor/a de cierre', 50, array['clientes:read','contratos:read','contratos:write','facturacion:read','firmas:read','firmas:write']),
+
+  -- Educación ───────────────────────────────────────────────────────────
+  ('educacion-colegio', 'docente', 'Docente', 30, array['estudiantes:read','estudiantes:write','capacitacion:read','calendario:read','canales:read']),
+  ('educacion-colegio', 'coordinador', 'Coordinador/a', 40, array['estudiantes:read','estudiantes:write','desempeno:read','calendario:read','calendario:write']),
+  ('educacion-colegio', 'secretaria', 'Secretaría', 50, array['estudiantes:read','estudiantes:write','clientes:read','facturacion:read','documentos:read','calendario:read','calendario:write']),
+
+  ('educacion-instituto', 'docente', 'Docente', 30, array['estudiantes:read','estudiantes:write','capacitacion:read','calendario:read']),
+  ('educacion-instituto', 'coordinador', 'Coordinador/a', 40, array['estudiantes:read','estudiantes:write','proyectos:read','calendario:read','calendario:write']),
+  ('educacion-instituto', 'admisiones', 'Admisiones', 50, array['estudiantes:read','estudiantes:write','clientes:read','clientes:write','facturacion:read']),
+
+  ('educacion-academia', 'instructor', 'Instructor/a', 30, array['estudiantes:read','estudiantes:write','capacitacion:read','capacitacion:write','calendario:read']),
+  ('educacion-academia', 'recepcion', 'Recepción', 40, array['estudiantes:read','clientes:read','clientes:write','facturacion:read','calendario:read','calendario:write']),
+
+  ('educacion-universidad', 'docente', 'Docente', 30, array['estudiantes:read','estudiantes:write','calendario:read','canales:read']),
+  ('educacion-universidad', 'coordinador', 'Coordinador/a', 40, array['estudiantes:read','estudiantes:write','desempeno:read','calendario:read','calendario:write','proyectos:read']),
+  ('educacion-universidad', 'admisiones', 'Admisiones', 50, array['estudiantes:read','estudiantes:write','clientes:read','clientes:write','facturacion:read','reclutamiento:read','trazabilidad:read'])
+;
+
 -- ─── Seed: los sugeridos llegan con la empresa ──────────────────────────────
 
 /**

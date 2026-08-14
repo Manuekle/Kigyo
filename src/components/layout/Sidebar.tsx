@@ -5,10 +5,10 @@ import { useMemo, useState, useSyncExternalStore } from 'react'
 import {
   LayoutDashboard, Users, PenLine, Calendar, Clock, Wallet, GraduationCap,
   Package, FileText, MessageSquare, Ticket, ShieldAlert, ShieldCheck, Activity, Sparkles, Settings,
-  X, LogOut, HelpCircle, Kanban, Receipt, ShoppingCart,
+  X, LogOut, HelpCircle, Kanban, Receipt, ShoppingCart, Cashier, Store,
   FileCheck2, LayoutGrid, UserPlus, Tag, ChevronRight, Search,
   Wrench, Car, Factory, Stethoscope, School, Restaurant, Sprout, Home, Bed,
-  Handshake, UserSearch, Target, Building2, DollarSign, Truck, BookOpen,
+  Handshake, UserSearch, UserCheck, Target, Building2, DollarSign, Truck, BookOpen,
 } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
 import CompanySwitcher from '@/components/layout/CompanySwitcher'
@@ -122,6 +122,8 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Kanban: <Kanban size={18} />,
   Receipt: <Receipt size={18} />,
   ShoppingCart: <ShoppingCart size={18} />,
+  Cashier: <Cashier size={18} />,
+  Store: <Store size={18} />,
   FileCheck2: <FileCheck2 size={18} />,
   LayoutGrid: <LayoutGrid size={18} />,
   UserPlus: <UserPlus size={18} />,
@@ -137,6 +139,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Bed: <Bed size={18} />,
   Handshake: <Handshake size={18} />,
   UserSearch: <UserSearch size={18} />,
+  UserCheck: <UserCheck size={18} />,
   Target: <Target size={18} />,
   Building2: <Building2 size={18} />,
   DollarSign: <DollarSign size={18} />,

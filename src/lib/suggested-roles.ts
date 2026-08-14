@@ -167,4 +167,129 @@ export const SUGGESTED_ROLES: Record<string, SuggestedRole[]> = {
     { key: 'calidad', label: 'Supervisor/a de calidad', rank: 40, permissions: ['trazabilidad:read', 'produccion:read', 'agro:read'] },
     { key: 'operario', label: 'Operario/a', rank: 50, permissions: ['produccion:read', 'produccion:write', 'agro:read'] },
   ],
+
+  /* ─── Construcción ──────────────────────────────────────────────────── */
+  'construccion-civil': [
+    { key: 'residente', label: 'Residente de obra', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'riesgos:read', 'hseq:read', 'calendario:read'] },
+    { key: 'almacenista', label: 'Almacenista', rank: 40, permissions: ['inventario:read', 'inventario:write', 'compras:read', 'proyectos:read'] },
+    { key: 'administrativo', label: 'Administrativo/a de obra', rank: 50, permissions: ['clientes:read', 'facturacion:read', 'contratos:read', 'documentos:read', 'flota:read'] },
+  ],
+  'construccion-mep': [
+    { key: 'ingeniero', label: 'Ingeniero/a', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'catalogos:read', 'catalogos:write', 'cotizaciones:read', 'cotizaciones:write', 'compras:read'] },
+    { key: 'instalador', label: 'Instalador/a', rank: 40, permissions: ['proyectos:read', 'catalogos:read', 'inventario:read'] },
+    { key: 'almacenista', label: 'Almacenista', rank: 50, permissions: ['inventario:read', 'inventario:write', 'compras:read', 'proyectos:read'] },
+  ],
+  'construccion-remodel': [
+    { key: 'disenador', label: 'Diseñador/a', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'cotizaciones:read', 'cotizaciones:write', 'catalogos:read', 'clientes:read', 'clientes:write'] },
+    { key: 'oficial', label: 'Oficial de obra', rank: 40, permissions: ['proyectos:read', 'inventario:read'] },
+    { key: 'administrativo', label: 'Administrativo/a', rank: 50, permissions: ['clientes:read', 'facturacion:read', 'cotizaciones:read', 'documentos:read'] },
+  ],
+  'construccion-interv': [
+    { key: 'supervisor', label: 'Supervisor/a', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'trazabilidad:read', 'riesgos:read', 'calendario:read'] },
+    { key: 'inspector', label: 'Inspector/a', rank: 40, permissions: ['trazabilidad:read', 'proyectos:read', 'documentos:read', 'firmas:read'] },
+    { key: 'coordinador', label: 'Coordinador/a', rank: 50, permissions: ['proyectos:read', 'proyectos:write', 'clientes:read', 'calendario:read', 'calendario:write'] },
+  ],
+
+  /* ─── Manufactura ───────────────────────────────────────────────────── */
+  'manufactura-metal': [
+    { key: 'jefe-produccion', label: 'Jefe/a de producción', rank: 30, permissions: ['produccion:read', 'produccion:write', 'inventario:read', 'compras:read', 'proyectos:read'] },
+    { key: 'operario', label: 'Operario/a', rank:40, permissions: ['produccion:read', 'inventario:read', 'asistencia:read'] },
+    { key: 'calidad', label: 'Control de calidad', rank: 50, permissions: ['produccion:read', 'inventario:read'] },
+  ],
+  'manufactura-plastico': [
+    { key: 'jefe-produccion', label: 'Jefe/a de producción', rank: 30, permissions: ['produccion:read', 'produccion:write', 'inventario:read', 'compras:read'] },
+    { key: 'operario', label: 'Operario/a', rank: 40, permissions: ['produccion:read', 'inventario:read'] },
+    { key: 'calidad', label: 'Control de calidad', rank: 50, permissions: ['trazabilidad:read', 'produccion:read'] },
+  ],
+  'manufactura-textil': [
+    { key: 'disenador', label: 'Diseñador/a', rank: 30, permissions: ['catalogos:read', 'catalogos:write', 'produccion:read', 'tienda:read'] },
+    { key: 'patronista', label: 'Patronista', rank: 40, permissions: ['produccion:read', 'produccion:write', 'catalogos:read'] },
+    { key: 'despachador', label: 'Despachador/a', rank: 50, permissions: ['tienda:read', 'inventario:read', 'facturacion:read'] },
+  ],
+  'manufactura-alimentos': [
+    { key: 'jefe-produccion', label: 'Jefe/a de producción', rank: 30, permissions: ['produccion:read', 'produccion:write', 'inventario:read', 'compras:read'] },
+    { key: 'operario', label: 'Operario/a', rank: 40, permissions: ['produccion:read', 'inventario:read'] },
+    { key: 'calidad', label: 'Control de calidad', rank: 50, permissions: ['trazabilidad:read', 'produccion:read'] },
+  ],
+
+  /* ─── Servicios profesionales ───────────────────────────────────────── */
+  'servicios-consultoria': [
+    { key: 'consultor', label: 'Consultor/a', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'consultoria:read', 'consultoria:write', 'clientes:read', 'cotizaciones:read', 'calendario:read'] },
+    { key: 'analista', label: 'Analista', rank: 40, permissions: ['proyectos:read', 'consultoria:read', 'documentos:read'] },
+    { key: 'gerente-cuenta', label: 'Gerente/a de cuenta', rank: 50, permissions: ['clientes:read', 'clientes:write', 'facturacion:read', 'contratos:read', 'desempeno:read'] },
+  ],
+  'servicios-contable': [
+    { key: 'contador', label: 'Contador/a', rank: 30, permissions: ['clientes:read', 'clientes:write', 'facturacion:read', 'facturacion:write', 'trazabilidad:read', 'documentos:read'] },
+    { key: 'auxiliar', label: 'Auxiliar contable', rank: 40, permissions: ['clientes:read', 'facturacion:read', 'trazabilidad:read'] },
+    { key: 'socio', label: 'Socio/a', rank: 50, permissions: ['clientes:read', 'clientes:write', 'cotizaciones:read', 'cotizaciones:write', 'firmas:read', 'calendario:read'] },
+  ],
+  'servicios-legal': [
+    { key: 'abogado', label: 'Abogado/a', rank: 30, permissions: ['clientes:read', 'clientes:write', 'contratos:read', 'contratos:write', 'firmas:read', 'firmas:write', 'trazabilidad:read', 'calendario:read'] },
+    { key: 'paralegal', label: 'Paralegal', rank: 40, permissions: ['clientes:read', 'documentos:read', 'documentos:write', 'trazabilidad:read', 'calendario:read'] },
+  ],
+  'servicios-agencia': [
+    { key: 'creativo', label: 'Creativo/a', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'clientes:read', 'documentos:read', 'calendario:read'] },
+    { key: 'ejecutivo-cuenta', label: 'Ejecutivo/a de cuenta', rank: 40, permissions: ['clientes:read', 'clientes:write', 'cotizaciones:read', 'cotizaciones:write', 'proyectos:read', 'calendario:read'] },
+    { key: 'reclutador', label: 'Reclutador/a', rank: 50, permissions: ['reclutamiento:read', 'reclutamiento:write', 'desempeno:read', 'clientes:read'] },
+  ],
+  'servicios-ti': [
+    { key: 'ingeniero', label: 'Ingeniero/a', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'clientes:read', 'inventario:read', 'tickets:read', 'tickets:write'] },
+    { key: 'soporte', label: 'Soporte', rank: 40, permissions: ['tickets:read', 'tickets:write', 'clientes:read', 'inventario:read'] },
+    { key: 'gerente', label: 'Gerente/a', rank: 50, permissions: ['clientes:read', 'clientes:write', 'facturacion:read', 'desempeno:read', 'cotizaciones:read'] },
+  ],
+
+  /* ─── Logística ─────────────────────────────────────────────────────── */
+  'logistica-carga': [
+    { key: 'conductor', label: 'Conductor/a', rank: 30, permissions: ['flota:read', 'calendario:read', 'documentos:read'] },
+    { key: 'despachador', label: 'Despachador/a', rank: 40, permissions: ['flota:read', 'flota:write', 'inventario:read', 'calendario:read', 'calendario:write'] },
+    { key: 'comercial', label: 'Comercial', rank: 50, permissions: ['clientes:read', 'clientes:write', 'contratos:read', 'facturacion:read', 'cotizaciones:read'] },
+  ],
+  'logistica-ultima': [
+    { key: 'repartidor', label: 'Repartidor/a', rank: 30, permissions: ['flota:read', 'tienda:read', 'ecommerce:read', 'calendario:read'] },
+    { key: 'despachador', label: 'Despachador/a', rank: 40, permissions: ['flota:read', 'flota:write', 'inventario:read', 'ecommerce:read', 'calendario:read', 'calendario:write'] },
+    { key: 'soporte', label: 'Soporte al cliente', rank: 50, permissions: ['clientes:read', 'clientes:write', 'tickets:read', 'tickets:write', 'ecommerce:read'] },
+  ],
+  'logistica-bodegaje': [
+    { key: 'jefe-bodega', label: 'Jefe/a de bodega', rank: 30, permissions: ['inventario:read', 'inventario:write', 'compras:read', 'calendario:read'] },
+    { key: 'operario', label: 'Operario/a', rank: 40, permissions: ['inventario:read', 'asistencia:read'] },
+    { key: 'comercial', label: 'Comercial', rank: 50, permissions: ['clientes:read', 'clientes:write', 'contratos:read', 'facturacion:read'] },
+  ],
+
+  /* ─── Inmobiliario ──────────────────────────────────────────────────── */
+  'inmobiliario-arriendo': [
+    { key: 'asesor', label: 'Asesor/a', rank: 30, permissions: ['inmobiliario:read', 'inmobiliario:write', 'clientes:read', 'clientes:write', 'contratos:read', 'contratos:write', 'calendario:read'] },
+    { key: 'administrador', label: 'Administrador/a', rank: 40, permissions: ['inmobiliario:read', 'inmobiliario:write', 'facturacion:read', 'mantenimiento:read', 'tickets:read'] },
+    { key: 'conserje', label: 'Conserje', rank: 50, permissions: ['mantenimiento:read', 'mantenimiento:write', 'tickets:read', 'tickets:write', 'calendario:read'] },
+  ],
+  'inmobiliario-ph': [
+    { key: 'administrador', label: 'Administrador/a', rank: 30, permissions: ['inmobiliario:read', 'inmobiliario:write', 'facturacion:read', 'contratos:read', 'tickets:read', 'tickets:write', 'calendario:read'] },
+    { key: 'consejo', label: 'Consejo de administración', rank: 40, permissions: ['documentos:read', 'firmas:read', 'calendario:read'] },
+    { key: 'conserje', label: 'Conserje', rank: 50, permissions: ['mantenimiento:read', 'mantenimiento:write', 'riesgos:read', 'hseq:read', 'tickets:read', 'tickets:write'] },
+  ],
+  'inmobiliario-corretaje': [
+    { key: 'agente', label: 'Agente inmobiliario/a', rank: 30, permissions: ['inmobiliario:read', 'inmobiliario:write', 'clientes:read', 'clientes:write', 'calendario:read', 'calendario:write'] },
+    { key: 'coordinador', label: 'Coordinador/a', rank: 40, permissions: ['inmobiliario:read', 'clientes:read', 'clientes:write', 'desempeno:read', 'documentos:read'] },
+    { key: 'cierre', label: 'Gestor/a de cierre', rank: 50, permissions: ['clientes:read', 'contratos:read', 'contratos:write', 'facturacion:read', 'firmas:read', 'firmas:write'] },
+  ],
+
+  /* ─── Educación ─────────────────────────────────────────────────────── */
+  'educacion-colegio': [
+    { key: 'docente', label: 'Docente', rank: 30, permissions: ['estudiantes:read', 'estudiantes:write', 'capacitacion:read', 'calendario:read', 'canales:read'] },
+    { key: 'coordinador', label: 'Coordinador/a', rank: 40, permissions: ['estudiantes:read', 'estudiantes:write', 'desempeno:read', 'calendario:read', 'calendario:write'] },
+    { key: 'secretaria', label: 'Secretaría', rank: 50, permissions: ['estudiantes:read', 'estudiantes:write', 'clientes:read', 'facturacion:read', 'documentos:read', 'calendario:read', 'calendario:write'] },
+  ],
+  'educacion-instituto': [
+    { key: 'docente', label: 'Docente', rank: 30, permissions: ['estudiantes:read', 'estudiantes:write', 'capacitacion:read', 'calendario:read'] },
+    { key: 'coordinador', label: 'Coordinador/a', rank: 40, permissions: ['estudiantes:read', 'estudiantes:write', 'proyectos:read', 'calendario:read', 'calendario:write'] },
+    { key: 'admisiones', label: 'Admisiones', rank: 50, permissions: ['estudiantes:read', 'estudiantes:write', 'clientes:read', 'clientes:write', 'facturacion:read'] },
+  ],
+  'educacion-academia': [
+    { key: 'instructor', label: 'Instructor/a', rank: 30, permissions: ['estudiantes:read', 'estudiantes:write', 'capacitacion:read', 'capacitacion:write', 'calendario:read'] },
+    { key: 'recepcion', label: 'Recepción', rank: 40, permissions: ['estudiantes:read', 'clientes:read', 'clientes:write', 'facturacion:read', 'calendario:read', 'calendario:write'] },
+  ],
+  'educacion-universidad': [
+    { key: 'docente', label: 'Docente', rank: 30, permissions: ['estudiantes:read', 'estudiantes:write', 'calendario:read', 'canales:read'] },
+    { key: 'coordinador', label: 'Coordinador/a', rank: 40, permissions: ['estudiantes:read', 'estudiantes:write', 'desempeno:read', 'calendario:read', 'calendario:write', 'proyectos:read'] },
+    { key: 'admisiones', label: 'Admisiones', rank: 50, permissions: ['estudiantes:read', 'estudiantes:write', 'clientes:read', 'clientes:write', 'facturacion:read', 'reclutamiento:read', 'trazabilidad:read'] },
+  ],
 }
