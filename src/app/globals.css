@@ -495,10 +495,12 @@
   text-align: left;
   transition:
     background var(--hover-dur) var(--hover-ease),
+    scale 120ms var(--hover-ease),
     border-color var(--hover-dur) var(--hover-ease);
 }
 .cswitch-trigger:hover { border-color: var(--line); }
 .cswitch-trigger:disabled { opacity: .6; cursor: progress; }
+.cswitch-trigger:active, .suser:active { scale: .96; }
 .cswitch-trigger svg { color: var(--ink3); flex-shrink: 0; }
 .cswitch-name {
   flex: 1;
@@ -530,7 +532,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border-radius: var(--r);
+  border-radius: 10px;
   text-align: left;
   color: var(--ink2);
   transition: background var(--hover-dur) var(--hover-ease), color var(--hover-dur) var(--hover-ease);
@@ -724,7 +726,7 @@
   border-radius: 10px;
   width: 100%;
   text-align: left;
-  transition: background var(--hover-dur) var(--hover-ease);
+  transition: background var(--hover-dur) var(--hover-ease), scale 120ms var(--hover-ease);
 }
 .suser:hover { background: var(--hover); }
 
@@ -2142,7 +2144,6 @@ button.notifitem:hover { background: var(--hover); cursor: pointer; }
   opacity: 0;
   pointer-events: none;
   transition: transform var(--dropdown-open-dur) var(--dropdown-ease), opacity var(--dropdown-open-dur) var(--dropdown-ease);
-  will-change: transform, opacity;
 }
 .t-dropdown.is-open { transform: scale(1); opacity: 1; pointer-events: auto; }
 .t-dropdown.is-closing {
@@ -2157,7 +2158,6 @@ button.notifitem:hover { background: var(--hover); cursor: pointer; }
   opacity: 0;
   pointer-events: none;
   transition: transform var(--modal-open-dur) var(--modal-ease), opacity var(--modal-open-dur) var(--modal-ease);
-  will-change: transform, opacity;
 }
 .t-modal.is-open { transform: scale(1); opacity: 1; pointer-events: auto; }
 .t-modal.is-closing {
@@ -3755,7 +3755,7 @@ select.field option { font-weight: 400; color: var(--ink); background: var(--ele
   gap: 8px;
   width: 100%;
   padding: 9px 12px;
-  border-radius: var(--r-sm);
+  border-radius: 10px;
   font-size: 13.5px;
   font-weight: 400;
   color: var(--ink2);
