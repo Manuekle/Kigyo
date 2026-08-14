@@ -1,13 +1,14 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { FileCheck2, Check, Truck, X, Calendar } from '@/lib/icons'
+import { FileCheck2, Check, Truck, X, Calendar, FileSpreadsheet } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import Badge from '@/components/ui/Badge'
 import TabBar from '@/components/ui/TabBar'
 import { useApp } from '@/lib/context/AppContext'
 import { activatable } from '@/lib/a11y'
 import { cop } from '@/lib/utils'
+import { useExport } from '@/lib/hooks/use-export'
 import { PURCHASE_ORDER_STATUSES } from '@/lib/domain'
 import LoadMore from '@/components/ui/LoadMore'
 import type { ComprasData, OrdenRow } from '@/server/queries/compras'
@@ -32,6 +33,7 @@ const STATUS_TONE: Record<string, 'grn' | 'amb' | 'blu' | 'neu'> = {
 }
 
 export default function OrdenesCompraPage({ data }: { data: ComprasData }) {
+  const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
@@ -84,6 +86,20 @@ export default function OrdenesCompraPage({ data }: { data: ComprasData }) {
     })
   }
 
+  const exportRows = () => {
+    void runExport(
+      ordenes.map((o) => ({
+        Código: o.code ?? '',
+        Proveedor: o.supplier,
+        Emitida: fmt(o.issuedOn),
+        Estado: o.status,
+        Total: cop(o.totalCents / 100),
+      })),
+      'ordenes-compra-kigyo',
+      'ordenes-compra',
+    )
+  }
+
   return (
     <div>
       <div className="g3" style={{ marginBottom: 16 }}>
@@ -103,6 +119,7 @@ export default function OrdenesCompraPage({ data }: { data: ComprasData }) {
             Compras, which is where the lines and the supplier already are.
           */}
           <span className="kvs">Las órdenes se generan desde una requisición aprobada, en Compras.</span>
+          <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
         </div>
         <div style={{ maxHeight: 280, overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <div className="tblwrap">

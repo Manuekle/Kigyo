@@ -52,7 +52,7 @@ export default function EmpleadoDetailPage({ data }: { data: EmpleadoDetail }) {
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--ink2)', fontSize: 13, marginLeft: 12 }}>
-            <Shield size={13} /> {emp.accessRole}
+            <Shield size={13} /> {emp.intendedRole}
           </div>
         </div>
       </div>

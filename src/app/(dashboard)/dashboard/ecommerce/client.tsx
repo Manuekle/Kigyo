@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Truck, Check, Plus, Trash2, Tag, DollarSign, Package } from '@/lib/icons'
+import { Truck, Check, Plus, Trash2, Tag, DollarSign, Package, PenLine, RotateCcw, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -10,11 +10,13 @@ import Toggle from '@/components/ui/Toggle'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { ONLINE_ORDER_STATUSES, SHIPPING_METHODS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { EcommerceData, OnlineOrderRow } from '@/server/queries/ecommerce'
+import type { CouponRow, DevolucionRow, EcommerceData, OnlineOrderRow } from '@/server/queries/ecommerce'
 import {
-  createCupon, createPedido, deletePedido, setCuponActivo, setPedidoStatus,
+  createCupon, createPedido, deletePedido, registrarDevolucion, setCuponActivo,
+  setPedidoStatus, setPedidoTracking, updateCupon,
 } from '@/server/mutations/ecommerce'
 import { fetchMorePedidos } from '@/server/actions/ecommerce'
 
@@ -62,6 +64,7 @@ function isOpen(status: string): boolean {
 }
 
 export default function EcommercePage({ data }: { data: EcommerceData }) {
+  const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
@@ -69,6 +72,7 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
   const [total, setTotal] = useState(data.pedidosTotal)
   const [items, setItems] = useState(data.items)
   const [cupones, setCupones] = useState(data.cupones)
+  const [devoluciones, setDevoluciones] = useState<DevolucionRow[]>(data.devoluciones)
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
 
@@ -80,12 +84,21 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
   const [orderForm, setOrderForm] = useState(EMPTY_ORDER)
   const [draftItems, setDraftItems] = useState<DraftItem[]>([{ ...EMPTY_ITEM }])
   const [couponForm, setCouponForm] = useState(EMPTY_COUPON)
+  const [editingCoupon, setEditingCoupon] = useState<CouponRow | null>(null)
+  const [returnOpen, setReturnOpen] = useState(false)
+  const [returnOrder, setReturnOrder] = useState<OnlineOrderRow | null>(null)
+  const [returnReason, setReturnReason] = useState('')
+  const [returnAmount, setReturnAmount] = useState('0')
+  const [trackingOpen, setTrackingOpen] = useState(false)
+  const [trackingOrder, setTrackingOrder] = useState<OnlineOrderRow | null>(null)
+  const [trackingCode, setTrackingCode] = useState('')
 
   function apply(next: EcommerceData) {
     setPedidos(next.pedidos)
     setTotal(next.pedidosTotal)
     setItems(next.items)
     setCupones(next.cupones)
+    setDevoluciones(next.devoluciones)
   }
 
   function loadMore() {
@@ -124,6 +137,18 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
     (sum, item) => sum + Math.round((Number(item.quantity) || 0) * toCents(item.unitPrice)), 0,
   )
 
+  const exportRows = () => {
+    void runExport(
+      data.productos.map((p) => ({
+        Nombre: p.name,
+        SKU: p.sku,
+        Precio: pesos(p.priceCents),
+      })),
+      'ecommerce-kigyo',
+      'ecommerce',
+    )
+  }
+
   function changeStatus(p: OnlineOrderRow, status: string) {
     // Only ask for a tracking number where one exists — a pickup order has none
     // and a prompt on every transition trains people to dismiss it.
@@ -157,6 +182,48 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
     })
   }
 
+  function startReturn(p: OnlineOrderRow) {
+    setReturnOrder(p)
+    setReturnReason('')
+    setReturnAmount('0')
+    setReturnOpen(true)
+  }
+
+  function submitReturn() {
+    if (!returnOrder) return
+    startTransition(async () => {
+      const result = await registrarDevolucion({
+        orderId: returnOrder.id,
+        reason: returnReason,
+        amountCents: toCents(returnAmount),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setReturnOpen(false)
+      addToast('Devolución registrada', 'ok')
+    })
+  }
+
+  function startTracking(p: OnlineOrderRow) {
+    setTrackingOrder(p)
+    setTrackingCode(p.trackingCode ?? '')
+    setTrackingOpen(true)
+  }
+
+  function submitTracking() {
+    if (!trackingOrder) return
+    startTransition(async () => {
+      const result = await setPedidoTracking({
+        orderId: trackingOrder.id,
+        trackingCode: trackingCode.trim(),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setTrackingOpen(false)
+      addToast('Código de seguimiento guardado', 'ok')
+    })
+  }
+
   function submitOrder() {
     startTransition(async () => {
       const result = await createPedido({
@@ -185,23 +252,42 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
     })
   }
 
+  function startEdit(c: CouponRow) {
+    setEditingCoupon(c)
+    setCouponForm({
+      code: c.code,
+      discountKind: c.percentOff !== null ? 'percent' : 'amount',
+      percentOff: c.percentOff !== null ? String(c.percentOff) : '10',
+      amountOff: c.amountOffCents !== null ? String(Math.round(c.amountOffCents / 100)) : '',
+      minTotal: c.minTotalCents > 0 ? String(Math.round(c.minTotalCents / 100)) : '',
+      maxUses: c.maxUses !== null ? String(c.maxUses) : '',
+      startsOn: c.startsOn ?? '',
+      expiresOn: c.expiresOn ?? '',
+    })
+    setCouponOpen(true)
+  }
+
   function submitCoupon() {
     const percent = couponForm.discountKind === 'percent'
+    const payload = {
+      code: couponForm.code,
+      percentOff: percent ? couponForm.percentOff : null,
+      amountOffCents: percent ? null : toCents(couponForm.amountOff),
+      minTotalCents: toCents(couponForm.minTotal),
+      maxUses: orNull(couponForm.maxUses),
+      startsOn: orNull(couponForm.startsOn),
+      expiresOn: orNull(couponForm.expiresOn),
+    }
     startTransition(async () => {
-      const result = await createCupon({
-        code: couponForm.code,
-        percentOff: percent ? couponForm.percentOff : null,
-        amountOffCents: percent ? null : toCents(couponForm.amountOff),
-        minTotalCents: toCents(couponForm.minTotal),
-        maxUses: orNull(couponForm.maxUses),
-        startsOn: orNull(couponForm.startsOn),
-        expiresOn: orNull(couponForm.expiresOn),
-      })
+      const result = editingCoupon
+        ? await updateCupon({ id: editingCoupon.id, ...payload })
+        : await createCupon(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
+      setEditingCoupon(null)
       setCouponForm(EMPTY_COUPON)
       setCouponOpen(false)
-      addToast('Cupón creado', 'ok')
+      addToast(editingCoupon ? 'Cupón actualizado' : 'Cupón creado', 'ok')
     })
   }
 
@@ -230,25 +316,29 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
           <TabBar
             items={[
               { key: 'pedidos', label: 'Pedidos' },
+              { key: 'devoluciones', label: 'Devoluciones' },
               { key: 'cupones', label: 'Cupones' },
             ]}
             value={tab}
             onChange={setTab}
           />
-          {data.canWrite && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              {tab === 'cupones' ? (
-                <button className="btn dark" disabled={pending} onClick={() => setCouponOpen(true)}>
-                  <Plus size={15} />Cupón
-                </button>
-              ) : (
-                <button className="btn dark" disabled={pending}
-                  onClick={() => { setDraftItems([{ ...EMPTY_ITEM }]); setOrderOpen(true) }}>
-                  <Plus size={15} />Pedido
-                </button>
-              )}
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
+            {data.canWrite && tab !== 'devoluciones' && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                {tab === 'cupones' ? (
+                  <button className="btn dark" disabled={pending} onClick={() => setCouponOpen(true)}>
+                    <Plus size={15} />Cupón
+                  </button>
+                ) : (
+                  <button className="btn dark" disabled={pending}
+                    onClick={() => { setDraftItems([{ ...EMPTY_ITEM }]); setOrderOpen(true) }}>
+                    <Plus size={15} />Pedido
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {tab === 'pedidos' && (
@@ -323,6 +413,18 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
                                 onChange={(next) => { if (next !== p.status) changeStatus(p, next) }}
                                 options={[...ONLINE_ORDER_STATUSES]}
                               />
+                              {p.status !== 'Cancelado' && p.status !== 'Devuelto' && (
+                                <>
+                                  <button className="ibtn" aria-label={`Devolver ${p.code ?? 'pedido'}`}
+                                    title="Devolución" disabled={pending} onClick={() => startReturn(p)}>
+                                    <RotateCcw size={14} />
+                                  </button>
+                                  <button className="ibtn" aria-label={`Guía de ${p.code ?? 'pedido'}`}
+                                    title="Seguimiento" disabled={pending} onClick={() => startTracking(p)}>
+                                    <Truck size={14} />
+                                  </button>
+                                </>
+                              )}
                               <button className="ibtn" aria-label={`Eliminar ${p.code}`}
                                 disabled={pending} onClick={() => remove(p)}>
                                 <Trash2 size={14} />
@@ -395,12 +497,13 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
                   <th scope="col">Usos</th>
                   <th scope="col">Vigencia</th>
                   <th scope="col">Activo</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
                 </tr>
               </thead>
               <tbody>
                 {cupones.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={data.canWrite ? 7 : 6}>
                       <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
                         No hay cupones creados.
                       </div>
@@ -432,6 +535,51 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
                           tone={c.isActive ? 'grn' : 'neu'} />
                       )}
                     </td>
+                    {data.canWrite && (
+                      <td>
+                        <button className="ibtn" aria-label={`Editar ${c.code}`}
+                          disabled={pending} onClick={() => startEdit(c)}>
+                          <PenLine size={14} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === 'devoluciones' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Pedido</th>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">Motivo</th>
+                  <th scope="col">Valor</th>
+                  <th scope="col">Fecha</th>
+                  <th scope="col" aria-label="Acciones" />
+                </tr>
+              </thead>
+              <tbody>
+                {devoluciones.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Sin devoluciones registradas.
+                      </div>
+                    </td>
+                  </tr>
+                ) : devoluciones.map((d) => (
+                  <tr key={d.id}>
+                    <td className="cename mono">{d.orderCode ?? '—'}</td>
+                    <td className="cename">{d.customerName}</td>
+                    <td>{d.reason}</td>
+                    <td>{pesos(d.amountCents)}</td>
+                    <td>{formatDate(d.createdAt)}</td>
+                    <td />
                   </tr>
                 ))}
               </tbody>
@@ -568,11 +716,11 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
 
       <FormDrawer
         open={couponOpen}
-        onClose={() => setCouponOpen(false)}
-        title="Nuevo cupón"
+        onClose={() => { setEditingCoupon(null); setCouponOpen(false) }}
+        title={editingCoupon ? 'Editar cupón' : 'Nuevo cupón'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitCoupon}>
-            <Check size={15} />Crear cupón
+            <Check size={15} />{editingCoupon ? 'Guardar cupón' : 'Crear cupón'}
           </button>
         }
       >
@@ -632,6 +780,46 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
               onChange={(e) => setCouponForm({ ...couponForm, expiresOn: e.target.value })} />
           </div>
         </div>
+      </FormDrawer>
+
+      <FormDrawer
+        open={returnOpen}
+        onClose={() => setReturnOpen(false)}
+        title={returnOrder ? `Devolver ${returnOrder.code ?? 'pedido'}` : 'Devolución'}
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitReturn}>
+            <Check size={15} />Registrar devolución
+          </button>
+        }
+      >
+        {returnOrder && (
+          <div className="elsub" style={{ marginBottom: 12 }}>
+            {returnOrder.customerName} · {pesos(returnOrder.totalCents)}
+          </div>
+        )}
+        <label className="flabel" htmlFor="ret-reason">Motivo</label>
+        <textarea id="ret-reason" className="field" rows={3} value={returnReason}
+          onChange={(e) => setReturnReason(e.target.value)}
+          placeholder="Ej: llegó dañado, talla incorrecta" />
+        <label className="flabel" htmlFor="ret-amount">Valor a devolver (COP)</label>
+        <input id="ret-amount" className="field" inputMode="numeric" value={returnAmount}
+          onChange={(e) => setReturnAmount(e.target.value)} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={trackingOpen}
+        onClose={() => setTrackingOpen(false)}
+        title={trackingOrder ? `Seguimiento ${trackingOrder.code ?? 'del pedido'}` : 'Seguimiento'}
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitTracking}>
+            <Check size={15} />Guardar código
+          </button>
+        }
+      >
+        <label className="flabel" htmlFor="trk-code">Código de seguimiento</label>
+        <input id="trk-code" className="field" value={trackingCode}
+          onChange={(e) => setTrackingCode(e.target.value)}
+          placeholder="Número de guía" />
       </FormDrawer>
     </>
   )

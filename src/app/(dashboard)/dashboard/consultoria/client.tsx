@@ -1,17 +1,18 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { MessageSquare, Clock, Check, Calendar, Plus, CalendarClock, X } from '@/lib/icons'
+import { MessageSquare, Clock, Check, Calendar, Plus, CalendarClock, X, PenLine, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Stat from '@/components/ui/Stat'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { CONSULTATION_CATEGORIES } from '@/lib/domain'
 import LoadMore from '@/components/ui/LoadMore'
 import type { ConsultoriaData, ConsultaRow } from '@/server/queries/consultoria'
 import { fetchMoreConsultas } from '@/server/actions/consultoria'
-import { createConsulta, scheduleSesion, setConsultaStatus } from '@/server/mutations/consultoria'
+import { createConsulta, scheduleSesion, setConsultaStatus, updateConsulta } from '@/server/mutations/consultoria'
 
 const DATE = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short' })
 const DATETIME = new Intl.DateTimeFormat('es-CO', {
@@ -33,10 +34,12 @@ function toLocalInput(d: Date): string {
 
 export default function ConsultoriaPage({ data }: { data: ConsultoriaData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<ConsultoriaData>(data)
   const [addOpen, setAddOpen] = useState(false)
+  const [editing, setEditing] = useState<ConsultaRow | null>(null)
   const [schedOpen, setSchedOpen] = useState(false)
   const [form, setForm] = useState({ topic: '', requesterId: '', category: 'Otro', advisor: '' })
 
@@ -64,6 +67,21 @@ export default function ConsultoriaPage({ data }: { data: ConsultoriaData }) {
     })
   }
 
+  const exportRows = () => {
+    void runExport(
+      consultas.map((c) => ({
+        Código: c.code ?? '',
+        Tema: c.topic,
+        Solicitante: c.requesterName ?? '',
+        Categoría: c.category,
+        Asesor: c.advisor,
+        Estado: c.status,
+      })),
+      'consultas-kigyo',
+      'consultoria',
+    )
+  }
+
   const stats = useMemo(() => ({
     pendientes: consultas.filter((c) => c.status === 'Agendada' || c.status === 'En curso').length,
     resueltas: consultas.filter((c) => c.status === 'Resuelta').length,
@@ -81,18 +99,23 @@ export default function ConsultoriaPage({ data }: { data: ConsultoriaData }) {
 
   function submit() {
     if (!form.topic.trim()) { addToast('Describe el tema de la consulta', 'err'); return }
+    const target = editing
     startTransition(async () => {
-      const result = await createConsulta({
+      const payload = {
         topic: form.topic.trim(),
         requesterId: form.requesterId || null,
         category: form.category as (typeof CONSULTATION_CATEGORIES)[number],
         advisor: form.advisor.trim(),
-      })
+      }
+      const result = target
+        ? await updateConsulta({ id: target.id, ...payload })
+        : await createConsulta(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       setState(result.data)
       setAddOpen(false)
+      setEditing(null)
       setForm({ topic: '', requesterId: '', category: 'Otro', advisor: '' })
-      addToast('Consulta registrada', 'ok')
+      addToast(target ? 'Sesión actualizada' : 'Consulta registrada', 'ok')
     })
   }
 
@@ -109,9 +132,12 @@ export default function ConsultoriaPage({ data }: { data: ConsultoriaData }) {
         <div className="card rise d1">
           <div className="chead">
             <div className="ctitle">Solicitudes de consultoría</div>
-            {state.canWrite && (
-              <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={15} />Nueva consulta</button>
-            )}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
+              {state.canWrite && (
+                <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={15} />Nueva consulta</button>
+              )}
+            </div>
           </div>
           <div className="tblwrap">
             <table className="tbl">
@@ -132,10 +158,15 @@ export default function ConsultoriaPage({ data }: { data: ConsultoriaData }) {
                     <td className="muted">{c.requesterName ?? '—'}</td>
                     <td><Badge st={c.status} /></td>
                     <td style={{ textAlign: 'right' }}>
-                      {state.canWrite && c.status !== 'Resuelta' && c.status !== 'Cancelada' && (
-                        <button className="btn" disabled={pending} onClick={() => advance(c)}>
-                          {c.status === 'Agendada' ? 'Iniciar' : 'Resolver'}
-                        </button>
+                      {state.canWrite && (
+                        <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                          <button className="ibtn" style={{ width: 30, height: 30, borderRadius: 9 }} data-tip="Editar" aria-label={`Editar ${c.topic}`} onClick={() => { setForm({ topic: c.topic, requesterId: c.requesterId ?? '', category: c.category, advisor: c.advisor }); setEditing(c); setAddOpen(true) }}><PenLine size={14} /></button>
+                          {c.status !== 'Resuelta' && c.status !== 'Cancelada' && (
+                            <button className="btn" disabled={pending} onClick={() => advance(c)}>
+                              {c.status === 'Agendada' ? 'Iniciar' : 'Resolver'}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -206,10 +237,10 @@ export default function ConsultoriaPage({ data }: { data: ConsultoriaData }) {
         </div>
       </div>
 
-      {addOpen && (
-        <div className="mwrap" onClick={() => setAddOpen(false)}>
+      {(addOpen || editing) && (
+        <div className="mwrap" onClick={() => { setAddOpen(false); setEditing(null) }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="mhead"><div className="mtitle">Nueva consulta</div><button className="ibtn" onClick={() => setAddOpen(false)} aria-label="Cerrar"><X size={18} /></button></div>
+            <div className="mhead"><div className="mtitle">{editing ? 'Editar consulta' : 'Nueva consulta'}</div><button className="ibtn" onClick={() => { setAddOpen(false); setEditing(null) }} aria-label="Cerrar"><X size={18} /></button></div>
             <div className="mbody">
               <div className="flabel" style={{ marginTop: 0 }}>Tema</div>
               <input className="field" value={form.topic} onChange={(e) => setForm((f) => ({ ...f, topic: e.target.value }))} placeholder="Ej. Revisión de contrato laboral" />
@@ -233,9 +264,9 @@ export default function ConsultoriaPage({ data }: { data: ConsultoriaData }) {
               <input className="field" value={form.advisor} onChange={(e) => setForm((f) => ({ ...f, advisor: e.target.value }))} placeholder="Ej. Asesor laboral externo" />
             </div>
             <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
-              <button className="btn" onClick={() => setAddOpen(false)} disabled={pending}>Cancelar</button>
+              <button className="btn" onClick={() => { setAddOpen(false); setEditing(null) }} disabled={pending}>Cancelar</button>
               <button className="btn dark" onClick={submit} disabled={pending} aria-busy={pending}>
-                {pending ? 'Registrando…' : 'Registrar'}
+                {pending ? 'Guardando…' : editing ? 'Guardar' : 'Registrar'}
               </button>
             </div></div>
           </div>

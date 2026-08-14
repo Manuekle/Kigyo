@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import {
   ShoppingCart, Search, X, Trash2, Package, Tag, DollarSign,
-  LayoutGrid, Zap, Layers, Settings,
+  LayoutGrid, Zap, Layers, Settings, FileSpreadsheet,
 } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'

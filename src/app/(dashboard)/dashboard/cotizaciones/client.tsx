@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import {
-  Receipt, TrendingUp, Check, Clock, Plus, X, PenLine, Trash2, ChevronRight,
+  Receipt, TrendingUp, Check, Clock, Plus, X, PenLine, Trash2, ChevronRight, FileSpreadsheet,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import Badge from '@/components/ui/Badge'
@@ -11,6 +11,7 @@ import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { activatable } from '@/lib/a11y'
 import { cop } from '@/lib/utils'
 import { QUOTE_KINDS, QUOTE_STATUSES, lineTotalCents, pesosToCents } from '@/lib/domain'
@@ -63,6 +64,7 @@ const lineTotal = (i: DraftItem) =>
 
 export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<CotizacionesData>(data)
@@ -112,6 +114,19 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
   }, [cotizaciones, state.cotizacionesTotal])
 
   const filtered = filter === 'Todas' ? cotizaciones : cotizaciones.filter((q) => q.status === filter)
+
+  const exportRows = () => {
+    void runExport(
+      filtered.map((q) => ({
+        Cliente: q.client ?? '',
+        Ítem: q.items.map((i) => i.description).join(' · ') ?? '',
+        Valor: cop(q.totalCents / 100) ?? '',
+        Estado: q.status ?? '',
+      })),
+      'cotizaciones-kigyo',
+      'cotizaciones',
+    )
+  }
 
   function apply(next: CotizacionesData, message: string) {
     setState(next)
@@ -212,6 +227,7 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
               label: s === 'Todas' ? `Todas · ${cotizaciones.length}` : `${s} · ${cotizaciones.filter((q) => q.status === s).length}`,
             }))}
           />
+          <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
           {state.canWrite && (
             <button className="btn pri" onClick={() => openEditor(null)}><Plus size={15} />Nueva cotización</button>
           )}

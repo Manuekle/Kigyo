@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Sprout, Check, Plus, Trash2, Package, DollarSign, MapPin } from '@/lib/icons'
+import { Sprout, Check, Plus, Trash2, PenLine, Package, DollarSign, MapPin, Wrench, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -11,10 +11,12 @@ import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
 import { CROP_CYCLE_STATUSES, LOT_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { AgroData, LotRow } from '@/server/queries/agro'
+import { useExport } from '@/lib/hooks/use-export'
+import type { AgroData, InsumoRow, LotRow, MaquinaRow } from '@/server/queries/agro'
 import {
-  createCiclo, createLote, deleteLote, registrarCosecha,
-  setCicloStatus, setLoteStatus,
+  createCiclo, createInsumo, createLote, createMaquina, deleteInsumo, deleteLote,
+  deleteMaquina, registrarCosecha, setCicloStatus, setInsumoStock, setLoteStatus,
+  setMaquinaStatus, updateLote,
 } from '@/server/mutations/agro'
 import { fetchMoreLotes } from '@/server/actions/agro'
 
@@ -40,6 +42,19 @@ function orNull(value: string): string | null {
 const TODAY = () => new Date().toISOString().slice(0, 10)
 
 const EMPTY_LOT = { name: '', farm: '', hectares: '', soilType: '', location: '', notes: '' }
+
+type LotFormState = typeof EMPTY_LOT
+
+function toLotForm(l: LotRow): LotFormState {
+  return {
+    name: l.name,
+    farm: l.farm,
+    hectares: String(l.hectares),
+    soilType: l.soilType,
+    location: l.location,
+    notes: l.notes,
+  }
+}
 const EMPTY_CYCLE = {
   lotId: '', crop: '', variety: '', hectares: '', sownOn: '', expectedHarvestOn: '',
   expectedYieldKg: '', inputCost: '', responsibleId: '', notes: '',
@@ -48,30 +63,47 @@ const EMPTY_HARVEST = {
   cycleId: '', quantityKg: '', quality: '', pricePerKg: '', buyer: '', harvestedOn: '', notes: '',
 }
 
+const INSUMO_KINDS = ['Semilla', 'Fertilizante', 'Agroquímico', 'Biocontrol', 'Otro'] as const
+const MAQUINA_KINDS = ['Tractor', 'Implemento', 'Cosechadora', 'Riego', 'Otro'] as const
+const MAQUINA_STATUSES = ['Operativa', 'En mantenimiento', 'Fuera de servicio'] as const
+
+const EMPTY_INSUMO = { name: '', kind: 'Semilla', stockQty: '', unit: 'kg', supplier: '', unitCost: '' }
+const EMPTY_MAQUINA = { name: '', kind: 'Tractor', serialNo: '', hoursUsed: '', notes: '' }
+
 export default function AgroPage({ data }: { data: AgroData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
   const [lotes, setLotes] = useState<LotRow[]>(data.lotes)
   const [total, setTotal] = useState(data.lotesTotal)
   const [ciclos, setCiclos] = useState(data.ciclos)
   const [cosechas, setCosechas] = useState(data.cosechas)
+  const [insumos, setInsumos] = useState(data.insumos)
+  const [maquinaria, setMaquinaria] = useState(data.maquinaria)
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
 
   const [tab, setTab] = useState('ciclos')
   const [lotOpen, setLotOpen] = useState(false)
+  const [editingLot, setEditingLot] = useState<LotRow | null>(null)
   const [cycleOpen, setCycleOpen] = useState(false)
   const [harvestOpen, setHarvestOpen] = useState(false)
+  const [insumoOpen, setInsumoOpen] = useState(false)
+  const [maquinaOpen, setMaquinaOpen] = useState(false)
   const [lotForm, setLotForm] = useState(EMPTY_LOT)
   const [cycleForm, setCycleForm] = useState(EMPTY_CYCLE)
   const [harvestForm, setHarvestForm] = useState(EMPTY_HARVEST)
+  const [insumoForm, setInsumoForm] = useState(EMPTY_INSUMO)
+  const [maquinaForm, setMaquinaForm] = useState(EMPTY_MAQUINA)
 
   function apply(next: AgroData) {
     setLotes(next.lotes)
     setTotal(next.lotesTotal)
     setCiclos(next.ciclos)
     setCosechas(next.cosechas)
+    setInsumos(next.insumos)
+    setMaquinaria(next.maquinaria)
   }
 
   function loadMore() {
@@ -85,6 +117,24 @@ export default function AgroPage({ data }: { data: AgroData }) {
       })
       setTotal(result.data.total)
     })
+  }
+
+  const exportRows = () => {
+    void runExport(
+      lotes.map((l) => ({
+        Código: l.code ?? '',
+        Lote: l.name,
+        Finca: l.farm,
+        Hectáreas: l.hectares,
+        'Tipo de suelo': l.soilType,
+        Ubicación: l.location,
+        'Ciclos activos': l.activeCycles,
+        Estado: l.status,
+        Notas: l.notes,
+      })),
+      'lotes-kigyo',
+      'agro',
+    )
   }
 
   const responsibleName = useMemo(() => {
@@ -138,21 +188,32 @@ export default function AgroPage({ data }: { data: AgroData }) {
     })
   }
 
+  function startEdit(l: LotRow) {
+    setLotForm(toLotForm(l))
+    setEditingLot(l)
+    setLotOpen(true)
+  }
+
   function submitLot() {
+    const editing = editingLot
+    const payload = {
+      name: lotForm.name,
+      farm: lotForm.farm,
+      hectares: lotForm.hectares || 0,
+      soilType: lotForm.soilType,
+      location: lotForm.location,
+      notes: lotForm.notes,
+    }
     startTransition(async () => {
-      const result = await createLote({
-        name: lotForm.name,
-        farm: lotForm.farm,
-        hectares: lotForm.hectares || 0,
-        soilType: lotForm.soilType,
-        location: lotForm.location,
-        notes: lotForm.notes,
-      })
+      const result = editing
+        ? await updateLote({ id: editing.id, ...payload })
+        : await createLote(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setLotForm(EMPTY_LOT)
+      setEditingLot(null)
       setLotOpen(false)
-      addToast('Lote creado', 'ok')
+      addToast(editing ? 'Lote actualizado' : 'Lote creado', 'ok')
     })
   }
 
@@ -197,6 +258,79 @@ export default function AgroPage({ data }: { data: AgroData }) {
     })
   }
 
+  function submitInsumo() {
+    startTransition(async () => {
+      const result = await createInsumo({
+        name: insumoForm.name,
+        kind: insumoForm.kind as never,
+        stockQty: insumoForm.stockQty || 0,
+        unit: insumoForm.unit,
+        supplier: insumoForm.supplier,
+        unitCostCents: toCents(insumoForm.unitCost),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setInsumoForm(EMPTY_INSUMO)
+      setInsumoOpen(false)
+      addToast('Insumo creado', 'ok')
+    })
+  }
+
+  function adjustStock(i: InsumoRow, delta: number) {
+    startTransition(async () => {
+      const result = await setInsumoStock({ id: i.id, stockQty: Math.max(0, i.stockQty + delta) })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Stock actualizado', 'ok')
+    })
+  }
+
+  function removeInsumo(i: InsumoRow) {
+    if (!window.confirm(`¿Eliminar ${i.name}?`)) return
+    startTransition(async () => {
+      const result = await deleteInsumo(i.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Insumo eliminado', 'ok')
+    })
+  }
+
+  function submitMaquina() {
+    startTransition(async () => {
+      const result = await createMaquina({
+        name: maquinaForm.name,
+        kind: maquinaForm.kind as never,
+        serialNo: maquinaForm.serialNo,
+        hoursUsed: maquinaForm.hoursUsed || 0,
+        notes: maquinaForm.notes,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setMaquinaForm(EMPTY_MAQUINA)
+      setMaquinaOpen(false)
+      addToast('Máquina registrada', 'ok')
+    })
+  }
+
+  function changeMaquinaStatus(m: MaquinaRow, status: string) {
+    startTransition(async () => {
+      const result = await setMaquinaStatus({ id: m.id, status: status as never })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Estado actualizado', 'ok')
+    })
+  }
+
+  function removeMaquina(m: MaquinaRow) {
+    if (!window.confirm(`¿Eliminar ${m.name}?`)) return
+    startTransition(async () => {
+      const result = await deleteMaquina(m.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Máquina eliminada', 'ok')
+    })
+  }
+
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
@@ -225,14 +359,20 @@ export default function AgroPage({ data }: { data: AgroData }) {
               { key: 'ciclos', label: 'Ciclos' },
               { key: 'lotes', label: 'Lotes' },
               { key: 'cosechas', label: 'Cosechas' },
+              { key: 'insumos', label: 'Insumos' },
+              { key: 'maquinaria', label: 'Maquinaria' },
             ]}
             value={tab}
             onChange={setTab}
           />
+          {tab === 'lotes' && (
+            <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
+          )}
           {data.canWrite && (
             <div style={{ display: 'flex', gap: 8 }}>
               {tab === 'lotes' ? (
-                <button className="btn dark" disabled={pending} onClick={() => setLotOpen(true)}>
+                <button className="btn dark" disabled={pending}
+                  onClick={() => { setLotForm(EMPTY_LOT); setEditingLot(null); setLotOpen(true) }}>
                   <Plus size={15} />Lote
                 </button>
               ) : tab === 'cosechas' ? (
@@ -242,6 +382,16 @@ export default function AgroPage({ data }: { data: AgroData }) {
                     setHarvestOpen(true)
                   }}>
                   <Plus size={15} />Cosecha
+                </button>
+              ) : tab === 'insumos' ? (
+                <button className="btn dark" disabled={pending}
+                  onClick={() => { setInsumoForm(EMPTY_INSUMO); setInsumoOpen(true) }}>
+                  <Plus size={15} />Insumo
+                </button>
+              ) : tab === 'maquinaria' ? (
+                <button className="btn dark" disabled={pending}
+                  onClick={() => { setMaquinaForm(EMPTY_MAQUINA); setMaquinaOpen(true) }}>
+                  <Plus size={15} />Máquina
                 </button>
               ) : (
                 <button className="btn dark" disabled={pending || lotes.length === 0}
@@ -376,6 +526,10 @@ export default function AgroPage({ data }: { data: AgroData }) {
                               onChange={(next) => { if (next !== l.status) changeLot(l, next) }}
                               options={[...LOT_STATUSES]}
                             />
+                            <button className="ibtn" aria-label={`Editar ${l.name}`}
+                              disabled={pending} onClick={() => startEdit(l)}>
+                              <PenLine size={14} />
+                            </button>
                             <button className="ibtn" aria-label={`Eliminar ${l.name}`}
                               disabled={pending} onClick={() => remove(l)}>
                               <Trash2 size={14} />
@@ -442,15 +596,133 @@ export default function AgroPage({ data }: { data: AgroData }) {
             </table>
           </div>
         )}
+
+        {tab === 'insumos' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Insumo</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Stock</th>
+                  <th scope="col">Unidad</th>
+                  <th scope="col">Proveedor</th>
+                  <th scope="col">Costo unit.</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                </tr>
+              </thead>
+              <tbody>
+                {insumos.length === 0 ? (
+                  <tr>
+                    <td colSpan={data.canWrite ? 7 : 6}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        No hay insumos registrados.
+                      </div>
+                    </td>
+                  </tr>
+                ) : insumos.map((i) => (
+                  <tr key={i.id}>
+                    <td>
+                      <div className="cename">{i.name}</div>
+                      <div className="elsub">{i.supplier || 'Sin proveedor'}</div>
+                    </td>
+                    <td>{i.kind}</td>
+                    <td className="mono">{i.stockQty}</td>
+                    <td>{i.unit}</td>
+                    <td>{i.supplier || '—'}</td>
+                    <td>{i.unitCostCents > 0 ? pesos(i.unitCostCents) : '—'}</td>
+                    {data.canWrite && (
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <button className="ibtn" aria-label={`Restar 1 a ${i.name}`}
+                            disabled={pending || i.stockQty <= 0} onClick={() => adjustStock(i, -1)}>
+                            −
+                          </button>
+                          <button className="ibtn" aria-label={`Sumar 1 a ${i.name}`}
+                            disabled={pending} onClick={() => adjustStock(i, 1)}>
+                            <Plus size={14} />
+                          </button>
+                          <button className="ibtn" aria-label={`Eliminar ${i.name}`}
+                            disabled={pending} onClick={() => removeInsumo(i)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === 'maquinaria' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Equipo</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Serial</th>
+                  <th scope="col">Horas de uso</th>
+                  <th scope="col">Estado</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                </tr>
+              </thead>
+              <tbody>
+                {maquinaria.length === 0 ? (
+                  <tr>
+                    <td colSpan={data.canWrite ? 6 : 5}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        No hay maquinaria registrada.
+                      </div>
+                    </td>
+                  </tr>
+                ) : maquinaria.map((m) => (
+                  <tr key={m.id}>
+                    <td>
+                      <div className="cename">{m.name}</div>
+                      {m.notes && <div className="elsub">{m.notes}</div>}
+                    </td>
+                    <td>{m.kind}</td>
+                    <td className="mono">{m.serialNo || '—'}</td>
+                    <td>{m.hoursUsed}</td>
+                    <td>
+                      {data.canWrite ? (
+                        <Select
+                          value={m.status}
+                          onChange={(next) => { if (next !== m.status) changeMaquinaStatus(m, next) }}
+                          options={[...MAQUINA_STATUSES]}
+                        />
+                      ) : (
+                        <Badge st={m.status}
+                          tone={m.status === 'Operativa' ? 'grn'
+                            : m.status === 'En mantenimiento' ? 'amb' : 'red'} />
+                      )}
+                    </td>
+                    {data.canWrite && (
+                      <td>
+                        <button className="ibtn" aria-label={`Eliminar ${m.name}`}
+                          disabled={pending} onClick={() => removeMaquina(m)}>
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <FormDrawer
         open={lotOpen}
-        onClose={() => setLotOpen(false)}
-        title="Nuevo lote"
+        onClose={() => { setEditingLot(null); setLotOpen(false) }}
+        title={editingLot ? 'Editar lote' : 'Nuevo lote'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitLot}>
-            <Check size={15} />Crear lote
+            <Check size={15} />{editingLot ? 'Guardar cambios' : 'Crear lote'}
           </button>
         }
       >
@@ -614,6 +886,94 @@ export default function AgroPage({ data }: { data: AgroData }) {
         <label className="flabel" htmlFor="har-notes">Notas</label>
         <textarea id="har-notes" className="field" rows={2} value={harvestForm.notes}
           onChange={(e) => setHarvestForm({ ...harvestForm, notes: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={insumoOpen}
+        onClose={() => setInsumoOpen(false)}
+        title="Nuevo insumo"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitInsumo}>
+            <Check size={15} />Crear insumo
+          </button>
+        }
+      >
+        <label className="flabel" htmlFor="ins-name">Nombre</label>
+        <input id="ins-name" className="field" value={insumoForm.name}
+          onChange={(e) => setInsumoForm({ ...insumoForm, name: e.target.value })}
+          placeholder="Fertilizante 15-15-15" />
+
+        <div className="fg2">
+          <div>
+            <div className="flabel">Tipo</div>
+            <Select value={insumoForm.kind}
+              onChange={(v) => setInsumoForm({ ...insumoForm, kind: v })}
+              options={[...INSUMO_KINDS]} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="ins-unit">Unidad</label>
+            <input id="ins-unit" className="field" value={insumoForm.unit}
+              onChange={(e) => setInsumoForm({ ...insumoForm, unit: e.target.value })}
+              placeholder="kg" />
+          </div>
+        </div>
+
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="ins-stock">Stock inicial</label>
+            <input id="ins-stock" className="field" type="number" min={0}
+              value={insumoForm.stockQty}
+              onChange={(e) => setInsumoForm({ ...insumoForm, stockQty: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="ins-cost">Costo unitario (COP)</label>
+            <input id="ins-cost" className="field" inputMode="numeric" value={insumoForm.unitCost}
+              onChange={(e) => setInsumoForm({ ...insumoForm, unitCost: e.target.value })} />
+          </div>
+        </div>
+
+        <label className="flabel" htmlFor="ins-supplier">Proveedor</label>
+        <input id="ins-supplier" className="field" value={insumoForm.supplier}
+          onChange={(e) => setInsumoForm({ ...insumoForm, supplier: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={maquinaOpen}
+        onClose={() => setMaquinaOpen(false)}
+        title="Nueva máquina"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitMaquina}>
+            <Check size={15} />Registrar máquina
+          </button>
+        }
+      >
+        <label className="flabel" htmlFor="maq-name">Nombre</label>
+        <input id="maq-name" className="field" value={maquinaForm.name}
+          onChange={(e) => setMaquinaForm({ ...maquinaForm, name: e.target.value })}
+          placeholder="Tractor John Deere 5075E" />
+
+        <div className="fg2">
+          <div>
+            <div className="flabel">Tipo</div>
+            <Select value={maquinaForm.kind}
+              onChange={(v) => setMaquinaForm({ ...maquinaForm, kind: v })}
+              options={[...MAQUINA_KINDS]} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="maq-hours">Horas de uso</label>
+            <input id="maq-hours" className="field" type="number" min={0}
+              value={maquinaForm.hoursUsed}
+              onChange={(e) => setMaquinaForm({ ...maquinaForm, hoursUsed: e.target.value })} />
+          </div>
+        </div>
+
+        <label className="flabel" htmlFor="maq-serial">N.º de serie</label>
+        <input id="maq-serial" className="field" value={maquinaForm.serialNo}
+          onChange={(e) => setMaquinaForm({ ...maquinaForm, serialNo: e.target.value })} />
+
+        <label className="flabel" htmlFor="maq-notes">Notas</label>
+        <textarea id="maq-notes" className="field" rows={3} value={maquinaForm.notes}
+          onChange={(e) => setMaquinaForm({ ...maquinaForm, notes: e.target.value })} />
       </FormDrawer>
     </>
   )

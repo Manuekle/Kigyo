@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useRef, useState, useTransition, useEffect } from 'react'
-import { Trash2, Plus, Check, X, Eraser, AlertCircle } from '@/lib/icons'
+import { Trash2, Plus, Check, X, Eraser, AlertCircle, FileSpreadsheet } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import { SIGNATURE_KINDS } from '@/lib/domain'
@@ -85,6 +86,7 @@ function SignPad({ onInk }: { onInk: (hasInk: boolean) => void }) {
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 export default function FirmasPage({ data }: { data: FirmasData }) {
+  const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
@@ -121,6 +123,19 @@ export default function FirmasPage({ data }: { data: FirmasData }) {
     firmados: firmas.filter((f) => f.status === 'Firmado').length,
   }), [firmas])
 
+  const exportRows = () => {
+    void runExport(
+      firmas.map((f) => ({
+        Nombre: f.title,
+        Firmante: f.signerName ?? f.signerEmail ?? '',
+        Estado: f.status,
+        Fecha: f.requestedOn,
+      })),
+      'firmas-kigyo',
+      'firmas',
+    )
+  }
+
   function submitRequest() {
     if (!form.title.trim()) { addToast('Indica el nombre del documento', 'err'); return }
     startTransition(async () => {
@@ -153,7 +168,10 @@ export default function FirmasPage({ data }: { data: FirmasData }) {
       <div className="card rise d1">
         <div className="chead">
           <div className="ctitle">Documentos para firma</div>
-          <span className="kvs">{counts.pendientes} pendientes · {counts.firmados} firmados</span>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span className="kvs">{counts.pendientes} pendientes · {counts.firmados} firmados</span>
+            <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
+          </div>
         </div>
         <div className="tblwrap">
           <table className="tbl">
@@ -302,6 +320,7 @@ function ConfirmSignModal({ doc, busy, onClose, onConfirm }: {
   onConfirm: () => void
 }) {
   const [agree, setAgree] = useState(false)
+  const [agreeInit, setAgreeInit] = useState(false)
   const [hasInk, setHasInk] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -336,10 +355,14 @@ function ConfirmSignModal({ doc, busy, onClose, onConfirm }: {
               type="button"
               role="switch"
               aria-checked={agree}
-              className={`sw ${agree ? 'on' : ''}`}
-              onClick={() => { setAgree((v) => !v); setErr(null) }}
+              className={`t-toggle${agreeInit ? ' is-init' : ''}`}
+              data-on={agree ? 'true' : 'false'}
+              onClick={() => { setAgree((v) => !v); setAgreeInit(true); setErr(null) }}
+              onMouseDown={(e) => e.preventDefault()}
               aria-label="Aceptar términos"
-            />
+            >
+              <span className="t-toggle-thumb" aria-hidden="true" />
+            </button>
             <div className="agreetxt">
               Confirmo que he leído y acepto todos los términos contractuales. Esta aceptación
               queda registrada con mi nombre y la fecha y hora exactas.

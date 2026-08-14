@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import {
-  UserSearch, UserPlus, Check, Clock, Plus, Trash2, Star, Briefcase,
+  UserSearch, FileSpreadsheet, UserPlus, Check, Clock, Plus, Trash2, Star, Briefcase, PenLine,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
@@ -11,12 +11,13 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { CANDIDATE_STAGES, EMPLOYMENT_TYPES, OPENING_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { CandidateRow, OpeningRow, ReclutamientoData } from '@/server/queries/reclutamiento'
 import {
   createCandidate, createOpening, deleteCandidate, deleteOpening,
-  setCandidateStage, setOpeningStatus,
+  setCandidateStage, setOpeningStatus, updateCandidate, updateOpening,
 } from '@/server/mutations/reclutamiento'
 import { fetchMoreOpenings } from '@/server/actions/reclutamiento'
 
@@ -54,6 +55,7 @@ function pesos(cents: number): string {
 
 export default function ReclutamientoPage({ data }: { data: ReclutamientoData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
   const [openings, setOpenings] = useState<OpeningRow[]>(data.openings)
@@ -69,6 +71,8 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
   const [candidateForm, setCandidateForm] = useState(EMPTY_CANDIDATE)
   const [openingOpen, setOpeningOpen] = useState(false)
   const [candidateOpen, setCandidateOpen] = useState(false)
+  const [editingOpeningId, setEditingOpeningId] = useState<string | null>(null)
+  const [editingCandidateId, setEditingCandidateId] = useState<string | null>(null)
 
   /** A mutation returns the fresh first page, and the totals that match it. */
   function apply(next: ReclutamientoData) {
@@ -113,6 +117,30 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
   const visibleOpenings = openings.filter(
     (o) => statusFilter === 'Todas' || o.status === statusFilter,
   )
+
+  const candidateRows = visibleCandidates.map((c) => ({
+    Nombre: c.fullName,
+    Cargo: c.openingTitle,
+    Etapa: c.stage,
+    Estado: openings.find((o) => o.id === c.openingId)?.status ?? '',
+    Fecha: c.appliedOn,
+  }))
+
+  const openingRows = visibleOpenings.map((o) => ({
+    Cargo: o.title,
+    Área: o.department,
+    Estado: o.status,
+    Plazas: String(o.openings),
+    Salario: o.salaryMinCents === 0 && o.salaryMaxCents === 0 ? '' : `${pesos(o.salaryMinCents)} – ${pesos(o.salaryMaxCents)}`,
+  }))
+
+  const exportRows = () => {
+    void runExport(
+      candidateRows.length > 0 ? candidateRows : openingRows,
+      'reclutamiento-kigyo',
+      'reclutamiento',
+    )
+  }
 
   function move(candidate: CandidateRow, stage: string) {
     startTransition(async () => {
@@ -160,9 +188,26 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
     })
   }
 
+  function editOpening(opening: OpeningRow) {
+    setOpeningForm({
+      title: opening.title,
+      department: opening.department,
+      location: opening.location,
+      employmentType: opening.employmentType,
+      openings: String(opening.openings),
+      salaryMin: opening.salaryMinCents ? pesos(opening.salaryMinCents) : '',
+      salaryMax: opening.salaryMaxCents ? pesos(opening.salaryMaxCents) : '',
+      hiringManagerId: opening.hiringManagerId ?? '',
+      description: opening.description,
+    })
+    setEditingOpeningId(opening.id)
+    setOpeningOpen(true)
+  }
+
   function submitOpening() {
+    const editingId = editingOpeningId
     startTransition(async () => {
-      const result = await createOpening({
+      const payload = {
         title: openingForm.title,
         department: openingForm.department,
         location: openingForm.location,
@@ -172,18 +217,38 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
         salaryMaxCents: toCents(openingForm.salaryMax),
         hiringManagerId: openingForm.hiringManagerId || null,
         description: openingForm.description,
-      })
+      }
+      const result = editingId
+        ? await updateOpening({ id: editingId, ...payload })
+        : await createOpening(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setOpeningForm(EMPTY_OPENING)
+      setEditingOpeningId(null)
       setOpeningOpen(false)
-      addToast('Vacante creada', 'ok')
+      addToast(editingId ? 'Actualizado' : 'Vacante creada', 'ok')
     })
   }
 
+  function editCandidate(candidate: CandidateRow) {
+    setCandidateForm({
+      openingId: candidate.openingId,
+      fullName: candidate.fullName,
+      email: candidate.email ?? '',
+      phone: candidate.phone,
+      source: candidate.source,
+      expectedSalary: candidate.expectedSalaryCents ? pesos(candidate.expectedSalaryCents) : '',
+      rating: candidate.rating ? String(candidate.rating) : '',
+      notes: candidate.notes,
+    })
+    setEditingCandidateId(candidate.id)
+    setCandidateOpen(true)
+  }
+
   function submitCandidate() {
+    const editingId = editingCandidateId
     startTransition(async () => {
-      const result = await createCandidate({
+      const payload = {
         openingId: candidateForm.openingId,
         fullName: candidateForm.fullName,
         email: candidateForm.email || null,
@@ -192,12 +257,16 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
         expectedSalaryCents: toCents(candidateForm.expectedSalary),
         rating: candidateForm.rating ? Number(candidateForm.rating) : null,
         notes: candidateForm.notes,
-      })
+      }
+      const result = editingId
+        ? await updateCandidate({ id: editingId, ...payload })
+        : await createCandidate(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setCandidateForm(EMPTY_CANDIDATE)
+      setEditingCandidateId(null)
       setCandidateOpen(false)
-      addToast('Candidato registrado', 'ok')
+      addToast(editingId ? 'Actualizado' : 'Candidato registrado', 'ok')
     })
   }
 
@@ -231,16 +300,19 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
             value={tab}
             onChange={setTab}
           />
+          <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
           {data.canWrite && (
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn" disabled={pending || openings.length === 0}
                 onClick={() => {
                   setCandidateForm({ ...EMPTY_CANDIDATE, openingId: live[0]?.id ?? openings[0]?.id ?? '' })
+                  setEditingCandidateId(null)
                   setCandidateOpen(true)
                 }}>
                 <UserPlus size={15} />Candidato
               </button>
-              <button className="btn dark" disabled={pending} onClick={() => setOpeningOpen(true)}>
+              <button className="btn dark" disabled={pending}
+                onClick={() => { setEditingOpeningId(null); setOpeningOpen(true) }}>
                 <Plus size={15} />Vacante
               </button>
             </div>
@@ -289,6 +361,10 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
                           )}
                           {data.canWrite && (
                             <div className="funnel-actions">
+                              <button className="ibtn" aria-label={`Editar a ${c.fullName}`}
+                                disabled={pending} onClick={() => editCandidate(c)}>
+                                <PenLine size={14} />
+                              </button>
                               <Select
                                 value={c.stage}
                                 onChange={(next) => { if (next !== c.stage) move(c, next) }}
@@ -374,6 +450,10 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
                               onChange={(next) => { if (next !== o.status) changeOpeningStatus(o, next) }}
                               options={[...OPENING_STATUSES]}
                             />
+                            <button className="ibtn" aria-label={`Editar ${o.title}`}
+                              disabled={pending} onClick={() => editOpening(o)}>
+                              <PenLine size={14} />
+                            </button>
                             <button className="ibtn" aria-label={`Eliminar ${o.title}`}
                               disabled={pending} onClick={() => removeOpening(o)}>
                               <Trash2 size={14} />
@@ -402,10 +482,10 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
       <FormDrawer
         open={openingOpen}
         onClose={() => setOpeningOpen(false)}
-        title="Nueva vacante"
+        title={editingOpeningId ? 'Editar vacante' : 'Nueva vacante'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitOpening}>
-            <Check size={15} />Crear vacante
+            <Check size={15} />{editingOpeningId ? 'Guardar cambios' : 'Crear vacante'}
           </button>
         }
       >
@@ -477,10 +557,10 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
       <FormDrawer
         open={candidateOpen}
         onClose={() => setCandidateOpen(false)}
-        title="Nuevo candidato"
+        title={editingCandidateId ? 'Editar candidato' : 'Nuevo candidato'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitCandidate}>
-            <Check size={15} />Registrar
+            <Check size={15} />{editingCandidateId ? 'Guardar cambios' : 'Registrar'}
           </button>
         }
       >

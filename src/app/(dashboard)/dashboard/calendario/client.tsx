@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Plus, PenLine, Trash2, X } from '@/lib/icons'
+import { ChevronDown, ChevronLeft, ChevronRight, Plus, PenLine, Trash2, Users, X } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
@@ -10,7 +10,18 @@ import { EVENT_KINDS } from '@/lib/domain'
 import LoadMore from '@/components/ui/LoadMore'
 import type { CalendarioData, EventoRow } from '@/server/queries/calendario'
 import { fetchMoreEventos } from '@/server/actions/calendario'
-import { createEvento, deleteEvento, fetchMonth, updateEvento } from '@/server/mutations/calendario'
+import {
+  addAttendee,
+  createEvento,
+  deleteEvento,
+  fetchAttendance,
+  fetchMonth,
+  removeAttendee,
+  setAttendeeResponse,
+  updateEvento,
+  type AttendeeResponse,
+  type CalendarioAttendee,
+} from '@/server/mutations/calendario'
 
 const MONTH = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' })
 const MONTH_SHORT = new Intl.DateTimeFormat('es-CO', { month: 'short' })
@@ -19,6 +30,11 @@ const TIME = new Intl.DateTimeFormat('es-CO', { hour: '2-digit', minute: '2-digi
 const KIND_TONE: Record<string, string> = {
   Entrevista: 'blu', Onboarding: 'grn', '1:1': 'vio', 'Consultoría': 'red',
   Interna: 'neu', Reclutamiento: 'amb', Confidencial: 'neu', Otro: 'neu',
+}
+
+/** Attendance response tones, for the read-only badge. */
+const RESPONSE_TONE: Record<string, string> = {
+  Pendiente: 'amb', Aceptada: 'grn', Rechazada: 'red',
 }
 
 /** Minutes between two instants, worded. Duration used to be typed free text. */
@@ -45,6 +61,11 @@ export default function CalendarioPage({ data }: { data: CalendarioData }) {
   const [state, setState] = useState<CalendarioData>(data)
   const [addOpen, setAddOpen] = useState(false)
   const [editing, setEditing] = useState<EventoRow | null>(null)
+
+  /** Expanded event id, per-event attendance, and the add row's fields. */
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [attending, setAttending] = useState<Record<string, CalendarioAttendee[] | null>>({})
+  const [addRow, setAddRow] = useState<Record<string, { employeeId: string; email: string }>>({})
 
   // `?agendar=1` is how the topbar's "Agendar" lands here with the form
   // already open. Read straight out of the URL rather than copied into state
@@ -163,6 +184,57 @@ export default function CalendarioPage({ data }: { data: CalendarioData }) {
     })
   }
 
+  /** Expand on first click, lazy-fetch attendance; collapse on the second. */
+  function toggleAttendance(m: EventoRow) {
+    if (expandedId === m.id) { setExpandedId(null); return }
+    setExpandedId(m.id)
+    if (attending[m.id] !== undefined) return
+    setAttending((p) => ({ ...p, [m.id]: null }))
+    startTransition(async () => {
+      const result = await fetchAttendance(m.id)
+      if (!result.ok) {
+        addToast(result.error, 'err')
+        setAttending((p) => ({ ...p, [m.id]: [] }))
+        return
+      }
+      setAttending((p) => ({ ...p, [m.id]: result.data }))
+    })
+  }
+
+  function setResponse(eventId: string, a: CalendarioAttendee, response: string) {
+    startTransition(async () => {
+      const result = await setAttendeeResponse(a.id, response as AttendeeResponse)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setAttending((p) => ({
+        ...p,
+        [eventId]: p[eventId]?.map((x) => (x.id === a.id ? { ...x, response: response as AttendeeResponse } : x)) ?? null,
+      }))
+    })
+  }
+
+  function addOne(eventId: string) {
+    const row = addRow[eventId] ?? { employeeId: '', email: '' }
+    startTransition(async () => {
+      const result = await addAttendee({
+        calendarEventId: eventId,
+        employeeId: row.employeeId || null,
+        email: row.email || null,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setAttending((p) => ({ ...p, [eventId]: result.data }))
+      setAddRow((p) => ({ ...p, [eventId]: { employeeId: '', email: '' } }))
+      addToast('Asistente agregado', 'ok')
+    })
+  }
+
+  function removeOne(eventId: string, a: CalendarioAttendee) {
+    startTransition(async () => {
+      const result = await removeAttendee(a.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setAttending((p) => ({ ...p, [eventId]: result.data }))
+    })
+  }
+
   return (
     <div className="g2 calgrid">
       <div className="card cpad rise d1">
@@ -206,8 +278,11 @@ export default function CalendarioPage({ data }: { data: CalendarioData }) {
           <div className="dempty">No hay reuniones próximas.</div>
         ) : upcoming.map((m) => {
           const start = new Date(m.startsAt)
+          const expanded = expandedId === m.id
+          const attendees = attending[m.id]
+          const addValue = addRow[m.id] ?? { employeeId: '', email: '' }
           return (
-            <div className="meetrow" key={m.id}>
+            <div className="meetrow" key={m.id} style={expanded ? { flexWrap: 'wrap' } : undefined}>
               <div className={`meetdate ${KIND_TONE[m.kind] ?? 'neu'}`}>
                 <div className="meetday">{start.getDate()}</div>
                 <div className="meetmon">{MONTH_SHORT.format(start).replace('.', '')}</div>
@@ -221,6 +296,17 @@ export default function CalendarioPage({ data }: { data: CalendarioData }) {
                 </div>
               </div>
               <span className={`badge b-${KIND_TONE[m.kind] ?? 'neu'}`}>{m.kind}</span>
+              <button
+                className="ibtn"
+                style={{ height: 28, padding: '0 8px', gap: 5, flexShrink: 0 }}
+                data-tip={expanded ? 'Ocultar asistentes' : 'Ver asistentes'}
+                aria-expanded={expanded}
+                onClick={() => toggleAttendance(m)}
+              >
+                <Users size={13} />
+                <span style={{ fontSize: 11 }}>{m.attendees.length}</span>
+                <ChevronDown size={13} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform .18s ease' }} />
+              </button>
               {state.canWrite && (
                 <>
                   <button className="ibtn" style={{ width: 28, height: 28, flexShrink: 0 }} data-tip="Editar" onClick={() => setEditing(m)} aria-label={`Editar ${m.title}`}>
@@ -230,6 +316,61 @@ export default function CalendarioPage({ data }: { data: CalendarioData }) {
                     <Trash2 size={13} />
                   </button>
                 </>
+              )}
+              {expanded && (
+                <div style={{ flexBasis: '100%', marginTop: 2, paddingTop: 10, borderTop: '1px solid var(--line2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {attendees === null ? (
+                    <div className="dempty">Cargando asistentes…</div>
+                  ) : (attendees ?? []).length === 0 ? (
+                    <div className="dempty">Sin asistentes aún.</div>
+                  ) : (attendees ?? []).map((a) => (
+                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0' }}>
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 12.5 }}>{a.employeeName || a.email || 'Invitado'}</span>
+                      {state.canWrite ? (
+                        <>
+                          <Select
+                            value={a.response}
+                            onChange={(v) => setResponse(m.id, a, v)}
+                            options={['Pendiente', 'Aceptada', 'Rechazada']}
+                            style={{ width: 132 }}
+                          />
+                          <button className="ibtn" style={{ width: 26, height: 26, flexShrink: 0 }} data-tip="Quitar" onClick={() => removeOne(m.id, a)} aria-label={`Quitar ${a.employeeName ?? a.email ?? 'invitado'}`}>
+                            <Trash2 size={13} />
+                          </button>
+                        </>
+                      ) : (
+                        <span className={`badge b-${RESPONSE_TONE[a.response] ?? 'neu'}`}>{a.response}</span>
+                      )}
+                    </div>
+                  ))}
+                  {state.canWrite && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                      {state.roster.length > 0 ? (
+                        <Select
+                          value={addValue.employeeId}
+                          onChange={(v) => setAddRow((p) => ({ ...p, [m.id]: { employeeId: v, email: '' } }))}
+                          options={[{ value: '', label: 'Agregar empleado…' }, ...state.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))]}
+                          style={{ flex: 1 }}
+                        />
+                      ) : (
+                        <input
+                          className="field"
+                          style={{ flex: 1, width: 'auto' }}
+                          placeholder="Correo del invitado…"
+                          value={addValue.email}
+                          onChange={(e) => setAddRow((p) => ({ ...p, [m.id]: { employeeId: '', email: e.target.value } }))}
+                        />
+                      )}
+                      <button
+                        className="btn pri"
+                        disabled={state.roster.length > 0 ? !addValue.employeeId : !addValue.email.trim()}
+                        onClick={() => addOne(m.id)}
+                      >
+                        <Plus size={14} />Agregar
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Users, Bell, Lock, Building2, Shield, Check, Upload, PenLine, Ticket,
-  Sparkles, Mail, LogOut, Globe, ChevronDown, Star,
-  Eye, EyeOff, AlertTriangle, LayoutGrid, Plus, Trash2, Copy,
+  Sparkles, Mail, LogOut, Globe, Star,
+  Eye, EyeOff, AlertTriangle, LayoutGrid, Plus, Trash2, Copy, MapPin,
 } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import { initials } from '@/lib/utils'
@@ -17,16 +17,21 @@ import OtpInput from '@/components/ui/OtpInput'
 import { apiFetch, errorMessage } from '@/lib/api/client'
 import type { MfaEnrollment } from '@/app/api/auth/mfa/route'
 import {
-  ACTION_LABELS, MODULE_LABELS, PERMISSION_LABELS, permissionsByModule, ROLES,
+  ACTION_LABELS, MODULE_LABELS, PERMISSION_LABELS, permissionsByModule, isSystemRole,
   type Permission, type RoleKey,
 } from '@/lib/auth/permissions'
-import { COMPANY_TYPES, MODULE_KEYS, modulesByGroup, presetFor } from '@/lib/modules'
+import { COMPANY_TYPES, MODULE_KEYS, modulesByGroup } from '@/lib/modules'
+import { presetFromCatalogue } from '@/lib/sectors'
 import { lowestPlanWith } from '@/lib/plans'
 import { useMember } from '@/lib/context/MemberContext'
 import type { SettingsData } from '@/server/queries/settings'
+import type { SitesData } from '@/server/queries/sites'
+import SucursalesTab from './SucursalesTab'
 import Select from '@/components/ui/Select'
 import {
   changePassword,
+  createRole,
+  deleteRole,
   inviteMember,
   revokeInvitation,
   setMemberRole,
@@ -35,6 +40,7 @@ import {
   updateModules,
   updateOrganization,
   updateProfile,
+  updateRole,
   type ActionResult,
 } from '@/server/mutations/settings'
 
@@ -56,12 +62,20 @@ const avHash = (n = '') => { let h = 0; for (let i = 0; i < n.length; i++) h = (
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MODULE_COUNT = MODULE_KEYS.length
 
-const ROLE_TONE: Record<RoleKey, string> = {
+/**
+ * Colour and caption for the seeded roles only.
+ *
+ * A custom role gets the neutral tone and a count of what it grants, because
+ * inventing a description for «Recepción» would be putting words in the
+ * administrator's mouth — and «Acceso total» under a role that grants four
+ * permissions would be a lie the screen tells about its own data.
+ */
+const ROLE_TONE: Record<string, string> = {
   'Administrador': 'is-admin',
   'Líder de equipo': 'is-lead',
   'Empleado': 'is-member',
 }
-const ROLE_SUB: Record<RoleKey, string> = {
+const ROLE_SUB: Record<string, string> = {
   'Administrador': 'Acceso total',
   'Líder de equipo': 'Gestión de equipo',
   'Empleado': 'Acceso básico',
@@ -94,7 +108,7 @@ function Avatar({ name, size = 34 }: { name: string; size?: number }) {
 /* ------------------------------------------------------------------ */
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
-export default function ConfiguracionPage({ data }: { data: SettingsData }) {
+export default function ConfiguracionPage({ data, sites }: { data: SettingsData; sites: SitesData }) {
   const { addToast } = useApp()
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -127,6 +141,63 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
    */
   const member = useMember()
   const [companyTypeKey, setCompanyTypeKey] = useState(data.organization.companyType)
+  /**
+   * The subsector, when the chosen sector has any.
+   *
+   * Cleared whenever the sector changes: a subsector belongs to exactly one
+   * parent, and the database refuses a mismatched pair — so carrying the old
+   * value across would turn the next save into an error the screen could not
+   * explain.
+   */
+  const [subsectorKey, setSubsectorKey] = useState(data.organization.subsector)
+
+  /**
+   * The subsectors of whichever sector is selected right now.
+   *
+   * Read from the catalogue rather than from a narrowed payload, so clicking a
+   * different sector offers its children immediately. It used to go empty until
+   * the page reloaded, which read as "this sector has no kinds" — a wrong
+   * answer that looked like a real one.
+   */
+  const subsectorOptions = companyTypeKey ? data.catalogue.subsectors[companyTypeKey] ?? [] : []
+
+  /**
+   * The sector cards.
+   *
+   * `COMPANY_TYPES` first, for its descriptions — those are product copy and
+   * live in code. Anything the database has that TypeScript does not is
+   * appended, so a sector added as data (migrations 29 and 34 exist to make
+   * that possible without a deploy) is pickable here and not only in the setup
+   * wizard.
+   */
+  const sectorCards = [
+    ...COMPANY_TYPES.map((t) => ({ key: t.key as string, label: t.label, description: t.description })),
+    ...data.catalogue.sectors
+      .filter((s) => !COMPANY_TYPES.some((t) => t.key === s.key))
+      .map((s) => ({ key: s.key, label: s.label, description: 'Sector del catálogo de tu cuenta.' })),
+  ]
+  const sectorLabel =
+    sectorCards.find((t) => t.key === companyTypeKey)?.label.toLowerCase() ?? 'empresa'
+
+  /**
+   * Whether the sector has settled.
+   *
+   * The soft lock from migration 41: free while the company has no records in
+   * the vertical its sector names, refused once it has. The database is what
+   * makes it true — this only decides whether the screen offers a choice it
+   * would then have to take back.
+   *
+   * A sector chosen but never saved does not count. `canChangeSector` describes
+   * the row as it stands on the server, and somebody mid-edit is by definition
+   * still allowed.
+   */
+  const sectorLocked = !data.organization.canChangeSector
+  /** Sector and kind, spelled out, since the cards and the select are gone. */
+  const lockedSectorLabel = [
+    sectorCards.find((t) => t.key === data.organization.companyType)?.label,
+    data.catalogue.subsectors[data.organization.companyType ?? '']
+      ?.find((s) => s.key === data.organization.subsector)?.label,
+  ].filter(Boolean).join(' · ') || 'Sin sector'
   const [modules, setModules] = useState<Set<string>>(new Set(data.organization.modules))
   /**
    * The sector's preset, narrowed to what the plan actually allows.
@@ -135,14 +206,28 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
    * true statement about the business regardless of what it pays for. What it
    * must not do is propose `pacientes` and then have the save refused by the
    * server, which is what an unfiltered preset would produce.
+   *
+   * The subsector amends it: a bakery gains `produccion`, a single practice
+   * loses the safety programme it will never run.
    */
-  const preset = presetFor(companyTypeKey).filter((key) => member.planIncludes(key))
+  const preset = presetFromCatalogue(data.catalogue, companyTypeKey, subsectorKey)
+    .filter((key) => member.planIncludes(key))
   // Whether the selection still matches the type's preset, so the screen can
   // say "personalizado" instead of implying the type describes what is on.
   const matchesPreset =
     modules.size === preset.length && preset.every((m) => modules.has(m))
   /** How much of the catalogue this plan can reach, for the summary line. */
   const availableCount = MODULE_KEYS.filter((key) => member.planIncludes(key)).length
+
+  /**
+   * Companies under *this* account, not every company the caller belongs to.
+   *
+   * Since multi-account, `member.companies` spans groups — counting it here
+   * would tell somebody on Starter that they are using three of one.
+   */
+  const companiesUsed = member.companies.filter(
+    (c) => c.accountId === member.account.accountId,
+  ).length
 
   /**
    * The permission matrix and member roles are server state.
@@ -166,6 +251,18 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
   )
   const members = data.members
   const canManage = data.canManage
+  /**
+   * The organization's roles, in rank order.
+   *
+   * Server state, like the matrix — created and deleted through the Server
+   * Functions below and re-read by `router.refresh()`. Nothing here is derived
+   * from a constant: an organization that renamed «Empleado» to «Colaborador»
+   * and added «Recepción» sees exactly that, everywhere.
+   */
+  const roles = data.roles
+  /** How many people would lose their way in if this permission went away. */
+  const adminRoles = roles.filter((r) => permissions[r.key]?.['configuracion:manage'])
+  const adminHolders = adminRoles.reduce((total, r) => total + r.members, 0)
 
   const mark = useCallback(() => setDirty(true), [])
 
@@ -212,7 +309,11 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
       if (tab === 'perfil') result = await updateProfile({ fullName: name })
       else if (tab === 'empresa') result = await updateOrganization({ name: company, industry })
       else if (tab === 'modulos') {
-        result = await updateModules({ companyType: companyTypeKey, modules: [...modules] })
+        result = await updateModules({
+          companyType: companyTypeKey,
+          subsector: subsectorKey,
+          modules: [...modules],
+        })
       }
       else if (tab === 'seguridad' && pw.new) {
         result = await changePassword({ currentPassword: pw.current, newPassword: pw.new })
@@ -239,6 +340,74 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
       applyPermission({ role: r, permission, on: next })
       const result = await setRolePermission(r, permission, next)
       if (!result.ok) { addToast(result.error, 'err'); return }
+      router.refresh()
+    })
+  }
+
+  /* ---- roles ---- */
+  /**
+   * Filters the matrix by module name.
+   *
+   * Thirty-nine modules is a long way to scroll to answer one question, and
+   * the question is almost always about one module — «who can open pacientes».
+   * Matched against the label the row actually shows, not the key, so typing
+   * "nómina" finds it and typing "nomina" does too.
+   */
+  const [permQuery, setPermQuery] = useState('')
+  const permGroups = (() => {
+    const needle = permQuery.trim().toLowerCase()
+    const groups = permissionsByModule()
+    if (!needle) return groups
+    const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const folded = fold(needle)
+    return groups.filter((g) =>
+      fold(MODULE_LABELS[g.module] ?? g.module).includes(folded) || fold(g.module).includes(folded),
+    )
+  })()
+
+  const [newRole, setNewRole] = useState('')
+  const [copyFrom, setCopyFrom] = useState('')
+  const [renaming, setRenaming] = useState<{ key: string; label: string } | null>(null)
+
+  const addRole = () => {
+    const label = newRole.trim()
+    if (!label) return
+    startTransition(async () => {
+      const result = await createRole({ label, copyFrom: copyFrom || undefined })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setNewRole('')
+      setCopyFrom('')
+      addToast(
+        copyFrom
+          ? `Rol ${label} creado con los permisos de ${copyFrom}`
+          : `Rol ${label} creado. Ahora dale permisos en la matriz.`,
+        'ok',
+      )
+      router.refresh()
+    })
+  }
+
+  const renameRole = (key: string, label: string) => {
+    const trimmed = label.trim()
+    if (!trimmed) return
+    startTransition(async () => {
+      const result = await updateRole({ key, label: trimmed })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setRenaming(null)
+      router.refresh()
+    })
+  }
+
+  const removeRole = (key: string, memberCount: number) => {
+    const warning = memberCount > 0
+      ? `${key} lo tienen ${memberCount} persona(s). Muévelas a otro rol antes de eliminarlo.`
+      : `¿Eliminar el rol ${key}? Se borran también sus permisos. Esta acción no se puede deshacer.`
+    if (memberCount > 0) { addToast(warning, 'err'); return }
+    if (!window.confirm(warning)) return
+    startTransition(async () => {
+      const result = await deleteRole(key)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      addToast(`Rol ${key} eliminado`, 'info')
       router.refresh()
     })
   }
@@ -304,7 +473,14 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
 
   /* ---- invitations ---- */
   const [inviteEmail, setInviteEmail] = useState('')
-  const [inviteRole, setInviteRole] = useState<RoleKey>('Empleado')
+  /**
+   * Opens on the narrowest role the organization defines — `data.roles` is
+   * ordered by rank, so that is the last one. An invitation submitted without
+   * touching the select must not hand out more access than was asked for.
+   */
+  const [inviteRole, setInviteRole] = useState<RoleKey>(
+    data.roles.length > 0 ? data.roles[data.roles.length - 1].key : '',
+  )
 
   const invite = () => {
     const email = inviteEmail.trim()
@@ -343,8 +519,15 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
     }
   }
 
-  const cycleMemberRole = (membershipId: string, current: RoleKey) => {
-    const next = ROLES[(ROLES.indexOf(current) + 1) % ROLES.length]
+  /**
+   * Assigns a role directly instead of cycling through the list.
+   *
+   * Cycling worked while there were exactly three: reaching the third took two
+   * clicks and two round trips. With an organization free to define eight, it
+   * would take seven of each, and every intermediate step is a real write that
+   * really changes what that person can open.
+   */
+  const changeMemberRole = (membershipId: string, next: RoleKey) => {
     startTransition(async () => {
       const result = await setMemberRole(membershipId, next)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -362,6 +545,9 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
     { id: 'seguridad', label: 'Seguridad', ico: Lock },
     { id: 'empresa', label: 'Empresa', ico: Building2 },
     { id: 'modulos', label: 'Módulos', ico: LayoutGrid },
+    // Between Módulos and Roles on purpose: a branch is structure, like a
+    // module, and the roles tab reads better once the structure is settled.
+    { id: 'sucursales', label: 'Sucursales', ico: MapPin },
     { id: 'roles', label: 'Roles y permisos', ico: Shield },
   ]
 
@@ -637,10 +823,21 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
                   </span>
                 </div>
                 <div className="plan-banner-desc">
-                  {member.planDef.description}{' '}
-                  {member.planDef.seats === null
-                    ? 'Colaboradores ilimitados.'
-                    : `Hasta ${member.planDef.seats} colaboradores.`}
+                  {member.planDef.description}
+                </div>
+                {/* What the plan allows against what is being used, stated as
+                    numbers. "Hasta 10 colaboradores" was a rule; "3 de 10" is
+                    an answer — and it is the number somebody checks before
+                    inviting the eleventh person or opening a second branch. */}
+                <div className="plan-banner-desc">
+                  Empresas {companiesUsed}
+                  {member.planDef.maxCompanies === null ? ' · sin límite' : ` de ${member.planDef.maxCompanies}`}
+                  {' · '}
+                  Sucursales {sites.sites.length}
+                  {member.planDef.maxSitesPerCompany === null ? ' · sin límite' : ` de ${member.planDef.maxSitesPerCompany}`}
+                  {' · '}
+                  Personas {data.members.length}
+                  {member.planDef.seats === null ? ' · sin límite' : ` de ${member.planDef.seats}`}
                 </div>
               </div>
               {availableCount < MODULE_COUNT && (
@@ -649,13 +846,32 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
             </div>
 
             <div className="flabel" style={{ marginTop: 0 }}>Sector de tu empresa</div>
-            <div className="mod-types">
-              {COMPANY_TYPES.map((t) => (
+            {/* Said above the cards, not inside a refusal after the click.
+                The sector is the one choice on this screen that stops being a
+                choice: it decides which vertical the company runs on, and once
+                there are records in it there is nowhere for them to go. Modules
+                stay editable underneath, which is the part people actually
+                change. */}
+            {!sectorLocked ? (
+              <div style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 10, maxWidth: 620, lineHeight: 1.55 }}>
+                Aún puedes cambiarlo: esta empresa todavía no tiene datos propios de su
+                sector. En cuanto los tenga, queda fijo.
+              </div>
+            ) : (
+              <div className="mod-sector-locked" role="note">
+                <strong>{lockedSectorLabel}</strong> — el sector queda fijo porque esta
+                empresa ya tiene datos propios de él. Para operar otro sector,{' '}
+                <Link href="/dashboard/empresas">crea otra empresa</Link>. Los módulos
+                siguen siendo tuyos para activar y desactivar.
+              </div>
+            )}
+            <div className="mod-types" hidden={sectorLocked}>
+              {sectorCards.map((t) => (
                 <button
                   key={t.key}
                   type="button"
                   className={`mod-type${companyTypeKey === t.key ? ' on' : ''}`}
-                  disabled={!canManage || pending}
+                  disabled={!canManage || pending || sectorLocked}
                   aria-pressed={companyTypeKey === t.key}
                   // Picking a type replaces the selection outright. Merging
                   // would make the button do nothing visible on a second click
@@ -663,7 +879,13 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
                   // from — the point of choosing a type is to start over.
                   onClick={() => {
                     setCompanyTypeKey(t.key)
-                    setModules(new Set(presetFor(t.key).filter((k) => member.planIncludes(k))))
+                    // The subsector belongs to exactly one sector, and the
+                    // database refuses a mismatched pair on save.
+                    setSubsectorKey(null)
+                    setModules(new Set(
+                      presetFromCatalogue(data.catalogue, t.key)
+                        .filter((k) => member.planIncludes(k)),
+                    ))
                     mark()
                   }}
                 >
@@ -673,20 +895,59 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
               ))}
             </div>
 
+            {subsectorOptions.length > 0 && !sectorLocked && (
+              <>
+                <div className="flabel">Tipo de {sectorLabel}</div>
+                <Select
+                  value={subsectorKey ?? ''}
+                  // Re-proposes rather than merely recording. The kind of
+                  // business is the second half of the same question, and
+                  // storing the answer without acting on it is what this
+                  // control did until now.
+                  //
+                  // Derived from the sector, never layered on the current
+                  // selection: applying a delta twice, or onto modules somebody
+                  // had already toggled by hand, produces a set nobody can
+                  // explain. Everything stays individually switchable below.
+                  onChange={(v) => {
+                    const next = v || null
+                    setSubsectorKey(next)
+                    setModules(new Set(
+                      presetFromCatalogue(data.catalogue, companyTypeKey, next)
+                        .filter((k) => member.planIncludes(k)),
+                    ))
+                    mark()
+                  }}
+                  options={[
+                    { value: '', label: 'Prefiero no precisar' },
+                    ...subsectorOptions.map((o) => ({ value: o.key, label: o.label })),
+                  ]}
+                />
+                <div style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 6, marginBottom: 4 }}>
+                  Afina la sugerencia de módulos. Una panadería y un bar son el mismo sector
+                  y no usan lo mismo.
+                </div>
+              </>
+            )}
+
             <div className="mod-summary">
               <span>
                 {modules.size} de {availableCount} módulos activos
               </span>
-              {companyTypeKey && !matchesPreset && (
-                <button
-                  type="button"
-                  className="mod-reset"
-                  disabled={!canManage || pending}
-                  onClick={() => { setModules(new Set(preset)); mark() }}
-                >
-                  Selección personalizada · restablecer el preset
-                </button>
-              )}
+              {/* Always rendered, `visibility`-gated: mounting/unmounting this
+                  button changes the summary's height and scroll anchoring
+                  jumps the page on every toggle. A hidden button keeps the
+                  layout height constant. */}
+              <button
+                type="button"
+                className="mod-reset"
+                disabled={!canManage || pending}
+                tabIndex={companyTypeKey && !matchesPreset ? undefined : -1}
+                style={{ visibility: companyTypeKey && !matchesPreset ? 'visible' : 'hidden' }}
+                onClick={() => { setModules(new Set(preset)); mark() }}
+              >
+                Selección personalizada · restablecer el preset
+              </button>
             </div>
 
             {modulesByGroup().map(({ group, modules: defs }) => (
@@ -743,59 +1004,222 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
                 Solo una persona administradora puede cambiar los módulos de la organización.
               </p>
             ) : (
-              <button className="btn dark" style={{ marginTop: 20 }} onClick={save} disabled={pending}>
-                <Check size={15} />Guardar módulos
-              </button>
+              /*
+                Sticky, because the toggles are thirty-five rows long and the
+                button used to sit under the last of them. Switching something
+                on at the top meant scrolling past everything to commit it —
+                and the tab guard would then ask whether to discard changes the
+                user believed they had already made. The bar follows the work
+                and says what is unsaved, so Guardar is never out of reach.
+              */
+              <div className="mod-save" data-dirty={dirty ? 'true' : undefined}>
+                <span className="mod-save-state">
+                  {dirty
+                    ? `${modules.size} módulo${modules.size === 1 ? '' : 's'} seleccionado${modules.size === 1 ? '' : 's'} · sin guardar`
+                    : 'Todo guardado'}
+                </span>
+                <button className="btn dark" onClick={save} disabled={pending || !dirty}>
+                  <Check size={15} />Guardar módulos
+                </button>
+              </div>
             )}
           </>
         )}
 
         {/* ========== ROLES Y PERMISOS ========== */}
+        {tab === 'sucursales' && (
+          <SucursalesTab
+            data={sites}
+            members={members.map((m) => ({ userId: m.userId, fullName: m.fullName, role: m.role }))}
+            canManage={canManage}
+          />
+        )}
+
         {tab === 'roles' && (
           <>
+            <div className="ctitle" style={{ marginBottom: 6 }}>Roles de la organización</div>
+            <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 14, maxWidth: 640, lineHeight: 1.55 }}>
+              Los roles son tuyos: créalos con los nombres que usa tu empresa —«Médico»,
+              «Recepción», «Residente de obra»— y decide en la matriz qué abre cada uno.
+              Los tres que vienen de fábrica se pueden renombrar y eliminar como cualquier otro.
+            </div>
+
+            {canManage && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+                <input
+                  className="field"
+                  placeholder="Nombre del nuevo rol"
+                  value={newRole}
+                  maxLength={40}
+                  onChange={(e) => setNewRole(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') addRole() }}
+                  style={{ flex: '1 1 220px', minWidth: 0 }}
+                  aria-label="Nombre del nuevo rol"
+                />
+                {/* Copying is what makes this usable. Building a role from
+                    nothing is thirty-nine switches; building it from an
+                    existing one is the two or three that differ. */}
+                <Select
+                  value={copyFrom}
+                  onChange={setCopyFrom}
+                  placeholder="Sin copiar permisos"
+                  options={[
+                    { value: '', label: 'Sin copiar permisos' },
+                    ...roles.map((r) => ({ value: r.key, label: `Copiar de ${r.label}` })),
+                  ]}
+                  style={{ width: 220 }}
+                />
+                <button
+                  className="btn dark"
+                  disabled={pending || newRole.trim() === ''}
+                  aria-busy={pending}
+                  onClick={addRole}
+                >
+                  <Plus size={15} />Crear rol
+                </button>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 24 }}>
+              {roles.map((r) => (
+                <div
+                  className="elrow"
+                  key={r.key}
+                  style={{ padding: '10px 12px', borderRadius: 'var(--r)', background: 'var(--bg)' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <span className={`permrole-ico ${ROLE_TONE[r.key] ?? ''}`} style={{ marginBottom: 0 }}>
+                      {permissions[r.key]?.['configuracion:manage']
+                        ? <Shield size={14} />
+                        : isSystemRole(r.key) ? <Star size={14} /> : <Users size={14} />}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      {renaming?.key === r.key ? (
+                        <input
+                          className="field"
+                          autoFocus
+                          value={renaming.label}
+                          maxLength={40}
+                          style={{ height: 30, fontSize: 13 }}
+                          onChange={(e) => setRenaming({ key: r.key, label: e.target.value })}
+                          onBlur={() => renameRole(r.key, renaming.label)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') renameRole(r.key, renaming.label)
+                            if (e.key === 'Escape') setRenaming(null)
+                          }}
+                          aria-label={`Nuevo nombre para el rol ${r.label}`}
+                        />
+                      ) : (
+                        <div className="eltxt" style={{ fontSize: 13, fontWeight: 400 }}>
+                          {r.label}
+                          {r.isSystem && (
+                            <span style={{ color: 'var(--ink3)', fontSize: 11 }}> · de fábrica</span>
+                          )}
+                        </div>
+                      )}
+                      <div className="elsub" style={{ fontSize: 11.5 }}>
+                        {r.members === 0 ? 'Nadie lo tiene' : `${r.members} persona${r.members === 1 ? '' : 's'}`}
+                        {' · '}
+                        {Object.values(permissions[r.key] ?? {}).filter(Boolean).length} permisos
+                      </div>
+                    </div>
+                  </div>
+                  {canManage && (
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      <button
+                        className="ibtn"
+                        style={{ width: 28, height: 28 }}
+                        data-tip="Renombrar"
+                        disabled={pending}
+                        onClick={() => setRenaming({ key: r.key, label: r.label })}
+                        aria-label={`Renombrar el rol ${r.label}`}
+                      ><PenLine size={13} /></button>
+                      <button
+                        className="ibtn"
+                        style={{ width: 28, height: 28, color: 'var(--redd)' }}
+                        data-tip={r.members > 0 ? 'Todavía hay personas con este rol' : 'Eliminar rol'}
+                        disabled={pending}
+                        onClick={() => removeRole(r.key, r.members)}
+                        aria-label={`Eliminar el rol ${r.label}`}
+                      ><Trash2 size={13} /></button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
             <div className="ctitle" style={{ marginBottom: 6 }}>Permisos por rol</div>
-            <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 14 }}>Define qué módulos puede ver y gestionar cada nivel de la organización.</div>
+            <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 10 }}>Define qué módulos puede ver y gestionar cada rol.</div>
+
+            {/* Thirty-nine modules, and the question is nearly always about
+                one of them. Scrolling to it was the whole cost of answering. */}
+            <input
+              className="field"
+              type="search"
+              placeholder="Buscar módulo…"
+              value={permQuery}
+              onChange={(e) => setPermQuery(e.target.value)}
+              style={{ marginBottom: 10 }}
+              aria-label="Filtrar la matriz por módulo"
+            />
 
             {/*
-              One matrix instead of three stacked lists. The previous layout
+              One matrix instead of a list per role. The previous layout
               repeated all 39 permission labels once per role — 117 labelled
               rows to read — and threw away the module grouping the data
-              already carries. Here each label is written once and the three
-              roles line up in columns, which is the comparison this screen
-              exists to make.
+              already carries. Here each label is written once and the roles
+              line up in columns, which is the comparison this screen exists to
+              make. The column count is now the organization's, so it rides on
+              a CSS variable instead of being fixed at three.
             */}
             <div className="permwrap">
-              <div className="permmatrix">
+              <div className="permmatrix" style={{ ['--perm-cols' as string]: roles.length }}>
                 <div className="permcorner">Módulo</div>
-                {ROLES.map((r) => (
-                  <div key={r} className="permrole">
-                    <span className={`permrole-ico ${ROLE_TONE[r]}`}>
-                      {r === 'Administrador' ? <Shield size={14} /> : r === 'Líder de equipo' ? <Star size={14} /> : <Users size={14} />}
+                {roles.map((r) => (
+                  <div key={r.key} className="permrole">
+                    <span className={`permrole-ico ${ROLE_TONE[r.key] ?? ''}`}>
+                      {permissions[r.key]?.['configuracion:manage']
+                        ? <Shield size={14} />
+                        : isSystemRole(r.key) ? <Star size={14} /> : <Users size={14} />}
                     </span>
-                    <span className="permrole-name">{r}</span>
-                    <span className="permrole-sub">{ROLE_SUB[r]}</span>
+                    <span className="permrole-name">{r.label}</span>
+                    <span className="permrole-sub">
+                      {ROLE_SUB[r.key] ??
+                        `${Object.values(permissions[r.key] ?? {}).filter(Boolean).length} permisos`}
+                    </span>
                   </div>
                 ))}
 
-                {permissionsByModule().flatMap((group) => [
+                {permGroups.length === 0 && (
+                  <div className="permempty">
+                    Ningún módulo coincide con «{permQuery.trim()}».
+                  </div>
+                )}
+
+                {permGroups.flatMap((group) => [
                   <div key={`m-${group.module}`} className="permmodule">
-                    {MODULE_LABELS[group.module] ?? group.module}
+                    {/* Sticky-left inside its full-width banner, so the module
+                        name stays readable while the switches scroll sideways. */}
+                    <span>{MODULE_LABELS[group.module] ?? group.module}</span>
                   </div>,
                   ...group.permissions.flatMap((permission) => [
                     <div key={`l-${permission}`} className="permlabel">
                       {ACTION_LABELS[permission.split(':')[1]] ?? PERMISSION_LABELS[permission]}
                     </div>,
-                    ...ROLES.map((r) => (
-                      <div key={`c-${permission}-${r}`} className="permcell">
+                    ...roles.map((r) => (
+                      <div key={`c-${permission}-${r.key}`} className="permcell">
                         <Toggle
                           size="sm"
-                          on={permissions[r][permission]}
-                          onChange={() => togglePerm(r, permission)}
+                          on={permissions[r.key]?.[permission] ?? false}
+                          onChange={() => togglePerm(r.key, permission)}
                           /* Not gated on `pending`: one in-flight write used to
-                             grey out all 117 switches, and the flip is
-                             optimistic now anyway. */
-                          disabled={!canManage || r === 'Administrador'}
-                          ariaLabel={`${PERMISSION_LABELS[permission]} para ${r}`}
+                             grey out every switch, and the flip is optimistic
+                             anyway. Nor is any role locked out of editing —
+                             administration is no longer a name, and the
+                             database refuses at COMMIT the one change that
+                             would leave nobody able to administer. */
+                          disabled={!canManage}
+                          ariaLabel={`${PERMISSION_LABELS[permission]} para ${r.label}`}
                         />
                       </div>
                     )),
@@ -810,9 +1234,11 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
               </p>
             )}
             {canManage && (
-              <p style={{ fontSize: 12.5, color: 'var(--ink3)', marginTop: 10 }}>
-                El rol Administrador conserva el acceso total y no se puede editar. Los demás
-                cambios se guardan al instante.
+              <p style={{ fontSize: 12.5, color: 'var(--ink3)', marginTop: 10, maxWidth: 640, lineHeight: 1.55 }}>
+                Los cambios se guardan al instante. Administrar la organización lo tienen{' '}
+                {adminHolders} persona{adminHolders === 1 ? '' : 's'} en{' '}
+                {adminRoles.length} rol{adminRoles.length === 1 ? '' : 'es'}; el sistema no
+                permite dejar la cuenta sin nadie que pueda administrarla.
               </p>
             )}
 
@@ -830,15 +1256,24 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
                       <div className="elsub" style={{ fontSize: 11.5 }}>{m.email}</div>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="prole"
-                    disabled={!canManage || pending}
-                    onClick={() => cycleMemberRole(m.membershipId, m.role)}
-                    aria-label={`Cambiar el rol de ${m.fullName}, actualmente ${m.role}`}
-                  >
-                    {m.role} <ChevronDown size={12} />
-                  </button>
+                  {canManage ? (
+                    <Select
+                      value={m.role}
+                      onChange={(v) => changeMemberRole(m.membershipId, v)}
+                      /* The person's current role is unioned in so a role
+                         deleted elsewhere still renders as their value instead
+                         of the select snapping to whatever sorts first. */
+                      options={
+                        roles.some((r) => r.key === m.role)
+                          ? roles.map((r) => ({ value: r.key, label: r.label }))
+                          : [...roles.map((r) => ({ value: r.key, label: r.label })),
+                             { value: m.role, label: m.role }]
+                      }
+                      style={{ width: 190, flexShrink: 0 }}
+                    />
+                  ) : (
+                    <span className="prole" style={{ cursor: 'default' }}>{m.role}</span>
+                  )}
                 </div>
               ))}
               {members.length === 0 && (
@@ -881,7 +1316,7 @@ export default function ConfiguracionPage({ data }: { data: SettingsData }) {
                   <Select
                     value={inviteRole}
                     onChange={(v) => setInviteRole(v as RoleKey)}
-                    options={[...ROLES]}
+                    options={roles.map((r) => ({ value: r.key, label: r.label }))}
                     style={{ width: 190 }}
                   />
                   <button

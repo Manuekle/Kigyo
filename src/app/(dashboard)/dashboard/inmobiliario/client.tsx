@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Home, Check, Plus, Trash2, AlertTriangle, Wallet } from '@/lib/icons'
+import { Home, Check, Plus, Trash2, AlertTriangle, Wallet, PenLine } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -16,7 +16,7 @@ import { cop } from '@/lib/utils'
 import type { InmobiliarioData, PropertyRow } from '@/server/queries/inmobiliario'
 import {
   createContratoArriendo, createInmueble, deleteInmueble, registrarArriendo,
-  setContratoArriendoStatus, setInmuebleStatus,
+  setContratoArriendoStatus, setInmuebleStatus, updateInmueble,
 } from '@/server/mutations/inmobiliario'
 import { fetchMoreInmuebles } from '@/server/actions/inmobiliario'
 
@@ -70,6 +70,7 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
   const [propertyOpen, setPropertyOpen] = useState(false)
   const [leaseOpen, setLeaseOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
+  const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null)
   const [propertyForm, setPropertyForm] = useState(EMPTY_PROPERTY)
   const [leaseForm, setLeaseForm] = useState(EMPTY_LEASE)
   const [paymentForm, setPaymentForm] = useState(EMPTY_PAYMENT)
@@ -136,9 +137,29 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
     })
   }
 
+  function editProperty(p: PropertyRow) {
+    setEditingPropertyId(p.id)
+    setPropertyForm({
+      name: p.name,
+      kind: p.kind,
+      address: p.address,
+      city: p.city,
+      areaM2: p.areaM2 !== null ? String(p.areaM2) : '',
+      bedrooms: p.bedrooms !== null ? String(p.bedrooms) : '',
+      bathrooms: p.bathrooms !== null ? String(p.bathrooms) : '',
+      parkingSpots: p.parkingSpots !== null ? String(p.parkingSpots) : '',
+      rent: String(Math.round(p.rentCents / 100)),
+      adminFee: String(Math.round(p.adminFeeCents / 100)),
+      salePrice: String(Math.round(p.salePriceCents / 100)),
+      ownerName: p.ownerName,
+      notes: p.notes,
+    })
+    setPropertyOpen(true)
+  }
+
   function submitProperty() {
     startTransition(async () => {
-      const result = await createInmueble({
+      const payload = {
         name: propertyForm.name,
         kind: propertyForm.kind as never,
         address: propertyForm.address,
@@ -152,12 +173,16 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
         salePriceCents: toCents(propertyForm.salePrice),
         ownerName: propertyForm.ownerName,
         notes: propertyForm.notes,
-      })
+      }
+      const result = editingPropertyId
+        ? await updateInmueble({ id: editingPropertyId, ...payload })
+        : await createInmueble(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setPropertyForm(EMPTY_PROPERTY)
+      setEditingPropertyId(null)
       setPropertyOpen(false)
-      addToast('Inmueble creado', 'ok')
+      addToast(editingPropertyId ? 'Inmueble actualizado' : 'Inmueble creado', 'ok')
     })
   }
 
@@ -253,7 +278,10 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
                   <Plus size={15} />Pago
                 </button>
               ) : (
-                <button className="btn dark" disabled={pending} onClick={() => setPropertyOpen(true)}>
+                <button className="btn dark" disabled={pending} onClick={() => {
+                  setEditingPropertyId(null)
+                  setPropertyOpen(true)
+                }}>
                   <Plus size={15} />Inmueble
                 </button>
               )}
@@ -332,6 +360,10 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
                               onChange={(next) => { if (next !== p.status) changeProperty(p, next) }}
                               options={[...PROPERTY_STATUSES]}
                             />
+                            <button className="ibtn" aria-label={`Editar ${p.name}`}
+                              disabled={pending} onClick={() => editProperty(p)}>
+                              <PenLine size={14} />
+                            </button>
                             <button className="ibtn" aria-label={`Eliminar ${p.name}`}
                               disabled={pending} onClick={() => remove(p)}>
                               <Trash2 size={14} />
@@ -485,11 +517,14 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
 
       <FormDrawer
         open={propertyOpen}
-        onClose={() => setPropertyOpen(false)}
-        title="Nuevo inmueble"
+        onClose={() => {
+          setEditingPropertyId(null)
+          setPropertyOpen(false)
+        }}
+        title={editingPropertyId ? 'Editar inmueble' : 'Nuevo inmueble'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitProperty}>
-            <Check size={15} />Crear inmueble
+            <Check size={15} />{editingPropertyId ? 'Guardar cambios' : 'Crear inmueble'}
           </button>
         }
       >

@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
-import { Wrench, AlertTriangle, Check, Clock, Plus, Trash2, DollarSign } from '@/lib/icons'
+import { Fragment, useMemo, useState, useTransition } from 'react'
+import { Wrench, AlertTriangle, Check, Clock, Plus, Trash2, DollarSign, PenLine, ChevronDown } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -13,7 +13,8 @@ import {
 } from '@/lib/domain'
 import { cop, prioTone } from '@/lib/utils'
 import type { MantenimientoData, WorkOrderRow } from '@/server/queries/mantenimiento'
-import { createOrden, deleteOrden, setOrdenStatus } from '@/server/mutations/mantenimiento'
+import { createOrden, deleteOrden, setOrdenStatus, updateOrden, fetchWorkOrderTasks, createWorkOrderTask, toggleWorkOrderTask, deleteWorkOrderTask } from '@/server/mutations/mantenimiento'
+import type { WorkOrderTask } from '@/server/mutations/mantenimiento'
 import { fetchMoreOrdenes } from '@/server/actions/mantenimiento'
 
 const DATE = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short' })
@@ -59,6 +60,7 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
   const [kindFilter, setKindFilter] = useState('Todos')
   const [open, setOpen] = useState(false)
   const [form, setForm] = useState(EMPTY)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   function apply(next: MantenimientoData) {
     setOrdenes(next.ordenes)
@@ -82,6 +84,60 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
     const byId = new Map(data.roster.map((r) => [r.employeeId, r.fullName]))
     return (id: string | null) => (id ? byId.get(id) ?? '—' : 'Sin asignar')
   }, [data.roster])
+
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [taskLists, setTaskLists] = useState<Record<string, WorkOrderTask[] | null>>({})
+  const [loadingTasks, setLoadingTasks] = useState<string | null>(null)
+  const [taskDrafts, setTaskDrafts] = useState<Record<string, string>>({})
+  const [taskBusy, startTaskBusy] = useTransition()
+
+  function setTasks(orderId: string, tasks: WorkOrderTask[]) {
+    setTaskLists((prev) => ({ ...prev, [orderId]: tasks }))
+  }
+
+  function expand(orderId: string) {
+    setExpanded((prev) => ({ ...prev, [orderId]: !prev[orderId] }))
+    if (!taskLists[orderId] && !loadingTasks) {
+      setLoadingTasks(orderId)
+      startTaskBusy(async () => {
+        const result = await fetchWorkOrderTasks(orderId)
+        setLoadingTasks(null)
+        if (!result.ok) { addToast(result.error, 'err'); return }
+        setTaskLists((prev) => ({ ...prev, [orderId]: result.data }))
+      })
+    }
+  }
+
+  function addTask(orderId: string) {
+    const description = (taskDrafts[orderId] ?? '').trim()
+    if (!description) return
+    setTaskDrafts((prev) => ({ ...prev, [orderId]: '' }))
+    startTaskBusy(async () => {
+      const result = await createWorkOrderTask({ workOrderId: orderId, description })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setTasks(orderId, result.data)
+      addToast('Tarea agregada', 'ok')
+    })
+  }
+
+  function toggleTask(orderId: string, task: WorkOrderTask) {
+    startTaskBusy(async () => {
+      const result = await toggleWorkOrderTask({ id: task.id, done: !task.done })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      const tasks = taskLists[orderId]
+      if (tasks) setTasks(orderId, tasks.map((t) => t.id === task.id ? { ...t, done: !t.done } : t))
+    })
+  }
+
+  function removeTask(orderId: string, taskId: string) {
+    if (!window.confirm('¿Eliminar esta tarea de la lista?')) return
+    startTaskBusy(async () => {
+      const result = await deleteWorkOrderTask(taskId)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setTasks(orderId, result.data)
+      addToast('Tarea eliminada', 'ok')
+    })
+  }
 
   const stats = useMemo(() => {
     const live = ordenes.filter((o) => isOpen(o.status))
@@ -127,9 +183,28 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
     })
   }
 
+  function startEdit(orden: WorkOrderRow) {
+    setForm({
+      title: orden.title,
+      kind: orden.kind,
+      priority: orden.priority,
+      assetId: orden.assetId ?? '',
+      assetLabel: orden.assetLabel,
+      assigneeId: orden.assigneeId ?? '',
+      location: orden.location,
+      detail: orden.detail,
+      scheduledOn: orden.scheduledOn ?? '',
+      laborCost: String(orden.laborCostCents / 100),
+      partsCost: String(orden.partsCostCents / 100),
+      recurrenceDays: orden.recurrenceDays ? String(orden.recurrenceDays) : '',
+    })
+    setEditingId(orden.id)
+    setOpen(true)
+  }
+
   function submit() {
     startTransition(async () => {
-      const result = await createOrden({
+      const input = {
         title: form.title,
         kind: form.kind as never,
         priority: form.priority as never,
@@ -142,12 +217,16 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
         laborCostCents: toCents(form.laborCost),
         partsCostCents: toCents(form.partsCost),
         recurrenceDays: orNull(form.recurrenceDays),
-      })
+      }
+      const result = editingId
+        ? await updateOrden({ ...input, id: editingId })
+        : await createOrden(input)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setForm(EMPTY)
+      setEditingId(null)
       setOpen(false)
-      addToast('Orden creada', 'ok')
+      addToast(editingId ? 'Orden actualizada' : 'Orden creada', 'ok')
     })
   }
 
@@ -180,7 +259,7 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
             </div>
           </div>
           {data.canWrite && (
-            <button className="btn dark" disabled={pending} onClick={() => setOpen(true)}>
+            <button className="btn dark" disabled={pending} onClick={() => { setForm(EMPTY); setEditingId(null); setOpen(true) }}>
               <Plus size={15} />Nueva orden
             </button>
           )}
@@ -225,9 +304,17 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
                   </td>
                 </tr>
               ) : visible.map((o) => (
-                <tr key={o.id}>
+                <Fragment key={o.id}>
+                <tr>
                   <td>
-                    <div className="cename">{o.title}</div>
+                    <div className="cename" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button className="ibtn" aria-label={`Lista de tareas de ${o.title}`}
+                        style={{ transform: expanded[o.id] ? 'rotate(180deg)' : 'none', transition: 'transform var(--acc-chevron) var(--acc-ease)' }}
+                        onClick={() => expand(o.id)}>
+                        <ChevronDown size={14} />
+                      </button>
+                      {o.title}
+                    </div>
                     <div className="elsub mono">
                       {o.code} · {o.kind}
                       {o.recurrenceDays && ` · cada ${o.recurrenceDays} días`}
@@ -254,6 +341,10 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
                           onChange={(next) => { if (next !== o.status) changeStatus(o, next) }}
                           options={[...WORK_ORDER_STATUSES]}
                         />
+                        <button className="ibtn" aria-label={`Editar ${o.title}`}
+                          disabled={pending} onClick={() => startEdit(o)}>
+                          <PenLine size={14} />
+                        </button>
                         <button className="ibtn" aria-label={`Eliminar ${o.title}`}
                           disabled={pending} onClick={() => remove(o)}>
                           <Trash2 size={14} />
@@ -262,6 +353,62 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
                     </td>
                   )}
                 </tr>
+                {expanded[o.id] && (
+                  <tr>
+                    <td colSpan={data.canWrite ? 7 : 6} style={{ background: 'var(--bg2)', padding: '10px 18px 14px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div className="elsub" style={{ marginBottom: 4 }}>
+                            Lista de tareas
+                            {taskLists[o.id] && ` · ${taskLists[o.id]?.filter((t) => t.done).length ?? 0}/${taskLists[o.id]?.length ?? 0}`}
+                          </div>
+                          {loadingTasks === o.id ? (
+                            <div className="elsub">Cargando tareas…</div>
+                          ) : (taskLists[o.id]?.length ?? 0) === 0 ? (
+                            <div className="elsub">Sin tareas</div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              {taskLists[o.id]?.map((t) => (
+                                <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: data.canWrite ? 'pointer' : 'default' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={t.done}
+                                    disabled={!data.canWrite || taskBusy}
+                                    onChange={() => toggleTask(o.id, t)}
+                                  />
+                                  <span style={{ flex: 1, color: t.done ? 'var(--ink3)' : 'var(--ink)', textDecoration: t.done ? 'line-through' : 'none' }}>
+                                    {t.description}
+                                  </span>
+                                  {data.canWrite && (
+                                    <button className="ibtn" aria-label={`Eliminar tarea ${t.description}`}
+                                      disabled={taskBusy} onClick={() => removeTask(o.id, t.id)}>
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                          {data.canWrite && (
+                            <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                              <input
+                                className="field"
+                                value={taskDrafts[o.id] ?? ''}
+                                disabled={taskBusy}
+                                onChange={(e) => setTaskDrafts((prev) => ({ ...prev, [o.id]: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === 'Enter') addTask(o.id) }}
+                                placeholder="Nueva tarea…"
+                              />
+                              <button className="ibtn" aria-label="Agregar tarea"
+                                disabled={taskBusy} onClick={() => addTask(o.id)}>
+                                <Plus size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -280,10 +427,10 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
       <FormDrawer
         open={open}
         onClose={() => setOpen(false)}
-        title="Nueva orden de trabajo"
+        title={editingId ? 'Editar orden de trabajo' : 'Nueva orden de trabajo'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submit}>
-            <Check size={15} />Crear orden
+            <Check size={15} />{editingId ? 'Guardar cambios' : 'Crear orden'}
           </button>
         }
       >

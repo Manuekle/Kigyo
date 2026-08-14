@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import type { ComponentType } from 'react'
-import { Wallet, Users, ShieldCheck, TrendingUp, TrendingDown, FileSpreadsheet, Plus, X } from '@/lib/icons'
+import { Wallet, Users, ShieldCheck, TrendingUp, TrendingDown, FileSpreadsheet, Plus, PenLine, X } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import ChartTip from '@/components/ui/ChartTip'
@@ -11,8 +11,8 @@ import { useExport } from '@/lib/hooks/use-export'
 import { useApp } from '@/lib/context/AppContext'
 import { cop } from '@/lib/utils'
 import { PAYROLL_STATUSES } from '@/lib/domain'
-import type { NominaData } from '@/server/queries/nomina'
-import { createBeneficio, deleteBeneficio, openPeriod, setPeriodStatus } from '@/server/mutations/nomina'
+import type { NominaData, BeneficioRow } from '@/server/queries/nomina'
+import { createBeneficio, deleteBeneficio, openPeriod, setPeriodStatus, updateBeneficio } from '@/server/mutations/nomina'
 
 const MONTH_SHORT = new Intl.DateTimeFormat('es-CO', { month: 'short' })
 const MONTH_LONG = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' })
@@ -43,6 +43,8 @@ export default function NominaPage({ data }: { data: NominaData }) {
 
   const [state, setState] = useState<NominaData>(data)
   const [benefOpen, setBenefOpen] = useState(false)
+  const [editing, setEditing] = useState<string | null>(null)
+  const [benefSearch, setBenefSearch] = useState('')
   const [form, setForm] = useState({ name: '', kind: 'Otro', cost: '', coverage: '100' })
 
   const { periods, areas, beneficios } = state
@@ -80,6 +82,12 @@ export default function NominaPage({ data }: { data: NominaData }) {
     [periods],
   )
 
+  const visibleBenefits = useMemo(() => {
+    const q = benefSearch.trim().toLowerCase()
+    if (!q) return beneficios
+    return beneficios.filter((b) => b.name.toLowerCase().includes(q) || b.kind.toLowerCase().includes(q))
+  }, [beneficios, benefSearch])
+
   const exportNomina = () => {
     void runExport(
       areas.map((a) => ({
@@ -108,6 +116,36 @@ export default function NominaPage({ data }: { data: NominaData }) {
       setBenefOpen(false)
       setForm({ name: '', kind: 'Otro', cost: '', coverage: '100' })
       addToast('Beneficio añadido', 'ok')
+    })
+  }
+
+  function startEdit(b: BeneficioRow) {
+    setForm({
+      name: b.name,
+      kind: b.kind,
+      cost: String(b.monthlyCostCents / 100),
+      coverage: String(b.coveragePct),
+    })
+    setEditing(b.id)
+    setBenefOpen(true)
+  }
+
+  function saveEdit() {
+    if (!form.name.trim() || !editing) { addToast('El nombre del beneficio es obligatorio', 'err'); return }
+    startTransition(async () => {
+      const result = await updateBeneficio({
+        id: editing,
+        name: form.name.trim(),
+        kind: form.kind as 'Otro',
+        monthlyCostCents: Math.round((Number(form.cost) || 0) * 100),
+        coveragePct: Math.min(100, Math.max(0, Number(form.coverage) || 0)),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      setBenefOpen(false)
+      setEditing(null)
+      setForm({ name: '', kind: 'Otro', cost: '', coverage: '100' })
+      addToast('Beneficio actualizado', 'ok')
     })
   }
 
@@ -192,20 +230,30 @@ export default function NominaPage({ data }: { data: NominaData }) {
         <div className="card rise d3">
           <div className="chead">
             <div className="ctitle">Beneficios</div>
-            {state.canWrite && (
-              <button className="btn ghost" onClick={() => setBenefOpen(true)}><Plus size={13} />Añadir</button>
-            )}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input className="field" placeholder="Buscar beneficio…" value={benefSearch} onChange={(e) => setBenefSearch(e.target.value)} aria-label="Buscar beneficio" style={{ width: 150 }} />
+              {state.canWrite && (
+                <button className="btn ghost" onClick={() => { setEditing(null); setBenefOpen(true) }}><Plus size={13} />Añadir</button>
+              )}
+            </div>
           </div>
           <div style={{ padding: '0 16px 16px' }}>
             {beneficios.length === 0 ? (
               <div className="dempty">Sin beneficios registrados</div>
-            ) : beneficios.map((b) => (
+            ) : visibleBenefits.length === 0 ? (
+              <div className="dempty">Sin resultados para la búsqueda</div>
+            ) : visibleBenefits.map((b) => (
               <div className="elrow" key={b.id}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="eltxt">{b.name}</div>
                   <div className="elsub">{b.kind} · {b.coveragePct}% del equipo</div>
                 </div>
                 <div className="eltxt">{cop(b.monthlyCostCents / 100)}</div>
+                {state.canWrite && (
+                  <button className="ibtn" style={{ width: 26, height: 26, marginLeft: 6 }} disabled={pending} onClick={() => startEdit(b)} aria-label={`Editar ${b.name}`}>
+                    <PenLine size={13} />
+                  </button>
+                )}
                 {state.canWrite && (
                   <button className="ibtn" style={{ width: 26, height: 26, marginLeft: 6 }} disabled={pending} onClick={() => removeBenefit(b.id, b.name)} aria-label={`Eliminar ${b.name}`}>
                     <X size={13} />
@@ -285,7 +333,7 @@ export default function NominaPage({ data }: { data: NominaData }) {
       {benefOpen && (
         <div className="mwrap" onClick={() => setBenefOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="mhead"><div className="mtitle">Nuevo beneficio</div><button className="ibtn" onClick={() => setBenefOpen(false)} aria-label="Cerrar"><X size={18} /></button></div>
+            <div className="mhead"><div className="mtitle">{editing ? 'Editar beneficio' : 'Nuevo beneficio'}</div><button className="ibtn" onClick={() => setBenefOpen(false)} aria-label="Cerrar"><X size={18} /></button></div>
             <div className="mbody">
               <div className="flabel" style={{ marginTop: 0 }}>Nombre del beneficio</div>
               <input className="field" placeholder="Ej. Seguro de vida" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -304,8 +352,8 @@ export default function NominaPage({ data }: { data: NominaData }) {
             </div>
             <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
               <button className="btn" onClick={() => setBenefOpen(false)} disabled={pending}>Cancelar</button>
-              <button className="btn dark" onClick={addBenefit} disabled={pending} aria-busy={pending}>
-                {pending ? 'Añadiendo…' : 'Añadir beneficio'}
+              <button className="btn dark" onClick={editing ? saveEdit : addBenefit} disabled={pending} aria-busy={pending}>
+                {pending ? (editing ? 'Guardando…' : 'Añadiendo…') : (editing ? 'Guardar cambios' : 'Añadir beneficio')}
               </button>
             </div></div>
           </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { UserMinus, AlertCircle, Calendar, Plus, Check, Trash2, X, PenLine } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
@@ -13,12 +13,17 @@ import { ABSENCE_KINDS, ABSENCE_STATUSES, dayCount } from '@/lib/domain'
 import type { AsistenciaData, AusenciaRow } from '@/server/queries/asistencia'
 import {
   createAusencia, deleteAusencia, setAusenciaStatus, updateAusencia,
+  fetchSalidas, registrarSalida, deleteSalida,
 } from '@/server/mutations/asistencia'
+import type { SalidaRow } from '@/server/mutations/asistencia'
 import { fetchMoreAusencias } from '@/server/actions/asistencia'
 
 const DAY = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 const MONTH = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' })
 const fmt = (iso: string) => DAY.format(new Date(`${iso}T00:00:00`))
+
+const SALIDA_REASONS = ['Renuncia voluntaria', 'Mutuo acuerdo', 'Vencimiento contrato', 'Terminación con justa causa', 'Otro'] as const
+type SalidaReason = (typeof SALIDA_REASONS)[number]
 
 const Badge = ({ st }: { st: string }) => (
   <span className={`badge b-${tone(st)}`}><span className="bd" />{st}</span>
@@ -55,6 +60,8 @@ export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
   const [editing, setEditing] = useState<AusenciaRow | null>(null)
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
+  const [salidas, setSalidas] = useState<SalidaRow[] | null>(null)
+  const [salidaOpen, setSalidaOpen] = useState(false)
 
   const { ausencias, vacaciones, roster } = state
 
@@ -140,6 +147,24 @@ export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
       const result = await deleteAusencia(a.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data, 'Ausencia eliminada')
+    })
+  }
+
+  useEffect(() => {
+    startTransition(async () => {
+      const result = await fetchSalidas()
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setSalidas(result.data)
+    })
+  }, [addToast, startTransition])
+
+  function removeSalida(s: SalidaRow) {
+    if (!window.confirm(`¿Eliminar la salida de ${s.fullName}?`)) return
+    startTransition(async () => {
+      const result = await deleteSalida(s.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setSalidas(result.data)
+      addToast('Salida eliminada', 'ok')
     })
   }
 
@@ -265,6 +290,41 @@ export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
         </div>
       </div>
 
+      <div className="card rise d3" style={{ marginTop: 16 }}>
+        <div className="chead">
+          <div className="ctitle">Salidas</div>
+          {state.canWrite && (
+            <button className="btn pri" onClick={() => setSalidaOpen(true)}><Plus size={14} />Registrar salida</button>
+          )}
+        </div>
+        <div className="tblwrap">
+          <table className="tbl">
+            <thead><tr><th scope="col">Persona</th><th scope="col">Área</th><th scope="col">Motivo</th><th scope="col">Fecha</th><th scope="col"></th></tr></thead>
+            <tbody>
+              {salidas === null ? (
+                <tr><td colSpan={5}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>Cargando salidas…</div></td></tr>
+              ) : salidas.length === 0 ? (
+                <tr><td colSpan={5}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>Todavía no hay salidas registradas.</div></td></tr>
+              ) : salidas.map((s) => (
+                <tr className="trow" key={s.id}>
+                  <td><div className="cemp"><Avatar name={s.fullName} size={26} /><div className="cename">{s.fullName}</div></div></td>
+                  <td className="muted">{s.department || '—'}</td>
+                  <td className="muted">{s.reason}</td>
+                  <td className="muted mono" style={{ fontSize: 12 }}>{fmt(s.departedOn)}</td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {state.canWrite && (
+                      <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }} data-tip="Eliminar" disabled={pending} onClick={() => removeSalida(s)} aria-label={`Eliminar la salida de ${s.fullName}`}>
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {(addOpen || editing) && (
         <AusenciaModal
           busy={pending}
@@ -280,6 +340,22 @@ export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
               setAddOpen(false)
               setEditing(null)
               apply(result.data, editing ? 'Ausencia actualizada' : 'Ausencia registrada')
+            })
+          }
+        />
+      )}
+
+      {salidaOpen && (
+        <SalidaModal
+          busy={pending}
+          onClose={() => setSalidaOpen(false)}
+          onSubmit={(form) =>
+            startTransition(async () => {
+              const result = await registrarSalida(form)
+              if (!result.ok) { addToast(result.error, 'err'); return }
+              setSalidaOpen(false)
+              setSalidas(result.data)
+              addToast('Salida registrada', 'ok')
             })
           }
         />
@@ -383,6 +459,69 @@ function AusenciaModal({
           <button
             className="btn dark"
             disabled={busy || days <= 0 || !form.employeeId}
+            aria-busy={busy}
+            onClick={() => onSubmit(form)}
+          >
+            <Check size={14} />{busy ? 'Guardando…' : 'Guardar'}
+          </button>
+        </div></div>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Salidas                                                            */
+/* ------------------------------------------------------------------ */
+interface SalidaForm {
+  fullName: string
+  department: string
+  reason: SalidaReason
+  departedOn: string
+  employeeId: string | null
+}
+
+function SalidaModal({
+  busy, onClose, onSubmit,
+}: {
+  busy: boolean
+  onClose: () => void
+  onSubmit: (form: SalidaForm) => void
+}) {
+  const [form, setForm] = useState<SalidaForm>({
+    fullName: '',
+    department: '',
+    reason: SALIDA_REASONS[0],
+    departedOn: todayIso(),
+    employeeId: null,
+  })
+
+  return (
+    <div className="mwrap" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mhead">
+          <div className="mtitle">Registrar salida</div>
+          <button className="ibtn" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
+        </div>
+        <div className="mbody">
+          <div className="flabel" style={{ marginTop: 0 }}>Nombre completo</div>
+          <input className="field" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} placeholder="Ej: María López" />
+          <div className="flabel">Área</div>
+          <input className="field" value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} placeholder="Ej: Producción" />
+          <div className="flabel">Motivo</div>
+          <Select
+            value={form.reason}
+            onChange={(v) => setForm((f) => ({ ...f, reason: v as SalidaReason }))}
+            options={[...SALIDA_REASONS]}
+          />
+          <div className="flabel">Fecha de salida</div>
+          <DatePicker ariaLabel="Fecha de salida" value={form.departedOn} onChange={(v) => setForm((f) => ({ ...f, departedOn: v }))} />
+        </div>
+        <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
+          <button className="btn" onClick={onClose} disabled={busy}>Cancelar</button>
+          <button
+            className="btn dark"
+            disabled={busy || !form.fullName.trim() || !form.departedOn}
             aria-busy={busy}
             onClick={() => onSubmit(form)}
           >

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import {
-  ShieldCheck, ShieldAlert, Check, Calendar, Plus, Send,
+  ShieldCheck, ShieldAlert, Check, Calendar, Plus, Send, FileSpreadsheet,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import type { StatusTone } from '@/lib/types'
@@ -12,6 +12,7 @@ import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import { useApp } from '@/lib/context/AppContext'
 import { cop } from '@/lib/utils'
+import { useExport } from '@/lib/hooks/use-export'
 import {
   HSEQ_CATEGORIES, HSEQ_KINDS, HSEQ_PRIORITIES, HSEQ_SEVERITIES,
 } from '@/lib/domain'
@@ -56,6 +57,7 @@ const EMPTY_FORM = {
 
 export default function HseqPage({ data }: { data: HseqData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<HseqData>(data)
@@ -89,6 +91,20 @@ export default function HseqPage({ data }: { data: HseqData }) {
   }
   const selected = reports.find((r) => r.id === selectedId) ?? null
   const filtered = filter === 'Todos' ? reports : reports.filter((r) => r.status === filter)
+
+  const exportRows = () => {
+    void runExport(
+      filtered.map((r) => ({
+        Código: r.code ?? '',
+        Tipo: r.kind,
+        Severidad: r.severity,
+        Estado: r.status,
+        Fecha: r.reportedOn,
+      })),
+      'hseq-kigyo',
+      'hseq',
+    )
+  }
 
   const stats = useMemo(() => {
     const closed = reports.filter((r) => r.status === 'Cerrado').length
@@ -182,11 +198,14 @@ export default function HseqPage({ data }: { data: HseqData }) {
             <div className="ctitle">Trámites registrados</div>
             <div className="elsub" style={{ marginTop: 2 }}>Filtra por estado para priorizar acciones.</div>
           </div>
-          <TabBar
-            value={filter}
-            onChange={(status) => setFilter(status as (typeof STATUS_TABS)[number])}
-            items={STATUS_TABS.map((s) => ({ key: s, label: s }))}
-          />
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <TabBar
+              value={filter}
+              onChange={(status) => setFilter(status as (typeof STATUS_TABS)[number])}
+              items={STATUS_TABS.map((s) => ({ key: s, label: s }))}
+            />
+            <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
+          </div>
         </div>
         <div style={{ maxHeight: 320, overflowY: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           <div className="tblwrap">

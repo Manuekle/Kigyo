@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import {
-  Handshake, AlertTriangle, Check, Plus, Trash2, DollarSign, Calendar,
+  Handshake, AlertTriangle, Check, Plus, Trash2, DollarSign, Calendar, PenLine, FileSpreadsheet,
 } from '@/lib/icons'
+import { useExport } from '@/lib/hooks/use-export'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -16,7 +17,7 @@ import { cop } from '@/lib/utils'
 import type { ContractRow, ContratosData } from '@/server/queries/contratos'
 import {
   addHito, createContrato, deleteContrato, renovarContrato,
-  setContratoStatus, setHitoDone,
+  setContratoStatus, setHitoDone, updateContrato,
 } from '@/server/mutations/contratos'
 import { fetchMoreContratos } from '@/server/actions/contratos'
 
@@ -48,6 +49,7 @@ const EMPTY_MILESTONE = { contractId: '', title: '', dueOn: '', amount: '', posi
 
 export default function ContratosPage({ data }: { data: ContratosData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
   const [contratos, setContratos] = useState<ContractRow[]>(data.contratos)
@@ -61,6 +63,7 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [contractOpen, setContractOpen] = useState(false)
   const [milestoneOpen, setMilestoneOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [contractForm, setContractForm] = useState(EMPTY_CONTRACT)
   const [milestoneForm, setMilestoneForm] = useState(EMPTY_MILESTONE)
 
@@ -103,6 +106,21 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
     (kindFilter === 'Todos' || c.kind === kindFilter),
   )
 
+  const exportRows = () => {
+    void runExport(
+      visible.map((c) => ({
+        Contrato: c.title ?? '',
+        Contraparte: c.clientName ?? c.counterparty ?? '',
+        Valor: c.valueCents > 0 ? pesos(c.valueCents) : '',
+        Inicia: c.startsOn ?? '',
+        Termina: c.endsOn ?? '',
+        Estado: c.status ?? '',
+      })),
+      'contratos-kigyo',
+      'contratos',
+    )
+  }
+
   function changeStatus(c: ContractRow, status: string) {
     startTransition(async () => {
       const result = await setContratoStatus({ id: c.id, status: status as never })
@@ -144,9 +162,28 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
     })
   }
 
+  function editContract(c: ContractRow) {
+    setContractForm({
+      title: c.title,
+      kind: c.kind,
+      counterparty: c.counterparty,
+      clientId: c.clientId ?? '',
+      employeeId: c.employeeId ?? '',
+      ownerId: c.ownerId ?? '',
+      value: c.valueCents > 0 ? pesos(c.valueCents) : '',
+      startsOn: c.startsOn ?? '',
+      endsOn: c.endsOn ?? '',
+      noticeDays: String(c.noticeDays),
+      autoRenew: c.autoRenew,
+      notes: c.notes,
+    })
+    setEditingId(c.id)
+    setContractOpen(true)
+  }
+
   function submitContract() {
     startTransition(async () => {
-      const result = await createContrato({
+      const base = {
         title: contractForm.title,
         kind: contractForm.kind as never,
         counterparty: contractForm.counterparty,
@@ -159,12 +196,16 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
         noticeDays: contractForm.noticeDays || 30,
         autoRenew: contractForm.autoRenew,
         notes: contractForm.notes,
-      })
+      }
+      const result = editingId
+        ? await updateContrato({ ...base, id: editingId })
+        : await createContrato(base)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setContractForm(EMPTY_CONTRACT)
+      setEditingId(null)
       setContractOpen(false)
-      addToast('Contrato creado', 'ok')
+      addToast(editingId ? 'Contrato actualizado' : 'Contrato creado', 'ok')
     })
   }
 
@@ -214,6 +255,7 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
               Ordenados por vencimiento. Toca una fila para ver sus hitos.
             </div>
           </div>
+          <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
           {data.canWrite && (
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn" disabled={pending || contratos.length === 0}
@@ -223,7 +265,8 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
                 }}>
                 <Plus size={15} />Hito
               </button>
-              <button className="btn dark" disabled={pending} onClick={() => setContractOpen(true)}>
+              <button className="btn dark" disabled={pending}
+                onClick={() => { setEditingId(null); setContractOpen(true) }}>
                 <Plus size={15} />Contrato
               </button>
             </div>
@@ -306,6 +349,10 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
                             disabled={pending} onClick={() => renew(c)}>
                             Renovar
                           </button>
+                          <button className="ibtn" aria-label={`Editar ${c.title}`}
+                            disabled={pending} onClick={() => editContract(c)}>
+                            <PenLine size={14} />
+                          </button>
                           <Select
                             value={c.status}
                             onChange={(next) => { if (next !== c.status) changeStatus(c, next) }}
@@ -373,11 +420,11 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
 
       <FormDrawer
         open={contractOpen}
-        onClose={() => setContractOpen(false)}
-        title="Nuevo contrato"
+        onClose={() => { setEditingId(null); setContractOpen(false) }}
+        title={editingId ? 'Editar contrato' : 'Nuevo contrato'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitContract}>
-            <Check size={15} />Crear contrato
+            <Check size={15} />{editingId ? 'Guardar cambios' : 'Crear contrato'}
           </button>
         }
       >

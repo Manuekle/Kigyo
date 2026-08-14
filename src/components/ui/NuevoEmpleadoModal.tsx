@@ -4,8 +4,9 @@ import { useState } from 'react'
 import FormDrawer from '@/components/ui/FormDrawer'
 import Select from '@/components/ui/Select'
 import { useErrorShake } from '@/lib/hooks/use-error-shake'
-import { ROLES, type RoleKey } from '@/lib/auth/permissions'
+import { DEFAULT_ROLE, type RoleKey } from '@/lib/auth/permissions'
 import type { EmpleadoRow } from '@/server/queries/empleados'
+import type { RoleRow } from '@/server/queries/roles'
 
 /**
  * Fallbacks for an organization whose directory is still empty.
@@ -23,7 +24,7 @@ export interface NuevoEmpleadoData {
   position: string
   department: string
   location: string
-  accessRole: RoleKey
+  intendedRole: RoleKey
   /** Employee id (uuid) of the manager, or null for a top-level report. */
   managerId: string | null
   email: string | null
@@ -36,21 +37,34 @@ interface Props {
   managers: EmpleadoRow[]
   departments: string[]
   locations: string[]
+  /**
+   * The organization's own roles, most privileged first.
+   *
+   * Passed in rather than imported: since migration 24 an administrator
+   * defines them, so a constant here would offer three options to a company
+   * that created eight — and the server would reject the other five.
+   */
+  roles: RoleRow[]
   onClose: () => void
   onCreate: (data: NuevoEmpleadoData) => void
 }
 
 export default function NuevoEmpleadoModal({
-  open, busy = false, managers, departments, locations, onClose, onCreate,
+  open, busy = false, managers, departments, locations, roles, onClose, onCreate,
 }: Props) {
   const deptOptions = departments.length > 0 ? departments : DEPT_FALLBACK
   const locOptions = locations.length > 0 ? locations : LOC_FALLBACK
+  const roleOptions = roles.map((r) => ({ value: r.key, label: r.label }))
+  // The narrowest role the organization defines — `roles` arrives ordered by
+  // rank, so that is the last one. A form submitted without touching this
+  // field must not hand out more access than was asked for.
+  const defaultRole = roles.length > 0 ? roles[roles.length - 1].key : DEFAULT_ROLE
 
   const [name, setName] = useState('')
   const [role, setRole] = useState('')
   const [dept, setDept] = useState(deptOptions[0])
   const [loc, setLoc] = useState(locOptions[0])
-  const [perm, setPerm] = useState<RoleKey>('Empleado')
+  const [perm, setPerm] = useState<RoleKey>(defaultRole)
   const [managerId, setManagerId] = useState('')
   const [email, setEmail] = useState('')
 
@@ -71,7 +85,7 @@ export default function NuevoEmpleadoModal({
 
   function reset() {
     setName(''); setRole(''); setDept(deptOptions[0]); setLoc(locOptions[0])
-    setPerm('Empleado'); setManagerId(''); setEmail('')
+    setPerm(defaultRole); setManagerId(''); setEmail('')
     clearNameErr(); clearRoleErr(); clearMailErr()
   }
 
@@ -95,7 +109,7 @@ export default function NuevoEmpleadoModal({
       position: role.trim(),
       department: dept,
       location: loc,
-      accessRole: perm,
+      intendedRole: perm,
       managerId: managerId || null,
       email: email.trim() ? email.trim().toLowerCase() : null,
     })
@@ -104,9 +118,13 @@ export default function NuevoEmpleadoModal({
 
   function handleClose() { reset(); onClose() }
 
-  // Anyone still on the roster can be a manager. Filtering to non-'Empleado'
-  // access roles conflated two unrelated things: `access_role` is what the
-  // person may open in Kigyo, not where they sit in the reporting line.
+  // Anyone still on the roster can be a manager. Filtering by role conflated
+  // two unrelated things: `intended_role` is the account this person should get
+  // when they are invited, not where they sit in the reporting line.
+  //
+  // And it grants nothing on its own — what a signed-in person may open is
+  // `memberships.role`, which is what RLS reads. Renamed in migration 36 for
+  // exactly that reason.
   const managerOptions = managers.filter((m) => m.status !== 'Salida')
 
   return (
@@ -168,8 +186,8 @@ export default function NuevoEmpleadoModal({
 
         <div className="fg2">
           <div>
-            <div className="flabel">Rol / Permisos</div>
-            <Select value={perm} onChange={(v) => setPerm(v as RoleKey)} options={[...ROLES]} />
+            <div className="flabel">Rol previsto</div>
+            <Select value={perm} onChange={(v) => setPerm(v as RoleKey)} options={roleOptions} />
           </div>
           <div>
             <div className="flabel">Reporta a</div>

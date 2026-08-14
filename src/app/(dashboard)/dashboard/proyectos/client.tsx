@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { BarChart3, Clock, Check, Plus, X, Users, ChevronRight, MapPin, Zap, UserPlus } from '@/lib/icons'
+import { BarChart3, FileSpreadsheet, Clock, Check, Plus, X, Users, ChevronRight, MapPin, Zap, UserPlus } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import TabBar from '@/components/ui/TabBar'
@@ -10,6 +10,7 @@ import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { activatable } from '@/lib/a11y'
 import { cop } from '@/lib/utils'
 import LoadMore from '@/components/ui/LoadMore'
@@ -55,6 +56,7 @@ const EMPTY_FORM = {
 
 export default function ProyectosPage({ data }: { data: ProyectosData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -81,6 +83,21 @@ export default function ProyectosPage({ data }: { data: ProyectosData }) {
 
   const filtered = proyectos.filter((p) => filtro === 'Todos' || p.status === filtro)
   const sel = proyectos.find((p) => p.id === selProy) ?? null
+
+  const exportRows = () => {
+    void runExport(
+      filtered.map((p) => ({
+        Código: p.code ?? '',
+        Nombre: p.name,
+        Cliente: p.client,
+        Estado: p.status,
+        Inicio: p.startsOn ?? '',
+        Fin: p.endsOn ?? '',
+      })),
+      'proyectos-kigyo',
+      'proyectos',
+    )
+  }
 
   /** Every mutation returns the fresh list, so nothing is patched locally. */
   function loadMore() {
@@ -237,6 +254,7 @@ export default function ProyectosPage({ data }: { data: ProyectosData }) {
               label: `${s}${s !== 'Todos' ? ` · ${proyectos.filter((p) => p.status === s).length}` : ''}`,
             }))}
           />
+          <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
           {data.canWrite && (
             <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={15} />Nuevo proyecto</button>
           )}

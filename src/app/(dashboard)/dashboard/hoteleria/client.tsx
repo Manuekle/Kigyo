@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Bed, Check, Plus, Trash2, DollarSign, Calendar, Users } from '@/lib/icons'
+import { Bed, Check, Plus, Trash2, DollarSign, Calendar, Users, PenLine, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -9,12 +9,13 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { RESERVATION_STATUSES, ROOM_KINDS, ROOM_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { HoteleriaData, RoomRow } from '@/server/queries/hoteleria'
+import type { HoteleriaData, LimpiezaRow, RoomRow } from '@/server/queries/hoteleria'
 import {
-  createHabitacion, createReserva, deleteHabitacion,
-  setHabitacionStatus, setReservaStatus,
+  createHabitacion, createReserva, createTareaLimpieza, deleteHabitacion, deleteTarea,
+  setHabitacionStatus, setReservaStatus, setTareaDone, setTareaFecha, updateHabitacion,
 } from '@/server/mutations/hoteleria'
 import { fetchMoreHabitaciones } from '@/server/actions/hoteleria'
 
@@ -47,14 +48,20 @@ const EMPTY_RESERVATION = {
   roomId: '', guestName: '', guestDocument: '', guestEmail: '', guestPhone: '',
   guests: '1', checkinOn: '', checkoutOn: '', nightlyRate: '', paid: '', channel: '', notes: '',
 }
+const TASK_KINDS = ['Limpieza', 'Cambio de ropa', 'Revisión', 'Aseo profundo'] as const
+const EMPTY_TAREA = {
+  roomId: '', assignedId: '', kind: 'Limpieza', scheduledOn: '', notes: '',
+}
 
 export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
+  const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
   const [habitaciones, setHabitaciones] = useState<RoomRow[]>(data.habitaciones)
   const [total, setTotal] = useState(data.habitacionesTotal)
   const [reservas, setReservas] = useState(data.reservas)
+  const [limpieza, setLimpieza] = useState(data.limpieza ?? [])
   const [occupancy, setOccupancy] = useState(data.occupancyPct)
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
@@ -65,11 +72,15 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
   const [reservationOpen, setReservationOpen] = useState(false)
   const [roomForm, setRoomForm] = useState(EMPTY_ROOM)
   const [reservationForm, setReservationForm] = useState(EMPTY_RESERVATION)
+  const [editingRoom, setEditingRoom] = useState<RoomRow | null>(null)
+  const [tareaOpen, setTareaOpen] = useState(false)
+  const [tareaForm, setTareaForm] = useState(EMPTY_TAREA)
 
   function apply(next: HoteleriaData) {
     setHabitaciones(next.habitaciones)
     setTotal(next.habitacionesTotal)
     setReservas(next.reservas)
+    setLimpieza(next.limpieza)
     setOccupancy(next.occupancyPct)
   }
 
@@ -99,6 +110,32 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
 
   const visible = reservas.filter((r) => statusFilter === 'Todas' || r.status === statusFilter)
 
+  const exportRows = () => {
+    void runExport(
+      habitaciones.map((r) => ({
+        Número: r.number,
+        Tipo: r.kind,
+        Tarifa: r.rateCents > 0 ? pesos(r.rateCents) : '',
+        Estado: r.status,
+        Piso: r.floor === null ? '' : String(r.floor),
+      })),
+      'hoteleria-kigyo',
+      'hoteleria',
+    )
+  }
+
+  const empleados = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const t of limpieza) {
+      if (t.assignedId && t.assignedName) seen.set(t.assignedId, t.assignedName)
+    }
+    return [...seen.entries()].map(([value, label]) => ({ value, label }))
+  }, [limpieza])
+
+  const tareas = useMemo(() => [...limpieza].sort((a, b) =>
+    Number(a.done) - Number(b.done) || a.scheduledOn.localeCompare(b.scheduledOn),
+  ), [limpieza])
+
   function changeRoom(r: RoomRow, status: string) {
     startTransition(async () => {
       const result = await setHabitacionStatus({ id: r.id, status: status as never })
@@ -126,22 +163,48 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
     })
   }
 
+  function startEditRoom(r: RoomRow) {
+    setRoomForm({
+      number: r.number,
+      kind: r.kind,
+      floor: r.floor === null ? '' : String(r.floor),
+      capacity: String(r.capacity),
+      rate: r.rateCents > 0 ? String(Math.round(r.rateCents / 100)) : '',
+      amenities: r.amenities,
+      notes: r.notes,
+    })
+    setEditingRoom(r)
+    setRoomOpen(true)
+  }
+
   function submitRoom() {
     startTransition(async () => {
-      const result = await createHabitacion({
-        number: roomForm.number,
-        kind: roomForm.kind as never,
-        floor: orNull(roomForm.floor),
-        capacity: roomForm.capacity || 2,
-        rateCents: toCents(roomForm.rate),
-        amenities: roomForm.amenities,
-        notes: roomForm.notes,
-      })
+      const result = editingRoom
+        ? await updateHabitacion({
+            id: editingRoom.id,
+            number: roomForm.number,
+            kind: roomForm.kind as never,
+            floor: orNull(roomForm.floor),
+            capacity: roomForm.capacity || 2,
+            rateCents: toCents(roomForm.rate),
+            amenities: roomForm.amenities,
+            notes: roomForm.notes,
+          })
+        : await createHabitacion({
+            number: roomForm.number,
+            kind: roomForm.kind as never,
+            floor: orNull(roomForm.floor),
+            capacity: roomForm.capacity || 2,
+            rateCents: toCents(roomForm.rate),
+            amenities: roomForm.amenities,
+            notes: roomForm.notes,
+          })
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setRoomForm(EMPTY_ROOM)
+      setEditingRoom(null)
       setRoomOpen(false)
-      addToast('Habitación creada', 'ok')
+      addToast(editingRoom ? 'Habitación actualizada' : 'Habitación creada', 'ok')
     })
   }
 
@@ -166,6 +229,50 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
       setReservationForm(EMPTY_RESERVATION)
       setReservationOpen(false)
       addToast('Reserva creada', 'ok')
+    })
+  }
+
+  function submitTarea() {
+    startTransition(async () => {
+      const result = await createTareaLimpieza({
+        roomId: tareaForm.roomId,
+        assignedId: tareaForm.assignedId || null,
+        kind: tareaForm.kind as never,
+        scheduledOn: tareaForm.scheduledOn || TODAY(),
+        notes: tareaForm.notes,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setTareaForm(EMPTY_TAREA)
+      setTareaOpen(false)
+      addToast('Tarea creada', 'ok')
+    })
+  }
+
+  function toggleDone(t: LimpiezaRow) {
+    startTransition(async () => {
+      const result = await setTareaDone({ id: t.id, done: !t.done })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+    })
+  }
+
+  function changeFecha(t: LimpiezaRow, date: string) {
+    if (!date || date === t.scheduledOn) return
+    startTransition(async () => {
+      const result = await setTareaFecha({ id: t.id, scheduledOn: date })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+    })
+  }
+
+  function removeTask(t: LimpiezaRow) {
+    if (!window.confirm(`¿Eliminar la tarea de ${t.kind} de la habitación ${t.roomNumber}?`)) return
+    startTransition(async () => {
+      const result = await deleteTarea(t.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Tarea eliminada', 'ok')
     })
   }
 
@@ -196,15 +303,29 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
             items={[
               { key: 'reservas', label: 'Reservas' },
               { key: 'habitaciones', label: 'Habitaciones' },
+              { key: 'limpieza', label: 'Limpieza' },
             ]}
             value={tab}
             onChange={setTab}
           />
           {data.canWrite && (
             <div style={{ display: 'flex', gap: 8 }}>
+              <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
               {tab === 'habitaciones' ? (
-                <button className="btn dark" disabled={pending} onClick={() => setRoomOpen(true)}>
+                <button className="btn dark" disabled={pending} onClick={() => {
+                  setRoomForm(EMPTY_ROOM)
+                  setEditingRoom(null)
+                  setRoomOpen(true)
+                }}>
                   <Plus size={15} />Habitación
+                </button>
+              ) : tab === 'limpieza' ? (
+                <button className="btn dark" disabled={pending || habitaciones.length === 0}
+                  onClick={() => {
+                    setTareaForm({ ...EMPTY_TAREA, scheduledOn: TODAY() })
+                    setTareaOpen(true)
+                  }}>
+                  <Plus size={15} />Tarea
                 </button>
               ) : (
                 <button className="btn dark" disabled={pending || habitaciones.length === 0}
@@ -360,6 +481,10 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                               onChange={(next) => { if (next !== r.status) changeRoom(r, next) }}
                               options={[...ROOM_STATUSES]}
                             />
+                            <button className="ibtn" aria-label={`Editar habitación ${r.number}`}
+                              disabled={pending} onClick={() => startEditRoom(r)}>
+                              <PenLine size={14} />
+                            </button>
                             <button className="ibtn" aria-label={`Eliminar habitación ${r.number}`}
                               disabled={pending} onClick={() => remove(r)}>
                               <Trash2 size={14} />
@@ -383,15 +508,81 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
             />
           </>
         )}
+
+        {tab === 'limpieza' && (
+          <>
+            <div className="tblwrap">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th scope="col">Habitación</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Encargado</th>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Estado</th>
+                    {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tareas.length === 0 ? (
+                    <tr>
+                      <td colSpan={data.canWrite ? 6 : 5}>
+                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                          Todavía no hay tareas de limpieza.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : tareas.map((t) => (
+                    <tr key={t.id}>
+                      <td>
+                        <div className="cename mono">{t.roomNumber}</div>
+                        {t.notes && <div className="elsub">{t.notes}</div>}
+                      </td>
+                      <td>{t.kind}</td>
+                      <td>{t.assignedName ?? '—'}</td>
+                      <td>
+                        {data.canWrite ? (
+                          <input className="field" type="date" value={t.scheduledOn}
+                            disabled={pending}
+                            onChange={(e) => changeFecha(t, e.target.value)} />
+                        ) : formatDate(t.scheduledOn)}
+                      </td>
+                      <td>
+                        <Badge st={t.done ? 'Hecha' : 'Pendiente'}
+                          tone={t.done ? 'grn' : 'amb'} />
+                      </td>
+                      {data.canWrite && (
+                        <td>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <button className="ibtn"
+                              aria-label={`${t.done ? 'Reabrir' : 'Completar'} tarea de ${t.roomNumber}`}
+                              disabled={pending} onClick={() => toggleDone(t)}>
+                              <Check size={14} />
+                            </button>
+                            <button className="ibtn"
+                              aria-label={`Eliminar tarea de ${t.roomNumber}`}
+                              disabled={pending} onClick={() => removeTask(t)}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       <FormDrawer
         open={roomOpen}
         onClose={() => setRoomOpen(false)}
-        title="Nueva habitación"
+        title={editingRoom ? `Editar habitación ${editingRoom.number}` : 'Nueva habitación'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitRoom}>
-            <Check size={15} />Crear habitación
+            <Check size={15} />{editingRoom ? 'Guardar cambios' : 'Crear habitación'}
           </button>
         }
       >
@@ -532,6 +723,49 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
         <label className="flabel" htmlFor="res-notes">Notas</label>
         <textarea id="res-notes" className="field" rows={3} value={reservationForm.notes}
           onChange={(e) => setReservationForm({ ...reservationForm, notes: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={tareaOpen}
+        onClose={() => setTareaOpen(false)}
+        title="Nueva tarea de limpieza"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitTarea}>
+            <Check size={15} />Crear tarea
+          </button>
+        }
+      >
+        <div className="flabel">Habitación</div>
+        <Select value={tareaForm.roomId}
+          onChange={(v) => setTareaForm({ ...tareaForm, roomId: v })}
+          placeholder="Elige la habitación"
+          options={habitaciones.map((r) => ({
+            value: r.id,
+            label: `${r.number} · ${r.kind} · ${r.capacity} pers.`,
+          }))} />
+
+        <div className="flabel">Tipo</div>
+        <Select value={tareaForm.kind}
+          onChange={(v) => setTareaForm({ ...tareaForm, kind: v })}
+          options={[...TASK_KINDS]} />
+
+        <label className="flabel" htmlFor="tarea-fecha">Fecha</label>
+        <input id="tarea-fecha" className="field" type="date" value={tareaForm.scheduledOn}
+          onChange={(e) => setTareaForm({ ...tareaForm, scheduledOn: e.target.value })} />
+
+        {empleados.length > 0 && (
+          <>
+            <div className="flabel">Encargado</div>
+            <Select value={tareaForm.assignedId}
+              onChange={(v) => setTareaForm({ ...tareaForm, assignedId: v })}
+              placeholder="Sin asignar"
+              options={empleados} />
+          </>
+        )}
+
+        <label className="flabel" htmlFor="tarea-notes">Notas</label>
+        <textarea id="tarea-notes" className="field" rows={3} value={tareaForm.notes}
+          onChange={(e) => setTareaForm({ ...tareaForm, notes: e.target.value })} />
       </FormDrawer>
     </>
   )

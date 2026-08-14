@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Stethoscope, Check, Plus, Trash2, Calendar, AlertTriangle, Users } from '@/lib/icons'
+import { Stethoscope, Check, Plus, PenLine, Trash2, Calendar, AlertTriangle, Users, FileText, Activity } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -11,17 +11,33 @@ import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
 import { BLOOD_TYPES, PATIENT_STATUSES, VISIT_KINDS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { PacientesData, PatientRow } from '@/server/queries/pacientes'
+import type { PacientesData, PatientRow, TurnoRow, RecetaRow, LaboratorioRow } from '@/server/queries/pacientes'
 import {
-  createPaciente, deletePaciente, registrarConsulta, setPacienteStatus,
+  createPaciente, deletePaciente, registrarConsulta, setPacienteStatus, updatePaciente,
+  createTurno, setTurnoStatus, deleteTurno, createReceta, deleteReceta,
+  atenderTurno,
+  crearExamen, setExamenResultado, deleteExamen,
 } from '@/server/mutations/pacientes'
 import { fetchMorePacientes } from '@/server/actions/pacientes'
+import type { OdontologiaData } from '@/server/queries/odontologia'
+import Odontologia from './Odontologia'
 
 const DATE = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+
+const DATETIME = new Intl.DateTimeFormat('es-CO', {
+  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+})
 
 function formatDate(iso: string | null): string {
   return iso ? DATE.format(new Date(iso)) : '—'
 }
+
+function formatDateTime(iso: string | null): string {
+  return iso ? DATETIME.format(new Date(iso)) : '—'
+}
+
+const TURNO_KINDS = ['Consulta', 'Control', 'Vacunación', 'Examen', 'Otro'] as const
+const TURNO_STATUSES = ['Programada', 'Confirmada', 'En sala', 'Atendida', 'Cancelada', 'No asistió'] as const
 
 function toCents(value: string): number {
   const n = Number(value.replace(/[^\d]/g, ''))
@@ -42,18 +58,59 @@ const EMPTY_PATIENT = {
   emergencyContact: '', emergencyPhone: '',
 }
 
+function toForm(p: PatientRow) {
+  return {
+    fullName: p.fullName, documentId: p.documentId, birthDate: p.birthDate ?? '',
+    sex: p.sex ?? '', bloodType: p.bloodType ?? '', email: p.email ?? '',
+    phone: p.phone, address: p.address, insurer: p.insurer, allergies: p.allergies,
+    conditions: p.conditions, emergencyContact: p.emergencyContact,
+    emergencyPhone: p.emergencyPhone,
+  }
+}
+
 const EMPTY_VISIT = {
   patientId: '', kind: 'Consulta', professionalId: '', reason: '', diagnosis: '',
   treatment: '', notes: '', fee: '', followUpOn: '',
 }
 
-export default function PacientesPage({ data }: { data: PacientesData }) {
+const EMPTY_TURNO = {
+  patientId: '', kind: 'Consulta', scheduledFor: '', professionalId: '',
+  reason: '', notes: '',
+}
+
+const EMPTY_RECETA = {
+  patientId: '', medication: '', dose: '', frequency: '', instructions: '',
+  prescribedOn: '', professionalId: '',
+}
+
+const EMPTY_EXAMEN = {
+  patientId: '', testName: '', orderedOn: '',
+}
+
+interface Props {
+  data: PacientesData
+  /**
+   * Lo dental, o null cuando esta clínica no es odontológica.
+   *
+   * Null es la señal de que las tres pestañas no se dibujan. Es presentación:
+   * el permiso es el mismo (`pacientes:read`) y las tablas siguen siendo
+   * legibles por RLS — una clínica que se reclasifica ve sus datos intactos.
+   */
+  odonto: OdontologiaData | null
+  catalogo: Array<{ id: string; name: string; priceCents: number }>
+}
+
+export default function PacientesPage({ data, odonto: odontoInitial, catalogo }: Props) {
+  const [odonto, setOdonto] = useState<OdontologiaData | null>(odontoInitial)
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
   const [pacientes, setPacientes] = useState<PatientRow[]>(data.pacientes)
   const [total, setTotal] = useState(data.pacientesTotal)
   const [consultas, setConsultas] = useState(data.consultas)
+  const [turnos, setTurnos] = useState(data.turnos)
+  const [recetas, setRecetas] = useState(data.recetas)
+  const [laboratorio, setLaboratorio] = useState(data.laboratorio)
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
 
@@ -62,13 +119,25 @@ export default function PacientesPage({ data }: { data: PacientesData }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [patientOpen, setPatientOpen] = useState(false)
   const [visitOpen, setVisitOpen] = useState(false)
+  const [turnoOpen, setTurnoOpen] = useState(false)
+  const [recetaOpen, setRecetaOpen] = useState(false)
+  const [examenOpen, setExamenOpen] = useState(false)
   const [patientForm, setPatientForm] = useState(EMPTY_PATIENT)
+  const [editing, setEditing] = useState<PatientRow | null>(null)
   const [visitForm, setVisitForm] = useState(EMPTY_VISIT)
+  const [turnoForm, setTurnoForm] = useState(EMPTY_TURNO)
+  const [recetaForm, setRecetaForm] = useState(EMPTY_RECETA)
+  const [examenForm, setExamenForm] = useState(EMPTY_EXAMEN)
+  const [labResultFor, setLabResultFor] = useState<string | null>(null)
+  const [labResultText, setLabResultText] = useState('')
 
   function apply(next: PacientesData) {
     setPacientes(next.pacientes)
     setTotal(next.pacientesTotal)
     setConsultas(next.consultas)
+    setTurnos(next.turnos)
+    setRecetas(next.recetas)
+    setLaboratorio(next.laboratorio)
   }
 
   function loadMore() {
@@ -98,8 +167,10 @@ export default function PacientesPage({ data }: { data: PacientesData }) {
       // recall list a clinic works from.
       followUps: consultas.filter((c) => c.followUpOn !== null && c.followUpOn <= today).length,
       allergies: pacientes.filter((p) => p.allergies.trim() !== '').length,
+      turnosToday: turnos.filter((t) => t.scheduledFor.slice(0, 10) === today).length,
+      pendExamenes: laboratorio.filter((l) => l.status !== 'Resultado').length,
     }
-  }, [pacientes, consultas])
+  }, [pacientes, consultas, turnos, laboratorio])
 
   const visible = pacientes.filter((p) => statusFilter === 'Todos' || p.status === statusFilter)
   const patientOptions = pacientes.map((p) => ({
@@ -126,9 +197,15 @@ export default function PacientesPage({ data }: { data: PacientesData }) {
     })
   }
 
+  function edit(p: PatientRow) {
+    setPatientForm(toForm(p))
+    setEditing(p)
+    setPatientOpen(true)
+  }
+
   function submitPatient() {
     startTransition(async () => {
-      const result = await createPaciente({
+      const payload = {
         fullName: patientForm.fullName,
         documentId: patientForm.documentId,
         birthDate: orNull(patientForm.birthDate),
@@ -142,12 +219,16 @@ export default function PacientesPage({ data }: { data: PacientesData }) {
         conditions: patientForm.conditions,
         emergencyContact: patientForm.emergencyContact,
         emergencyPhone: patientForm.emergencyPhone,
-      })
+      }
+      const result = editing
+        ? await updatePaciente({ ...payload, id: editing.id })
+        : await createPaciente(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setPatientForm(EMPTY_PATIENT)
+      setEditing(null)
       setPatientOpen(false)
-      addToast('Paciente registrado', 'ok')
+      addToast(editing ? 'Paciente actualizado' : 'Paciente registrado', 'ok')
     })
   }
 
@@ -172,6 +253,129 @@ export default function PacientesPage({ data }: { data: PacientesData }) {
     })
   }
 
+  function changeTurnoStatus(t: TurnoRow, status: string) {
+    startTransition(async () => {
+      const result = await setTurnoStatus({ id: t.id, status: status as never })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast(`Turno de ${t.patientName}: ${status.toLowerCase()}`, 'ok')
+    })
+  }
+
+  function atender(t: TurnoRow) {
+    if (!window.confirm(`¿Registrar la consulta de ${t.patientName} y marcar el turno como atendido?`)) return
+    startTransition(async () => {
+      const result = await atenderTurno(t.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Consulta registrada desde el turno', 'ok')
+    })
+  }
+
+  function removeTurno(t: TurnoRow) {
+    if (!window.confirm(`¿Eliminar el turno de ${t.patientName}?`)) return
+    startTransition(async () => {
+      const result = await deleteTurno(t.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Turno eliminado', 'ok')
+    })
+  }
+
+  function submitTurno() {
+    if (!turnoForm.scheduledFor) { addToast('Escribe una fecha y hora.', 'err'); return }
+    startTransition(async () => {
+      const result = await createTurno({
+        patientId: turnoForm.patientId,
+        kind: turnoForm.kind as never,
+        scheduledFor: new Date(turnoForm.scheduledFor).toISOString(),
+        professionalId: turnoForm.professionalId || null,
+        reason: turnoForm.reason,
+        notes: turnoForm.notes,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setTurnoForm(EMPTY_TURNO)
+      setTurnoOpen(false)
+      addToast('Turno registrado', 'ok')
+    })
+  }
+
+  function removeReceta(r: RecetaRow) {
+    if (!window.confirm(`¿Eliminar la receta de ${r.medication}?`)) return
+    startTransition(async () => {
+      const result = await deleteReceta(r.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Receta eliminada', 'ok')
+    })
+  }
+
+  function submitReceta() {
+    startTransition(async () => {
+      const result = await createReceta({
+        patientId: recetaForm.patientId,
+        medication: recetaForm.medication,
+        dose: recetaForm.dose,
+        frequency: recetaForm.frequency,
+        instructions: recetaForm.instructions,
+        prescribedOn: orNull(recetaForm.prescribedOn),
+        professionalId: recetaForm.professionalId || null,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setRecetaForm(EMPTY_RECETA)
+      setRecetaOpen(false)
+      addToast('Receta registrada', 'ok')
+    })
+  }
+
+  function removeExamen(e: LaboratorioRow) {
+    if (!window.confirm(`¿Eliminar el examen ${e.testName}?`)) return
+    startTransition(async () => {
+      const result = await deleteExamen(e.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Examen eliminado', 'ok')
+    })
+  }
+
+  function submitExamen() {
+    startTransition(async () => {
+      const result = await crearExamen({
+        patientId: examenForm.patientId,
+        testName: examenForm.testName,
+        orderedOn: orNull(examenForm.orderedOn),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setExamenForm(EMPTY_EXAMEN)
+      setExamenOpen(false)
+      addToast('Examen solicitado', 'ok')
+    })
+  }
+
+  function openLabResult(e: LaboratorioRow) {
+    setLabResultFor(e.id)
+    setLabResultText(e.result)
+  }
+
+  function submitLabResult() {
+    startTransition(async () => {
+      const result = await setExamenResultado({
+        id: labResultFor ?? '',
+        result: labResultText,
+        status: 'Resultado',
+        resultOn: new Date().toISOString().slice(0, 10),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setLabResultFor(null)
+      setLabResultText('')
+      addToast('Resultado guardado', 'ok')
+    })
+  }
+
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
@@ -191,32 +395,77 @@ export default function PacientesPage({ data }: { data: PacientesData }) {
           <Stat icon={<AlertTriangle size={16} />} tone="red" label="Con alergias registradas"
             value={stats.allergies} />
         </div>
+        <div className="rise d5">
+          <Stat icon={<Calendar size={16} />} tone="blu" label="Turnos hoy"
+            value={stats.turnosToday} />
+        </div>
+        <div className="rise d6">
+          <Stat icon={<Activity size={16} />} tone="vio" label="Exámenes pendientes"
+            value={stats.pendExamenes} />
+        </div>
       </div>
 
       <div className="card rise d2">
         <div className="chead">
           <TabBar
-            items={[
-              { key: 'pacientes', label: 'Pacientes' },
-              { key: 'consultas', label: 'Consultas' },
-            ]}
-            value={tab}
-            onChange={setTab}
-          />
-          {data.canWrite && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn" disabled={pending || pacientes.length === 0}
-                onClick={() => {
-                  setVisitForm({ ...EMPTY_VISIT, patientId: pacientes[0]?.id ?? '' })
-                  setVisitOpen(true)
-                }}>
-                <Stethoscope size={15} />Consulta
-              </button>
-              <button className="btn dark" disabled={pending} onClick={() => setPatientOpen(true)}>
-                <Plus size={15} />Paciente
-              </button>
-            </div>
-          )}
+items={[
+                { key: 'pacientes', label: 'Pacientes' },
+                { key: 'consultas', label: 'Consultas' },
+                { key: 'turnos', label: 'Turnos' },
+                { key: 'recetas', label: 'Recetas' },
+                { key: 'laboratorio', label: 'Laboratorio' },
+                // Solo para odontología. Ver la nota sobre `odonto` arriba.
+                ...(odonto ? [
+                  { key: 'odontograma', label: 'Odontograma' },
+                  { key: 'tratamientos', label: 'Tratamientos' },
+                  { key: 'labdental', label: 'Lab. dental' },
+                ] : []),
+              ]}
+              value={tab}
+              onChange={setTab}
+            />
+            {data.canWrite && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(tab === 'pacientes' || tab === 'consultas') && (
+                  <>
+                    <button className="btn" disabled={pending || pacientes.length === 0}
+                      onClick={() => {
+                        setVisitForm({ ...EMPTY_VISIT, patientId: pacientes[0]?.id ?? '' })
+                        setVisitOpen(true)
+                      }}>
+                      <Stethoscope size={15} />Consulta
+                    </button>
+                    <button className="btn dark" disabled={pending} onClick={() => setPatientOpen(true)}>
+                      <Plus size={15} />Paciente
+                    </button>
+                  </>
+                )}
+                {tab === 'turnos' && (
+                  <button className="btn dark" disabled={pending} onClick={() => {
+                    setTurnoForm({ ...EMPTY_TURNO, patientId: pacientes[0]?.id ?? '' })
+                    setTurnoOpen(true)
+                  }}>
+                    <Calendar size={15} />Nuevo turno
+                  </button>
+                )}
+                {tab === 'recetas' && (
+                  <button className="btn dark" disabled={pending} onClick={() => {
+                    setRecetaForm({ ...EMPTY_RECETA, patientId: pacientes[0]?.id ?? '' })
+                    setRecetaOpen(true)
+                  }}>
+                    <FileText size={15} />Nueva receta
+                  </button>
+                )}
+                {tab === 'laboratorio' && (
+                  <button className="btn dark" disabled={pending} onClick={() => {
+                    setExamenForm({ ...EMPTY_EXAMEN, patientId: pacientes[0]?.id ?? '' })
+                    setExamenOpen(true)
+                  }}>
+                    <Activity size={15} />Solicitar examen
+                  </button>
+                )}
+              </div>
+            )}
         </div>
 
         {tab === 'pacientes' && (
@@ -285,6 +534,10 @@ export default function PacientesPage({ data }: { data: PacientesData }) {
                                 onChange={(next) => { if (next !== p.status) changeStatus(p, next) }}
                                 options={[...PATIENT_STATUSES]}
                               />
+                              <button className="ibtn" aria-label={`Editar a ${p.fullName}`}
+                                disabled={pending} onClick={() => edit(p)}>
+                                <PenLine size={14} />
+                              </button>
                               <button className="ibtn" aria-label={`Eliminar a ${p.fullName}`}
                                 disabled={pending} onClick={() => remove(p)}>
                                 <Trash2 size={14} />
@@ -397,12 +650,190 @@ export default function PacientesPage({ data }: { data: PacientesData }) {
             </table>
           </div>
         )}
+
+        {tab === 'turnos' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Fecha</th>
+                  <th scope="col">Paciente</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Profesional</th>
+                  <th scope="col">Estado</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                </tr>
+              </thead>
+              <tbody>
+                {turnos.length === 0 ? (
+                  <tr>
+                    <td colSpan={data.canWrite ? 6 : 5}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Todavía no hay turnos programados.
+                      </div>
+                    </td>
+                  </tr>
+                ) : turnos.map((t) => (
+                  <tr key={t.id}>
+                    <td>{formatDateTime(t.scheduledFor)}</td>
+                    <td><div className="cename">{t.patientName}</div></td>
+                    <td>{t.kind}</td>
+                    <td>{professionalName(t.professionalId)}</td>
+                    <td>
+                      <Badge st={t.status}
+                        tone={t.status === 'Atendida' ? 'grn'
+                          : t.status === 'Cancelada' || t.status === 'No asistió' ? 'red' : 'amb'} />
+                    </td>
+                    {data.canWrite && (
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <Select
+                            value={t.status}
+                            onChange={(next) => { if (next !== t.status) changeTurnoStatus(t, next) }}
+                            options={[...TURNO_STATUSES]}
+                          />
+                          {(t.status === 'Programada' || t.status === 'Confirmada') && (
+                            <button className="btn" disabled={pending} onClick={() => atender(t)}>
+                              <Stethoscope size={15} />Atender
+                            </button>
+                          )}
+                          <button className="ibtn" aria-label={`Eliminar turno de ${t.patientName}`}
+                            disabled={pending} onClick={() => removeTurno(t)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === 'recetas' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Medicamento</th>
+                  <th scope="col">Paciente</th>
+                  <th scope="col">Dosis</th>
+                  <th scope="col">Frecuencia</th>
+                  <th scope="col">Indicaciones</th>
+                  <th scope="col">Fecha</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                </tr>
+              </thead>
+              <tbody>
+                {recetas.length === 0 ? (
+                  <tr>
+                    <td colSpan={data.canWrite ? 7 : 6}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Todavía no hay recetas registradas.
+                      </div>
+                    </td>
+                  </tr>
+                ) : recetas.map((r) => (
+                  <tr key={r.id}>
+                    <td><div className="cename">{r.medication}</div></td>
+                    <td>{r.patientName}</td>
+                    <td>{r.dose || '—'}</td>
+                    <td>{r.frequency || '—'}</td>
+                    <td>{r.instructions || '—'}</td>
+                    <td>{r.prescribedOn ? formatDate(`${r.prescribedOn}T00:00:00`) : '—'}</td>
+                    {data.canWrite && (
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <button className="ibtn" aria-label={`Eliminar receta de ${r.medication}`}
+                            disabled={pending} onClick={() => removeReceta(r)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === 'laboratorio' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Examen</th>
+                  <th scope="col">Paciente</th>
+                  <th scope="col">Solicitado</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col">Resultado</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                </tr>
+              </thead>
+              <tbody>
+                {laboratorio.length === 0 ? (
+                  <tr>
+                    <td colSpan={data.canWrite ? 6 : 5}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Todavía no hay exámenes solicitados.
+                      </div>
+                    </td>
+                  </tr>
+                ) : laboratorio.map((e) => (
+                  <tr key={e.id}>
+                    <td><div className="cename">{e.testName}</div></td>
+                    <td>{e.patientName}</td>
+                    <td>{e.orderedOn ? formatDate(`${e.orderedOn}T00:00:00`) : '—'}</td>
+                    <td>
+                      <Badge st={e.status}
+                        tone={e.status === 'Resultado' ? 'grn'
+                          : e.status === 'En proceso' ? 'amb' : 'blu'} />
+                    </td>
+                    <td>{e.status === 'Resultado' ? (e.result || '—') : '—'}</td>
+                    {data.canWrite && (
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          {e.status !== 'Resultado' && (
+                            <button className="btn" disabled={pending}
+                              onClick={() => openLabResult(e)}>
+                              Resultado
+                            </button>
+                          )}
+                          <button className="ibtn" aria-label={`Eliminar examen ${e.testName}`}
+                            disabled={pending} onClick={() => removeExamen(e)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Las tres pantallas de odontología. Se dibujan dentro de la misma
+            tarjeta y bajo el mismo permiso: son profundidad de `pacientes`,
+            no un módulo aparte. Ver la migración 45. */}
+        {odonto && (tab === 'odontograma' || tab === 'tratamientos' || tab === 'labdental') && (
+          <Odontologia
+            section={tab}
+            data={odonto}
+            onData={setOdonto}
+            pacientes={pacientes.map((p) => ({ id: p.id, fullName: p.fullName }))}
+            roster={data.roster}
+            catalogo={catalogo}
+          />
+        )}
       </div>
 
       <FormDrawer
         open={patientOpen}
         onClose={() => setPatientOpen(false)}
-        title="Nuevo paciente"
+        title={editing ? 'Editar paciente' : 'Nuevo paciente'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitPatient}>
             <Check size={15} />Registrar
@@ -555,6 +986,145 @@ export default function PacientesPage({ data }: { data: PacientesData }) {
         <label className="flabel" htmlFor="vis-notes">Notas</label>
         <textarea id="vis-notes" className="field" rows={2} value={visitForm.notes}
           onChange={(e) => setVisitForm({ ...visitForm, notes: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={turnoOpen}
+        onClose={() => setTurnoOpen(false)}
+        title="Nuevo turno"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitTurno}>
+            <Check size={15} />Agendar
+          </button>
+        }
+      >
+        <div className="flabel">Paciente</div>
+        <Select value={turnoForm.patientId}
+          onChange={(v) => setTurnoForm({ ...turnoForm, patientId: v })}
+          placeholder="Elige el paciente" options={patientOptions} />
+
+        <div className="fg2">
+          <div>
+            <div className="flabel">Tipo</div>
+            <Select value={turnoForm.kind}
+              onChange={(v) => setTurnoForm({ ...turnoForm, kind: v })}
+              options={[...TURNO_KINDS]} />
+          </div>
+          <div>
+            <div className="flabel">Profesional</div>
+            <Select value={turnoForm.professionalId}
+              onChange={(v) => setTurnoForm({ ...turnoForm, professionalId: v })}
+              placeholder="Sin asignar"
+              options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))} />
+          </div>
+        </div>
+
+        <label className="flabel" htmlFor="tur-fecha">Fecha y hora</label>
+        <input id="tur-fecha" className="field" type="datetime-local" value={turnoForm.scheduledFor}
+          onChange={(e) => setTurnoForm({ ...turnoForm, scheduledFor: e.target.value })} />
+
+        <label className="flabel" htmlFor="tur-reason">Motivo</label>
+        <input id="tur-reason" className="field" value={turnoForm.reason}
+          onChange={(e) => setTurnoForm({ ...turnoForm, reason: e.target.value })} />
+
+        <label className="flabel" htmlFor="tur-notes">Notas</label>
+        <textarea id="tur-notes" className="field" rows={2} value={turnoForm.notes}
+          onChange={(e) => setTurnoForm({ ...turnoForm, notes: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={recetaOpen}
+        onClose={() => setRecetaOpen(false)}
+        title="Nueva receta"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitReceta}>
+            <Check size={15} />Registrar
+          </button>
+        }
+      >
+        <div className="flabel">Paciente</div>
+        <Select value={recetaForm.patientId}
+          onChange={(v) => setRecetaForm({ ...recetaForm, patientId: v })}
+          placeholder="Elige el paciente" options={patientOptions} />
+
+        <label className="flabel" htmlFor="rec-med">Medicamento</label>
+        <input id="rec-med" className="field" value={recetaForm.medication}
+          onChange={(e) => setRecetaForm({ ...recetaForm, medication: e.target.value })} />
+
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="rec-dose">Dosis</label>
+            <input id="rec-dose" className="field" value={recetaForm.dose}
+              onChange={(e) => setRecetaForm({ ...recetaForm, dose: e.target.value })}
+              placeholder="500 mg" />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="rec-freq">Frecuencia</label>
+            <input id="rec-freq" className="field" value={recetaForm.frequency}
+              onChange={(e) => setRecetaForm({ ...recetaForm, frequency: e.target.value })}
+              placeholder="Cada 8 horas" />
+          </div>
+        </div>
+
+        <label className="flabel" htmlFor="rec-inst">Indicaciones</label>
+        <textarea id="rec-inst" className="field" rows={2} value={recetaForm.instructions}
+          onChange={(e) => setRecetaForm({ ...recetaForm, instructions: e.target.value })} />
+
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="rec-date">Fecha</label>
+            <input id="rec-date" className="field" type="date" value={recetaForm.prescribedOn}
+              onChange={(e) => setRecetaForm({ ...recetaForm, prescribedOn: e.target.value })} />
+          </div>
+          <div>
+            <div className="flabel">Profesional</div>
+            <Select value={recetaForm.professionalId}
+              onChange={(v) => setRecetaForm({ ...recetaForm, professionalId: v })}
+              placeholder="Sin asignar"
+              options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))} />
+          </div>
+        </div>
+      </FormDrawer>
+
+      <FormDrawer
+        open={examenOpen}
+        onClose={() => setExamenOpen(false)}
+        title="Solicitar examen"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitExamen}>
+            <Check size={15} />Solicitar
+          </button>
+        }
+      >
+        <div className="flabel">Paciente</div>
+        <Select value={examenForm.patientId}
+          onChange={(v) => setExamenForm({ ...examenForm, patientId: v })}
+          placeholder="Elige el paciente" options={patientOptions} />
+
+        <label className="flabel" htmlFor="ex-name">Nombre del examen</label>
+        <input id="ex-name" className="field" value={examenForm.testName}
+          onChange={(e) => setExamenForm({ ...examenForm, testName: e.target.value })}
+          placeholder="Hemograma, TSH…" />
+
+        <label className="flabel" htmlFor="ex-date">Fecha de solicitud</label>
+        <input id="ex-date" className="field" type="date" value={examenForm.orderedOn}
+          onChange={(e) => setExamenForm({ ...examenForm, orderedOn: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={labResultFor !== null}
+        onClose={() => { setLabResultFor(null); setLabResultText('') }}
+        title="Registrar resultado"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitLabResult}>
+            <Check size={15} />Guardar
+          </button>
+        }
+      >
+        <label className="flabel" htmlFor="lab-result">Resultado</label>
+        <textarea id="lab-result" className="field" rows={6} value={labResultText}
+          onChange={(e) => setLabResultText(e.target.value)}
+          placeholder="Valores, observaciones, rangos de referencia…" />
       </FormDrawer>
     </>
   )

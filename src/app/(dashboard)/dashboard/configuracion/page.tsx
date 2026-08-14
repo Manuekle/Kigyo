@@ -1,5 +1,6 @@
 import RequirePermission from '@/components/layout/RequirePermission'
 import { getSettings } from '@/server/queries/settings'
+import { getSites } from '@/server/queries/sites'
 import Client from './client'
 
 /**
@@ -15,6 +16,9 @@ export default function Page() {
 }
 
 async function SettingsLoader() {
-  const data = await getSettings()
-  return <Client data={data} />
+  // In parallel: neither read depends on the other, and the branch list is
+  // small enough that fetching it up front beats a second round trip when the
+  // Sucursales tab is opened.
+  const [data, sites] = await Promise.all([getSettings(), getSites()])
+  return <Client data={data} sites={sites} />
 }

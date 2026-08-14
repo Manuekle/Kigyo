@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Target, Star, Check, Plus, Trash2, Kanban, TrendingUp } from '@/lib/icons'
+import { Target, Star, Check, Plus, Trash2, Kanban, TrendingUp, FileSpreadsheet } from '@/lib/icons'
+import { useExport } from '@/lib/hooks/use-export'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -11,8 +12,10 @@ import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
 import { CYCLE_STATUSES, GOAL_STATUSES, REVIEW_STATUSES } from '@/lib/domain'
 import type { CycleRow, DesempenoData, GoalRow, ReviewRow } from '@/server/queries/desempeno'
+import type { EncuestaRow } from '@/server/mutations/desempeno'
 import {
-  createCycle, createGoal, createReview, deleteCycle, deleteGoal, deleteReview,
+  createCycle, createEncuesta, createGoal, createReview, deleteCycle, deleteEncuesta, deleteGoal, deleteReview,
+  fetchEncuestas,
   setCycleStatus, setReviewStatus, updateGoal,
 } from '@/server/mutations/desempeno'
 import { fetchMoreCycles } from '@/server/actions/desempeno'
@@ -38,6 +41,7 @@ const EMPTY_GOAL = {
   employeeId: '', cycleId: '', title: '', detail: '', metric: '',
   targetValue: '', currentValue: '0', weight: '0', dueOn: '',
 }
+const EMPTY_ENCUESTA = { name: '', responses: '0', score: '', closedOn: '' }
 
 /**
  * Progress towards a goal, as a percentage.
@@ -53,6 +57,7 @@ function progressOf(goal: GoalRow): number | null {
 
 export default function DesempenoPage({ data }: { data: DesempenoData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
   const [cycles, setCycles] = useState<CycleRow[]>(data.cycles)
@@ -69,6 +74,10 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
   const [cycleForm, setCycleForm] = useState(EMPTY_CYCLE)
   const [reviewForm, setReviewForm] = useState(EMPTY_REVIEW)
   const [goalForm, setGoalForm] = useState(EMPTY_GOAL)
+  const [encuestas, setEncuestas] = useState<EncuestaRow[] | null>(null)
+  const [, startEncuestasLoad] = useTransition()
+  const [encuestaOpen, setEncuestaOpen] = useState(false)
+  const [encuestaForm, setEncuestaForm] = useState(EMPTY_ENCUESTA)
 
   function apply(next: DesempenoData) {
     setCycles(next.cycles)
@@ -141,6 +150,13 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
     })
   }
 
+  function loadEncuestas() {
+    if (encuestas !== null) return
+    startEncuestasLoad(async () => {
+      setEncuestas(await fetchEncuestas())
+    })
+  }
+
   function remove(kind: 'cycle' | 'review' | 'goal', id: string, label: string) {
     if (!window.confirm(`¿Eliminar ${label}?`)) return
     startTransition(async () => {
@@ -149,6 +165,16 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
         : await deleteGoal(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
+      addToast('Eliminado', 'ok')
+    })
+  }
+
+  function removeEncuesta(id: string, label: string) {
+    if (!window.confirm(`¿Eliminar ${label}?`)) return
+    startTransition(async () => {
+      const result = await deleteEncuesta(id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setEncuestas(result.data)
       addToast('Eliminado', 'ok')
     })
   }
@@ -212,11 +238,41 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
     })
   }
 
+  function submitEncuesta() {
+    startTransition(async () => {
+      const result = await createEncuesta({
+        name: encuestaForm.name,
+        responses: encuestaForm.responses || 0,
+        score: encuestaForm.score === '' ? null : encuestaForm.score,
+        closedOn: orNull(encuestaForm.closedOn),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setEncuestas(result.data)
+      setEncuestaForm(EMPTY_ENCUESTA)
+      setEncuestaOpen(false)
+      addToast('Encuesta creada', 'ok')
+    })
+  }
+
   const cycleOptions = [
     { value: '', label: 'Sin ciclo' },
     ...cycles.map((c) => ({ value: c.id, label: c.name })),
   ]
   const rosterOptions = data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))
+
+  const exportRows = () => {
+    void runExport(
+      reviews.map((r) => ({
+        Empleado: r.employeeName ?? '',
+        Ciclo: r.cycleName ?? '',
+        Periodo: r.periodLabel ?? '',
+        Puntaje: r.score === null ? '' : String(r.score) ?? '',
+        Estado: r.status ?? '',
+      })),
+      'desempeno-kigyo',
+      'desempeno',
+    )
+  }
 
   return (
     <>
@@ -246,10 +302,12 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
               { key: 'ciclos', label: 'Ciclos' },
               { key: 'evaluaciones', label: 'Evaluaciones' },
               { key: 'objetivos', label: 'Objetivos' },
+              { key: 'encuestas', label: 'Encuestas' },
             ]}
             value={tab}
-            onChange={setTab}
+            onChange={(next) => { setTab(next); if (next === 'encuestas') loadEncuestas() }}
           />
+          <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
           {data.canWrite && (
             <div style={{ display: 'flex', gap: 8 }}>
               {tab === 'ciclos' && (
@@ -266,6 +324,12 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
               {tab === 'objetivos' && (
                 <button className="btn dark" disabled={pending} onClick={() => setGoalOpen(true)}>
                   <Plus size={15} />Objetivo
+                </button>
+              )}
+              {tab === 'encuestas' && (
+                <button className="btn dark" disabled={pending}
+                  onClick={() => { setEncuestaForm(EMPTY_ENCUESTA); setEncuestaOpen(true) }}>
+                  <Plus size={15} />Encuesta
                 </button>
               )}
             </div>
@@ -481,6 +545,56 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
             </table>
           </div>
         )}
+
+        {tab === 'encuestas' && (
+          encuestas === null ? (
+            <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+              Cargando encuestas…
+            </div>
+          ) : (
+            <div className="tblwrap">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th scope="col">Encuesta</th>
+                    <th scope="col">Respuestas</th>
+                    <th scope="col">Score</th>
+                    <th scope="col">Cierre</th>
+                    {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {encuestas.length === 0 ? (
+                    <tr>
+                      <td colSpan={data.canWrite ? 5 : 4}>
+                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                          No hay encuestas registradas.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : encuestas.map((e) => (
+                    <tr key={e.id}>
+                      <td><div className="cename">{e.name}</div></td>
+                      <td>{e.responses}</td>
+                      <td>{e.score === null ? '—' : e.score}</td>
+                      <td>{formatDate(e.closedOn)}</td>
+                      {data.canWrite && (
+                        <td>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <button className="ibtn" aria-label={`Eliminar ${e.name}`}
+                              disabled={pending} onClick={() => removeEncuesta(e.id, e.name)}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
       </div>
 
       <FormDrawer
@@ -644,6 +758,40 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
         <label className="flabel" htmlFor="goal-det">Detalle</label>
         <textarea id="goal-det" className="field" rows={3} value={goalForm.detail}
           onChange={(e) => setGoalForm({ ...goalForm, detail: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={encuestaOpen}
+        onClose={() => setEncuestaOpen(false)}
+        title="Nueva encuesta"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitEncuesta}>
+            <Check size={15} />Crear encuesta
+          </button>
+        }
+      >
+        <label className="flabel" htmlFor="enc-name">Nombre</label>
+        <input id="enc-name" className="field" value={encuestaForm.name}
+          onChange={(e) => setEncuestaForm({ ...encuestaForm, name: e.target.value })}
+          placeholder="Encuesta de clima laboral" />
+
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="enc-resp">Respuestas</label>
+            <input id="enc-resp" className="field" type="number" min={0} value={encuestaForm.responses}
+              onChange={(e) => setEncuestaForm({ ...encuestaForm, responses: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="enc-score">Score</label>
+            <input id="enc-score" className="field" type="number" min={-100} max={100} step="0.1"
+              value={encuestaForm.score}
+              onChange={(e) => setEncuestaForm({ ...encuestaForm, score: e.target.value })} />
+          </div>
+        </div>
+
+        <label className="flabel" htmlFor="enc-close">Cierre</label>
+        <input id="enc-close" className="field" type="date" value={encuestaForm.closedOn}
+          onChange={(e) => setEncuestaForm({ ...encuestaForm, closedOn: e.target.value })} />
       </FormDrawer>
     </>
   )

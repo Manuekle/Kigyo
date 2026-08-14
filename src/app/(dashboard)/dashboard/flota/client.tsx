@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Car, AlertTriangle, Check, Plus, Trash2, Wrench, Zap } from '@/lib/icons'
+import { Car, AlertTriangle, Check, PenLine, Plus, Trash2, Wrench, Zap, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -9,15 +9,19 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import {
   FUEL_KINDS, VEHICLE_KINDS, VEHICLE_STATUSES, WORK_ORDER_KINDS,
 } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { FlotaData, VehicleRow } from '@/server/queries/flota'
+import type { FlotaData, RouteRow, VehicleRow } from '@/server/queries/flota'
 import {
-  createVehiculo, deleteVehiculo, logCombustible, logServicio, setVehiculoStatus,
+  createRuta, createVehiculo, deleteRuta, deleteVehiculo, logCombustible, logServicio,
+  setRutaStatus, setVehiculoStatus, updateVehiculo,
 } from '@/server/mutations/flota'
 import { fetchMoreVehiculos } from '@/server/actions/flota'
+
+const RUTA_STATUSES = ['Planificada', 'En curso', 'Completada', 'Cancelada']
 
 const DATE = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: '2-digit' })
 
@@ -85,7 +89,12 @@ const EMPTY_FUEL = {
   vehicleId: '', liters: '', cost: '', odometerKm: '', station: '', driverId: '', filledOn: '',
 }
 
+const EMPTY_RUTA = {
+  origin: '', destination: '', vehicleId: '', driverId: '', distanceKm: '', scheduledOn: '', notes: '',
+}
+
 export default function FlotaPage({ data }: { data: FlotaData }) {
+  const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
@@ -93,23 +102,28 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
   const [total, setTotal] = useState(data.vehiculosTotal)
   const [servicios, setServicios] = useState(data.servicios)
   const [combustible, setCombustible] = useState(data.combustible)
+  const [rutas, setRutas] = useState(data.rutas)
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
 
   const [tab, setTab] = useState('vehiculos')
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [vehicleOpen, setVehicleOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [serviceOpen, setServiceOpen] = useState(false)
   const [fuelOpen, setFuelOpen] = useState(false)
+  const [rutaOpen, setRutaOpen] = useState(false)
   const [vehicleForm, setVehicleForm] = useState(EMPTY_VEHICLE)
   const [serviceForm, setServiceForm] = useState(EMPTY_SERVICE)
   const [fuelForm, setFuelForm] = useState(EMPTY_FUEL)
+  const [rutaForm, setRutaForm] = useState(EMPTY_RUTA)
 
   function apply(next: FlotaData) {
     setVehiculos(next.vehiculos)
     setTotal(next.vehiculosTotal)
     setServicios(next.servicios)
     setCombustible(next.combustible)
+    setRutas(next.rutas)
   }
 
   function loadMore() {
@@ -146,6 +160,20 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
   }, [vehiculos, combustible, servicios])
 
   const visible = vehiculos.filter((v) => statusFilter === 'Todos' || v.status === statusFilter)
+
+  const exportRows = () => {
+    void runExport(
+      visible.map((v) => ({
+        Placa: v.plate,
+        Marca: v.brand,
+        Modelo: v.model,
+        Estado: v.status,
+        Año: v.modelYear === null ? '' : String(v.modelYear),
+      })),
+      'flota-kigyo',
+      'flota',
+    )
+  }
   const vehicleOptions = vehiculos.map((v) => ({
     value: v.id,
     label: v.brand ? `${v.plate} · ${v.brand} ${v.model}`.trim() : v.plate,
@@ -170,9 +198,67 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
     })
   }
 
+  function changeRutaStatus(r: RouteRow, status: string) {
+    startTransition(async () => {
+      const result = await setRutaStatus({ id: r.id, status: status as never })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast(`Ruta a ${r.destination}: ${status.toLowerCase()}`, 'ok')
+    })
+  }
+
+  function removeRuta(r: RouteRow) {
+    if (!window.confirm(`¿Eliminar la ruta hacia ${r.destination}?`)) return
+    startTransition(async () => {
+      const result = await deleteRuta(r.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Ruta eliminada', 'ok')
+    })
+  }
+
+  function submitRuta() {
+    startTransition(async () => {
+      const result = await createRuta({
+        origin: rutaForm.origin,
+        destination: rutaForm.destination,
+        vehicleId: rutaForm.vehicleId || null,
+        driverId: rutaForm.driverId || null,
+        distanceKm: orNull(rutaForm.distanceKm),
+        scheduledOn: rutaForm.scheduledOn || TODAY(),
+        notes: rutaForm.notes,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setRutaForm(EMPTY_RUTA)
+      setRutaOpen(false)
+      addToast('Ruta registrada', 'ok')
+    })
+  }
+
+  function openEdit(v: VehicleRow) {
+    setEditingId(v.id)
+    setVehicleForm({
+      plate: v.plate,
+      kind: v.kind,
+      brand: v.brand,
+      model: v.model,
+      modelYear: v.modelYear === null ? '' : String(v.modelYear),
+      fuel: v.fuel,
+      driverId: v.driverId ?? '',
+      odometerKm: String(v.odometerKm),
+      capacityKg: v.capacityKg === null ? '' : String(v.capacityKg),
+      soatExpiresOn: v.soatExpiresOn ?? '',
+      inspectionExpiresOn: v.inspectionExpiresOn ?? '',
+      insuranceExpiresOn: v.insuranceExpiresOn ?? '',
+      notes: v.notes,
+    })
+    setVehicleOpen(true)
+  }
+
   function submitVehicle() {
     startTransition(async () => {
-      const result = await createVehiculo({
+      const payload = {
         plate: vehicleForm.plate,
         kind: vehicleForm.kind as never,
         brand: vehicleForm.brand,
@@ -186,12 +272,16 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
         inspectionExpiresOn: orNull(vehicleForm.inspectionExpiresOn),
         insuranceExpiresOn: orNull(vehicleForm.insuranceExpiresOn),
         notes: vehicleForm.notes,
-      })
+      }
+      const result = editingId
+        ? await updateVehiculo({ id: editingId, ...payload })
+        : await createVehiculo(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
+      addToast(editingId ? 'Vehículo actualizado' : 'Vehículo registrado', 'ok')
+      setEditingId(null)
       setVehicleForm(EMPTY_VEHICLE)
       setVehicleOpen(false)
-      addToast('Vehículo registrado', 'ok')
     })
   }
 
@@ -261,24 +351,30 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
               { key: 'vehiculos', label: 'Vehículos' },
               { key: 'servicios', label: 'Servicios' },
               { key: 'combustible', label: 'Combustible' },
+              { key: 'rutas', label: 'Rutas' },
             ]}
             value={tab}
             onChange={setTab}
           />
           {data.canWrite && (
             <div style={{ display: 'flex', gap: 8 }}>
+              <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
               {tab !== 'vehiculos' && (
-                <button className="btn" disabled={pending || vehiculos.length === 0}
+                <button className="btn" disabled={pending || (tab !== 'rutas' && vehiculos.length === 0)}
                   onClick={() => {
                     if (tab === 'servicios') {
                       setServiceForm({ ...EMPTY_SERVICE, vehicleId: vehiculos[0]?.id ?? '', servicedOn: TODAY() })
                       setServiceOpen(true)
-                    } else {
+                    } else if (tab === 'combustible') {
                       setFuelForm({ ...EMPTY_FUEL, vehicleId: vehiculos[0]?.id ?? '', filledOn: TODAY() })
                       setFuelOpen(true)
+                    } else {
+                      setRutaForm({ ...EMPTY_RUTA, scheduledOn: TODAY() })
+                      setRutaOpen(true)
                     }
                   }}>
-                  <Plus size={15} />{tab === 'servicios' ? 'Servicio' : 'Tanqueo'}
+                  <Plus size={15} />{tab === 'servicios' ? 'Servicio'
+                    : tab === 'combustible' ? 'Tanqueo' : 'Ruta'}
                 </button>
               )}
               <button className="btn dark" disabled={pending} onClick={() => setVehicleOpen(true)}>
@@ -358,6 +454,10 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
                                 onChange={(next) => { if (next !== v.status) changeStatus(v, next) }}
                                 options={[...VEHICLE_STATUSES]}
                               />
+                              <button className="ibtn" aria-label={`Editar ${v.plate}`}
+                                disabled={pending} onClick={() => openEdit(v)}>
+                                <PenLine size={14} />
+                              </button>
                               <button className="ibtn" aria-label={`Eliminar ${v.plate}`}
                                 disabled={pending} onClick={() => remove(v)}>
                                 <Trash2 size={14} />
@@ -461,15 +561,76 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
             </table>
           </div>
         )}
+
+        {tab === 'rutas' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Fecha</th>
+                  <th scope="col">Origen → Destino</th>
+                  <th scope="col">Vehículo</th>
+                  <th scope="col">Conductor</th>
+                  <th scope="col">Distancia</th>
+                  <th scope="col">Estado</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                </tr>
+              </thead>
+              <tbody>
+                {rutas.length === 0 ? (
+                  <tr>
+                    <td colSpan={data.canWrite ? 7 : 6}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Todavía no hay rutas planificadas.
+                      </div>
+                    </td>
+                  </tr>
+                ) : rutas.map((r) => (
+                  <tr key={r.id}>
+                    <td>{formatDate(r.scheduledOn)}</td>
+                    <td>
+                      {r.origin || '—'} → {r.destination}
+                      {r.notes && <div className="elsub">{r.notes}</div>}
+                    </td>
+                    <td>{r.vehicleId ? r.vehicleName || '—' : '—'}</td>
+                    <td>{r.driverId ? r.driverName || '—' : '—'}</td>
+                    <td>{r.distanceKm === null ? '—' : `${r.distanceKm.toLocaleString('es-CO')} km`}</td>
+                    <td>
+                      <Badge st={r.status}
+                        tone={r.status === 'Completada' ? 'grn'
+                          : r.status === 'En curso' ? 'blu'
+                          : r.status === 'Cancelada' ? 'red' : 'neu'} />
+                    </td>
+                    {data.canWrite && (
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <Select
+                            value={r.status}
+                            onChange={(next) => { if (next !== r.status) changeRutaStatus(r, next) }}
+                            options={[...RUTA_STATUSES]}
+                          />
+                          <button className="ibtn" aria-label={`Eliminar ruta a ${r.destination}`}
+                            disabled={pending} onClick={() => removeRuta(r)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <FormDrawer
         open={vehicleOpen}
-        onClose={() => setVehicleOpen(false)}
-        title="Nuevo vehículo"
+        onClose={() => { setEditingId(null); setVehicleOpen(false) }}
+        title={editingId ? 'Editar vehículo' : 'Nuevo vehículo'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitVehicle}>
-            <Check size={15} />Registrar
+            <Check size={15} />{editingId ? 'Guardar' : 'Registrar'}
           </button>
         }
       >
@@ -660,6 +821,60 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
           onChange={(v) => setFuelForm({ ...fuelForm, driverId: v })}
           placeholder="Sin conductor"
           options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={rutaOpen}
+        onClose={() => setRutaOpen(false)}
+        title="Nueva ruta"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitRuta}>
+            <Check size={15} />Registrar
+          </button>
+        }
+      >
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="rta-orig">Origen</label>
+            <input id="rta-orig" className="field" value={rutaForm.origin}
+              onChange={(e) => setRutaForm({ ...rutaForm, origin: e.target.value })}
+              placeholder="Bodega principal" />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="rta-dest">Destino</label>
+            <input id="rta-dest" className="field" value={rutaForm.destination}
+              onChange={(e) => setRutaForm({ ...rutaForm, destination: e.target.value })}
+              placeholder="Centro comercial" />
+          </div>
+        </div>
+
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="rta-date">Fecha</label>
+            <input id="rta-date" className="field" type="date" value={rutaForm.scheduledOn}
+              onChange={(e) => setRutaForm({ ...rutaForm, scheduledOn: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="rta-km">Distancia (km)</label>
+            <input id="rta-km" className="field" type="number" min={0} value={rutaForm.distanceKm}
+              onChange={(e) => setRutaForm({ ...rutaForm, distanceKm: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="flabel">Vehículo</div>
+        <Select value={rutaForm.vehicleId}
+          onChange={(v) => setRutaForm({ ...rutaForm, vehicleId: v })}
+          placeholder="Sin vehículo" options={vehicleOptions} />
+
+        <div className="flabel">Conductor</div>
+        <Select value={rutaForm.driverId}
+          onChange={(v) => setRutaForm({ ...rutaForm, driverId: v })}
+          placeholder="Sin conductor"
+          options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))} />
+
+        <label className="flabel" htmlFor="rta-notes">Notas</label>
+        <textarea id="rta-notes" className="field" rows={3} value={rutaForm.notes}
+          onChange={(e) => setRutaForm({ ...rutaForm, notes: e.target.value })} />
       </FormDrawer>
     </>
   )

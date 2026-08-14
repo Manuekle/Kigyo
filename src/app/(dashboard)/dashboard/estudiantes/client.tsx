@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { School, BookOpen, Check, Plus, Trash2, Award, Users } from '@/lib/icons'
+import { School, BookOpen, Check, Plus, Trash2, Award, Users, PenLine, Clock, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -9,12 +9,14 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { ACADEMIC_ENROLLMENT_STATUSES, STUDENT_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { EstudiantesData, StudentRow } from '@/server/queries/estudiantes'
+import type { AsistenciaRow, EstudiantesData, HorarioRow, StudentRow } from '@/server/queries/estudiantes'
 import {
-  calificarMateria, createEstudiante, createPrograma, deleteEstudiante,
-  matricularMateria, setEstudianteStatus,
+  calificarMateria, createEstudiante, createHorario, createPrograma,
+  deleteAsistencia, deleteEstudiante, deleteHorario, marcarAsistencia,
+  matricularMateria, setAsistencia, setEstudianteStatus, updateEstudiante,
 } from '@/server/mutations/estudiantes'
 import { fetchMoreEstudiantes } from '@/server/actions/estudiantes'
 
@@ -40,7 +42,16 @@ const EMPTY_PROGRAM = {
 }
 const EMPTY_SUBJECT = { studentId: '', subject: '', term: '', teacherId: '' }
 
+const WEEKDAYS = [
+  'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
+]
+const EMPTY_HORARIO = {
+  subject: '', programId: '', teacherId: '', weekday: 'Lunes',
+  startTime: '', endTime: '', classroom: '',
+}
+
 export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
+  const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
@@ -48,6 +59,8 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
   const [total, setTotal] = useState(data.estudiantesTotal)
   const [programas, setProgramas] = useState(data.programas)
   const [materias, setMaterias] = useState(data.materias)
+  const [horarios, setHorarios] = useState(data.horarios)
+  const [asistencia, setAsistenciaRows] = useState(data.asistencia)
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
 
@@ -58,14 +71,23 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
   const [programOpen, setProgramOpen] = useState(false)
   const [subjectOpen, setSubjectOpen] = useState(false)
   const [studentForm, setStudentForm] = useState(EMPTY_STUDENT)
+  const [editingStudent, setEditingStudent] = useState<string | null>(null)
   const [programForm, setProgramForm] = useState(EMPTY_PROGRAM)
   const [subjectForm, setSubjectForm] = useState(EMPTY_SUBJECT)
+  const [horarioOpen, setHorarioOpen] = useState(false)
+  const [horarioForm, setHorarioForm] = useState(EMPTY_HORARIO)
+  const [attendanceDate, setAttendanceDate] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  })
 
   function apply(next: EstudiantesData) {
     setEstudiantes(next.estudiantes)
     setTotal(next.estudiantesTotal)
     setProgramas(next.programas)
     setMaterias(next.materias)
+    setHorarios(next.horarios)
+    setAsistenciaRows(next.asistencia)
   }
 
   function loadMore() {
@@ -100,6 +122,19 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
 
   const visible = estudiantes.filter((s) => statusFilter === 'Todos' || s.status === statusFilter)
   const studentOptions = estudiantes.map((s) => ({ value: s.id, label: s.fullName }))
+
+  const exportRows = () => {
+    void runExport(
+      visible.map((s) => ({
+        Código: s.code ?? '',
+        Nombre: s.fullName,
+        Programa: s.programName ?? '',
+        Estado: s.status,
+      })),
+      'estudiantes-kigyo',
+      'estudiantes',
+    )
+  }
 
   function changeStatus(s: StudentRow, status: string) {
     startTransition(async () => {
@@ -163,6 +198,46 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
     })
   }
 
+  function startEdit(s: StudentRow) {
+    setStudentForm({
+      fullName: s.fullName,
+      documentId: s.documentId,
+      birthDate: s.birthDate ?? '',
+      email: s.email ?? '',
+      phone: s.phone,
+      address: s.address,
+      programId: s.programId ?? '',
+      guardianName: s.guardianName,
+      guardianPhone: s.guardianPhone,
+    })
+    setEditingStudent(s.id)
+    setStudentOpen(true)
+  }
+
+  function submitEditStudent() {
+    if (!editingStudent) return
+    startTransition(async () => {
+      const result = await updateEstudiante({
+        id: editingStudent,
+        fullName: studentForm.fullName,
+        documentId: studentForm.documentId,
+        birthDate: orNull(studentForm.birthDate),
+        email: studentForm.email || null,
+        phone: studentForm.phone,
+        address: studentForm.address,
+        programId: studentForm.programId || null,
+        guardianName: studentForm.guardianName,
+        guardianPhone: studentForm.guardianPhone,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setStudentForm(EMPTY_STUDENT)
+      setEditingStudent(null)
+      setStudentOpen(false)
+      addToast('Estudiante actualizado', 'ok')
+    })
+  }
+
   function submitProgram() {
     startTransition(async () => {
       const result = await createPrograma({
@@ -197,6 +272,58 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
     })
   }
 
+  function submitHorario() {
+    startTransition(async () => {
+      const result = await createHorario({
+        programId: orNull(horarioForm.programId),
+        subject: horarioForm.subject,
+        teacherId: orNull(horarioForm.teacherId),
+        weekday: horarioForm.weekday as never,
+        startTime: horarioForm.startTime,
+        endTime: horarioForm.endTime,
+        classroom: horarioForm.classroom,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setHorarioForm(EMPTY_HORARIO)
+      setHorarioOpen(false)
+      addToast('Horario creado', 'ok')
+    })
+  }
+
+  function removeHorario(h: HorarioRow) {
+    if (!window.confirm(`¿Eliminar el horario de ${h.subject}?`)) return
+    startTransition(async () => {
+      const result = await deleteHorario(h.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Horario eliminado', 'ok')
+    })
+  }
+
+  function markAttendance(s: StudentRow, present: boolean) {
+    const existing = asistencia.find((a) => a.studentId === s.id && a.date === attendanceDate)
+    if (existing?.present === present) return
+    startTransition(async () => {
+      const result = existing
+        ? await setAsistencia({ id: existing.id, present })
+        : await marcarAsistencia({ studentId: s.id, date: attendanceDate, present, scheduleId: null })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast(present ? `${s.fullName}: presente` : `${s.fullName}: ausente`, 'ok')
+    })
+  }
+
+  function removeAttendance(a: AsistenciaRow) {
+    if (!window.confirm(`¿Quitar la marca de asistencia de ${a.studentName}?`)) return
+    startTransition(async () => {
+      const result = await deleteAsistencia(a.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Marca eliminada', 'ok')
+    })
+  }
+
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
@@ -225,31 +352,44 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
               { key: 'estudiantes', label: 'Estudiantes' },
               { key: 'programas', label: 'Programas' },
               { key: 'materias', label: 'Materias' },
+              { key: 'horarios', label: 'Horarios' },
+              { key: 'asistencia', label: 'Asistencia' },
             ]}
             value={tab}
             onChange={setTab}
           />
-          {data.canWrite && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              {tab === 'programas' ? (
-                <button className="btn dark" disabled={pending} onClick={() => setProgramOpen(true)}>
-                  <Plus size={15} />Programa
-                </button>
-              ) : tab === 'materias' ? (
-                <button className="btn dark" disabled={pending || estudiantes.length === 0}
-                  onClick={() => {
-                    setSubjectForm({ ...EMPTY_SUBJECT, studentId: estudiantes[0]?.id ?? '' })
-                    setSubjectOpen(true)
-                  }}>
-                  <Plus size={15} />Matricular
-                </button>
-              ) : (
-                <button className="btn dark" disabled={pending} onClick={() => setStudentOpen(true)}>
-                  <Plus size={15} />Estudiante
-                </button>
-              )}
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {tab === 'estudiantes' && (
+              <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
+            )}
+            {data.canWrite && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                {tab === 'programas' ? (
+                  <button className="btn dark" disabled={pending} onClick={() => setProgramOpen(true)}>
+                    <Plus size={15} />Programa
+                  </button>
+                ) : tab === 'materias' ? (
+                  <button className="btn dark" disabled={pending || estudiantes.length === 0}
+                    onClick={() => {
+                      setSubjectForm({ ...EMPTY_SUBJECT, studentId: estudiantes[0]?.id ?? '' })
+                      setSubjectOpen(true)
+                    }}>
+                    <Plus size={15} />Matricular
+                  </button>
+                ) : tab === 'horarios' ? (
+                  <button className="btn dark" disabled={pending}
+                    onClick={() => { setHorarioForm(EMPTY_HORARIO); setHorarioOpen(true) }}>
+                    <Plus size={15} />Horario
+                  </button>
+                ) : (
+                  <button className="btn dark" disabled={pending}
+                    onClick={() => { setStudentForm(EMPTY_STUDENT); setEditingStudent(null); setStudentOpen(true) }}>
+                    <Plus size={15} />Estudiante
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {tab === 'estudiantes' && (
@@ -316,6 +456,10 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                                 onChange={(next) => { if (next !== s.status) changeStatus(s, next) }}
                                 options={[...STUDENT_STATUSES]}
                               />
+                              <button className="ibtn" aria-label={`Editar a ${s.fullName}`}
+                                disabled={pending} onClick={() => startEdit(s)}>
+                                <PenLine size={14} />
+                              </button>
                               <button className="ibtn" aria-label={`Eliminar a ${s.fullName}`}
                                 disabled={pending} onClick={() => remove(s)}>
                                 <Trash2 size={14} />
@@ -468,15 +612,142 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
             </table>
           </div>
         )}
+
+        {tab === 'horarios' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Materia</th>
+                  <th scope="col">Programa</th>
+                  <th scope="col">Docente</th>
+                  <th scope="col">Día</th>
+                  <th scope="col">Hora</th>
+                  <th scope="col">Salón</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                </tr>
+              </thead>
+              <tbody>
+                {horarios.length === 0 ? (
+                  <tr>
+                    <td colSpan={data.canWrite ? 7 : 6}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        No hay horarios creados.
+                      </div>
+                    </td>
+                  </tr>
+                ) : horarios.map((h) => (
+                  <tr key={h.id}>
+                    <td><div className="cename">{h.subject}</div></td>
+                    <td>{h.programName || '—'}</td>
+                    <td>{h.teacherName || '—'}</td>
+                    <td>{h.weekday}</td>
+                    <td className="mono">{h.startTime} – {h.endTime}</td>
+                    <td>{h.classroom || '—'}</td>
+                    {data.canWrite && (
+                      <td>
+                        <button className="ibtn" aria-label={`Eliminar horario de ${h.subject}`}
+                          disabled={pending} onClick={() => removeHorario(h)}>
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === 'asistencia' && (
+          <>
+            <div className="cpad" style={{ paddingBottom: 0 }}>
+              <div style={{ maxWidth: 220 }}>
+                <label className="flabel" htmlFor="att-date">Fecha</label>
+                <input id="att-date" className="field" type="date" value={attendanceDate}
+                  disabled={pending}
+                  onChange={(e) => setAttendanceDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="tblwrap">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th scope="col">Estudiante</th>
+                    <th scope="col">Presente</th>
+                    {data.canWrite && <th scope="col" aria-label="Marcar ausente" />}
+                    {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {estudiantes.length === 0 ? (
+                    <tr>
+                      <td colSpan={data.canWrite ? 4 : 2}>
+                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                          Sin estudiantes para marcar.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : estudiantes.map((s) => {
+                    const mark = asistencia.find((a) => a.studentId === s.id && a.date === attendanceDate)
+                    return (
+                      <tr key={s.id}>
+                        <td>
+                          <div className="cename">{s.fullName}</div>
+                          <div className="elsub mono">{s.code}</div>
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            {data.canWrite && (
+                              <input type="checkbox" checked={mark?.present ?? false}
+                                disabled={pending || (mark?.present ?? false)}
+                                aria-label={`Marcar presente a ${s.fullName}`}
+                                onChange={() => markAttendance(s, true)} />
+                            )}
+                            {mark
+                              ? <Badge st={mark.present ? 'Presente' : 'Ausente'}
+                                tone={mark.present ? 'grn' : 'red'} />
+                              : <span className="elsub">Sin marcar</span>}
+                          </div>
+                        </td>
+                        {data.canWrite && (
+                          <td>
+                            <button className="btn" style={{ padding: '4px 10px' }}
+                              disabled={pending || (mark?.present ?? false)}
+                              onClick={() => markAttendance(s, false)}>
+                              <Clock size={13} />Ausente
+                            </button>
+                          </td>
+                        )}
+                        {data.canWrite && (
+                          <td>
+                            {mark && (
+                              <button className="ibtn" aria-label={`Quitar marca de ${s.fullName}`}
+                                disabled={pending} onClick={() => removeAttendance(mark)}>
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
 
       <FormDrawer
         open={studentOpen}
         onClose={() => setStudentOpen(false)}
-        title="Nuevo estudiante"
+        title={editingStudent ? 'Editar estudiante' : 'Nuevo estudiante'}
         footer={
-          <button className="btn dark" disabled={pending} onClick={submitStudent}>
-            <Check size={15} />Matricular
+          <button className="btn dark" disabled={pending}
+            onClick={editingStudent ? submitEditStudent : submitStudent}>
+            <Check size={15} />{editingStudent ? 'Guardar cambios' : 'Matricular'}
           </button>
         }
       >
@@ -609,6 +880,57 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
           onChange={(v) => setSubjectForm({ ...subjectForm, teacherId: v })}
           placeholder="Sin asignar"
           options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={horarioOpen}
+        onClose={() => setHorarioOpen(false)}
+        title="Nuevo horario"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitHorario}>
+            <Check size={15} />Crear horario
+          </button>
+        }
+      >
+        <label className="flabel" htmlFor="hor-subject">Materia</label>
+        <input id="hor-subject" className="field" value={horarioForm.subject}
+          onChange={(e) => setHorarioForm({ ...horarioForm, subject: e.target.value })}
+          placeholder="Matemáticas" />
+
+        <div className="flabel">Programa</div>
+        <Select value={horarioForm.programId}
+          onChange={(v) => setHorarioForm({ ...horarioForm, programId: v })}
+          placeholder="Sin programa"
+          options={programas.map((p) => ({ value: p.id, label: p.name }))} />
+
+        <div className="flabel">Docente</div>
+        <Select value={horarioForm.teacherId}
+          onChange={(v) => setHorarioForm({ ...horarioForm, teacherId: v })}
+          placeholder="Sin asignar"
+          options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))} />
+
+        <div className="flabel">Día</div>
+        <Select value={horarioForm.weekday}
+          onChange={(v) => setHorarioForm({ ...horarioForm, weekday: v })}
+          options={WEEKDAYS.map((w) => ({ value: w, label: w }))} />
+
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="hor-start">Hora de inicio</label>
+            <input id="hor-start" className="field" type="time" value={horarioForm.startTime}
+              onChange={(e) => setHorarioForm({ ...horarioForm, startTime: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="hor-end">Hora de fin</label>
+            <input id="hor-end" className="field" type="time" value={horarioForm.endTime}
+              onChange={(e) => setHorarioForm({ ...horarioForm, endTime: e.target.value })} />
+          </div>
+        </div>
+
+        <label className="flabel" htmlFor="hor-room">Salón</label>
+        <input id="hor-room" className="field" value={horarioForm.classroom}
+          onChange={(e) => setHorarioForm({ ...horarioForm, classroom: e.target.value })}
+          placeholder="Aula 101" />
       </FormDrawer>
     </>
   )

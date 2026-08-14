@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import {
-  GraduationCap, Award, AlertTriangle, Check, Plus, Trash2, UserPlus, Clock,
+  GraduationCap, Award, AlertTriangle, Check, PenLine, Plus, Trash2, UserPlus, Clock,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
@@ -16,9 +16,15 @@ import { COURSE_MODES, ENROLLMENT_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { CapacitacionData, CourseRow, EnrollmentRow } from '@/server/queries/capacitacion'
 import {
-  createCourse, deleteCourse, enroll, removeEnrollment, setEnrollmentStatus,
+  createCourse, updateCourse, deleteCourse, enroll, removeEnrollment, setEnrollmentStatus,
+  fetchCertificaciones, createCertificacion, deleteCertificacion,
+  type CertificacionRow,
 } from '@/server/mutations/capacitacion'
 import { fetchMoreCourses } from '@/server/actions/capacitacion'
+
+const EMPTY_CERT = {
+  employeeId: '', name: '', provider: '', issuedOn: '', expiresOn: '',
+}
 
 const EMPTY_COURSE = {
   name: '', category: '', mode: 'Presencial', provider: '', instructor: '',
@@ -74,7 +80,13 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
   const [courseOpen, setCourseOpen] = useState(false)
   const [enrollOpen, setEnrollOpen] = useState(false)
   const [courseForm, setCourseForm] = useState(EMPTY_COURSE)
+  const [courseId, setCourseId] = useState<string | null>(null)
   const [enrollForm, setEnrollForm] = useState({ courseId: '', employeeId: '' })
+  const [certificaciones, setCertificaciones] = useState<CertificacionRow[] | null>(null)
+  const [certTried, setCertTried] = useState(false)
+  const certTriedRef = useRef(false)
+  const [certOpen, setCertOpen] = useState(false)
+  const [certForm, setCertForm] = useState(EMPTY_CERT)
 
   function apply(next: CapacitacionData) {
     setCourses(next.courses)
@@ -143,7 +155,7 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
 
   function submitCourse() {
     startTransition(async () => {
-      const result = await createCourse({
+      const payload = {
         name: courseForm.name,
         category: courseForm.category,
         mode: courseForm.mode as never,
@@ -157,13 +169,37 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
         startsOn: orNull(courseForm.startsOn),
         endsOn: orNull(courseForm.endsOn),
         description: courseForm.description,
-      })
+      }
+      const result = courseId
+        ? await updateCourse({ id: courseId, ...payload })
+        : await createCourse(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setCourseForm(EMPTY_COURSE)
+      setCourseId(null)
       setCourseOpen(false)
-      addToast('Curso creado', 'ok')
+      addToast(courseId ? 'Curso actualizado' : 'Curso creado', 'ok')
     })
+  }
+
+  function openEdit(course: CourseRow) {
+    setCourseForm({
+      name: course.name,
+      category: course.category,
+      mode: course.mode as never,
+      provider: course.provider,
+      instructor: course.instructor,
+      durationHours: course.durationHours !== null ? String(course.durationHours) : '',
+      cost: course.costCents > 0 ? String(Math.round(course.costCents / 100)) : '',
+      seats: course.seats !== null ? String(course.seats) : '',
+      validityMonths: course.validityMonths !== null ? String(course.validityMonths) : '',
+      isMandatory: course.isMandatory,
+      startsOn: course.startsOn ?? '',
+      endsOn: course.endsOn ?? '',
+      description: course.description,
+    })
+    setCourseId(course.id)
+    setCourseOpen(true)
   }
 
   function submitEnroll() {
@@ -174,6 +210,48 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
       setEnrollForm({ courseId: '', employeeId: '' })
       setEnrollOpen(false)
       addToast('Persona inscrita', 'ok')
+    })
+  }
+
+  useEffect(() => {
+    // The ref, not the state, is the idempotence guard: mutating it is not a
+    // render, so the fetch can start from inside the effect without tripping
+    // the set-state-in-effect rule — and the effect cannot re-run a fetch that
+    // is still in flight. The state flips only in the async continuation,
+    // where it is the "cargando → no se pudo cargar" message.
+    if (tab !== 'certificados' || certTriedRef.current) return
+    certTriedRef.current = true
+    startTransition(async () => {
+      const result = await fetchCertificaciones()
+      if (!result.ok) { setCertTried(true); addToast(result.error, 'err'); return }
+      setCertificaciones(result.data)
+    })
+  }, [tab, addToast, startTransition])
+
+  function submitCertificacion() {
+    startTransition(async () => {
+      const result = await createCertificacion({
+        employeeId: certForm.employeeId === '' ? null : certForm.employeeId,
+        name: certForm.name,
+        provider: certForm.provider,
+        issuedOn: orNull(certForm.issuedOn),
+        expiresOn: orNull(certForm.expiresOn),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setCertificaciones(result.data)
+      setCertForm(EMPTY_CERT)
+      setCertOpen(false)
+      addToast('Certificación creada', 'ok')
+    })
+  }
+
+  function removeCertificacion(row: CertificacionRow) {
+    if (!window.confirm(`¿Eliminar ${row.name}?`)) return
+    startTransition(async () => {
+      const result = await deleteCertificacion(row.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setCertificaciones(result.data)
+      addToast('Certificación eliminada', 'ok')
     })
   }
 
@@ -203,6 +281,7 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
             items={[
               { key: 'cursos', label: 'Cursos' },
               { key: 'inscripciones', label: 'Inscripciones' },
+              { key: 'certificados', label: 'Certificados' },
             ]}
             value={tab}
             onChange={setTab}
@@ -216,9 +295,18 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
                 }}>
                 <UserPlus size={15} />Inscribir
               </button>
-              <button className="btn dark" disabled={pending} onClick={() => setCourseOpen(true)}>
-                <Plus size={15} />Curso
-              </button>
+<button className="btn dark" disabled={pending} onClick={() => {
+                  setCourseId(null)
+                  setCourseOpen(true)
+                }}>
+                  <Plus size={15} />Curso
+                </button>
+              <button className="btn dark" disabled={pending} onClick={() => {
+                  setCertForm(EMPTY_CERT)
+                  setCertOpen(true)
+                }}>
+                  <Plus size={15} />Certificado
+                </button>
             </div>
           )}
         </div>
@@ -271,10 +359,16 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
                       <td>{c.validityMonths !== null ? `${c.validityMonths} meses` : 'No vence'}</td>
                       {data.canWrite && (
                         <td>
-                          <button className="ibtn" aria-label={`Eliminar ${c.name}`}
-                            disabled={pending} onClick={() => removeCourse(c)}>
-                            <Trash2 size={14} />
-                          </button>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            <button className="ibtn" aria-label={`Editar ${c.name}`}
+                              disabled={pending} onClick={() => openEdit(c)}>
+                              <PenLine size={14} />
+                            </button>
+                            <button className="ibtn" aria-label={`Eliminar ${c.name}`}
+                              disabled={pending} onClick={() => removeCourse(c)}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -376,15 +470,71 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
             </div>
           </>
         )}
+
+        {tab === 'certificados' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Certificado</th>
+                  <th scope="col">Empleado</th>
+                  <th scope="col">Proveedor</th>
+                  <th scope="col">Emitido</th>
+                  <th scope="col">Vence</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
+                </tr>
+              </thead>
+              <tbody>
+                {certificaciones === null ? (
+                  <tr>
+                    <td colSpan={data.canWrite ? 6 : 5}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        {certTried
+                          ? 'No se pudieron cargar las certificaciones.'
+                          : 'Cargando certificaciones…'}
+                      </div>
+                    </td>
+                  </tr>
+                ) : certificaciones.length === 0 ? (
+                  <tr>
+                    <td colSpan={data.canWrite ? 6 : 5}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Todavía no hay certificaciones registradas.
+                      </div>
+                    </td>
+                  </tr>
+                ) : certificaciones.map((c) => (
+                  <tr key={c.id}>
+                    <td>{c.name}</td>
+                    <td>{c.employeeName || '—'}</td>
+                    <td>{c.provider || '—'}</td>
+                    <td>{formatDate(c.issuedOn)}</td>
+                    <td>{formatDate(c.expiresOn)}</td>
+                    {data.canWrite && (
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <button className="ibtn" aria-label={`Eliminar ${c.name}`}
+                            disabled={pending} onClick={() => removeCertificacion(c)}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <FormDrawer
         open={courseOpen}
         onClose={() => setCourseOpen(false)}
-        title="Nuevo curso"
+        title={courseId ? 'Editar curso' : 'Nuevo curso'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitCourse}>
-            <Check size={15} />Crear curso
+            <Check size={15} />{courseId ? 'Guardar cambios' : 'Crear curso'}
           </button>
         }
       >
@@ -508,6 +658,50 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
           placeholder="Elige a la persona"
           options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))}
         />
+      </FormDrawer>
+
+      <FormDrawer
+        open={certOpen}
+        onClose={() => setCertOpen(false)}
+        title="Nueva certificación"
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitCertificacion}>
+            <Check size={15} />Crear certificación
+          </button>
+        }
+      >
+        <div className="flabel">Persona (opcional)</div>
+        <Select
+          value={certForm.employeeId}
+          onChange={(v) => setCertForm({ ...certForm, employeeId: v })}
+          placeholder="Elige a la persona"
+          options={[
+            { value: '', label: 'Sin asignar' },
+            ...data.roster.map((r) => ({ value: r.employeeId, label: r.fullName })),
+          ]}
+        />
+
+        <label className="flabel" htmlFor="cert-name">Nombre</label>
+        <input id="cert-name" className="field" value={certForm.name}
+          onChange={(e) => setCertForm({ ...certForm, name: e.target.value })}
+          placeholder="Certificación en alturas" />
+
+        <label className="flabel" htmlFor="cert-prov">Proveedor</label>
+        <input id="cert-prov" className="field" value={certForm.provider}
+          onChange={(e) => setCertForm({ ...certForm, provider: e.target.value })} />
+
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="cert-from">Emitido</label>
+            <input id="cert-from" className="field" type="date" value={certForm.issuedOn}
+              onChange={(e) => setCertForm({ ...certForm, issuedOn: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="cert-to">Vence</label>
+            <input id="cert-to" className="field" type="date" value={certForm.expiresOn}
+              onChange={(e) => setCertForm({ ...certForm, expiresOn: e.target.value })} />
+          </div>
+        </div>
       </FormDrawer>
     </>
   )

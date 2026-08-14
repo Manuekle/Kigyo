@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import {
-  Building2, UserPlus, Check, Plus, Trash2, MessageSquare, Star, Clock,
+  Building2, UserPlus, Check, Plus, Trash2, MessageSquare, Star, Clock, PenLine,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
@@ -17,7 +17,7 @@ import { cop } from '@/lib/utils'
 import type { ClientRow, ClientesData } from '@/server/queries/clientes'
 import {
   addContacto, createCliente, deleteCliente, deleteContacto,
-  logInteraccion, setClienteStatus,
+  logInteraccion, setClienteStatus, updateCliente,
 } from '@/server/mutations/clientes'
 import { fetchMoreClientes } from '@/server/actions/clientes'
 
@@ -80,6 +80,7 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
   const [clientOpen, setClientOpen] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
   const [interactionOpen, setInteractionOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [clientForm, setClientForm] = useState(EMPTY_CLIENT)
   const [contactForm, setContactForm] = useState(EMPTY_CONTACT)
   const [interactionForm, setInteractionForm] = useState(EMPTY_INTERACTION)
@@ -154,9 +155,29 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
     })
   }
 
+  function openEdit(c: ClientRow) {
+    setEditingId(c.id)
+    setClientForm({
+      name: c.name,
+      legalName: c.legalName,
+      taxId: c.taxId,
+      kind: c.kind,
+      industry: c.industry,
+      email: c.email ?? '',
+      phone: c.phone,
+      address: c.address,
+      city: c.city,
+      ownerId: c.ownerId ?? '',
+      creditLimit: c.creditLimitCents > 0 ? String(c.creditLimitCents / 100) : '',
+      paymentTermsDays: String(c.paymentTermsDays),
+      notes: c.notes,
+    })
+    setClientOpen(true)
+  }
+
   function submitClient() {
     startTransition(async () => {
-      const result = await createCliente({
+      const payload = {
         name: clientForm.name,
         legalName: clientForm.legalName,
         taxId: clientForm.taxId,
@@ -170,12 +191,16 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
         creditLimitCents: toCents(clientForm.creditLimit),
         paymentTermsDays: clientForm.paymentTermsDays || 0,
         notes: clientForm.notes,
-      })
+      }
+      const result = editingId
+        ? await updateCliente({ ...payload, id: editingId })
+        : await createCliente(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
+      setEditingId(null)
       setClientForm(EMPTY_CLIENT)
       setClientOpen(false)
-      addToast('Cliente creado', 'ok')
+      addToast(editingId ? 'Cliente actualizado' : 'Cliente creado', 'ok')
     })
   }
 
@@ -261,7 +286,11 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
                 }}>
                 <UserPlus size={15} />Contacto
               </button>
-              <button className="btn dark" disabled={pending} onClick={() => setClientOpen(true)}>
+              <button className="btn dark" disabled={pending} onClick={() => {
+                setEditingId(null)
+                setClientForm(EMPTY_CLIENT)
+                setClientOpen(true)
+              }}>
                 <Plus size={15} />Cliente
               </button>
             </div>
@@ -340,6 +369,10 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
                                 onChange={(next) => { if (next !== c.status) changeStatus(c, next) }}
                                 options={[...CLIENT_STATUSES]}
                               />
+                              <button className="ibtn" aria-label={`Editar ${c.name}`}
+                                disabled={pending} onClick={() => openEdit(c)}>
+                                <PenLine size={14} />
+                              </button>
                               <button className="ibtn" aria-label={`Eliminar ${c.name}`}
                                 disabled={pending} onClick={() => remove(c)}>
                                 <Trash2 size={14} />
@@ -442,10 +475,10 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
       <FormDrawer
         open={clientOpen}
         onClose={() => setClientOpen(false)}
-        title="Nuevo cliente"
+        title={editingId ? 'Editar cliente' : 'Nuevo cliente'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitClient}>
-            <Check size={15} />Crear cliente
+            <Check size={15} />{editingId ? 'Guardar cambios' : 'Crear cliente'}
           </button>
         }
       >

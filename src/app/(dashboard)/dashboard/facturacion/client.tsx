@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import {
-  DollarSign, AlertTriangle, Check, Plus, Trash2, Receipt, Wallet,
+  DollarSign, AlertTriangle, Check, Plus, Trash2, Receipt, Wallet, PenLine, FileSpreadsheet,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
@@ -10,11 +10,12 @@ import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { INVOICE_STATUSES, PAYMENT_METHODS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { FacturacionData, InvoiceRow } from '@/server/queries/facturacion'
 import {
-  createFactura, deleteFactura, registrarPago, setFacturaStatus,
+  createFactura, deleteFactura, registrarPago, setFacturaStatus, updateFactura,
 } from '@/server/mutations/facturacion'
 import { fetchMoreFacturas } from '@/server/actions/facturacion'
 
@@ -75,6 +76,7 @@ function previewTotals(items: DraftItem[]) {
 }
 
 export default function FacturacionPage({ data }: { data: FacturacionData }) {
+  const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
@@ -91,6 +93,7 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [invoiceForm, setInvoiceForm] = useState(EMPTY_INVOICE)
   const [draftItems, setDraftItems] = useState<DraftItem[]>([{ ...EMPTY_ITEM }])
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [paymentForm, setPaymentForm] = useState(EMPTY_PAYMENT)
 
   function apply(next: FacturacionData) {
@@ -131,6 +134,20 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
 
   const preview = previewTotals(draftItems)
 
+  const exportRows = () => {
+    void runExport(
+      visible.map((f) => ({
+        Número: f.code ?? '',
+        Cliente: f.clientName,
+        Valor: pesos(f.totalCents),
+        Estado: f.status,
+        Fecha: f.issuedOn,
+      })),
+      'facturas-kigyo',
+      'facturacion',
+    )
+  }
+
   function changeStatus(f: InvoiceRow, status: string) {
     startTransition(async () => {
       const result = await setFacturaStatus({ id: f.id, status: status as never })
@@ -150,9 +167,34 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
     })
   }
 
+  function editInvoice(f: InvoiceRow) {
+    const invoiceItems = items
+      .filter((i) => i.invoiceId === f.id)
+      .sort((a, b) => a.position - b.position)
+    setInvoiceForm({
+      clientId: f.clientId ?? '',
+      clientName: f.clientName,
+      issuedOn: f.issuedOn,
+      dueOn: f.dueOn ?? '',
+      currency: f.currency,
+      notes: f.notes,
+    })
+    setDraftItems(invoiceItems.length > 0
+      ? invoiceItems.map((i) => ({
+          productId: i.productId ?? '',
+          description: i.description,
+          quantity: String(i.quantity),
+          unitPrice: String(Math.round(i.unitPriceCents / 100)),
+          taxRate: String(i.taxRate),
+        }))
+      : [{ ...EMPTY_ITEM }])
+    setEditingId(f.id)
+    setInvoiceOpen(true)
+  }
+
   function submitInvoice() {
     startTransition(async () => {
-      const result = await createFactura({
+      const payload = {
         clientId: invoiceForm.clientId || null,
         clientName: invoiceForm.clientName,
         issuedOn: invoiceForm.issuedOn || TODAY(),
@@ -166,13 +208,17 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
           unitPriceCents: toCents(item.unitPrice),
           taxRate: item.taxRate,
         })),
-      })
+      }
+      const result = editingId
+        ? await updateFactura({ ...payload, id: editingId })
+        : await createFactura(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
+      setEditingId(null)
       setInvoiceForm(EMPTY_INVOICE)
       setDraftItems([{ ...EMPTY_ITEM }])
       setInvoiceOpen(false)
-      addToast('Factura creada', 'ok')
+      addToast(editingId ? 'Factura actualizada' : 'Factura creada', 'ok')
     })
   }
 
@@ -224,6 +270,7 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
           </div>
           {data.canWrite && (
             <div style={{ display: 'flex', gap: 8 }}>
+              <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
               <button className="btn" disabled={pending || facturas.length === 0}
                 onClick={() => {
                   const target = facturas.find((f) => f.balanceCents > 0) ?? facturas[0]
@@ -234,6 +281,7 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
               </button>
               <button className="btn dark" disabled={pending}
                 onClick={() => {
+                  setEditingId(null)
                   setInvoiceForm({ ...EMPTY_INVOICE, issuedOn: TODAY() })
                   setDraftItems([{ ...EMPTY_ITEM }])
                   setInvoiceOpen(true)
@@ -312,6 +360,10 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
                             onChange={(next) => { if (next !== f.status) changeStatus(f, next) }}
                             options={[...INVOICE_STATUSES]}
                           />
+                          <button className="ibtn" aria-label={`Editar ${f.code}`}
+                            disabled={pending} onClick={() => editInvoice(f)}>
+                            <PenLine size={14} />
+                          </button>
                           <button className="ibtn" aria-label={`Eliminar ${f.code}`}
                             disabled={pending} onClick={() => remove(f)}>
                             <Trash2 size={14} />
@@ -380,7 +432,7 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
       <FormDrawer
         open={invoiceOpen}
         onClose={() => setInvoiceOpen(false)}
-        title="Nueva factura"
+        title={editingId ? 'Editar factura' : 'Nueva factura'}
         wide
         footer={
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
@@ -389,7 +441,7 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
               <b>{pesos(preview.total)}</b>
             </div>
             <button className="btn dark" disabled={pending} onClick={submitInvoice}>
-              <Check size={15} />Crear factura
+              <Check size={15} />{editingId ? 'Guardar cambios' : 'Crear factura'}
             </button>
           </div>
         }

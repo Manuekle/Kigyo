@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useTransition } from 'react'
 import {
   Ticket, Clock, Check, Activity, LayoutGrid, List, Plus, FileSpreadsheet,
-  X, PenLine, Trash2,
+  X, PenLine, Trash2, MessageSquare, Send,
 } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
 import { useExport } from '@/lib/hooks/use-export'
@@ -15,7 +15,8 @@ import Select from '@/components/ui/Select'
 import { activatable } from '@/lib/a11y'
 import type { TicketsData, TicketRow } from '@/server/queries/tickets'
 import { TICKET_AREAS, TICKET_PRIORITIES, TICKET_STATUSES } from '@/lib/domain'
-import { createTicket, deleteTicket, moveTicket, updateTicket } from '@/server/mutations/tickets'
+import { createTicket, createTicketComment, deleteTicket, deleteTicketComment, fetchTicketComments, moveTicket, updateTicket } from '@/server/mutations/tickets'
+import type { TicketComment } from '@/server/mutations/tickets'
 import { fetchMoreTickets } from '@/server/actions/tickets'
 
 /* ------------------------------------------------------------------ */
@@ -52,6 +53,46 @@ function meanResolution(tickets: TicketRow[]): string {
   )
   const hours = total / closed.length / 3_600_000
   return hours < 1 ? '< 1 h' : `${hours.toFixed(1)} h`
+}
+
+/* ---- SLA ---- */
+
+/** Hours per priority — mirrors the trigger's `sla_due_at` spans. */
+const SLA_HOURS: Record<string, number> = { Alta: 4, Media: 24, Baja: 72 }
+
+/** «3 h», «1 d», «Vencido hace 2 h» — computed client-side from the deadline. */
+function slaText(due: string): string {
+  const diff = new Date(due).getTime() - Date.now()
+  const minutes = Math.round(Math.abs(diff) / 60_000)
+  const hours = Math.round(minutes / 60)
+  if (diff < 0) {
+    if (minutes < 60) return `Vencido hace ${minutes} min`
+    if (hours < 24) return `Vencido hace ${hours} h`
+    return `Vencido hace ${Math.round(hours / 24)} d`
+  }
+  if (minutes < 60) return `${minutes} min`
+  if (hours < 24) return `${hours} h`
+  return `${Math.round(hours / 24)} d`
+}
+
+/** Red when expired; amber under an hour or under a quarter of the SLA span. */
+function slaTone(t: TicketRow): 'red' | 'amb' | 'neu' | null {
+  if (!t.slaDueAt || t.status === 'Resuelto' || t.status === 'Cerrado') return null
+  const remaining = new Date(t.slaDueAt).getTime() - Date.now()
+  if (remaining < 0) return 'red'
+  const total = (SLA_HOURS[t.priority] ?? 24) * 3_600_000
+  if (remaining < 3_600_000 || remaining / total < 0.25) return 'amb'
+  return 'neu'
+}
+
+const SlaChip = ({ t }: { t: TicketRow }) => {
+  const ton = slaTone(t)
+  if (!ton || !t.slaDueAt) return null
+  return (
+    <span className={`badge b-${ton}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} title={`SLA: ${slaText(t.slaDueAt)}`}>
+      <Clock size={11} />{slaText(t.slaDueAt)}
+    </span>
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -116,21 +157,89 @@ function Stat({ ico: Ico, tone: t = 'ink', label, value, sub }: {
   )
 }
 
-function TicketCard({ t, onOpen }: { t: TicketRow; onOpen: (id: string) => void }) {
+function TicketCard({ t, onOpen, onComments }: { t: TicketRow; onOpen: (id: string) => void; onComments?: () => void }) {
   return (
     <div className="tkcard" {...activatable(() => onOpen(t.id), `Abrir ticket ${t.code ?? ''}: ${t.subject}`)}>
       <div className="tktop">
         <span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] ?? AREA.Otro }} />{t.area}
         </span>
-        <Prio prio={t.priority} />
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Prio prio={t.priority} />
+          <SlaChip t={t} />
+        </span>
       </div>
       <div className="tkas">{t.subject}</div>
       <div className="ceid mono" style={{ marginTop: 4 }}>{t.code ?? '—'}</div>
       <div className="tkmeta">
         <span className="tkwho"><Avatar name={t.requesterName} size={22} />{t.requesterName.split(' ')[0]}</span>
-        <span className="tltime mono">{relativeTime(t.createdAt)}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="tltime mono">{relativeTime(t.createdAt)}</span>
+          {onComments && (
+            <button
+              title="Comentarios"
+              aria-label={`Ver comentarios de ${t.code ?? ''}`}
+              onClick={(e) => { e.stopPropagation(); onComments() }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 24, padding: '0 8px', borderRadius: 999, border: '1px solid var(--line)', background: 'transparent', color: 'var(--ink2)', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
+            >
+              <MessageSquare size={12} />{t.commentCount}
+            </button>
+          )}
+        </span>
       </div>
+    </div>
+  )
+}
+
+function CommentsPanel({ ticketId, comments, loading, error, canWrite, onSend, onDelete }: {
+  ticketId: string
+  comments: TicketComment[] | undefined
+  loading: boolean
+  error: string
+  canWrite: boolean
+  onSend: (ticketId: string, body: string) => void
+  onDelete: (ticketId: string, commentId: string) => void
+}) {
+  const [draft, setDraft] = useState('')
+  const send = () => { if (!draft.trim()) return; onSend(ticketId, draft.trim()); setDraft('') }
+  return (
+    <div style={{ border: '1px solid var(--line)', borderRadius: 10, background: 'var(--elevated)' }}>
+      {loading ? (
+        <div className="dempty" style={{ padding: '14px 0', textAlign: 'center' }}>Cargando comentarios…</div>
+      ) : error ? (
+        <div className="dempty" style={{ padding: '14px 0', textAlign: 'center', color: 'var(--redd)' }}>{error}</div>
+      ) : comments && comments.length > 0 ? (
+        comments.map((c) => (
+          <div key={c.id} style={{ display: 'flex', gap: 8, padding: '9px 12px', borderBottom: '1px solid var(--line)' }}>
+            <Avatar name={c.authorName ?? '—'} size={26} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <b style={{ fontSize: 12.5 }}>{c.authorName ?? 'Anónimo'}</b>
+                <span className="mono" style={{ fontSize: 11, color: 'var(--ink3)' }}>{relativeTime(c.createdAt)}</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--ink2)', whiteSpace: 'pre-wrap', marginTop: 2 }}>{c.body}</div>
+            </div>
+            {canWrite && (
+              <button className="ibtn" style={{ color: 'var(--redd)', borderColor: 'var(--line)' }} title="Eliminar comentario" aria-label="Eliminar comentario" onClick={() => onDelete(ticketId, c.id)}><Trash2 size={13} /></button>
+            )}
+          </div>
+        ))
+      ) : (
+        <div className="dempty" style={{ padding: '14px 0', textAlign: 'center' }}>Sin comentarios</div>
+      )}
+      {canWrite && (
+        <div style={{ display: 'flex', gap: 8, padding: '9px 12px' }}>
+          <input
+            className="field"
+            style={{ flex: 1 }}
+            value={draft}
+            placeholder="Escribir comentario…"
+            onChange={(ev) => setDraft(ev.target.value)}
+            onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); send() } }}
+          />
+          <button className="btn pri" style={{ justifyContent: 'center' }} disabled={!draft.trim()} onClick={send} aria-label="Enviar comentario"><Send size={14} /></button>
+        </div>
+      )}
     </div>
   )
 }
@@ -383,6 +492,60 @@ export default function TicketsPage({ data }: { data: TicketsData }) {
     })
   }
 
+  /* ---- comments ---- */
+  const [openComments, setOpenComments] = useState<string | null>(null)
+  const [commentCache, setCommentCache] = useState<Record<string, TicketComment[]>>({})
+  const [commentLoading, setCommentLoading] = useState<Record<string, boolean>>({})
+  const [commentError, setCommentError] = useState<Record<string, string>>({})
+
+  function applyComments(ticketId: string, list: TicketComment[]) {
+    setCommentCache((m) => ({ ...m, [ticketId]: list }))
+    setItems((prev) => prev.map((t) => (t.id === ticketId ? { ...t, commentCount: list.length } : t)))
+  }
+
+  function toggleComments(ticketId: string) {
+    if (openComments === ticketId) { setOpenComments(null); return }
+    setOpenComments(ticketId)
+    if (commentCache[ticketId] || commentLoading[ticketId]) return
+    setCommentLoading((m) => ({ ...m, [ticketId]: true }))
+    setCommentError((m) => ({ ...m, [ticketId]: '' }))
+    void (async () => {
+      const result = await fetchTicketComments(ticketId)
+      setCommentLoading((m) => ({ ...m, [ticketId]: false }))
+      if (!result.ok) { setCommentError((m) => ({ ...m, [ticketId]: result.error })); return }
+      applyComments(ticketId, result.data)
+    })()
+  }
+
+  function sendComment(ticketId: string, body: string) {
+    startTransition(async () => {
+      const result = await createTicketComment({ ticketId, body })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      applyComments(ticketId, result.data)
+      addToast('Comentario agregado', 'ok')
+    })
+  }
+
+  function removeComment(ticketId: string, commentId: string) {
+    startTransition(async () => {
+      const result = await deleteTicketComment(commentId)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      applyComments(ticketId, result.data)
+    })
+  }
+
+  const commentPanel = (t: TicketRow) => (
+    <CommentsPanel
+      ticketId={t.id}
+      comments={commentCache[t.id]}
+      loading={!!commentLoading[t.id]}
+      error={commentError[t.id] ?? ''}
+      canWrite={data.canWrite}
+      onSend={sendComment}
+      onDelete={removeComment}
+    />
+  )
+
   /* ---- drag and drop ---- */
   const onDragStart = (e: React.DragEvent, id: string) => {
     setDragId(id)
@@ -547,8 +710,9 @@ export default function TicketsPage({ data }: { data: TicketsData }) {
                       <div data-tkid={t.id} draggable={data.canWrite}
                         onDragStart={(e) => onDragStart(e, t.id)}
                         onDragEnd={onDragEnd}>
-                        <TicketCard t={t} onOpen={setSel} />
+                        <TicketCard t={t} onOpen={setSel} onComments={() => toggleComments(t.id)} />
                       </div>
+                      {openComments === t.id && commentPanel(t)}
                       {isOver && dropIdx === idx + 1 && <div className="drop-line" key={`dl-${idx + 1}`} />}
                     </React.Fragment>
                   ))}
@@ -561,23 +725,40 @@ export default function TicketsPage({ data }: { data: TicketsData }) {
         <div className="card rise d2">
           <div className="tblwrap">
             <table className="tbl">
-              <thead><tr><th scope="col">Ticket</th><th scope="col">Solicitante</th><th scope="col">Área</th><th scope="col">Prioridad</th><th scope="col">Estado</th><th scope="col">Tiempo</th></tr></thead>
+              <thead><tr><th scope="col">Ticket</th><th scope="col">Solicitante</th><th scope="col">Área</th><th scope="col">Prioridad</th><th scope="col">Estado</th><th scope="col">Tiempo</th><th scope="col"><span className="sr-only">Comentarios</span></th></tr></thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
                     {items.length === 0
                       ? (data.canWrite ? 'Todavía no hay tickets. Crea el primero.' : 'Todavía no hay tickets.')
                       : 'No hay tickets en esta área.'}
                   </div></td></tr>
                 ) : rows.map((t) => (
-                  <tr className="trow" key={t.id} style={{ cursor: 'pointer' }} {...activatable(() => setSel(t.id), `Abrir ticket ${t.code ?? ''}: ${t.subject}`)}>
-                    <td><div className="cename">{t.subject}</div><div className="ceid mono">{t.code ?? '—'}</div></td>
-                    <td className="muted">{t.requesterName}</td>
-                    <td><span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] ?? AREA.Otro }} />{t.area}</span></td>
-                    <td><Prio prio={t.priority} /></td>
-                    <td><Badge st={t.status} /></td>
-                    <td className="muted mono" style={{ fontSize: 12 }}>{relativeTime(t.createdAt)}</td>
-                  </tr>
+                  <React.Fragment key={t.id}>
+                    <tr className="trow" style={{ cursor: 'pointer' }} {...activatable(() => setSel(t.id), `Abrir ticket ${t.code ?? ''}: ${t.subject}`)}>
+                      <td><div className="cename">{t.subject}</div><div className="ceid mono">{t.code ?? '—'}</div></td>
+                      <td className="muted">{t.requesterName}</td>
+                      <td><span className="tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: AREA[t.area] ?? AREA.Otro }} />{t.area}</span></td>
+                      <td><Prio prio={t.priority} /></td>
+                      <td><Badge st={t.status} /></td>
+                      <td className="muted mono" style={{ fontSize: 12 }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{relativeTime(t.createdAt)}<SlaChip t={t} /></span>
+                      </td>
+                      <td>
+                        <button
+                          title="Comentarios"
+                          aria-label={`Ver comentarios de ${t.code ?? ''}`}
+                          onClick={(e) => { e.stopPropagation(); toggleComments(t.id) }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, height: 26, padding: '0 9px', borderRadius: 999, border: '1px solid var(--line)', background: 'transparent', color: 'var(--ink2)', fontSize: 12, cursor: 'pointer' }}
+                        >
+                          <MessageSquare size={12} />{t.commentCount}
+                        </button>
+                      </td>
+                    </tr>
+                    {openComments === t.id && (
+                      <tr><td colSpan={7} style={{ padding: '0 12px 10px' }}>{commentPanel(t)}</td></tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { ShieldAlert, Clock, Info, Check, AlertCircle, Plus, Trash2, X, Zap } from '@/lib/icons'
+import { ShieldAlert, Clock, Info, Check, AlertCircle, Plus, Trash2, X, Zap, PenLine, FileSpreadsheet } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
@@ -10,7 +10,7 @@ import { useApp } from '@/lib/context/AppContext'
 import { RISK_CATEGORIES, RISK_SEVERITIES } from '@/lib/domain'
 import LoadMore from '@/components/ui/LoadMore'
 import type { RiesgosData, RiesgoRow } from '@/server/queries/riesgos'
-import { createRiesgo, deleteRiesgo, setRiesgoStatus } from '@/server/mutations/riesgos'
+import { createRiesgo, deleteRiesgo, setRiesgoStatus, updateRiesgo } from '@/server/mutations/riesgos'
 import { fetchMoreRiesgos } from '@/server/actions/riesgos'
 
 function Stat({ ico: Ico, tone = 'ink', label, value, sub }: {
@@ -72,7 +72,32 @@ export default function RiesgosPage({ data }: { data: RiesgosData }) {
   const [sevFilter, setSevFilter] = useState('Todos')
   const [catFilter, setCatFilter] = useState('Todos')
   const [addOpen, setAddOpen] = useState(false)
+  const [editing, setEditing] = useState<RiesgoRow | null>(null)
   const [form, setForm] = useState(EMPTY)
+
+  function closeModal() {
+    setAddOpen(false)
+    setEditing(null)
+  }
+
+  function openNew() {
+    setEditing(null)
+    setForm(EMPTY)
+    setAddOpen(true)
+  }
+
+  function edit(r: RiesgoRow) {
+    setEditing(r)
+    setForm({
+      category: r.category,
+      severity: r.severity,
+      area: r.area,
+      detail: r.detail,
+      action: r.action,
+      employeeId: r.employeeId ?? '',
+    })
+    setAddOpen(true)
+  }
 
   // Open risks are the register; closed ones are the record of what was done.
   // The old page conflated them by deleting from an array, so "Gestionados"
@@ -125,7 +150,7 @@ export default function RiesgosPage({ data }: { data: RiesgosData }) {
   function submit() {
     if (!form.detail.trim()) { addToast('Describe el riesgo identificado', 'err'); return }
     startTransition(async () => {
-      const result = await createRiesgo({
+      const payload = {
         category: form.category as (typeof RISK_CATEGORIES)[number],
         severity: form.severity as (typeof RISK_SEVERITIES)[number],
         area: form.area.trim(),
@@ -134,7 +159,18 @@ export default function RiesgosPage({ data }: { data: RiesgosData }) {
         employeeId: form.employeeId || null,
         title: '',
         dueOn: null,
-      })
+      }
+      if (editing) {
+        const result = await updateRiesgo({ id: editing.id, ...payload })
+        if (!result.ok) { addToast(result.error, 'err'); return }
+        applyRiesgos(result.data)
+        setAddOpen(false)
+        setEditing(null)
+        setForm(EMPTY)
+        addToast('Riesgo actualizado', 'ok')
+        return
+      }
+      const result = await createRiesgo(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       applyRiesgos(result.data)
       setAddOpen(false)
@@ -167,7 +203,7 @@ export default function RiesgosPage({ data }: { data: RiesgosData }) {
           <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
             <Select value={catFilter} onChange={setCatFilter} options={categories} style={{ width: 190 }} />
             {data.canWrite && (
-              <button className="btn pri" onClick={() => setAddOpen(true)}><Plus size={14} />Nuevo riesgo</button>
+              <button className="btn pri" onClick={openNew}><Plus size={14} />Nuevo riesgo</button>
             )}
           </div>
         </div>
@@ -191,14 +227,24 @@ export default function RiesgosPage({ data }: { data: RiesgosData }) {
                     <Badge st={r.severity} />
                     <span className="tag">{r.category}</span>
                     {data.canWrite && (
-                      <button
-                        className="ibtn"
-                        style={{ width: 26, height: 26, marginLeft: 'auto' }}
-                        data-tip="Eliminar"
-                        disabled={pending}
-                        onClick={() => remove(r)}
-                        aria-label="Eliminar riesgo"
-                      ><Trash2 size={13} /></button>
+                      <>
+                        <button
+                          className="ibtn"
+                          style={{ width: 26, height: 26, marginLeft: 'auto' }}
+                          data-tip="Editar"
+                          disabled={pending}
+                          onClick={() => edit(r)}
+                          aria-label="Editar riesgo"
+                        ><PenLine size={13} /></button>
+                        <button
+                          className="ibtn"
+                          style={{ width: 26, height: 26 }}
+                          data-tip="Eliminar"
+                          disabled={pending}
+                          onClick={() => remove(r)}
+                          aria-label="Eliminar riesgo"
+                        ><Trash2 size={13} /></button>
+                      </>
                     )}
                   </div>
                   {r.employeeName && <div className="riskname">{r.employeeName}</div>}
@@ -239,9 +285,9 @@ export default function RiesgosPage({ data }: { data: RiesgosData }) {
       </div>
 
       {addOpen && (
-        <div className="mwrap" onClick={() => setAddOpen(false)}>
+        <div className="mwrap" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="mhead"><div className="mtitle">Nuevo riesgo</div><button className="ibtn" onClick={() => setAddOpen(false)} aria-label="Cerrar"><X size={18} /></button></div>
+            <div className="mhead"><div className="mtitle">{editing ? 'Editar riesgo' : 'Nuevo riesgo'}</div><button className="ibtn" onClick={closeModal} aria-label="Cerrar"><X size={18} /></button></div>
             <div className="mbody">
               <div className="fg2">
                 <div>
@@ -276,9 +322,9 @@ export default function RiesgosPage({ data }: { data: RiesgosData }) {
               <input className="field" value={form.action} onChange={(e) => setForm((f) => ({ ...f, action: e.target.value }))} placeholder="Ej. Revisar contrato con asesor legal" />
             </div>
             <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
-              <button className="btn" onClick={() => setAddOpen(false)} disabled={pending}>Cancelar</button>
+              <button className="btn" onClick={closeModal} disabled={pending}>Cancelar</button>
               <button className="btn dark" onClick={submit} disabled={pending} aria-busy={pending}>
-                {pending ? 'Registrando…' : 'Registrar riesgo'}
+                {pending ? (editing ? 'Guardando…' : 'Registrando…') : (editing ? 'Guardar cambios' : 'Registrar riesgo')}
               </button>
             </div></div>
           </div>

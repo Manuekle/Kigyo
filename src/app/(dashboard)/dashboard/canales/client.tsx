@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from 'next/navigation'
 import {
   Send, Users, Plus, X, CheckCircle, MapPin, Briefcase, MessageSquare,
-  Search, PenLine, UserPlus, UserMinus,
+  Search, PenLine, UserPlus, UserMinus, FileSpreadsheet,
 } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
 import Avatar from '@/components/ui/Avatar'

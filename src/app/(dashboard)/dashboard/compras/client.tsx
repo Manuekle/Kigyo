@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import {
-  ShoppingCart, Clock, Check, FileCheck2, Plus, X, PenLine, Trash2, ChevronRight,
+  ShoppingCart, Clock, Check, FileCheck2, Plus, X, PenLine, Trash2, ChevronRight, FileSpreadsheet,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import Badge from '@/components/ui/Badge'
@@ -11,6 +11,7 @@ import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { activatable } from '@/lib/a11y'
 import { cop } from '@/lib/utils'
 import {
@@ -21,12 +22,19 @@ import LoadMore from '@/components/ui/LoadMore'
 import Drawer from '@/components/ui/Drawer'
 import type { ComprasData, CompraRow } from '@/server/queries/compras'
 import { fetchMoreCompras } from '@/server/actions/compras'
+import type { PurchaseRequestEvent, SupplierInvoiceRow } from '@/server/mutations/compras'
 import {
-  createCompra, deleteCompra, generateOrder, setCompraStatus, updateCompra,
+  createCompra, createSupplierInvoice, deleteCompra, deleteSupplierInvoice,
+  fetchRequestEvents, fetchSupplierInvoices, generateOrder, setCompraStatus,
+  setSupplierInvoiceStatus, updateCompra,
 } from '@/server/mutations/compras'
 
 const DAY = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 const fmt = (iso: string | null) => (iso ? DAY.format(new Date(`${iso}T00:00:00`)) : '—')
+const fmtDTI = new Intl.DateTimeFormat('es-CO', {
+  day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+})
+const fmtDT = (iso: string) => fmtDTI.format(new Date(iso))
 
 type DraftItem = { productId: string | null; description: string; quantity: string; unit: string; cost: string }
 
@@ -36,6 +44,20 @@ const EMPTY_FORM = {
   urgency: 'Normal', neededOn: '', notes: '', items: [{ ...EMPTY_ITEM }] as DraftItem[],
 }
 type FormState = typeof EMPTY_FORM
+
+const SUPPLIER_INVOICE_STATUSES = ['Pendiente', 'En revisión', 'Pagada', 'Anulada'] as const
+type SupplierInvoiceStatus = (typeof SUPPLIER_INVOICE_STATUSES)[number]
+
+type InvoiceDraftItem = { description: string; quantity: string; unitPriceCents: string }
+
+const EMPTY_INVOICE_ITEM: InvoiceDraftItem = { description: '', quantity: '1', unitPriceCents: '' }
+const EMPTY_INVOICE_FORM = {
+  supplier: '', issuedOn: '', items: [{ ...EMPTY_INVOICE_ITEM }] as InvoiceDraftItem[],
+}
+type InvoiceFormState = typeof EMPTY_INVOICE_FORM
+
+const invoiceLineTotalCents = (i: InvoiceDraftItem) =>
+  Number(i.quantity) * (Number(i.unitPriceCents) || 0)
 
 const lineTotal = (i: DraftItem) =>
   lineTotalCents(Number(i.quantity) || 0, pesosToCents(i.cost))
@@ -63,6 +85,7 @@ function toForm(c: CompraRow): FormState {
 
 export default function ComprasPage({ data }: { data: ComprasData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<ComprasData>(data)
@@ -72,8 +95,18 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
   const [editing, setEditing] = useState<CompraRow | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
+  const [invoices, setInvoices] = useState<SupplierInvoiceRow[]>([])
+  const [invoiceLoaded, setInvoiceLoaded] = useState(false)
+  const [invoiceLoading, setInvoiceLoading] = useState(false)
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
+  const [invoiceForm, setInvoiceForm] = useState<InvoiceFormState>(EMPTY_INVOICE_FORM)
+
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
+
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [timeline, setTimeline] = useState<Record<string, PurchaseRequestEvent[]>>({})
+  const [timelineLoading, setTimelineLoading] = useState<string | null>(null)
 
   const { compras } = state
 
@@ -108,6 +141,21 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
   }), [compras, state.comprasTotal])
 
   const filtered = filter === 'Todas' ? compras : compras.filter((c) => c.status === filter)
+
+  const exportRows = () => {
+    void runExport(
+      filtered.map((c) => ({
+        Código: c.code ?? '',
+        Proveedor: c.supplier,
+        Proyecto: c.projectLabel ?? '',
+        Total: cop(c.totalCents / 100),
+        Urgencia: c.urgency,
+        Estado: c.status,
+      })),
+      'requisiciones-kigyo',
+      'compras',
+    )
+  }
 
   function apply(next: ComprasData, message: string) {
     setState(next)
@@ -184,6 +232,100 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
     })
   }
 
+  function toggleTimeline(c: CompraRow) {
+    const next = expanded === c.id ? null : c.id
+    setExpanded(next)
+    if (next && !timeline[next]) {
+      setTimelineLoading(next)
+      startTransition(async () => {
+        const events = await fetchRequestEvents(next)
+        setTimeline((prev) => ({ ...prev, [next]: events }))
+        setTimelineLoading(null)
+      })
+    }
+  }
+
+  function renderTimeline(c: CompraRow) {
+    const events = timeline[c.id]
+    if (timelineLoading === c.id) {
+      return <div className="dempty" style={{ padding: '12px 0' }}>Cargando eventos…</div>
+    }
+    if (!events || events.length === 0) {
+      return <div className="dempty" style={{ padding: '12px 0' }}>Sin eventos por ahora.</div>
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '8px 0' }}>
+        {events.map((ev) => (
+          <div className="elrow" key={ev.id}>
+            <div className="eltxt">{ev.note}</div>
+            <div className="elsub">
+              {ev.actorName ? `${ev.actorName} · ${fmtDT(ev.occurredAt)}` : fmtDT(ev.occurredAt)}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  function switchTab(next: string) {
+    setFilter(next)
+    if (next === 'Facturas proveedor' && !invoiceLoaded && !invoiceLoading) {
+      setInvoiceLoading(true)
+      fetchSupplierInvoices().then((result) => {
+        setInvoiceLoading(false)
+        if (!result.ok) { addToast(result.error, 'err'); return }
+        setInvoices(result.data)
+        setInvoiceLoaded(true)
+      })
+    }
+  }
+
+  function submitInvoice() {
+    const items = invoiceForm.items
+      .filter((i) => i.description.trim() && Number(i.quantity) > 0)
+      .map((i) => ({
+        description: i.description.trim(),
+        quantity: Number(i.quantity),
+        unitPriceCents: Math.round(Number(i.unitPriceCents) || 0),
+      }))
+    if (items.length === 0) { addToast('Agrega al menos una línea', 'err'); return }
+
+    startTransition(async () => {
+      const result = await createSupplierInvoice({
+        supplier: invoiceForm.supplier.trim(),
+        issuedOn: invoiceForm.issuedOn,
+        items,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setInvoices(result.data)
+      setInvoiceOpen(false)
+      setInvoiceForm(EMPTY_INVOICE_FORM)
+      addToast('Factura creada', 'ok')
+    })
+  }
+
+  function changeInvoiceStatus(inv: SupplierInvoiceRow, status: string) {
+    startTransition(async () => {
+      const result = await setSupplierInvoiceStatus({
+        id: inv.id,
+        status: status as SupplierInvoiceStatus,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setInvoices(result.data)
+      addToast(`Factura ${status.toLowerCase()}`, 'ok')
+    })
+  }
+
+  function removeInvoice(inv: SupplierInvoiceRow) {
+    if (!window.confirm(`¿Eliminar la factura ${inv.code ?? ''}?`)) return
+    startTransition(async () => {
+      const result = await deleteSupplierInvoice(inv.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setInvoices(result.data)
+      addToast('Factura eliminada', 'ok')
+    })
+  }
+
   function pickProduct(index: number, productId: string) {
     const product = state.productos.find((p) => p.id === productId)
     setForm((f) => ({
@@ -203,6 +345,7 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
   }
 
   const draftTotal = form.items.reduce((s, i) => s + lineTotal(i), 0)
+  const invoiceDraftTotal = invoiceForm.items.reduce((s, i) => s + invoiceLineTotalCents(i), 0)
 
   return (
     <>
@@ -217,18 +360,74 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
         <div className="chead" style={{ flexWrap: 'wrap', gap: 10 }}>
           <TabBar
             value={filter}
-            onChange={setFilter}
-            items={['Todas', ...PURCHASE_REQUEST_STATUSES].map((s) => ({
-              key: s,
-              label: s === 'Todas' ? `Todas · ${state.comprasTotal}` : `${s} · ${compras.filter((c) => c.status === s).length}`,
-            }))}
+            onChange={switchTab}
+            items={[
+              ...['Todas', ...PURCHASE_REQUEST_STATUSES].map((s) => ({
+                key: s,
+                label: s === 'Todas' ? `Todas · ${state.comprasTotal}` : `${s} · ${compras.filter((c) => c.status === s).length}`,
+              })),
+              { key: 'Facturas proveedor', label: invoiceLoaded ? `Facturas proveedor · ${invoices.length}` : 'Facturas proveedor' },
+            ]}
           />
+          {filter !== 'Facturas proveedor' && (
+            <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
+          )}
           {state.canWrite && (
-            <button className="btn pri" onClick={() => openEditor(null)}><Plus size={15} />Nueva requisición</button>
+            filter === 'Facturas proveedor'
+              ? (
+                <button className="btn pri" onClick={() => setInvoiceOpen(true)}><Plus size={15} />Nueva factura</button>
+              )
+              : (
+                <button className="btn pri" onClick={() => openEditor(null)}><Plus size={15} />Nueva requisición</button>
+              )
           )}
         </div>
-        <div className="tblwrap">
-          <table className="tbl">
+        {filter === 'Facturas proveedor' ? (
+          <div className="tblwrap">
+            {invoiceLoading ? (
+              <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>Cargando facturas…</div>
+            ) : invoices.length === 0 ? (
+              <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                {state.canWrite ? 'Todavía no hay facturas de proveedor. Crea la primera.' : 'Todavía no hay facturas de proveedor.'}
+              </div>
+            ) : (
+              <table className="tbl">
+                <thead><tr><th scope="col">Código</th><th scope="col">Proveedor</th><th scope="col">Emitida</th><th scope="col">Estado</th><th scope="col">Total</th><th scope="col"></th></tr></thead>
+                <tbody>
+                  {invoices.map((inv) => (
+                    <tr className="trow" key={inv.id}>
+                      <td><div className="cename">{inv.code ?? '—'}</div></td>
+                      <td className="muted">{inv.supplier}</td>
+                      <td className="muted">{fmt(inv.issuedOn)}</td>
+                      <td className="muted">{cop(inv.totalCents / 100)}</td>
+                      <td>
+                        {state.canWrite ? (
+                          <Select
+                            value={inv.status}
+                            onChange={(v) => changeInvoiceStatus(inv, v)}
+                            options={[...SUPPLIER_INVOICE_STATUSES]}
+                          />
+                        ) : (
+                          <Badge st={inv.status} />
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        {state.canWrite && (
+                          <button className="ibtn" style={{ color: 'var(--redd)' }} disabled={pending} onClick={() => removeInvoice(inv)} aria-label="Eliminar factura">
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="tblwrap">
+              <table className="tbl">
             <thead><tr><th scope="col">Requisición</th><th scope="col">Proveedor</th><th scope="col">Proyecto</th><th scope="col">Total</th><th scope="col">Urgencia</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {compras.length === 0 ? (
@@ -237,8 +436,8 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
                 </div></td></tr>
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay requisiciones en este estado.</div></td></tr>
-              ) : filtered.map((c) => (
-                <tr className="trow" key={c.id} style={{ cursor: 'pointer' }} {...activatable(() => setSelected(c), `Abrir la requisición ${c.code ?? ''}`)}>
+              ) : filtered.map((c) => [
+                <tr key={c.id} className="trow" style={{ cursor: 'pointer' }} {...activatable(() => setSelected(c), `Abrir la requisición ${c.code ?? ''}`)}>
                   <td>
                     <div className="cename">{c.code ?? '—'}</div>
                     <div className="ceid mono">{c.category} · {c.items.length} líneas</div>
@@ -248,9 +447,28 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
                   <td className="cename">{cop(c.totalCents / 100)}</td>
                   <td><Badge st={c.urgency} tone={c.urgency === 'Alta' ? 'red' : c.urgency === 'Normal' ? 'amb' : 'neu'} /></td>
                   <td><Badge st={c.status} /></td>
-                  <td style={{ textAlign: 'right' }}><ChevronRight size={16} color="var(--ink3)" /></td>
-                </tr>
-              ))}
+                  <td style={{ textAlign: 'right' }}>
+                    <button
+                      className="ibtn"
+                      aria-label={expanded === c.id ? 'Ocultar actividad' : 'Ver actividad'}
+                      aria-expanded={expanded === c.id}
+                      onClick={(e) => { e.stopPropagation(); toggleTimeline(c) }}
+                      style={{
+                        width: 28, height: 28,
+                        transform: expanded === c.id ? 'rotate(90deg)' : undefined,
+                        transition: 'transform .15s',
+                      }}
+                    >
+                      <ChevronRight size={16} color="var(--ink3)" />
+                    </button>
+                  </td>
+                </tr>,
+                expanded === c.id ? (
+                  <tr key={`${c.id}-actividad`}>
+                    <td colSpan={7} style={{ background: 'var(--bg2)' }}>{renderTimeline(c)}</td>
+                  </tr>
+                ) : null,
+              ])}
             </tbody>
           </table>
         </div>
@@ -262,6 +480,8 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
           onLoadMore={loadMore}
           noun="requisiciones"
         />
+          </>
+        )}
       </div>
 
       <Drawer value={selected} onClose={() => setSelected(null)}>
@@ -471,6 +691,83 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
 
               <div className="flabel">Notas</div>
               <textarea className="field" rows={2} style={{ resize: 'none' }} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+      </FormDrawer>
+
+      <FormDrawer
+        wide
+        open={invoiceOpen}
+        onClose={() => setInvoiceOpen(false)}
+        title="Nueva factura de proveedor"
+        footer={
+          <>
+            <span />
+            <div style={{ display: 'flex', gap: 9 }}>
+              <button className="btn" onClick={() => setInvoiceOpen(false)} disabled={pending}>Cancelar</button>
+              <button className="btn dark" onClick={submitInvoice} disabled={pending} aria-busy={pending}>
+                <Check size={14} />{pending ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </>
+        }
+      >
+        <div className="flabel" style={{ marginTop: 0 }}>Proveedor</div>
+        <input
+          className="field"
+          value={invoiceForm.supplier}
+          onChange={(e) => setInvoiceForm((f) => ({ ...f, supplier: e.target.value }))}
+        />
+        <div className="flabel">Emitida</div>
+        <DatePicker ariaLabel="Emitida" value={invoiceForm.issuedOn} onChange={(v) => setInvoiceForm((f) => ({ ...f, issuedOn: v }))} />
+
+        <div className="dsect">Líneas</div>
+        {invoiceForm.items.map((item, index) => (
+          <div key={index} style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--line2)' }}>
+            <input
+              className="field"
+              placeholder="Descripción"
+              value={item.description}
+              onChange={(e) => setInvoiceForm((f) => ({
+                ...f,
+                items: f.items.map((it, i) => (i === index ? { ...it, description: e.target.value } : it)),
+              }))}
+            />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                className="field" type="number" min={0} style={{ width: 84 }}
+                value={item.quantity} aria-label="Cantidad"
+                onChange={(e) => setInvoiceForm((f) => ({
+                  ...f,
+                  items: f.items.map((it, i) => (i === index ? { ...it, quantity: e.target.value } : it)),
+                }))}
+              />
+              <input
+                className="field" type="number" min={0} style={{ flex: 1 }}
+                value={item.unitPriceCents} placeholder="Precio unitario (pesos)" aria-label="Precio unitario en pesos"
+                onChange={(e) => setInvoiceForm((f) => ({
+                  ...f,
+                  items: f.items.map((it, i) => (i === index ? { ...it, unitPriceCents: e.target.value } : it)),
+                }))}
+              />
+              <span className="eltxt" style={{ minWidth: 90, textAlign: 'right' }}>{cop(invoiceLineTotalCents(item) / 100)}</span>
+              <button
+                className="ibtn" style={{ width: 28, height: 28 }}
+                onClick={() => setInvoiceForm((f) => ({
+                  ...f,
+                  items: f.items.length > 1 ? f.items.filter((_, i) => i !== index) : f.items,
+                }))}
+                aria-label="Quitar línea"
+              ><X size={13} /></button>
+            </div>
+          </div>
+        ))}
+        <button className="btn ghost" onClick={() => setInvoiceForm((f) => ({ ...f, items: [...f.items, { ...EMPTY_INVOICE_ITEM }] }))}>
+          <Plus size={14} />Añadir línea
+        </button>
+
+        <div className="elrow" style={{ marginTop: 12 }}>
+          <div className="eltxt">Total</div>
+          <div className="eltxt" style={{ fontSize: 16 }}>{cop(invoiceDraftTotal / 100)}</div>
+        </div>
       </FormDrawer>
     </>
   )

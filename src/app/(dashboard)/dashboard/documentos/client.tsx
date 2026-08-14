@@ -1,15 +1,16 @@
 'use client'
 
-import { useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Sparkles, Upload, FileText, X, Check, Calendar, ChevronLeft, PenLine, Trash2, Download, Plus,
+  Sparkles, Upload, FileText, X, Check, Calendar, ChevronLeft, PenLine, Trash2, Download, Plus, Share2, FileSpreadsheet,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import LoadMore from '@/components/ui/LoadMore'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { DUR_RESIZE_S } from '@/lib/motion'
 import { createClient } from '@/lib/supabase/client'
 import { DOCUMENT_KINDS, DOCUMENT_STATUSES } from '@/lib/domain'
@@ -17,6 +18,8 @@ import type { DocumentosData, DocumentoRow } from '@/server/queries/documentos'
 import type { DocumentoRevision } from '@/app/api/ai/documento/route'
 import {
   createCarpeta, createDocumento, deleteDocumento, documentoDownloadUrl, updateDocumento,
+  fetchDocumentShares, shareDocument, revokeShare,
+  type DocumentShare,
 } from '@/server/mutations/documentos'
 import { fetchMoreDocumentos } from '@/server/actions/documentos'
 
@@ -34,6 +37,13 @@ const ACCEPT = [
 ].join(',')
 
 const MAX_BYTES = 50 * 1024 * 1024
+
+const SHARE_ACCESSES = ['Propietario', 'Puede editar', 'Puede ver'] as const
+const SHARE_TONE: Record<string, string> = {
+  Propietario: 'grn',
+  'Puede editar': 'amb',
+  'Puede ver': 'neu',
+}
 
 function humanSize(bytes: number | null): string {
   if (bytes === null) return '—'
@@ -186,12 +196,14 @@ function FolderButton({ name, count, onClick }: { name: string; count: number; o
 }
 
 export default function DocumentosPage({ data }: { data: DocumentosData }) {
+  const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<DocumentosData>(data)
   const [activeFolder, setActiveFolder] = useState<string | null>(null)
   const [editing, setEditing] = useState<DocumentoRow | null>(null)
+  const [sharing, setSharing] = useState<DocumentoRow | null>(null)
   const [upload, setUpload] = useState<UploadState | null>(null)
   const [folderOpen, setFolderOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
@@ -403,6 +415,20 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
 
   const rows = activeFolder ? activeDocs : documentos
 
+  const exportRows = () => {
+    void runExport(
+      rows.map((d) => ({
+        Nombre: d.name,
+        Tipo: d.kind,
+        Estado: d.status,
+        Fecha: MONTH.format(new Date(d.createdAt)),
+        Responsable: d.ownerName ?? (d.department || ''),
+      })),
+      'documentos-kigyo',
+      'documentos',
+    )
+  }
+
   return (
     <>
       <input
@@ -454,7 +480,7 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
               </button>
             )}
           </div>
-          <DocTable rows={activeDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} onEdit={setEditing} onDelete={remove} onDownload={download} onReview={review} />
+          <DocTable rows={activeDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} onEdit={setEditing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} />
         </div>
       ) : (
         <>
@@ -488,13 +514,16 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
           <div className="card rise d2">
             <div className="chead">
               <div className="ctitle">{carpetas.length > 0 ? 'Todos los documentos' : 'Documentos'}</div>
-              {state.canWrite && (
-                <button className="btn pri" onClick={() => pickFile(null)} disabled={pending || upload !== null}>
-                  <Upload size={15} />Subir documento
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
+                {state.canWrite && (
+                  <button className="btn pri" onClick={() => pickFile(null)} disabled={pending || upload !== null}>
+                    <Upload size={15} />Subir documento
+                  </button>
+                )}
+              </div>
             </div>
-            <DocTable rows={rows.length > 0 ? rows : looseDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} onEdit={setEditing} onDelete={remove} onDownload={download} onReview={review} />
+            <DocTable rows={rows.length > 0 ? rows : looseDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} onEdit={setEditing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} />
           </div>
         </>
       )}
@@ -540,6 +569,10 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
         />
       )}
 
+      {sharing && (
+        <ShareModal key={sharing.id} doc={sharing} canWrite={state.canWrite} onClose={() => setSharing(null)} />
+      )}
+
       {folderOpen && (
         <div className="mwrap" onClick={() => setFolderOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -569,7 +602,7 @@ const AI_TONE: Record<string, string> = {
 }
 
 function DocTable({
-  rows, canWrite, busy, reviewing, onEdit, onDelete, onDownload, onReview,
+  rows, canWrite, busy, reviewing, onEdit, onShare, onDelete, onDownload, onReview,
 }: {
   rows: DocumentoRow[]
   canWrite: boolean
@@ -577,6 +610,7 @@ function DocTable({
   /** Id of the row whose review is running, or null. */
   reviewing: string | null
   onEdit: (d: DocumentoRow) => void
+  onShare: (d: DocumentoRow) => void
   onDelete: (d: DocumentoRow) => void
   onDownload: (d: DocumentoRow) => void
   onReview: (d: DocumentoRow) => void
@@ -632,6 +666,9 @@ function DocTable({
                       </button>
                       <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Editar" onClick={() => onEdit(d)} aria-label={`Editar ${d.name}`}>
                         <PenLine size={13} />
+                      </button>
+                      <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Compartir" onClick={() => onShare(d)} aria-label={`Compartir ${d.name}`}>
+                        <Share2 size={13} />
                       </button>
                       <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }} data-tip="Eliminar" disabled={busy} onClick={() => onDelete(d)} aria-label={`Eliminar ${d.name}`}>
                         <Trash2 size={13} />
@@ -715,6 +752,114 @@ function EditModal({
               expiresOn: form.expiresOn || null,
             })}
           ><Check size={15} />{busy ? 'Guardando…' : 'Guardar'}</button>
+        </div></div>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Share                                                              */
+/* ------------------------------------------------------------------ */
+function ShareModal({ doc, canWrite, onClose }: {
+  doc: DocumentoRow
+  canWrite: boolean
+  onClose: () => void
+}) {
+  const { addToast } = useApp()
+  const [pending, startTransition] = useTransition()
+  const [shares, setShares] = useState<DocumentShare[] | null>(null)
+  const [email, setEmail] = useState('')
+  const [access, setAccess] = useState<(typeof SHARE_ACCESSES)[number]>('Puede ver')
+
+  useEffect(() => {
+    let live = true
+    fetchDocumentShares(doc.id).then((result) => {
+      if (!live) return
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setShares(result.data)
+    })
+    return () => { live = false }
+  }, [doc.id, addToast])
+
+  function add() {
+    if (!email.trim()) { addToast('Indica el correo de la persona.', 'err'); return }
+    startTransition(async () => {
+      const result = await shareDocument({ documentId: doc.id, email: email.trim(), employeeId: null, access })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setShares(result.data)
+      setEmail('')
+      addToast('Acceso compartido', 'ok')
+    })
+  }
+
+  function revoke(share: DocumentShare) {
+    const who = share.employeeName ?? share.email ?? 'esa persona'
+    if (!window.confirm(`¿Quitar el acceso de ${who}?`)) return
+    startTransition(async () => {
+      const result = await revokeShare(share.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setShares(result.data)
+      addToast('Acceso revocado', 'info')
+    })
+  }
+
+  return (
+    <div className="mwrap" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="mhead"><div className="mtitle">Compartir documento</div><button className="ibtn" onClick={onClose} aria-label="Cerrar"><X size={18} /></button></div>
+        <div className="mbody">
+          <div className="elsub" style={{ marginTop: 0 }}>{doc.name}</div>
+
+          {shares === null ? (
+            <div className="dempty" style={{ padding: '14px 0' }}>Cargando accesos…</div>
+          ) : shares.length === 0 ? (
+            <div className="dempty" style={{ padding: '14px 0' }}>Todavía no hay accesos compartidos.</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+              {shares.map((s) => (
+                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="eltxt" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.employeeName ?? s.email ?? '—'}</div>
+                    <div className="elsub">{s.employeeName && s.email ? s.email : `Compartido ${MONTH.format(new Date(s.createdAt))}`}</div>
+                  </div>
+                  <span className={`badge b-${SHARE_TONE[s.access] ?? 'neu'}`}><span className="bd" />{s.access}</span>
+                  {canWrite && (
+                    <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }} data-tip="Quitar acceso" disabled={pending} onClick={() => revoke(s)} aria-label="Quitar acceso">
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {canWrite && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <input
+                className="field"
+                style={{ flex: 1, minWidth: 0 }}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="correo@empresa.co"
+                aria-label="Correo de la persona"
+              />
+              <div style={{ width: 150 }}>
+                <Select
+                  value={access}
+                  onChange={(v) => setAccess(v as (typeof SHARE_ACCESSES)[number])}
+                  options={SHARE_ACCESSES.map((a) => ({ value: a, label: a }))}
+                />
+              </div>
+              <button className="btn pri" onClick={add} disabled={pending || !email.trim()} aria-busy={pending}>
+                <Share2 size={14} />Compartir
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
+          <button className="btn" onClick={onClose} disabled={pending}>Cerrar</button>
         </div></div>
       </div>
     </div>
