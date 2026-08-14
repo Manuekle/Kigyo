@@ -272,14 +272,14 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     // `caja` sin `pos`: una clínica cobra copagos y particulares en efectivo y
     // necesita cuadrar el turno, pero no vende de mostrador — lo que factura
     // sale de la consulta, no de un catálogo.
-    modules: [...PEOPLE, 'pacientes', 'riesgos', 'hseq', 'inventario', 'caja', 'facturacion', 'clientes', 'cartera', 'firmas', 'tickets', 'consultoria', 'trazabilidad', ...SPINE],
+    modules: [...PEOPLE, 'pacientes', 'riesgos', 'hseq', 'inventario', 'caja', 'facturacion', 'clientes', 'cartera', 'firmas', 'tickets', 'consultoria', 'trazabilidad', 'notificaciones', ...SPINE],
     vertical: 'pacientes',
   },
   {
     key: 'educacion',
     label: 'Educación',
     description: 'Colegios, institutos y academias. Matrículas y notas.',
-    modules: [...PEOPLE, 'estudiantes', 'capacitacion', 'facturacion', 'clientes', 'suscripciones', 'cartera', 'inventario', 'firmas', 'contratos', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'estudiantes', 'capacitacion', 'facturacion', 'clientes', 'suscripciones', 'cartera', 'inventario', 'firmas', 'contratos', 'tickets', 'notificaciones', ...SPINE],
     vertical: 'estudiantes',
   },
   {
@@ -309,14 +309,14 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'inmobiliario',
     label: 'Inmobiliario',
     description: 'Arriendo y administración de inmuebles, propiedad horizontal.',
-    modules: [...PEOPLE, 'inmobiliario', 'contratos', ...COMMERCIAL, 'suscripciones', 'mantenimiento', 'firmas', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'inmobiliario', 'contratos', ...COMMERCIAL, 'suscripciones', 'mantenimiento', 'firmas', 'tickets', 'notificaciones', ...SPINE],
     vertical: 'inmobiliario',
   },
   {
     key: 'hoteleria',
     label: 'Hotelería y turismo',
     description: 'Hoteles, hostales y operadores turísticos. Reservas y ocupación.',
-    modules: [...PEOPLE, 'hoteleria', 'restaurante', 'inventario', 'caja', 'mantenimiento', 'facturacion', 'clientes', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'hoteleria', 'restaurante', 'inventario', 'caja', 'mantenimiento', 'facturacion', 'clientes', 'tickets', 'notificaciones', ...SPINE],
     vertical: 'hoteleria',
   },
   {
@@ -376,7 +376,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     // for demand before building a vertical (M9) — which left a gym with
     // eleven modules and nowhere to record a member, a membership, a class or
     // somebody walking through the door. That is the whole business.
-    modules: [...PEOPLE, 'socios', 'suscripciones', 'clientes', 'facturacion', 'caja', 'inventario', 'firmas', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'socios', 'suscripciones', 'clientes', 'facturacion', 'caja', 'inventario', 'firmas', 'tickets', 'notificaciones', ...SPINE],
     vertical: 'socios',
   },
 ]

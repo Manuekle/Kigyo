@@ -626,6 +626,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Cuentas por cobrar, edades y acuerdos de pago.',
   },
   {
+    key: 'notificaciones',
+    label: 'Notificaciones',
+    description: 'Recordatorios de cita, de pago y de vencimiento.',
+    group: 'Equipo',
+    icon: 'MessageSquare',
+    route: '/dashboard/notificaciones',
+    actions: ['read', 'write'],
+    permissionNoun: 'recordatorios',
+    title: 'Notificaciones',
+    subtitle: 'Reglas de recordatorio y qué se envió a quién.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
@@ -731,6 +743,9 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   // the product telling a gym how to sell.
   { module: 'socios', requires: 'calendario', kind: 'soft' },
   { module: 'socios', requires: 'facturacion', kind: 'soft' },
+
+  { module: 'notificaciones', requires: 'facturacion', kind: 'soft' },
+  { module: 'notificaciones', requires: 'calendario', kind: 'soft' },
 ]
 
 /** What a module needs, at the given strength. */

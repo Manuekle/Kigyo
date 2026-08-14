@@ -4125,6 +4125,101 @@ export interface Database {
         Relationships: [
         ]
       }
+      notification_log: {
+        Row: {
+          id: string
+          org_id: string
+          rule_id: string | null
+          kind: string
+          recipient: string
+          channel: string
+          status: "enviado" | "fallido"
+          sent_at: string
+          error: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          rule_id?: string | null
+          kind: string
+          recipient: string
+          channel: string
+          status?: "enviado" | "fallido"
+          sent_at?: string
+          error?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          rule_id?: string | null
+          kind?: string
+          recipient?: string
+          channel?: string
+          status?: "enviado" | "fallido"
+          sent_at?: string
+          error?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_log_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "notification_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_rules: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          kind: "cita" | "vencimiento" | "renovacion"
+          days_before: number
+          channel: "email" | "whatsapp"
+          enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          kind: "cita" | "vencimiento" | "renovacion"
+          days_before?: number
+          channel?: "email" | "whatsapp"
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          kind?: "cita" | "vencimiento" | "renovacion"
+          days_before?: number
+          channel?: "email" | "whatsapp"
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_rules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       online_order_items: {
         Row: {
           id: string
