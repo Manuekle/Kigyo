@@ -16,9 +16,9 @@ interface ToggleProps {
 }
 
 export default function Toggle({ on, onChange, disabled = false, label, ariaLabel, size = 'md', style }: ToggleProps) {
-  // The spring is armed by the first flip, so a switch that mounts already on
-  // sits still instead of animating into place on first paint.
-  const [flipped, setFlipped] = useState(false)
+  // `is-init` arms the keyframes on first flip, so a switch that mounts already
+  // on sits still instead of playing its bounce on first paint.
+  const [init, setInit] = useState(false)
 
   const sw = (
     <button
@@ -27,14 +27,18 @@ export default function Toggle({ on, onChange, disabled = false, label, ariaLabe
       aria-checked={on}
       aria-label={label ? undefined : ariaLabel}
       disabled={disabled}
-      className={`sw${size === 'sm' ? ' sm' : ''}${on ? ' on' : ''}${flipped ? ' is-init' : ''}`}
+      className={`t-toggle${size === 'sm' ? ' sm' : ''}${init ? ' is-init' : ''}`}
       style={style}
+      data-on={on ? 'true' : 'false'}
       onClick={() => {
         if (disabled) return
-        setFlipped(true)
+        setInit(true)
         onChange(!on)
       }}
-    />
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <span className="t-toggle-thumb" aria-hidden="true" />
+    </button>
   )
 
   // Without a visible label there is nothing to wrap, and an empty <label>

@@ -14,6 +14,7 @@ import { useTheme } from '@/lib/context/ThemeContext'
 import { useMember } from '@/lib/context/MemberContext'
 import { apiFetch, errorMessage } from '@/lib/api/client'
 import PopNumber from '@/components/ui/PopNumber'
+import PrimerosPasos from '@/components/ui/PrimerosPasos'
 import type { DashboardData } from '@/server/queries/dashboard'
 
 /* ------------------------------------------------------------------ */
@@ -164,6 +165,12 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
         </div>
         <button className="btn pri" onClick={openAI}><Sparkles size={15} />Preguntar a la IA</button>
       </div>
+
+      {/* An account with nothing in it yet gets somewhere to start instead of
+          five counters reading 0. Rendered from `isEmpty`, which the server
+          derives from the same counters — so it withdraws by itself as soon as
+          there is anything to report, with nothing to dismiss. */}
+      {data.isEmpty && <PrimerosPasos />}
 
       {/* KPIs. Only the modules this member can actually open contribute one,
           so the row shrinks rather than showing zeros for things they cannot see. */}

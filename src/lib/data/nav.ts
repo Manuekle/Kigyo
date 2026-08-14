@@ -1,223 +1,148 @@
-import type { NavSection } from '../types'
+import type { NavItem, NavSection } from '../types'
+import { MODULE_GROUPS, REGISTRY, type ModuleGroup } from '@/lib/modules/registry'
+import { sectorNav } from '@/lib/modules'
 
 /**
- * The sidebar, grouped exactly like `MODULE_GROUPS` in lib/modules.ts.
+ * The sidebar, the page headings and the route table — all derived from the
+ * module registry.
  *
- * It used to be two groups — "Personas" and everything else under
- * "Operación" — which was tolerable at sixteen items and unusable at
- * thirty-five: commerce, collaboration and the sector modules all landed in
- * one column with no heading to navigate by.
- *
- * The grouping is now the same vocabulary the Configuración → Módulos screen
- * renders, so a module switched on in a group appears under that same heading
- * in the nav. Configuración is still absent on purpose: it is reached from the
- * user menu in the sidebar footer.
+ * They used to be four hand-maintained structures listing the same
+ * thirty-seven keys in the same order, and the comment above `ROUTE_MAP`
+ * recorded what that costs: there had been two copies of the route table, they
+ * had drifted, and searching the command palette for half a dozen modules
+ * dropped you on /dashboard through a `??` fallback. The fix at the time was to
+ * merge the two copies. This removes the copies.
  *
  * Nothing here decides visibility. `Sidebar` filters every item through
- * `member.can(...)`, which folds together the plan, the org's enabled modules
- * and the role's permission — so a company that does not run a restaurant
- * never sees the heading its module would have sat under.
+ * `member.can(...)`, which folds together the plan, the company's enabled
+ * modules and the role's permission — so a company that does not run a
+ * restaurant never sees the heading its module would have sat under.
  */
-export const NAV: NavSection[] = [
-  {
-    items: [
-      { key: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-    ],
-  },
-  {
-    label: 'Personas',
-    items: [
-      { key: 'empleados', label: 'Empleados', icon: 'Users' },
-      { key: 'asistencia', label: 'Asistencia', icon: 'Clock' },
-      { key: 'nomina', label: 'Nómina', icon: 'Wallet' },
-      { key: 'riesgos', label: 'Centro de Riesgos', icon: 'ShieldAlert' },
-      { key: 'reclutamiento', label: 'Reclutamiento', icon: 'UserSearch' },
-      { key: 'capacitacion', label: 'Capacitación', icon: 'GraduationCap' },
-      { key: 'desempeno', label: 'Desempeño', icon: 'Target' },
-    ],
-  },
-  {
-    label: 'Operación',
-    items: [
-      { key: 'proyectos', label: 'Proyectos', icon: 'Kanban' },
-      { key: 'hseq', label: 'HSEQ', icon: 'ShieldCheck' },
-      { key: 'inventario', label: 'Inventario', icon: 'Package' },
-      { key: 'mantenimiento', label: 'Mantenimiento', icon: 'Wrench' },
-      { key: 'flota', label: 'Flota', icon: 'Car' },
-      { key: 'produccion', label: 'Producción', icon: 'Factory' },
-      { key: 'trazabilidad', label: 'Trazabilidad', icon: 'Activity' },
-    ],
-  },
-  {
-    label: 'Comercial',
-    items: [
-      { key: 'clientes', label: 'Clientes', icon: 'Building2' },
-      { key: 'cotizaciones', label: 'Cotizaciones', icon: 'Receipt' },
-      { key: 'facturacion', label: 'Facturación', icon: 'DollarSign' },
-      { key: 'compras', label: 'Compras', icon: 'ShoppingCart' },
-      { key: 'ordenes-compra', label: 'Órdenes Compra', icon: 'FileCheck2' },
-      { key: 'catalogos', label: 'Catálogos', icon: 'Tag' },
-      { key: 'tienda', label: 'Tienda Virtual', icon: 'LayoutGrid' },
-      { key: 'ecommerce', label: 'Ecommerce', icon: 'Truck' },
-    ],
-  },
-  {
-    label: 'Colaboración',
-    items: [
-      { key: 'canales', label: 'Canales', icon: 'MessageSquare' },
-      { key: 'tickets', label: 'Tickets', icon: 'Ticket' },
-      { key: 'firmas', label: 'Firmas', icon: 'PenLine' },
-      { key: 'documentos', label: 'Documentos', icon: 'FileText' },
-      { key: 'contratos', label: 'Contratos', icon: 'Handshake' },
-      { key: 'calendario', label: 'Calendario', icon: 'Calendar' },
-      { key: 'consultoria', label: 'Consultoría', icon: 'BookOpen' },
-      { key: 'ia', label: 'Asistente IA', icon: 'Sparkles' },
-    ],
-  },
-  {
-    label: 'Sectoriales',
-    items: [
-      { key: 'pacientes', label: 'Pacientes', icon: 'Stethoscope' },
-      { key: 'estudiantes', label: 'Estudiantes', icon: 'School' },
-      { key: 'restaurante', label: 'Restaurante', icon: 'Restaurant' },
-      { key: 'agro', label: 'Agro', icon: 'Sprout' },
-      { key: 'inmobiliario', label: 'Inmuebles', icon: 'Home' },
-      { key: 'hoteleria', label: 'Hotelería', icon: 'Bed' },
-    ],
-  },
-]
+
+/** Every registry entry that has a nav item, with its aliases attached. */
+const NAV_ENTRIES = REGISTRY.map((m) => ({
+  key: m.key,
+  label: m.label,
+  icon: m.icon,
+  group: m.group,
+  route: m.route,
+  title: m.title,
+  subtitle: m.subtitle,
+  children: (m.aliases ?? []).map((a) => ({ key: a.key, label: a.label, icon: a.icon })),
+}))
+
+/** The same list flattened, for the maps that address every route by key. */
+const FLAT = REGISTRY.flatMap((m) => [
+  { key: m.key, title: m.title, subtitle: m.subtitle, route: m.route },
+  ...(m.aliases ?? []).map((a) => ({
+    key: a.key, title: a.title, subtitle: a.subtitle, route: a.route,
+  })),
+])
+
+/**
+ * The two the «Herramientas» section at the bottom claims.
+ *
+ * Named here so the groups they nominally belong to skip them, rather than each
+ * rendering its own copy — `ia` is in `Equipo` and `configuracion` is in the
+ * shell, and both of them appearing twice is the bug this constant prevents.
+ * The AI assistant keeps its group because `group: null` is what marks a module
+ * as unswitchable, and the assistant is very much switchable.
+ */
+const TOOLS = ['ia', 'configuracion']
+
+function itemsIn(group: ModuleGroup | null): NavItem[] {
+  return NAV_ENTRIES
+    .filter((e) => e.group === group && e.icon && !TOOLS.includes(e.key))
+    .map((e) => ({
+      key: e.key,
+      label: e.label,
+      icon: e.icon as string,
+      // `ordenes-compra` used to be a top-level entry sitting directly beneath
+      // Compras — two lines in the nav for one module, gated on one permission,
+      // which read as two features and made the list longer for nothing.
+      // Nested, it is what it always was: the second screen of Compras.
+      children: e.children.length > 0 ? e.children : undefined,
+    }))
+}
+
+/**
+ * The sidebar for a given sector.
+ *
+ * Four things happen here that the old flat `NAV` could not do, and all four
+ * come from the same observation: the nav was identical for a dental clinic and
+ * a mining company, which means it was designed for neither.
+ *
+ *   1. **The vertical goes to the top.** `Sectoriales` was rendered last, so a
+ *      dentist found Pacientes below Nómina, Producción and Cotizaciones —
+ *      their main screen, in the basement, under a heading about how the
+ *      software is organised. It now leads, under the name of the business.
+ *   2. **The heading is the business.** «Clínica», «Campo», «Alojamiento». See
+ *      `SECTOR_NAV`.
+ *   3. **The rest is ordered per sector.** A factory opens on Operación, an
+ *      agency on Comercial.
+ *   4. **The tools sit at the bottom.** The AI assistant and Configuración are
+ *      not part of any group's story; they are where you go when you step out
+ *      of the work. Configuración used to be reachable only from the user menu,
+ *      which is a strange place for the screen that controls the whole company.
+ *
+ * A pure function of the sector, so it is the same on the server and in the
+ * client and can be tested without rendering anything.
+ */
+export function navFor(sector: string | null): NavSection[] {
+  const { navLabel, groupOrder } = sectorNav(sector)
+
+  // A partial `groupOrder` means "these first"; anything unnamed keeps its
+  // catalogue order behind them. Sectoriales is never in here — it has been
+  // promoted to the top and would otherwise appear twice.
+  const general: ModuleGroup[] = [
+    ...(groupOrder ?? []),
+    ...MODULE_GROUPS.filter(
+      (g) => g !== 'Sectoriales' && !(groupOrder ?? []).includes(g),
+    ),
+  ]
+
+  const sections: NavSection[] = [
+    { items: itemsIn(null) },
+    // Named after the business when we know what it is. A company running a
+    // vertical it was not proposed — a hotel that also enabled Restaurante —
+    // still gets its modules here, which is the right home for them either way.
+    { label: navLabel ?? 'Sectoriales', items: itemsIn('Sectoriales') },
+    ...general.map((group) => ({ label: group, items: itemsIn(group) })),
+  ]
+
+  const tools: NavItem[] = NAV_ENTRIES
+    .filter((e) => TOOLS.includes(e.key) && e.icon)
+    .map((e) => ({ key: e.key, label: e.label, icon: e.icon as string }))
+
+  return [...sections, { label: 'Herramientas', items: tools }].filter(
+    (s) => s.items.length > 0,
+  )
+}
+
+/**
+ * The default sidebar, for callers with no sector in hand.
+ *
+ * Kept as a constant because the command palette and the tests want a stable
+ * list of every nav item, and because a company with no sector is a real state
+ * — it is what "configurar manualmente" produces.
+ */
+export const NAV: NavSection[] = navFor(null)
 
 /** Page heading per route key. */
 export const META: Record<string, string> = {
-  dashboard: 'Dashboard',
-  empleados: 'Empleados',
-  asistencia: 'Asistencia',
-  nomina: 'Nómina',
-  riesgos: 'Centro de Riesgos',
-  reclutamiento: 'Reclutamiento',
-  capacitacion: 'Capacitación',
-  desempeno: 'Desempeño',
-  proyectos: 'Proyectos',
-  hseq: 'HSEQ',
-  inventario: 'Inventario',
-  mantenimiento: 'Mantenimiento',
-  flota: 'Flota',
-  produccion: 'Producción',
-  trazabilidad: 'Trazabilidad',
-  clientes: 'Clientes',
-  cotizaciones: 'Cotizaciones',
-  facturacion: 'Facturación',
-  compras: 'Compras',
-  'ordenes-compra': 'Órdenes de Compra',
-  catalogos: 'Catálogos',
-  tienda: 'Tienda Virtual',
-  ecommerce: 'Ecommerce',
-  canales: 'Canales',
-  tickets: 'Tickets',
-  firmas: 'Firmas',
-  documentos: 'Documentos',
-  contratos: 'Contratos',
-  calendario: 'Calendario',
-  consultoria: 'Consultoría',
-  ia: 'Asistente IA',
-  pacientes: 'Pacientes',
-  estudiantes: 'Estudiantes',
-  restaurante: 'Restaurante',
-  agro: 'Agro',
-  inmobiliario: 'Inmuebles',
-  hoteleria: 'Hotelería',
-  configuracion: 'Configuración',
+  ...Object.fromEntries(FLAT.map((e) => [e.key, e.title])),
+  // Account-level, so it has no registry entry: it is not a module, cannot be
+  // switched off, and belongs to no plan. Reached from the company switcher.
+  empresas: 'Empresas',
 }
 
 export const META_SUB: Record<string, string> = {
-  dashboard: 'Resumen general de personas, documentos y actividad.',
-  empleados: 'Directorio y gestión del equipo.',
-  asistencia: 'Ausencias, incapacidades, horas extra y vacaciones.',
-  nomina: 'Costo de nómina, beneficios y evolución salarial.',
-  riesgos: 'Identificación y gestión de riesgos de personas, equipos y áreas.',
-  reclutamiento: 'Vacantes abiertas, postulantes y avance del embudo de selección.',
-  capacitacion: 'Cursos, inscripciones, asistencia y certificados del equipo.',
-  desempeno: 'Ciclos de evaluación, objetivos y calificaciones por persona.',
-  proyectos: 'Gestión de proyectos de instalación, mantenimiento y expansión.',
-  hseq: 'Reportes de seguridad, calidad y ambiente con seguimiento de acciones correctivas.',
-  inventario: 'Activos, pedidos de compra y facturación.',
-  mantenimiento: 'Órdenes de trabajo preventivas y correctivas sobre equipos y activos.',
-  flota: 'Vehículos, servicios, consumo de combustible y documentos por vencer.',
-  produccion: 'Órdenes de producción, avance por etapa, rendimiento y merma.',
-  trazabilidad: 'Registro de auditoría de toda la actividad.',
-  clientes: 'Cuentas, contactos e historial de interacciones comerciales.',
-  cotizaciones: 'Genera propuestas comerciales, seguimiento de clientes y pipeline.',
-  facturacion: 'Facturas emitidas, pagos recibidos y cartera vencida.',
-  compras: 'Solicitudes de compra, aprobaciones y órdenes en un solo lugar.',
-  'ordenes-compra': 'Órdenes de compra generadas desde requisiciones aprobadas.',
-  catalogos: 'Productos, precios, costos y specs del inventario técnico.',
-  tienda: 'Catálogo de productos, precios y carrito virtual.',
-  ecommerce: 'Pedidos en línea, estado de envío y cupones de la tienda pública.',
-  canales: 'Conversaciones por canal, asignación de proyectos y comunicación del equipo.',
-  tickets: 'Solicitudes de soporte por área: TI, Nómina, Personas, Finanzas y Legal.',
-  firmas: 'Sube documentos y solicita firmas electrónicas.',
-  documentos: 'Repositorio documental con análisis por IA.',
-  contratos: 'Vigencias, renovaciones, hitos y valor de cada contrato.',
-  calendario: 'Entrevistas, onboarding, 1:1s y sesiones de consultoría.',
-  consultoria: 'Asesoría laboral y de cumplimiento.',
-  ia: 'Chat inteligente con acceso a los datos de tu organización.',
-  pacientes: 'Historia clínica, consultas y seguimiento asistencial.',
-  estudiantes: 'Matrículas, programas académicos, asistencia y calificaciones.',
-  restaurante: 'Menú, mesas y comandas del servicio en salón.',
-  agro: 'Lotes, ciclos de cultivo, labores y cosechas por hectárea.',
-  inmobiliario: 'Inmuebles, contratos de arriendo, inquilinos y recaudo mensual.',
-  hoteleria: 'Habitaciones, reservas, ocupación y tarifas por noche.',
-  configuracion: 'Preferencias de tu cuenta y de la organización.',
+  ...Object.fromEntries(FLAT.map((e) => [e.key, e.subtitle])),
+  empresas: 'Las empresas de tu cuenta, su sector y quién pertenece a cada una.',
 }
 
-export const ROLES = ['Administrador', 'Líder de equipo', 'Empleado'] as const
-
-/**
- * Nav key → route. The one copy.
- *
- * There were two, in Sidebar.tsx and CommandPalette.tsx, and they had already
- * drifted: the palette's was missing proyectos, cotizaciones, compras,
- * ordenes-compra, tienda, catalogos, hseq and canales, so searching for any
- * of those and hitting Enter dropped you on /dashboard through the `??`
- * fallback. A second list of routes is a second list to forget to update.
- */
+/** Nav key → route. Derived, so it can no longer drift from the nav it serves. */
 export const ROUTE_MAP: Record<string, string> = {
-  dashboard: '/dashboard',
-  empleados: '/dashboard/empleados',
-  asistencia: '/dashboard/asistencia',
-  nomina: '/dashboard/nomina',
-  riesgos: '/dashboard/riesgos',
-  reclutamiento: '/dashboard/reclutamiento',
-  capacitacion: '/dashboard/capacitacion',
-  desempeno: '/dashboard/desempeno',
-  proyectos: '/dashboard/proyectos',
-  hseq: '/dashboard/hseq',
-  inventario: '/dashboard/inventario',
-  mantenimiento: '/dashboard/mantenimiento',
-  flota: '/dashboard/flota',
-  produccion: '/dashboard/produccion',
-  trazabilidad: '/dashboard/trazabilidad',
-  clientes: '/dashboard/clientes',
-  cotizaciones: '/dashboard/cotizaciones',
-  facturacion: '/dashboard/facturacion',
-  compras: '/dashboard/compras',
-  'ordenes-compra': '/dashboard/ordenes-compra',
-  catalogos: '/dashboard/catalogos',
-  tienda: '/dashboard/tienda',
-  ecommerce: '/dashboard/ecommerce',
-  canales: '/dashboard/canales',
-  tickets: '/dashboard/tickets',
-  firmas: '/dashboard/firmas',
-  documentos: '/dashboard/documentos',
-  contratos: '/dashboard/contratos',
-  calendario: '/dashboard/calendario',
-  consultoria: '/dashboard/consultoria',
-  ia: '/dashboard/ia',
-  pacientes: '/dashboard/pacientes',
-  estudiantes: '/dashboard/estudiantes',
-  restaurante: '/dashboard/restaurante',
-  agro: '/dashboard/agro',
-  inmobiliario: '/dashboard/inmobiliario',
-  hoteleria: '/dashboard/hoteleria',
-  configuracion: '/dashboard/configuracion',
+  ...Object.fromEntries(FLAT.map((e) => [e.key, e.route])),
+  empresas: '/dashboard/empresas',
 }

@@ -1,23 +1,106 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useMemo, useState, useSyncExternalStore } from 'react'
 import {
   LayoutDashboard, Users, PenLine, Calendar, Clock, Wallet, GraduationCap,
   Package, FileText, MessageSquare, Ticket, ShieldAlert, ShieldCheck, Activity, Sparkles, Settings,
   X, LogOut, HelpCircle, Kanban, Receipt, ShoppingCart,
-  FileCheck2, LayoutGrid, UserPlus, Tag, ChevronRight,
+  FileCheck2, LayoutGrid, UserPlus, Tag, ChevronRight, Search,
   Wrench, Car, Factory, Stethoscope, School, Restaurant, Sprout, Home, Bed,
   Handshake, UserSearch, Target, Building2, DollarSign, Truck, BookOpen,
 } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
-import { NAV, ROUTE_MAP } from '@/lib/data/nav'
+import CompanySwitcher from '@/components/layout/CompanySwitcher'
+import { navFor, ROUTE_MAP } from '@/lib/data/nav'
 import { useApp } from '@/lib/context/AppContext'
 import { useMember } from '@/lib/context/MemberContext'
 import { ROUTE_PERMISSIONS } from '@/lib/auth/permissions'
 import { DROPDOWN_CLOSE_MS, dropdownClass, useExitTransition } from '@/lib/hooks/use-exit-transition'
 
 const DRAWER_CLOSE_MS = 200 // matches --drawer-close-dur
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Which headings are collapsed
+ *
+ * Kept in `localStorage` and read through `useSyncExternalStore` rather than
+ * copied into React state by an effect. The effect version renders the sidebar
+ * fully expanded, then immediately re-renders it collapsed — a visible flicker
+ * on every page load for somebody who has folded a section away. This is the
+ * shape React provides for exactly this: an external store with a server
+ * snapshot, so hydration starts from "nothing collapsed" without a mismatch and
+ * the real value arrives in the same commit.
+ *
+ * Per browser rather than per account: it is a preference about this screen on
+ * this machine, nobody else is affected, and a round trip would make the
+ * chevron feel slower than the section it opens.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const COLLAPSED_KEY = 'kigyo.nav.collapsed'
+
+const NO_COLLAPSED: ReadonlySet<string> = new Set()
+
+/**
+ * `getSnapshot` must return the same object until the value actually changes,
+ * or React re-renders forever. So the parse is memoised on the raw string.
+ */
+let snapshotCache: { raw: string | null; value: ReadonlySet<string> } = {
+  raw: null,
+  value: NO_COLLAPSED,
+}
+
+const collapsedListeners = new Set<() => void>()
+
+function subscribeCollapsed(onChange: () => void) {
+  collapsedListeners.add(onChange)
+  // Another tab folding a section should fold it here too. `storage` does not
+  // fire in the document that wrote the value, which is what the local set is
+  // for.
+  window.addEventListener('storage', onChange)
+  return () => {
+    collapsedListeners.delete(onChange)
+    window.removeEventListener('storage', onChange)
+  }
+}
+
+function readCollapsed(): ReadonlySet<string> {
+  let raw: string | null
+  try {
+    raw = window.localStorage.getItem(COLLAPSED_KEY)
+  } catch {
+    // Private mode, a blocked store, a quota error. Nothing collapsed is a
+    // perfectly usable sidebar, so this is not worth telling anybody about.
+    return NO_COLLAPSED
+  }
+  if (raw !== snapshotCache.raw) {
+    let value: ReadonlySet<string> = NO_COLLAPSED
+    try {
+      if (raw) value = new Set(JSON.parse(raw) as string[])
+    } catch {
+      // Somebody edited the key by hand, or an older format. Treated as empty.
+    }
+    snapshotCache = { raw, value }
+  }
+  return snapshotCache.value
+}
+
+function writeCollapsed(next: ReadonlySet<string>) {
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]))
+  } catch {
+    // See above: the sidebar still works, it just forgets.
+  }
+  for (const listener of collapsedListeners) listener()
+}
+
+/**
+ * Folds accents, so typing "nomina" finds «Nómina» and "operacion" finds
+ * «Operación». Half the nav is accented and nobody reaches for the dead key
+ * while filtering a list.
+ */
+function fold(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+}
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   LayoutDashboard: <LayoutDashboard size={18} />,
@@ -73,21 +156,63 @@ export default function Sidebar() {
   // transition, but the scrim used to blink off the moment the flag flipped.
   const scrim = useExitTransition(sidebarOpen, DRAWER_CLOSE_MS)
 
+  const [query, setQuery] = useState('')
+  const collapsed = useSyncExternalStore(
+    subscribeCollapsed,
+    readCollapsed,
+    () => NO_COLLAPSED,
+  )
+
+  function toggleSection(label: string) {
+    const next = new Set(collapsed)
+    if (next.has(label)) next.delete(label)
+    else next.add(label)
+    writeCollapsed(next)
+  }
+
   /**
-   * The nav only lists what this member can actually open. Every route is
-   * still gated on the server by `RequirePermission`, so this is not the
-   * control — without it, though, the sidebar advertises twenty modules and
-   * some of them answer "no tienes acceso" when clicked.
+   * The nav, shaped by the sector and narrowed to what this member can open.
+   *
+   * `navFor` decides the order and the headings — the vertical on top under the
+   * name of the business, the general groups in the order that sector works in,
+   * the tools at the bottom. This adds the two things that depend on who is
+   * looking: the permission filter and the search box.
+   *
+   * The permission filter is not the control. Every route is still gated on the
+   * server by `RequirePermission` — without this, though, the sidebar
+   * advertises twenty modules and some of them answer "no tienes acceso" when
+   * clicked.
    */
-  const sections = NAV
-    .map((section) => ({
-      ...section,
-      items: section.items.filter((item) => {
-        const permission = ROUTE_PERMISSIONS[item.key]
-        return !permission || member.can(permission)
-      }),
-    }))
-    .filter((section) => section.items.length > 0)
+  const sections = useMemo(() => {
+    const needle = fold(query.trim())
+    const allowed = (key: string) => {
+      const permission = ROUTE_PERMISSIONS[key]
+      return !permission || member.can(permission)
+    }
+
+    return navFor(member.companyType)
+      .map((section) => ({
+        ...section,
+        items: section.items
+          .filter((item) => allowed(item.key))
+          .map((item) => ({
+            ...item,
+            children: (item.children ?? []).filter((c) => allowed(c.key)),
+          }))
+          // A parent matching keeps its children; a child matching pulls its
+          // parent in as its own row, because a nested item with no heading
+          // above it is a link to nowhere the reader can place.
+          .filter((item) =>
+            !needle ||
+            fold(item.label).includes(needle) ||
+            item.children.some((c) => fold(c.label).includes(needle)),
+          ),
+      }))
+      .filter((section) => section.items.length > 0)
+  }, [member, query])
+
+  /** While searching, every heading opens: a hidden match is not a match. */
+  const searching = query.trim().length > 0
 
   function isActive(key: string) {
     const route = ROUTE_MAP[key]
@@ -127,26 +252,82 @@ export default function Sidebar() {
           )}
         </div>
 
+        {/* Above the navigation, not in the user menu at the bottom: which
+            company you are in changes what every item below means, so it has to
+            read as context rather than as a preference. Renders nothing at all
+            for the single-company case. */}
+        <CompanySwitcher />
+
+        {/* Thirty-seven items is more than anybody scans. The filter is not a
+            command palette — it does not leave the sidebar or search data — it
+            just shortens the list you are already looking at, which is the
+            thing people were doing by eye. */}
+        <div className="nav-find">
+          <Search size={14} />
+          <input
+            className="nav-find-input"
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar módulo"
+            aria-label="Buscar en el menú"
+          />
+        </div>
+
         <nav className="nav">
-          {sections.map((section, si) => (
-            <div key={si}>
-              {section.label && <div className="nlabel">{section.label}</div>}
-              {section.items.map((item) => (
-                <button
-                  key={item.key}
-                  className={`nitem${isActive(item.key) ? ' on' : ''}`}
-                  onClick={() => navigate(item.key)}
-                  data-cuelume-press="tick"
-                >
-                  {ICON_MAP[item.icon]}
-                  <span className="nitem-label">{item.label}</span>
-                  {item.badge !== undefined && (
-                    <span className={`nbadge ${item.badgeTone ?? 'a'}`}>{item.badge}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          ))}
+          {sections.map((section, si) => {
+            const shut = !searching && section.label !== undefined && collapsed.has(section.label)
+            return (
+              <div key={section.label ?? si}>
+                {section.label && (
+                  <button
+                    type="button"
+                    className={`nlabel nlabel-btn${shut ? ' is-shut' : ''}`}
+                    onClick={() => toggleSection(section.label as string)}
+                    aria-expanded={!shut}
+                  >
+                    <ChevronRight className="nlabel-chev" size={12} />
+                    {section.label}
+                    {/* The count, only while folded. Without it a collapsed
+                        heading is indistinguishable from an empty one — a
+                        heading with nothing under it reads as something broken,
+                        which is exactly how «Comercial» looked the first time
+                        this shipped. */}
+                    {shut && <span className="nlabel-count">{section.items.length}</span>}
+                  </button>
+                )}
+                {!shut && section.items.map((item) => (
+                  <div key={item.key}>
+                    <button
+                      className={`nitem${isActive(item.key) ? ' on' : ''}`}
+                      onClick={() => navigate(item.key)}
+                      data-cuelume-press="tick"
+                    >
+                      {ICON_MAP[item.icon]}
+                      <span className="nitem-label">{item.label}</span>
+                      {item.badge !== undefined && (
+                        <span className={`nbadge ${item.badgeTone ?? 'a'}`}>{item.badge}</span>
+                      )}
+                    </button>
+                    {item.children.map((child) => (
+                      <button
+                        key={child.key}
+                        className={`nitem nitem-sub${isActive(child.key) ? ' on' : ''}`}
+                        onClick={() => navigate(child.key)}
+                        data-cuelume-press="tick"
+                      >
+                        {ICON_MAP[child.icon]}
+                        <span className="nitem-label">{child.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+          {sections.length === 0 && (
+            <p className="nav-empty">Ningún módulo coincide con «{query.trim()}».</p>
+          )}
         </nav>
 
         <div className="sfoot">
