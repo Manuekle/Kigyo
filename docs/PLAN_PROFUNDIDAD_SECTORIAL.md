@@ -193,8 +193,23 @@ Orden propuesto por hueco más grande primero:
 
 ### Fase 6 — Roles por sector
 
-Hoy el administrador arma una matriz de 37 módulos × 4 acciones a mano.
-Sobre `custom_roles` (migración 24), sembrar roles sugeridos por subsector:
+✅ **Hecho** — migración 46 (`20260814100000_46_sector_roles.sql`). El
+administrador ya no arma la matriz de 37 módulos × 4 acciones a mano:
+`public.sector_roles` trae la matriz sugerida por subsector, con permisos solo
+del vocabulario que ya existe y sin `configuracion:manage` en ningún rol.
+`app.seed_default_roles` siembra los sugeridos como roles `is_system` con sus
+grants al crear la empresa, y la RPC pública `seed_suggested_roles(p_org_id)`
+es idempotente: es el botón de Configuración → Roles y permisos para volver a
+sembrarlos si se borraron.
+
+Cobertura: los 51 subsectores del catálogo tienen matriz. 28 entraron en el
+primer corte (salud, comercio, alimentos, hotelería, fitness y agro) y 23 en el
+segundo (construcción, manufactura, servicios, logística, inmobiliario y
+educación). El espejo TypeScript vive en `src/lib/suggested-roles.ts` y un test
+pina TS↔DB en ambas direcciones: una matriz nueva de un solo lado rompe el test.
+
+Los roles sugeridos son editables y borrables, y no conceden administración.
+Ejemplos de las matrices sembradas:
 
 - Odontología: Odontólogo, Asistente dental, Recepcionista, Administrador.
 - Hotel: Recepción, Ama de llaves, Mantenimiento, Gerente.

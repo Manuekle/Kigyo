@@ -343,6 +343,25 @@ clase ni una entrada al gimnasio, que es literalmente todo el negocio.
 
 ---
 
+## Roles sugeridos por subsector — ✅ hecho
+
+Migración 46 sembró `public.sector_roles` con matrices de roles sugeridos para
+los 51 subsectores, con permisos solo del vocabulario existente y nunca
+`configuracion:manage`. Se crean automáticamente al crear la empresa (roles
+`is_system`), y un botón en Configuración → Roles y permisos los vuelve a
+sembrar si se borraron.
+
+Ejemplos:
+
+- Veterinaria → Veterinario/a, Auxiliar veterinario, Recepción y caja.
+- Odontología → Odontólogo/a, Auxiliar dental, Recepcionista.
+- Ferretería → Vendedor/a de mostrador, Jefe/a de bodega, Cajero/a.
+
+Nada de la tabla maestra cambia: los roles sugeridos no alteran presets de
+módulos.
+
+---
+
 ## 4. Orden de trabajo propuesto
 
 Por hueco más grande y por reutilización, no por tamaño del sector.
