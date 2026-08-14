@@ -257,13 +257,13 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'servicios',
     label: 'Servicios profesionales',
     description: 'Consultoría, contabilidad, legal, agencias. Se factura tiempo.',
-    modules: [...PEOPLE, 'proyectos', ...COMMERCIAL, 'contratos', 'firmas', 'tickets', 'consultoria', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'firmas', 'tickets', 'consultoria', ...SPINE],
   },
   {
     key: 'tecnologia',
     label: 'Tecnología y software',
     description: 'Producto digital o desarrollo a la medida.',
-    modules: [...PEOPLE, 'proyectos', ...COMMERCIAL, 'contratos', 'reclutamiento', 'desempeno', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'reclutamiento', 'desempeno', 'tickets', ...SPINE],
   },
   {
     key: 'salud',
@@ -347,7 +347,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'medios',
     label: 'Medios y publicidad',
     description: 'Agencias, productoras y medios. Trabajo por campaña.',
-    modules: [...PEOPLE, 'proyectos', ...COMMERCIAL, 'contratos', 'inventario', 'firmas', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'inventario', 'firmas', 'tickets', ...SPINE],
   },
   {
     key: 'ong',

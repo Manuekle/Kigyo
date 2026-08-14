@@ -590,6 +590,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Socios, membresías vigentes, clases y entradas al centro.',
   },
   {
+    key: 'tiempos',
+    label: 'Tiempos',
+    description: 'Horas facturables por persona, proyecto y tarifa.',
+    group: 'Operación',
+    icon: 'Clock',
+    route: '/dashboard/tiempos',
+    actions: ['read', 'write'],
+    permissionNoun: 'horas registradas',
+    title: 'Tiempos',
+    subtitle: 'Horas por persona y proyecto, facturables a una tarifa.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
@@ -664,6 +676,8 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'desempeno', requires: 'empleados', kind: 'hard' },
   { module: 'capacitacion', requires: 'empleados', kind: 'soft' },
   { module: 'reclutamiento', requires: 'empleados', kind: 'soft' },
+  { module: 'tiempos', requires: 'empleados', kind: 'soft' },
+  { module: 'tiempos', requires: 'proyectos', kind: 'soft' },
 
   { module: 'produccion', requires: 'inventario', kind: 'hard' },
   { module: 'produccion', requires: 'catalogos', kind: 'soft' },
