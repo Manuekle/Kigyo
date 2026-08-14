@@ -152,7 +152,7 @@ export const SECTOR_NAV: Record<string, SectorNav> = {
   energia:            { groupOrder: OPS_FIRST },
   manufactura:        { groupOrder: OPS_FIRST },
   mineria:            { groupOrder: OPS_FIRST },
-  telecomunicaciones: { groupOrder: OPS_FIRST },
+  telecomunicaciones: { navLabel: 'Redes', groupOrder: OPS_FIRST },
   logistica:          { groupOrder: OPS_FIRST },
   tecnologia:         { groupOrder: OPS_FIRST },
   gobierno:           { groupOrder: OPS_FIRST },
@@ -335,7 +335,8 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'telecomunicaciones',
     label: 'Telecomunicaciones',
     description: 'Redes, instalación y soporte a suscriptores.',
-    modules: [...PEOPLE, 'proyectos', 'inventario', 'mantenimiento', 'flota', ...COMMERCIAL, 'contratos', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'suscriptores', 'inventario', 'mantenimiento', 'flota', ...COMMERCIAL, 'contratos', 'tickets', ...SPINE],
+    vertical: 'suscriptores',
   },
   {
     key: 'seguridad',

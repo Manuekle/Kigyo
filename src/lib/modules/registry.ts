@@ -674,6 +674,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Donantes, donaciones y totales por periodo.',
   },
   {
+    key: 'suscriptores',
+    label: 'Suscriptores',
+    description: 'Planes, activaciones, suspensiones y consumo.',
+    group: 'Sectoriales',
+    icon: 'Activity',
+    route: '/dashboard/suscriptores',
+    actions: ['read', 'write'],
+    permissionNoun: 'suscriptores',
+    title: 'Suscriptores',
+    subtitle: 'Planes de servicio y estado de cada suscriptor.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',

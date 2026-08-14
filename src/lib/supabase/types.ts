@@ -6936,6 +6936,44 @@ export interface Database {
           },
         ]
       }
+      service_plans: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          price_cents: number
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          price_cents: number
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          price_cents?: number
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_plans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       signature_requests: {
         Row: {
           id: string
@@ -7239,6 +7277,73 @@ export interface Database {
             columns: ["program_id"]
             isOneToOne: false
             referencedRelation: "academic_programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscribers: {
+        Row: {
+          id: string
+          org_id: string
+          plan_id: string | null
+          client_id: string | null
+          name: string
+          address: string | null
+          phone: string | null
+          status: "activo" | "suspendido" | "cancelado"
+          activated_on: string
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          plan_id?: string | null
+          client_id?: string | null
+          name: string
+          address?: string | null
+          phone?: string | null
+          status?: "activo" | "suspendido" | "cancelado"
+          activated_on?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          plan_id?: string | null
+          client_id?: string | null
+          name?: string
+          address?: string | null
+          phone?: string | null
+          status?: "activo" | "suspendido" | "cancelado"
+          activated_on?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscribers_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscribers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscribers_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "service_plans"
             referencedColumns: ["id"]
           },
         ]
