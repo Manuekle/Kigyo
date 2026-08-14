@@ -263,7 +263,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'tecnologia',
     label: 'Tecnología y software',
     description: 'Producto digital o desarrollo a la medida.',
-    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'reclutamiento', 'desempeno', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'suscripciones', 'reclutamiento', 'desempeno', 'tickets', ...SPINE],
   },
   {
     key: 'salud',
@@ -279,7 +279,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'educacion',
     label: 'Educación',
     description: 'Colegios, institutos y academias. Matrículas y notas.',
-    modules: [...PEOPLE, 'estudiantes', 'capacitacion', 'facturacion', 'clientes', 'inventario', 'firmas', 'contratos', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'estudiantes', 'capacitacion', 'facturacion', 'clientes', 'suscripciones', 'inventario', 'firmas', 'contratos', 'tickets', ...SPINE],
     vertical: 'estudiantes',
   },
   {
@@ -309,7 +309,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'inmobiliario',
     label: 'Inmobiliario',
     description: 'Arriendo y administración de inmuebles, propiedad horizontal.',
-    modules: [...PEOPLE, 'inmobiliario', 'contratos', ...COMMERCIAL, 'mantenimiento', 'firmas', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'inmobiliario', 'contratos', ...COMMERCIAL, 'suscripciones', 'mantenimiento', 'firmas', 'tickets', ...SPINE],
     vertical: 'inmobiliario',
   },
   {
@@ -376,7 +376,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     // for demand before building a vertical (M9) — which left a gym with
     // eleven modules and nowhere to record a member, a membership, a class or
     // somebody walking through the door. That is the whole business.
-    modules: [...PEOPLE, 'socios', 'clientes', 'facturacion', 'caja', 'inventario', 'firmas', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'socios', 'suscripciones', 'clientes', 'facturacion', 'caja', 'inventario', 'firmas', 'tickets', ...SPINE],
     vertical: 'socios',
   },
 ]

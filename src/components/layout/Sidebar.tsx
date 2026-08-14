@@ -5,7 +5,7 @@ import { useMemo, useState, useSyncExternalStore } from 'react'
 import {
   LayoutDashboard, Users, PenLine, Calendar, Clock, Wallet, GraduationCap,
   Package, FileText, MessageSquare, Ticket, ShieldAlert, ShieldCheck, Activity, Sparkles, Settings,
-  X, LogOut, HelpCircle, Kanban, Receipt, ShoppingCart, Cashier, Store,
+  X, LogOut, HelpCircle, Kanban, Receipt, RotateCcw, ShoppingCart, Cashier, Store,
   FileCheck2, LayoutGrid, UserPlus, Tag, ChevronRight,
   Wrench, Car, Factory, Stethoscope, School, Restaurant, Sprout, Home, Bed,
   Handshake, UserSearch, UserCheck, Target, Building2, DollarSign, Truck, BookOpen,
@@ -112,6 +112,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Settings: <Settings size={18} />,
   Kanban: <Kanban size={18} />,
   Receipt: <Receipt size={18} />,
+  RotateCcw: <RotateCcw size={18} />,
   ShoppingCart: <ShoppingCart size={18} />,
   Cashier: <Cashier size={18} />,
   Store: <Store size={18} />,

@@ -602,6 +602,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Horas por persona y proyecto, facturables a una tarifa.',
   },
   {
+    key: 'suscripciones',
+    label: 'Suscripciones',
+    description: 'Cobro recurrente: mensualidades, membresías y renovaciones.',
+    group: 'Comercial',
+    icon: 'RotateCcw',
+    route: '/dashboard/suscripciones',
+    actions: ['read', 'write'],
+    permissionNoun: 'suscripciones',
+    title: 'Suscripciones',
+    subtitle: 'Planes de cobro recurrente y renovaciones por cliente.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
@@ -670,6 +682,7 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'cotizaciones', requires: 'clientes', kind: 'soft' },
   { module: 'cotizaciones', requires: 'catalogos', kind: 'soft' },
   { module: 'contratos', requires: 'clientes', kind: 'soft' },
+  { module: 'suscripciones', requires: 'clientes', kind: 'soft' },
 
   { module: 'nomina', requires: 'empleados', kind: 'hard' },
   { module: 'asistencia', requires: 'empleados', kind: 'hard' },

@@ -6822,6 +6822,111 @@ export interface Database {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          price_cents: number
+          cycle: "diario" | "semanal" | "mensual" | "trimestral" | "semestral" | "anual"
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          price_cents: number
+          cycle?: "diario" | "semanal" | "mensual" | "trimestral" | "semestral" | "anual"
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          price_cents?: number
+          cycle?: "diario" | "semanal" | "mensual" | "trimestral" | "semestral" | "anual"
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_plans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          id: string
+          org_id: string
+          plan_id: string | null
+          client_id: string | null
+          status: "activa" | "suspendida" | "cancelada" | "vencida"
+          started_on: string
+          next_charge_on: string | null
+          price_cents: number | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          plan_id?: string | null
+          client_id?: string | null
+          status?: "activa" | "suspendida" | "cancelada" | "vencida"
+          started_on?: string
+          next_charge_on?: string | null
+          price_cents?: number | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          plan_id?: string | null
+          client_id?: string | null
+          status?: "activa" | "suspendida" | "cancelada" | "vencida"
+          started_on?: string
+          next_charge_on?: string | null
+          price_cents?: number | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supplier_invoice_items: {
         Row: {
           id: string
