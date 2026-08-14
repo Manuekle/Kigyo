@@ -257,7 +257,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'servicios',
     label: 'Servicios profesionales',
     description: 'Consultoría, contabilidad, legal, agencias. Se factura tiempo.',
-    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'firmas', 'tickets', 'consultoria', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'cartera', 'firmas', 'tickets', 'consultoria', ...SPINE],
   },
   {
     key: 'tecnologia',
@@ -272,14 +272,14 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     // `caja` sin `pos`: una clínica cobra copagos y particulares en efectivo y
     // necesita cuadrar el turno, pero no vende de mostrador — lo que factura
     // sale de la consulta, no de un catálogo.
-    modules: [...PEOPLE, 'pacientes', 'riesgos', 'hseq', 'inventario', 'caja', 'facturacion', 'clientes', 'firmas', 'tickets', 'consultoria', 'trazabilidad', ...SPINE],
+    modules: [...PEOPLE, 'pacientes', 'riesgos', 'hseq', 'inventario', 'caja', 'facturacion', 'clientes', 'cartera', 'firmas', 'tickets', 'consultoria', 'trazabilidad', ...SPINE],
     vertical: 'pacientes',
   },
   {
     key: 'educacion',
     label: 'Educación',
     description: 'Colegios, institutos y academias. Matrículas y notas.',
-    modules: [...PEOPLE, 'estudiantes', 'capacitacion', 'facturacion', 'clientes', 'suscripciones', 'inventario', 'firmas', 'contratos', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'estudiantes', 'capacitacion', 'facturacion', 'clientes', 'suscripciones', 'cartera', 'inventario', 'firmas', 'contratos', 'tickets', ...SPINE],
     vertical: 'estudiantes',
   },
   {
@@ -323,7 +323,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'financiero',
     label: 'Financiero y seguros',
     description: 'Cooperativas, corredoras, fintech. Cartera y cumplimiento.',
-    modules: [...PEOPLE, ...COMMERCIAL, 'contratos', 'riesgos', 'firmas', 'trazabilidad', 'desempeno', 'tickets', 'consultoria', ...SPINE],
+    modules: [...PEOPLE, ...COMMERCIAL, 'contratos', 'cartera', 'riesgos', 'firmas', 'trazabilidad', 'desempeno', 'tickets', 'consultoria', ...SPINE],
   },
   {
     key: 'mineria',

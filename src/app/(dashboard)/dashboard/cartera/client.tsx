@@ -1,0 +1,262 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { CalendarClock, Check, History, Plus, Trash2, Wallet } from '@/lib/icons'
+import Badge from '@/components/ui/Badge'
+import Select from '@/components/ui/Select'
+import Stat from '@/components/ui/Stat'
+import { useApp } from '@/lib/context/AppContext'
+import { cop } from '@/lib/utils'
+import type { StatusTone } from '@/lib/types'
+import type { CarteraData } from '@/server/queries/cartera'
+import { addDeuda, deleteDeuda, setDeudaStatus } from '@/server/mutations/cartera'
+
+const DAY = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+const fmtDate = (iso: string | null) => (iso ? DAY.format(new Date(`${iso}T00:00:00`)) : '—')
+const todayIso = () => new Date().toISOString().slice(0, 10)
+
+const DEUDA_TONE: Record<string, StatusTone> = {
+  pagada: 'grn',
+  vencida: 'red',
+  mora: 'red',
+  pendiente: 'neu',
+}
+const deudaTone = (st: string): StatusTone => DEUDA_TONE[st] ?? 'neu'
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+function pesos(cents: number): string {
+  return cop(Math.round(cents / 100))
+}
+
+const EMPTY_DEUDA = {
+  clientId: '', invoiceId: '', amount: '', dueDate: todayIso(), notes: '',
+}
+
+export default function CarteraPage({ data }: { data: CarteraData }) {
+  const { addToast } = useApp()
+  const [pending, startTransition] = useTransition()
+
+  const [state, setState] = useState(data)
+  const [deudaForm, setDeudaForm] = useState(EMPTY_DEUDA)
+
+  const clientOpts = [
+    { value: '', label: 'Sin cliente' },
+    ...state.clients.map((c) => ({ value: c.id, label: c.name })),
+  ]
+  const invoiceOpts = [
+    { value: '', label: 'Sin factura' },
+    ...state.invoices.map((i) => ({ value: i.id, label: i.code })),
+  ]
+
+  function submitDeuda() {
+    startTransition(async () => {
+      const result = await addDeuda({
+        clientId: deudaForm.clientId || null,
+        invoiceId: deudaForm.invoiceId || null,
+        amountCents: Math.round(Number(deudaForm.amount) * 100),
+        dueDate: deudaForm.dueDate,
+        notes: deudaForm.notes,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      addToast('Cuenta por cobrar creada', 'ok')
+      setDeudaForm({ ...EMPTY_DEUDA, dueDate: todayIso() })
+    })
+  }
+
+  function changeStatus(id: string, status: string) {
+    startTransition(async () => {
+      const result = await setDeudaStatus(id, status)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      addToast('Estado actualizado', 'ok')
+    })
+  }
+
+  function removeDeuda(id: string) {
+    if (!window.confirm('¿Eliminar esta cuenta por cobrar?')) return
+    startTransition(async () => {
+      const result = await deleteDeuda(id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      addToast('Cuenta por cobrar eliminada', 'ok')
+    })
+  }
+
+  return (
+    <>
+      <div className="g2" style={{ marginBottom: 16 }}>
+        <div className="rise d1">
+          <Stat
+            icon={<Wallet size={16} />}
+            tone="amb"
+            label="Cuentas por cobrar"
+            value={`${pesos(state.pendienteCents)} pendiente`}
+            sub={`${pesos(state.vencidaCents)} vencida`}
+          />
+        </div>
+      </div>
+
+      <div className="card rise d2">
+        <div className="chead">
+          <div className="ctitle">Nueva cuenta por cobrar</div>
+        </div>
+
+        <div className="cpad" style={{ paddingBottom: 0 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1 1 160px', minWidth: 130 }}>
+              <div className="flabel" style={{ marginTop: 0 }}>Cliente</div>
+              <Select
+                value={deudaForm.clientId}
+                onChange={(v) => setDeudaForm((f) => ({ ...f, clientId: v }))}
+                options={clientOpts}
+              />
+            </div>
+            <div style={{ flex: '1 1 160px', minWidth: 130 }}>
+              <div className="flabel">Factura</div>
+              <Select
+                value={deudaForm.invoiceId}
+                onChange={(v) => setDeudaForm((f) => ({ ...f, invoiceId: v }))}
+                options={invoiceOpts}
+              />
+            </div>
+            <div style={{ flex: '0 1 110px', minWidth: 90 }}>
+              <div className="flabel">Monto</div>
+              <input
+                type="number"
+                className="field"
+                min={1}
+                value={deudaForm.amount}
+                placeholder="50000"
+                onChange={(e) => setDeudaForm((f) => ({ ...f, amount: e.target.value }))}
+              />
+            </div>
+            <div style={{ flex: '0 1 140px', minWidth: 110 }}>
+              <div className="flabel">Vencimiento</div>
+              <input
+                type="date"
+                className="field"
+                value={deudaForm.dueDate}
+                onChange={(e) => setDeudaForm((f) => ({ ...f, dueDate: e.target.value }))}
+              />
+            </div>
+            <div style={{ flex: '1 1 180px', minWidth: 150 }}>
+              <div className="flabel">Nota</div>
+              <input
+                className="field"
+                value={deudaForm.notes}
+                maxLength={500}
+                placeholder="Ej: acuerdo verbal"
+                onChange={(e) => setDeudaForm((f) => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+            <button
+              className="btn dark"
+              disabled={pending || !deudaForm.amount || Number(deudaForm.amount) <= 0 || !deudaForm.dueDate}
+              aria-busy={pending}
+              onClick={submitDeuda}
+            >
+              <Plus size={14} />Añadir
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="card rise d3" style={{ marginTop: 16 }}>
+        <div className="chead">
+          <div className="ctitle">Cuentas por cobrar</div>
+        </div>
+
+        <div className="tblwrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th scope="col">Cliente</th>
+                <th scope="col">Factura</th>
+                <th scope="col">Monto</th>
+                <th scope="col">Vence</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Nota</th>
+                <th scope="col" aria-label="Acciones" />
+              </tr>
+            </thead>
+            <tbody>
+              {state.debts.length === 0 ? (
+                <tr>
+                  <td colSpan={7}>
+                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      No hay cuentas por cobrar.
+                    </div>
+                  </td>
+                </tr>
+              ) : state.debts.map((d) => (
+                <tr key={d.id}>
+                  <td>
+                    {d.clientName ? (
+                      <div className="cename">{d.clientName}</div>
+                    ) : (
+                      <span className="muted">Sin cliente</span>
+                    )}
+                  </td>
+                  <td className="muted">{d.invoiceCode ?? 'Sin factura'}</td>
+                  <td className="mono">{pesos(d.amountCents)}</td>
+                  <td className="muted mono" style={{ fontSize: 12 }}>{fmtDate(d.dueDate)}</td>
+                  <td><Badge st={cap(d.status)} tone={deudaTone(d.status)} /></td>
+                  <td className="muted">{d.notes ?? '—'}</td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {d.status !== 'pagada' && (
+                      <button
+                        className="ibtn"
+                        style={{ width: 28, height: 28, color: 'var(--grnd)' }}
+                        data-tip="Pagar"
+                        disabled={pending}
+                        onClick={() => changeStatus(d.id, 'pagada')}
+                        aria-label={`Pagar la cuenta de ${d.clientName ?? 'sin cliente'}`}
+                      >
+                        <Check size={13} />
+                      </button>
+                    )}
+                    {d.status === 'pendiente' && (
+                      <button
+                        className="ibtn"
+                        style={{ width: 28, height: 28, color: 'var(--amb)' }}
+                        data-tip="Vencer"
+                        disabled={pending}
+                        onClick={() => changeStatus(d.id, 'vencida')}
+                        aria-label={`Marcar como vencida la cuenta de ${d.clientName ?? 'sin cliente'}`}
+                      >
+                        <CalendarClock size={13} />
+                      </button>
+                    )}
+                    {d.status === 'vencida' && (
+                      <button
+                        className="ibtn"
+                        style={{ width: 28, height: 28, color: 'var(--redd)' }}
+                        data-tip="Mora"
+                        disabled={pending}
+                        onClick={() => changeStatus(d.id, 'mora')}
+                        aria-label={`Pasar a mora la cuenta de ${d.clientName ?? 'sin cliente'}`}
+                      >
+                        <History size={13} />
+                      </button>
+                    )}
+                    <button
+                      className="ibtn"
+                      style={{ width: 28, height: 28, color: 'var(--redd)' }}
+                      data-tip="Eliminar"
+                      disabled={pending}
+                      onClick={() => removeDeuda(d.id)}
+                      aria-label={`Eliminar la cuenta de ${d.clientName ?? 'sin cliente'}`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  )
+}

@@ -614,6 +614,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Planes de cobro recurrente y renovaciones por cliente.',
   },
   {
+    key: 'cartera',
+    label: 'Cartera',
+    description: 'Cuentas por cobrar, vencimientos y acuerdos de pago.',
+    group: 'Comercial',
+    icon: 'Receipt',
+    route: '/dashboard/cartera',
+    actions: ['read', 'write'],
+    permissionNoun: 'cuentas por cobrar',
+    title: 'Cartera',
+    subtitle: 'Cuentas por cobrar, edades y acuerdos de pago.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
@@ -683,6 +695,8 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'cotizaciones', requires: 'catalogos', kind: 'soft' },
   { module: 'contratos', requires: 'clientes', kind: 'soft' },
   { module: 'suscripciones', requires: 'clientes', kind: 'soft' },
+  { module: 'cartera', requires: 'facturacion', kind: 'soft' },
+  { module: 'cartera', requires: 'clientes', kind: 'soft' },
 
   { module: 'nomina', requires: 'empleados', kind: 'hard' },
   { module: 'asistencia', requires: 'empleados', kind: 'hard' },

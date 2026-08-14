@@ -114,7 +114,7 @@ const GROWTH = [
   // `ecommerce` sit in Enterprise because selling to the public over the
   // internet is a different business; charging the person standing in front of
   // you is what a Growth-sized shop does all day.
-  'pos', 'caja', 'tiempos', 'suscripciones',
+  'pos', 'caja', 'tiempos', 'suscripciones', 'cartera',
   'consultoria', 'ia',
   'pacientes', 'estudiantes', 'restaurante', 'agro', 'inmobiliario', 'hoteleria',
   'socios',

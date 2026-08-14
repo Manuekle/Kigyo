@@ -5750,6 +5750,70 @@ export interface Database {
           },
         ]
       }
+      receivable_agreements: {
+        Row: {
+          id: string
+          org_id: string
+          invoice_id: string | null
+          client_id: string | null
+          amount_cents: number
+          due_date: string
+          status: "pendiente" | "pagada" | "vencida" | "mora"
+          paid_at: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          invoice_id?: string | null
+          client_id?: string | null
+          amount_cents: number
+          due_date: string
+          status?: "pendiente" | "pagada" | "vencida" | "mora"
+          paid_at?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          invoice_id?: string | null
+          client_id?: string | null
+          amount_cents?: number
+          due_date?: string
+          status?: "pendiente" | "pagada" | "vencida" | "mora"
+          paid_at?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receivable_agreements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivable_agreements_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receivable_agreements_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recommendations: {
         Row: {
           id: string
