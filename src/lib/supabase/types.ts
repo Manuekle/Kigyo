@@ -2208,6 +2208,113 @@ export interface Database {
           },
         ]
       }
+      donations: {
+        Row: {
+          id: string
+          org_id: string
+          donor_id: string | null
+          donor_name: string | null
+          kind: "monetaria" | "especie" | "tiempo"
+          amount_cents: number | null
+          description: string | null
+          donated_on: string
+          campaign: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          donor_id?: string | null
+          donor_name?: string | null
+          kind?: "monetaria" | "especie" | "tiempo"
+          amount_cents?: number | null
+          description?: string | null
+          donated_on?: string
+          campaign?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          donor_id?: string | null
+          donor_name?: string | null
+          kind?: "monetaria" | "especie" | "tiempo"
+          amount_cents?: number | null
+          description?: string | null
+          donated_on?: string
+          campaign?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "donations_donor_id_fkey"
+            columns: ["donor_id"]
+            isOneToOne: false
+            referencedRelation: "donors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "donations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      donors: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          email: string | null
+          phone: string | null
+          kind: "persona" | "empresa"
+          status: "activo" | "inactivo"
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          email?: string | null
+          phone?: string | null
+          kind?: "persona" | "empresa"
+          status?: "activo" | "inactivo"
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          email?: string | null
+          phone?: string | null
+          kind?: "persona" | "empresa"
+          status?: "activo" | "inactivo"
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "donors_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_events: {
         Row: {
           id: string

@@ -353,7 +353,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'ong',
     label: 'ONG y fundaciones',
     description: 'Sin ánimo de lucro. Proyectos, donantes y rendición de cuentas.',
-    modules: [...PEOPLE, 'proyectos', 'clientes', 'contratos', 'capacitacion', 'firmas', 'trazabilidad', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'clientes', 'donantes', 'contratos', 'capacitacion', 'firmas', 'trazabilidad', 'tickets', ...SPINE],
   },
   {
     key: 'gobierno',

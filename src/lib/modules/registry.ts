@@ -662,6 +662,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Préstamos, cuotas y estado de mora por cliente.',
   },
   {
+    key: 'donantes',
+    label: 'Donantes',
+    description: 'Donantes, donaciones y rendición de cuentas.',
+    group: 'Comercial',
+    icon: 'Handshake',
+    route: '/dashboard/donantes',
+    actions: ['read', 'write'],
+    permissionNoun: 'donantes',
+    title: 'Donantes',
+    subtitle: 'Donantes, donaciones y totales por periodo.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
