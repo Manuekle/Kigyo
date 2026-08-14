@@ -292,4 +292,56 @@ export const SUGGESTED_ROLES: Record<string, SuggestedRole[]> = {
     { key: 'coordinador', label: 'Coordinador/a', rank: 40, permissions: ['estudiantes:read', 'estudiantes:write', 'desempeno:read', 'calendario:read', 'calendario:write', 'proyectos:read'] },
     { key: 'admisiones', label: 'Admisiones', rank: 50, permissions: ['estudiantes:read', 'estudiantes:write', 'clientes:read', 'clientes:write', 'facturacion:read', 'reclutamiento:read', 'trazabilidad:read'] },
   ],
+
+  /* ─── Sectores sin subsectores ──────────────────────────────────────── */
+  'energia': [
+    { key: 'ingeniero', label: 'Ingeniero/a de proyecto', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'catalogos:read', 'cotizaciones:read'] },
+    { key: 'tecnico', label: 'Técnico/a de campo', rank: 40, permissions: ['proyectos:read', 'mantenimiento:read', 'inventario:read'] },
+    { key: 'hse', label: 'Supervisor/a HSE', rank: 50, permissions: ['riesgos:read', 'riesgos:write', 'hseq:read', 'hseq:write'] },
+  ],
+  'ecommerce': [
+    { key: 'gestor', label: 'Gestor/a de tienda', rank: 30, permissions: ['tienda:read', 'tienda:write', 'ecommerce:read', 'ecommerce:write', 'catalogos:read', 'catalogos:write', 'inventario:read'] },
+    { key: 'atencion', label: 'Atención al cliente', rank: 40, permissions: ['clientes:read', 'clientes:write', 'tickets:read', 'tickets:write', 'ecommerce:read'] },
+    { key: 'despacho', label: 'Despacho', rank: 50, permissions: ['inventario:read', 'ecommerce:read', 'facturacion:read'] },
+  ],
+  'tecnologia': [
+    { key: 'ingeniero', label: 'Ingeniero/a', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'clientes:read', 'tickets:read', 'tickets:write'] },
+    { key: 'soporte', label: 'Soporte', rank: 40, permissions: ['tickets:read', 'tickets:write', 'proyectos:read'] },
+    { key: 'gerente', label: 'Gerente/a', rank: 50, permissions: ['clientes:read', 'clientes:write', 'facturacion:read', 'desempeno:read', 'contratos:read'] },
+  ],
+  'financiero': [
+    { key: 'asesor', label: 'Asesor/a', rank: 30, permissions: ['clientes:read', 'clientes:write', 'cotizaciones:read', 'cotizaciones:write', 'contratos:read'] },
+    { key: 'riesgos', label: 'Analista de riesgos', rank: 40, permissions: ['riesgos:read', 'riesgos:write', 'trazabilidad:read'] },
+    { key: 'cobranza', label: 'Cobranza', rank: 50, permissions: ['facturacion:read', 'facturacion:write', 'clientes:read'] },
+  ],
+  'mineria': [
+    { key: 'ingeniero', label: 'Ingeniero/a de mina', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'riesgos:read', 'hseq:read'] },
+    { key: 'hse', label: 'Supervisor/a HSE', rank: 40, permissions: ['riesgos:read', 'riesgos:write', 'hseq:read', 'hseq:write', 'trazabilidad:read'] },
+    { key: 'almacenista', label: 'Almacenista', rank: 50, permissions: ['inventario:read', 'inventario:write', 'compras:read', 'flota:read'] },
+  ],
+  'telecomunicaciones': [
+    { key: 'instalador', label: 'Técnico/a instalador/a', rank: 30, permissions: ['proyectos:read', 'tickets:read', 'tickets:write', 'inventario:read'] },
+    { key: 'noc', label: 'Soporte de red', rank: 40, permissions: ['tickets:read', 'tickets:write', 'clientes:read', 'mantenimiento:read'] },
+    { key: 'comercial', label: 'Comercial', rank: 50, permissions: ['clientes:read', 'clientes:write', 'facturacion:read', 'contratos:read'] },
+  ],
+  'seguridad': [
+    { key: 'supervisor', label: 'Supervisor/a de puesto', rank: 30, permissions: ['asistencia:read', 'asistencia:write', 'riesgos:read', 'hseq:read', 'trazabilidad:read'] },
+    { key: 'guarda', label: 'Guarda', rank: 40, permissions: ['asistencia:read', 'calendario:read'] },
+    { key: 'comercial', label: 'Comercial', rank: 50, permissions: ['clientes:read', 'clientes:write', 'contratos:read', 'contratos:write', 'facturacion:read'] },
+  ],
+  'medios': [
+    { key: 'creativo', label: 'Creativo/a', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'clientes:read', 'documentos:read'] },
+    { key: 'productor', label: 'Productor/a', rank: 40, permissions: ['proyectos:read', 'proyectos:write', 'inventario:read', 'calendario:read', 'calendario:write'] },
+    { key: 'comercial', label: 'Comercial', rank: 50, permissions: ['clientes:read', 'clientes:write', 'cotizaciones:read', 'cotizaciones:write', 'facturacion:read'] },
+  ],
+  'ong': [
+    { key: 'coordinador', label: 'Coordinador/a de proyectos', rank: 30, permissions: ['proyectos:read', 'proyectos:write', 'capacitacion:read', 'trazabilidad:read'] },
+    { key: 'voluntariado', label: 'Voluntariado', rank: 40, permissions: ['asistencia:read', 'calendario:read', 'canales:read'] },
+    { key: 'finanzas', label: 'Finanzas', rank: 50, permissions: ['clientes:read', 'firmas:read', 'trazabilidad:read'] },
+  ],
+  'gobierno': [
+    { key: 'contratista', label: 'Contratista', rank: 30, permissions: ['contratos:read', 'contratos:write', 'proyectos:read', 'proyectos:write', 'trazabilidad:read'] },
+    { key: 'juridico', label: 'Jurídico/a', rank: 40, permissions: ['contratos:read', 'firmas:read', 'firmas:write', 'documentos:read', 'documentos:write'] },
+    { key: 'supervision', label: 'Supervisión', rank: 50, permissions: ['proyectos:read', 'hseq:read', 'riesgos:read', 'trazabilidad:read'] },
+  ],
 }

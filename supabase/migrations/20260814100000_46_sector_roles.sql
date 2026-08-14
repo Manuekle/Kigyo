@@ -317,6 +317,53 @@ insert into public.sector_roles (sector_key, role_key, label, rank, permissions)
   ('educacion-universidad', 'admisiones', 'Admisiones', 50, array['estudiantes:read','estudiantes:write','clientes:read','clientes:write','facturacion:read','reclutamiento:read','trazabilidad:read'])
 ;
 
+-- ─── Sectores sin subsectores: matriz a nivel de sector ────────────────────
+-- La búsqueda del seed cae del subsector al sector, así que estas filas
+-- cubren también a una empresa del sector que no eligió subsector.
+
+insert into public.sector_roles (sector_key, role_key, label, rank, permissions) values
+
+  ('energia', 'ingeniero', 'Ingeniero/a de proyecto', 30, array['proyectos:read','proyectos:write','catalogos:read','cotizaciones:read']),
+  ('energia', 'tecnico', 'Técnico/a de campo', 40, array['proyectos:read','mantenimiento:read','inventario:read']),
+  ('energia', 'hse', 'Supervisor/a HSE', 50, array['riesgos:read','riesgos:write','hseq:read','hseq:write']),
+
+  ('ecommerce', 'gestor', 'Gestor/a de tienda', 30, array['tienda:read','tienda:write','ecommerce:read','ecommerce:write','catalogos:read','catalogos:write','inventario:read']),
+  ('ecommerce', 'atencion', 'Atención al cliente', 40, array['clientes:read','clientes:write','tickets:read','tickets:write','ecommerce:read']),
+  ('ecommerce', 'despacho', 'Despacho', 50, array['inventario:read','ecommerce:read','facturacion:read']),
+
+  ('tecnologia', 'ingeniero', 'Ingeniero/a', 30, array['proyectos:read','proyectos:write','clientes:read','tickets:read','tickets:write']),
+  ('tecnologia', 'soporte', 'Soporte', 40, array['tickets:read','tickets:write','proyectos:read']),
+  ('tecnologia', 'gerente', 'Gerente/a', 50, array['clientes:read','clientes:write','facturacion:read','desempeno:read','contratos:read']),
+
+  ('financiero', 'asesor', 'Asesor/a', 30, array['clientes:read','clientes:write','cotizaciones:read','cotizaciones:write','contratos:read']),
+  ('financiero', 'riesgos', 'Analista de riesgos', 40, array['riesgos:read','riesgos:write','trazabilidad:read']),
+  ('financiero', 'cobranza', 'Cobranza', 50, array['facturacion:read','facturacion:write','clientes:read']),
+
+  ('mineria', 'ingeniero', 'Ingeniero/a de mina', 30, array['proyectos:read','proyectos:write','riesgos:read','hseq:read']),
+  ('mineria', 'hse', 'Supervisor/a HSE', 40, array['riesgos:read','riesgos:write','hseq:read','hseq:write','trazabilidad:read']),
+  ('mineria', 'almacenista', 'Almacenista', 50, array['inventario:read','inventario:write','compras:read','flota:read']),
+
+  ('telecomunicaciones', 'instalador', 'Técnico/a instalador/a', 30, array['proyectos:read','tickets:read','tickets:write','inventario:read']),
+  ('telecomunicaciones', 'noc', 'Soporte de red', 40, array['tickets:read','tickets:write','clientes:read','mantenimiento:read']),
+  ('telecomunicaciones', 'comercial', 'Comercial', 50, array['clientes:read','clientes:write','facturacion:read','contratos:read']),
+
+  ('seguridad', 'supervisor', 'Supervisor/a de puesto', 30, array['asistencia:read','asistencia:write','riesgos:read','hseq:read','trazabilidad:read']),
+  ('seguridad', 'guarda', 'Guarda', 40, array['asistencia:read','calendario:read']),
+  ('seguridad', 'comercial', 'Comercial', 50, array['clientes:read','clientes:write','contratos:read','contratos:write','facturacion:read']),
+
+  ('medios', 'creativo', 'Creativo/a', 30, array['proyectos:read','proyectos:write','clientes:read','documentos:read']),
+  ('medios', 'productor', 'Productor/a', 40, array['proyectos:read','proyectos:write','inventario:read','calendario:read','calendario:write']),
+  ('medios', 'comercial', 'Comercial', 50, array['clientes:read','clientes:write','cotizaciones:read','cotizaciones:write','facturacion:read']),
+
+  ('ong', 'coordinador', 'Coordinador/a de proyectos', 30, array['proyectos:read','proyectos:write','capacitacion:read','trazabilidad:read']),
+  ('ong', 'voluntariado', 'Voluntariado', 40, array['asistencia:read','calendario:read','canales:read']),
+  ('ong', 'finanzas', 'Finanzas', 50, array['clientes:read','firmas:read','trazabilidad:read']),
+
+  ('gobierno', 'contratista', 'Contratista', 30, array['contratos:read','contratos:write','proyectos:read','proyectos:write','trazabilidad:read']),
+  ('gobierno', 'juridico', 'Jurídico/a', 40, array['contratos:read','firmas:read','firmas:write','documentos:read','documentos:write']),
+  ('gobierno', 'supervision', 'Supervisión', 50, array['proyectos:read','hseq:read','riesgos:read','trazabilidad:read'])
+;
+
 -- ─── Seed: los sugeridos llegan con la empresa ──────────────────────────────
 
 /**
