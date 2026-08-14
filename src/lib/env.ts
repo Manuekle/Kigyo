@@ -173,4 +173,18 @@ export function demoAccount(): DemoEnv | null {
   return cachedDemo
 }
 
+/**
+ * The secret the billing webhook verifies signatures against.
+ *
+ * Null when unset, and the route answers 503 rather than accepting anything —
+ * an endpoint that changes subscriptions must refuse to run without a way to
+ * tell a real caller from any caller. Not part of `serverSchema` because no
+ * deployment needs it until billing is switched on, and a required key nobody
+ * has yet would break every environment for a feature none of them use.
+ */
+export function billingWebhookSecret(): string | null {
+  const value = process.env.BILLING_WEBHOOK_SECRET
+  return typeof value === 'string' && value.trim().length >= 16 ? value : null
+}
+
 export const isProduction = process.env.NODE_ENV === 'production'
