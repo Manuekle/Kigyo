@@ -472,6 +472,106 @@
   margin-top: 1px;
 }
 
+/* ═══ company switcher ═══
+   Which company you are working in. Renders only for people who belong to
+   more than one, so it must not reserve space in the common case — there is
+   no min-height and no placeholder here on purpose. */
+.cswitch {
+  position: relative;
+  margin: 0 12px 8px;
+}
+.cswitch-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  background: var(--line2);
+  border: 1px solid transparent;
+  font-size: 12.5px;
+  font-weight: 450;
+  color: var(--ink);
+  text-align: left;
+  transition:
+    background var(--hover-dur) var(--hover-ease),
+    border-color var(--hover-dur) var(--hover-ease);
+}
+.cswitch-trigger:hover { border-color: var(--line); }
+.cswitch-trigger:disabled { opacity: .6; cursor: progress; }
+.cswitch-trigger svg { color: var(--ink3); flex-shrink: 0; }
+.cswitch-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cswitch-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--elevated);
+  border-radius: var(--r-lg);
+  box-shadow: var(--e4);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  z-index: 80;
+  padding: 6px;
+  /* Long lists of companies scroll rather than running off the sidebar. */
+  max-height: 320px;
+  overflow-y: auto;
+}
+.cswitch-menu.t-dropdown { transform-origin: top center; }
+.cswitch-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  text-align: left;
+  color: var(--ink2);
+  transition: background var(--hover-dur) var(--hover-ease), color var(--hover-dur) var(--hover-ease);
+}
+.cswitch-item:hover { background: var(--line2); color: var(--ink); }
+.cswitch-item.on { color: var(--ink); }
+.cswitch-item svg { color: var(--ink); flex-shrink: 0; }
+.cswitch-item-text { flex: 1; min-width: 0; }
+.cswitch-item-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 450;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cswitch-div {
+  height: 1px;
+  background: var(--line);
+  margin: 6px 4px;
+}
+/* Heading over each account's companies. Only rendered when the person's
+   companies span more than one group — see hasMultipleAccounts. */
+.cswitch-group {
+  padding: 8px 10px 3px;
+  font-size: 10.5px;
+  font-weight: 560;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink3);
+}
+.cswitch-item-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--ink3);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .nav {
   padding: 8px 12px;
   overflow-y: auto;
@@ -480,11 +580,86 @@
   -ms-overflow-style: none;
 }
 .nav::-webkit-scrollbar { display: none; }
+
+/* The filter over the nav. Sits between the company switcher and the list so
+   it reads as a control on the list, not as a global search — it never leaves
+   the sidebar. */
+.nav-find {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 12px 0;
+  padding: 0 10px;
+  border-radius: var(--rfull);
+  background: var(--bg2);
+  color: var(--ink3);
+  transition: var(--t-state);
+}
+.nav-find:focus-within { box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / .18); }
+.nav-find svg { flex-shrink: 0; opacity: .5; }
+.nav-find-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  padding: 8px 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.nav-find-input::placeholder { color: var(--ink3); }
+/* Safari draws its own clear affordance on type="search" and it collides with
+   the rounded shell. */
+.nav-find-input::-webkit-search-decoration,
+.nav-find-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
 .nlabel {
   font-size: 11px;
   font-weight: 400;
   color: var(--ink3);
   padding: 20px 8px 6px;
+}
+/* The heading is a button now, so it has to keep looking like a heading: same
+   size, same colour, same padding, with the chevron as the only tell. */
+.nlabel-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  transition: color var(--hover-dur) var(--hover-ease);
+}
+.nlabel-btn:hover { color: var(--ink2); }
+.nlabel-chev {
+  flex-shrink: 0;
+  opacity: .6;
+  transform: rotate(90deg);
+  transition: transform var(--acc-chevron) var(--acc-ease);
+}
+.nlabel-btn.is-shut .nlabel-chev { transform: none; }
+/* How many items are folded away. Only rendered while shut — see Sidebar. */
+.nlabel-count {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink3);
+  opacity: .7;
+}
+
+/* A second screen of the module above it — Órdenes de compra under Compras.
+   Indented to the parent's label rather than to its icon, so the relationship
+   reads without a connector line. */
+.nitem-sub {
+  padding-left: 34px;
+  font-size: 12.5px;
+}
+
+.nav-empty {
+  padding: 18px 10px;
+  font-size: 12.5px;
+  color: var(--ink3);
+  line-height: 1.5;
 }
 .nitem {
   width: 100%;
@@ -930,6 +1105,19 @@ button.notifitem:hover { background: var(--hover); cursor: pointer; }
   -ms-overflow-style: none;
 }
 .content::-webkit-scrollbar { display: none; }
+
+/* Read-only company. Amber rather than red: nothing is broken and nothing is
+   lost — the data is all there and writes come back with the plan. Red would
+   read as an outage and send people to support. */
+.suspend-banner {
+  padding: 10px 32px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: color-mix(in oklch, var(--warn, #f0bd5a) 16%, var(--bg));
+  border-bottom: 1px solid color-mix(in oklch, var(--warn, #f0bd5a) 34%, transparent);
+}
+.suspend-banner strong { font-weight: 560; }
 .content-full { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
 
 .previewbar {
@@ -3669,6 +3857,24 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 .mod-type-name { font-size: 13px; color: var(--ink); }
 .mod-type-desc { font-size: 11.5px; color: var(--ink3); line-height: 1.45; }
 
+/* The sector, once it has settled.
+   Deliberately not styled as a warning: nothing has gone wrong, and a red panel
+   over "your clinic is a clinic" would read as an error the customer has to
+   fix. It is a statement of fact with the way out named inside it. */
+.mod-sector-locked {
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  max-width: 620px;
+  border-radius: var(--r2);
+  background: var(--bg2);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / .1);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink3);
+}
+.mod-sector-locked strong { color: var(--ink); font-weight: 500; }
+.mod-sector-locked a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+
 .mod-summary {
   display: flex;
   align-items: center;
@@ -3813,29 +4019,175 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 }
 .mod-upgrade { height: 28px; padding: 0 12px; font-size: 12px; flex-shrink: 0; }
 
+/* ═══ first run ═══
+   Shown only while the account is empty, in place of a dashboard of zeros. It
+   carries the weight of a card because it is the only thing on the page worth
+   reading, and it disappears on its own — so it never has to earn its space
+   twice. */
+.fr-panel {
+  border: 1px solid var(--line2);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  padding: 20px 20px 18px;
+  margin-bottom: 16px;
+}
+.fr-head { margin-bottom: 16px; }
+.fr-title { font-size: 17px; font-weight: 500; color: var(--ink); margin: 0 0 4px; }
+.fr-sub { font-size: 13px; color: var(--ink3); margin: 0; line-height: 1.55; }
+.fr-sub b { font-weight: 500; color: var(--ink2); }
+
+.fr-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fr-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  background: var(--bg);
+}
+.fr-step-ico {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgb(var(--ink-rgb) / .06);
+  color: var(--ink2);
+}
+.fr-step-body { flex: 1; min-width: 0; }
+.fr-step-name { font-size: 13px; color: var(--ink); }
+.fr-step-desc { font-size: 12px; color: var(--ink3); margin: 2px 0 0; line-height: 1.5; }
+.fr-step-go { flex-shrink: 0; height: 30px; padding: 0 12px; font-size: 12.5px; }
+
+/* The plan limit, stated on the same surface as the steps rather than as a
+   banner shouting over them: it is context, not an interruption. */
+.fr-locked {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line2);
+}
+.fr-locked-ico { color: var(--ink3); display: grid; place-items: center; flex-shrink: 0; }
+.fr-locked p { flex: 1; min-width: 220px; margin: 0; font-size: 12.5px; color: var(--ink3); line-height: 1.5; }
+.fr-locked p b { font-weight: 500; color: var(--ink2); }
+.fr-locked-go { flex-shrink: 0; height: 30px; padding: 0 12px; font-size: 12.5px; }
+
+@media (max-width: 640px) {
+  .fr-step { flex-wrap: wrap; }
+  .fr-step-go { width: 100%; justify-content: center; }
+}
+
+/* What the sector you just picked actually switches on. Sits inside the signup
+   field group, directly under the select it explains. */
+.reg-sector-preview {
+  margin: -2px 0 2px;
+  padding: 11px 13px;
+  border-radius: var(--r-sm);
+  background: rgb(var(--ink-rgb) / .04);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink2);
+  text-align: left;
+}
+.reg-sector-preview p { margin: 0; }
+.reg-sector-preview p + p { margin-top: 5px; }
+.reg-sector-preview b { font-weight: 500; color: var(--ink); }
+/* The honest half: named, not hidden, and not dressed up as an error either —
+   it is a fact about the plan, and the upgrade path is one screen away. */
+.reg-sector-locked { color: var(--ink3); }
+.reg-sector-note { color: var(--ink3); font-size: 11.5px; }
+
+/* Save pill for the module list. Sticks to the bottom of the scroll area so
+   the commit is never thirty-five rows away from the switch that needs it.
+   Compact and centred: a small pill that hugs its content instead of a full
+   width bar. */
+.mod-save {
+  position: sticky;
+  bottom: 8px;
+  z-index: 5;
+  width: fit-content;
+  margin: 20px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 7px 5px 14px;
+  border-radius: var(--rfull);
+  background: var(--panel);
+  border: 1px solid var(--line2);
+  box-shadow: var(--e1);
+}
+.mod-save .btn { height: 30px; padding: 0 14px; font-size: 12.5px; }
+.mod-save-state { font-size: 12px; color: var(--ink3); }
+/* Unsaved work earns the emphasis; a settled pill stays quiet. */
+.mod-save[data-dirty] { border-color: var(--line); }
+.mod-save[data-dirty] .mod-save-state { color: var(--ink2); }
+
 /* ═══ permission matrix ═══ */
 /* Modules down the side, roles across the top. Narrow viewports scroll the
    grid horizontally rather than crushing the columns, so the switches stay
    the same size everywhere. */
-.permwrap { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
-.permwrap::-webkit-scrollbar { display: none; }
-.permmatrix {
-  display: grid;
-  grid-template-columns: minmax(150px, 1fr) repeat(3, 116px);
-  align-items: center;
-  min-width: 470px;
+/* The matrix scrolls inside itself rather than inside the page.
+
+   It has to. The header is the only thing that says which column is which
+   role, and with 39 modules the page scrolled it out of view after three
+   rows — leaving an administrator assigning access to payroll and to clinical
+   records against unlabelled columns. Page-level `position: sticky` cannot fix
+   that here: the horizontal scroll this grid needs makes `.permwrap` a scroll
+   container on both axes, so a sticky child anchors to it and not to the
+   viewport. Giving the container a height is what turns that from an obstacle
+   into the fix — the header sticks to the top of the box, the module names
+   stick to its left, and both axes stay labelled at all times.
+
+   The cap also stops the tab being one 3000px scroll: the roster and the
+   invitations below it are now reachable without passing 117 switches. */
+.permwrap {
+  overflow: auto;
+  max-height: min(66vh, 640px);
   border: 1px solid var(--line2);
   border-radius: var(--r);
   background: var(--bg);
-  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* Anchor the sticky offsets to the padding box, so a sticky cell never
+     leaves a sliver of a scrolled row visible above or beside it. */
+  overscroll-behavior: contain;
 }
+.permwrap::-webkit-scrollbar { display: none; }
+/* One column per role, and the count is the organization's to decide since
+   roles became tenant rows — so it arrives as `--perm-cols` on the element
+   rather than being baked in at three. The fallback keeps the grid legible if
+   the variable is ever missing. */
+.permmatrix {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) repeat(var(--perm-cols, 3), 116px);
+  align-items: center;
+  min-width: calc(150px + var(--perm-cols, 3) * 116px);
+}
+/* ─── sticky scaffolding ───
+   Three overlapping planes, so the pieces cover each other in the right order
+   as the grid moves under them: the corner (both axes) sits above the header
+   row (top only), which sits above the label column (left only), which sits
+   above the cells. Every sticky cell needs an opaque background of its own —
+   the grid scrolls *underneath* it, and a transparent one would show the rows
+   passing through the header. */
 .permcorner {
   font-size: 10.5px;
   letter-spacing: .04em;
   text-transform: uppercase;
   color: var(--ink3);
   padding: 12px 14px;
-  align-self: end;
+  align-self: stretch;
+  display: flex;
+  align-items: flex-end;
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  background: var(--bg);
 }
 .permrole {
   display: flex;
@@ -3844,7 +4196,14 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   gap: 2px;
   padding: 12px 8px;
   text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg);
 }
+/* One shared hairline under the whole header, drawn by the header itself so it
+   travels with it instead of belonging to the first row that scrolls away. */
+.permcorner, .permrole { box-shadow: 0 1px 0 var(--line2); }
 .permrole-ico {
   width: 28px;
   height: 28px;
@@ -3859,7 +4218,10 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 .permrole-ico.is-lead { background: rgba(245, 158, 11, .12); color: #f59e0b; }
 .permrole-name { font-size: 12px; font-weight: 400; color: var(--ink); }
 .permrole-sub { font-size: 10px; color: var(--ink3); }
-/* Module heading spans the full row and re-opens the list below it. */
+/* Module heading spans the full row and re-opens the list below it. Because it
+   spans every column it cannot itself be sticky-left — a full-width box has
+   nowhere to stick — so the text inside it is, which keeps «PACIENTES» on
+   screen while the switches scroll sideways under its banner. */
 .permmodule {
   grid-column: 1 / -1;
   font-size: 10.5px;
@@ -3869,10 +4231,30 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   color: var(--ink3);
   padding: 12px 14px 6px;
   border-top: 1px solid var(--line2);
-  background: rgb(var(--ink-rgb) / .02);
+  background: var(--bg);
 }
-.permlabel { font-size: 12.5px; font-weight: 400; color: var(--ink2); padding: 7px 14px; }
+.permmodule > span { position: sticky; left: 14px; }
+.permlabel {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--ink2);
+  padding: 7px 14px;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg);
+}
 .permcell { display: grid; place-items: center; padding: 7px 0; }
+
+/* No results for the filter. Spans the grid so it reads as the body of the
+   table rather than a stray line under it. */
+.permempty {
+  grid-column: 1 / -1;
+  padding: 28px 14px;
+  font-size: 13px;
+  color: var(--ink3);
+  text-align: center;
+}
 
 .prow { display: flex; align-items: center; gap: 11px; padding: 9px 0; }
 .prole {
@@ -4068,55 +4450,6 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 .upfill { height: 100%; border-radius: var(--rfull); background: var(--ink2); transition: width var(--meter-dur) var(--hover-ease); }
 .upfoot { display: flex; justify-content: flex-end; margin-top: 7px; }
 .uppct { font-size: 11px; color: var(--ink3); font-weight: 400; }
-
-/* ═══ switch ═══ */
-/* Transitions.dev toggle, bound to this switch's own dimensions. The thumb
-   travels with a double bounce (overshoot past the end, swing back, settle)
-   while the track colour cross-fades on its own clock. */
-.sw {
-  /* 44 track − 20 thumb − 2×2 inset. The catalog's tokens are tuned to its own
-     14.66px travel, so both the travel and the overshoot that is proportional
-     to it are restated here. */
-  --toggle-travel: 20px;
-  --toggle-ov1: 1.36px;
-  width: 44px;
-  height: 24px;
-  border-radius: var(--rfull);
-  background: rgb(var(--ink-rgb) / .08);
-  position: relative;
-  transition:
-    background var(--toggle-track) var(--toggle-ease),
-    box-shadow 180ms ease-out,
-    opacity 180ms ease-out;
-  flex-shrink: 0;
-  cursor: pointer;
-  border: none;
-}
-.sw::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--ink);
-  translate: 0 0;
-  will-change: translate;
-  transition: background-color 180ms ease-out, translate var(--toggle-dur) var(--toggle-ease);
-}
-.sw.on { background: rgb(var(--ink-rgb) / .20); }
-.sw.on::after { translate: var(--toggle-travel) 0; }
-/* The overshoot only belongs on a flip the user made: a page that mounts with
-   the switch already on would otherwise spring on first paint. */
-.sw.is-init.on::after { animation: t-toggle-on var(--toggle-dur) var(--toggle-ease) both; }
-.sw.is-init:not(.on)::after { animation: t-toggle-off var(--toggle-dur) var(--toggle-ease) both; }
-@media (prefers-reduced-motion: reduce) { .sw::after { animation: none !important; transition: none !important; } }
-.sw:disabled { opacity: .25; cursor: default; }
-/* Dense rows (the permission matrix) get a genuinely smaller track rather than
-   a `scale()` on the full-size one, which softened the thumb's edge. */
-.sw.sm { --toggle-travel: 16px; --toggle-ov1: 1.09px; width: 36px; height: 20px; }
-.sw.sm::after { width: 16px; height: 16px; }
 
 /* ═══ modals ═══ */
 .mwrap {
@@ -6734,24 +7067,57 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 @media (prefers-reduced-motion: reduce) { .t-reel-strip { transition: none !important; filter: none !important; } }
 
 /* ─── Toggle ─── */
-.t-toggle { transition: background var(--toggle-track) var(--toggle-ease); }
-.t-toggle-thumb { translate: 0 0; will-change: translate; }
-.t-toggle[data-on="true"] .t-toggle-thumb { translate: var(--toggle-travel) 0; }
-.t-toggle.is-init[data-on="true"] .t-toggle-thumb { animation: t-toggle-on var(--toggle-dur) var(--toggle-ease) both; }
-.t-toggle.is-init[data-on="false"] .t-toggle-thumb { animation: t-toggle-off var(--toggle-dur) var(--toggle-ease) both; }
-@keyframes t-toggle-on {
-  0% { translate: 0 0; }
-  55% { translate: calc(var(--toggle-travel) + var(--toggle-ov1)) 0; }
-  80% { translate: calc(var(--toggle-travel) - var(--toggle-ov2)) 0; }
-  100% { translate: var(--toggle-travel) 0; }
+/* Single app-wide switch: flat 44×22 pill, white pill thumb on a grey/blue
+   track, 200ms ease-in-out travel. No bounce, no decoration.
+   OFF follows the theme — dark keeps a readable grey chip, light uses the
+   reference rgba(0,0,0,.12) — ON is the one blue the app allows, pinned in
+   both themes. */
+.t-toggle {
+  position: relative;
+  width: 44px;
+  height: 22px;
+  border: 0;
+  padding: 0;
+  border-radius: 122px;
+  background: rgb(var(--ink-rgb) / .18);
+  flex-shrink: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  scroll-margin-block: 24px;
+  transition: background-color 200ms ease-in-out;
 }
-@keyframes t-toggle-off {
-  0% { translate: var(--toggle-travel) 0; }
-  55% { translate: calc(0px - var(--toggle-ov1)) 0; }
-  80% { translate: var(--toggle-ov2) 0; }
-  100% { translate: 0 0; }
+:root[data-theme="light"] .t-toggle { background: rgba(0, 0, 0, 0.12); }
+/* Light override beats the base [data-on="true"] rule on specificity, so the
+   ON state has to be re-pinned or a selected switch stays grey until hover. */
+:root[data-theme="light"] .t-toggle[data-on="true"] { background: #3A71EA; }
+.t-toggle-thumb {
+  position: absolute;
+  left: 3.67px;
+  top: 3.67px;
+  width: 22px;
+  height: 14.67px;
+  border-radius: 122px;
+  background: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05), 0 4px 42px rgba(0, 0, 0, 0.06);
+  /* `transform`, not the `translate` property: the individual transform
+     property is known to make Chromium jump the scroll position when the
+     element sits inside a scroll container and gets focused by a click. */
+  transform: translateX(0);
+  transition: transform 200ms ease-in-out;
 }
-@media (prefers-reduced-motion: reduce) { .t-toggle-thumb { animation: none !important; } }
+.t-toggle[data-on="true"] { background: #3A71EA; }
+.t-toggle[data-on="true"] .t-toggle-thumb { transform: translateX(14.67px); }
+.t-toggle:hover:not([data-on="true"]):not(:disabled) { background-color: rgb(var(--ink-rgb) / .26); }
+:root[data-theme="light"] .t-toggle:hover:not([data-on="true"]):not(:disabled) { background-color: rgba(0, 0, 0, 0.2); }
+.t-toggle:hover[data-on="true"]:not(:disabled) { background-color: #5886F0; }
+:root[data-theme="light"] .t-toggle:hover[data-on="true"]:not(:disabled) { background-color: #3160C7; }
+.t-toggle:focus-visible { outline: 2px solid #3A71EA; outline-offset: 3px; }
+.t-toggle:disabled { opacity: .25; cursor: default; }
+@media (prefers-reduced-motion: reduce) {
+  .t-toggle, .t-toggle-thumb { transition: none !important; }
+}
 
 /* ─── Paged list footer ─── */
 .loadmore {
@@ -6762,3 +7128,319 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   padding: 14px 20px 20px;
 }
 .loadmore-count { font-size: 12.5px; color: var(--ink3); margin: 0; }
+
+/* ═══ onboarding wizard ═══
+   Its own screen, outside the dashboard shell: no sidebar, no topbar. Centred
+   and capped, because a form of five fields stretched across a 27" display is
+   a form nobody reads. */
+.onb {
+  /* `body.nrh` is `display: flex` — it is the dashboard shell, sidebar beside
+     main — so this is a flex *item*, and a flex item sizes to its content.
+     Without a width it shrank to the card and sat against the left edge, with
+     `justify-content: center` centring 560px inside 560px. */
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* And `body.nrh` is `overflow: hidden`, so anything taller than the viewport
+     is not scrolled — it is cut off and unreachable. The Módulos step lists
+     seventeen toggles for a clinic; the last of them were simply gone. Same
+     trap `.auth-shell` documents for the register form. */
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* `safe` keeps a card taller than the viewport from being centred *past* the
+     top edge, where the overflow is unreachable in the other direction.
+     Ignored by browsers that do not know it, which then get plain centring. */
+  align-items: safe center;
+  padding: 32px 20px;
+  background: var(--bg);
+}
+.onb-card {
+  width: 100%;
+  max-width: 560px;
+  background: var(--elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--e4);
+  padding: 28px;
+}
+.onb-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.onb-head svg { color: var(--ink3); flex-shrink: 0; margin-top: 3px; }
+.onb-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+.onb-sub { font-size: 13px; color: var(--ink3); margin-top: 4px; }
+
+.onb-steps {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 0 0 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--ink3);
+  list-style: none;
+}
+.onb-steps li { display: flex; align-items: center; gap: 7px; }
+.onb-steps li.on { color: var(--ink); font-weight: 450; }
+.onb-steps li.done { color: var(--ink2); }
+.onb-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--rfull);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  background: var(--line2);
+  color: inherit;
+}
+.onb-steps li.on .onb-dot { background: var(--ink); color: var(--bg); }
+
+.onb-body { display: flex; flex-direction: column; }
+.onb-note { font-size: 12.5px; color: var(--ink3); margin-top: 10px; line-height: 1.5; }
+.onb-error {
+  font-size: 13px;
+  color: var(--redd);
+  background: var(--red-bg);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.onb-group { margin-top: 14px; }
+.onb-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink3);
+  margin-bottom: 6px;
+}
+.onb-module {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line2);
+}
+.onb-module:last-child { border-bottom: none; }
+.onb-module-name { font-size: 13.5px; color: var(--ink); }
+.onb-module-desc { font-size: 11.5px; color: var(--ink3); margin-top: 2px; line-height: 1.45; }
+
+.onb-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 560px) {
+  .onb { padding: 0; align-items: flex-start; }
+  .onb-card { border: none; border-radius: 0; box-shadow: none; min-height: 100dvh; padding: 22px 18px 32px; }
+}
+
+/* ─── Caja ───────────────────────────────────────────────────────────────
+   El desglose del turno. Se muestra entero y no solo el total porque la
+   pregunta que alguien trae a esta pantalla nunca es «cuánto debería haber»
+   sino «por qué es ese número». */
+.caja-breakdown {
+  max-width: 380px;
+  border-radius: var(--r2);
+  background: var(--bg2);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / .08);
+  padding: 4px 14px;
+  margin-bottom: 14px;
+}
+.caja-breakdown > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  font-size: 12.5px;
+  color: var(--ink3);
+}
+.caja-breakdown > div + div { border-top: 1px solid rgb(var(--ink-rgb) / .06); }
+.caja-breakdown b { font-weight: 400; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.caja-total { font-size: 13px !important; color: var(--ink) !important; }
+.caja-total b { font-size: 15px; color: var(--ink) !important; }
+
+/* ─── Punto de venta ─────────────────────────────────────────────────────
+   Rejilla de productos a la izquierda, venta a la derecha. Se apila por
+   debajo de 900px: el carrito debajo de la rejilla sigue siendo usable, dos
+   columnas de 300px no. */
+.pos-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  padding: 16px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .pos-layout { grid-template-columns: 1fr; }
+}
+.pos-grid-side { min-width: 0; }
+.pos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+/* Botón grande y con precio visible: se toca con el dedo, muchas veces
+   seguidas, mirando al cliente y no a la pantalla. */
+.pos-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 12px;
+  min-height: 84px;
+  border-radius: var(--r2);
+  background: var(--bg2);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / .08);
+  transition: var(--t-state);
+}
+.pos-tile:hover:not(:disabled) {
+  background: var(--hover);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / .18);
+}
+.pos-tile:disabled { opacity: .45; cursor: default; }
+.pos-tile-name { font-size: 12.5px; color: var(--ink); line-height: 1.3; }
+.pos-tile-price { font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.pos-tile-stock { font-size: 11px; color: var(--ink3); margin-top: auto; }
+
+.pos-cart {
+  border-radius: var(--r2);
+  background: var(--bg2);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / .08);
+  padding: 14px;
+  position: sticky;
+  top: 16px;
+}
+.pos-cart-head { font-size: 13px; color: var(--ink); margin-bottom: 10px; }
+.pos-lines { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
+.pos-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+.pos-line + .pos-line { border-top: 1px solid rgb(var(--ink-rgb) / .06); }
+.pos-line-name { font-size: 12.5px; color: var(--ink); }
+.pos-line-total { font-size: 12.5px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.pos-qty { width: 52px; text-align: center; padding: 6px 4px; font-size: 12.5px; }
+
+/* Sin turno abierto, una venta en efectivo no entra en ningún arqueo. Se dice
+   antes de cobrar, que es cuando todavía se puede hacer algo al respecto. */
+.pos-warn {
+  padding: 11px 14px;
+  margin-bottom: 16px;
+  border-radius: var(--r2);
+  background: var(--bg2);
+  box-shadow: inset 0 0 0 1px rgb(var(--ambd-rgb, var(--ink-rgb)) / .28);
+  font-size: 12.5px;
+  color: var(--ink2);
+}
+.pos-warn a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ─── Odontograma ────────────────────────────────────────────────────────
+   Dos arcos, cada uno partido por la línea media. Las piezas van en el orden
+   del papel (ver FDI_* en lib/domain.ts), así que aquí no se reordena nada:
+   solo se separan los cuadrantes y se marca el estado.
+
+   La superficie se queda monocroma como el resto de la aplicación y el color
+   va en una barra bajo el número, que es el mismo trato que hace `.badge` con
+   su punto. Pintar la casilla entera de rojo habría sido más parecido al papel
+   y también la única mancha de color saturado en todo el producto. */
+.odo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  padding: 16px 8px;
+  overflow-x: auto;
+}
+.odo-arch { display: flex; align-items: center; }
+.odo-quad { display: flex; gap: 3px; }
+/* La línea media. Es lo que hace legible el cuadro: sin ella las dieciséis
+   piezas del arco se leen como una fila y hay que contar para ubicar una. */
+.odo-mid {
+  width: 1px;
+  align-self: stretch;
+  margin: 0 8px;
+  background: rgb(var(--ink-rgb) / .18);
+}
+.odo-tooth {
+  position: relative;
+  width: 34px;
+  height: 40px;
+  border-radius: 7px;
+  background: var(--bg2);
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / .1);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink3);
+  overflow: hidden;
+  transition: var(--t-state);
+}
+.odo-tooth:not(:disabled):hover {
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / .3);
+  color: var(--ink);
+}
+.odo-tooth.is-sel { box-shadow: inset 0 0 0 2px var(--ink); color: var(--ink); }
+.odo-num { display: block; }
+/* Cuántas caras hay anotadas. La barra solo puede decir la más grave. */
+.odo-dots {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 9px;
+  opacity: .65;
+}
+/* La marca de estado. Mismos hexadecimales que los puntos de `.badge`, para
+   que «rojo» signifique lo mismo en las dos partes del producto. */
+.odo-bar {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+}
+.odo-tooth.t-red  { color: var(--ink2); }
+.odo-tooth.t-blu  { color: var(--ink2); }
+.odo-tooth.t-grn  { color: var(--ink2); }
+.odo-tooth.t-amb  { color: var(--ink2); }
+.odo-tooth.t-red .odo-bar { background: #e5484d; }
+.odo-tooth.t-amb .odo-bar { background: #f0bd5a; }
+.odo-tooth.t-grn .odo-bar { background: #3ed694; }
+.odo-tooth.t-blu .odo-bar { background: #3b82f6; }
+/* Ausente: ni barra ni peso. La pieza que no está tiene que verse como un
+   hueco, no como un estado más. */
+.odo-tooth.t-neu { opacity: .4; }
+.odo-tooth.t-neu .odo-bar { background: var(--ink3); }
+.odo-small .odo-tooth { width: 28px; height: 32px; font-size: 10px; }
+
+/* Leyenda: el cuadro no se puede leer sin saber qué significa cada color, y
+   obligar a pasar el cursor por cada pieza para averiguarlo es no decirlo. */
+.odo-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  padding: 0 8px 14px;
+  font-size: 11.5px;
+  color: var(--ink3);
+}
+.odo-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.odo-swatch { width: 10px; height: 4px; border-radius: 2px; display: inline-block; }
