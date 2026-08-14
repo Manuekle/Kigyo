@@ -270,3 +270,112 @@ export async function setAusenciaStatus(
     return fail('No tienes permiso para gestionar asistencia.')
   }
 }
+
+export type SalidaRow = {
+  id: string
+  fullName: string
+  department: string
+  reason: string
+  departedOn: string
+  employeeId: string | null
+}
+
+export type SalidaData = SalidaRow[]
+
+const salidaSchema = z.object({
+  fullName: z.string().trim().min(2, 'Escribe el nombre completo.'),
+  department: z.string().trim().default(''),
+  reason: z.enum([
+    'Renuncia voluntaria',
+    'Mutuo acuerdo',
+    'Vencimiento contrato',
+    'Terminación con justa causa',
+    'Otro',
+  ]),
+  departedOn: z.string().date(),
+  employeeId: z.uuid().nullable(),
+})
+
+async function getSalidas(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+): Promise<SalidaData> {
+  const { data } = await supabase
+    .from('departures')
+    .select('id, full_name, department, reason, departed_on, employee_id')
+    .eq('org_id', orgId)
+    .order('departed_on', { ascending: false })
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    fullName: row.full_name,
+    department: row.department,
+    reason: row.reason,
+    departedOn: row.departed_on,
+    employeeId: row.employee_id,
+  }))
+}
+
+export async function fetchSalidas(): Promise<AsistenciaResult<SalidaData>> {
+  try {
+    const member = await requirePermission('asistencia:read')
+    const supabase = await createClient()
+    return { ok: true, data: await getSalidas(supabase, member.orgId) }
+  } catch {
+    return fail('No tienes permiso para ver las salidas.')
+  }
+}
+
+export async function registrarSalida(
+  input: z.input<typeof salidaSchema>,
+): Promise<AsistenciaResult<SalidaData>> {
+  try {
+    const member = await requirePermission('asistencia:write')
+    const parsed = salidaSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('departures').insert({
+      org_id: member.orgId,
+      employee_id: parsed.data.employeeId,
+      full_name: parsed.data.fullName,
+      department: parsed.data.department,
+      reason: parsed.data.reason,
+      departed_on: parsed.data.departedOn,
+    })
+
+    if (error) {
+      console.error('[asistencia] registrarSalida', error)
+      return fail('No se pudo registrar la salida.')
+    }
+
+    revalidatePath('/dashboard/asistencia')
+    return { ok: true, data: await getSalidas(supabase, member.orgId) }
+  } catch {
+    return fail('No tienes permiso para gestionar asistencia.')
+  }
+}
+
+export async function deleteSalida(id: string): Promise<AsistenciaResult<SalidaData>> {
+  try {
+    const member = await requirePermission('asistencia:write')
+    if (!z.uuid().safeParse(id).success) return fail('Salida desconocida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('departures')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[asistencia] deleteSalida', error)
+      return fail('No se pudo eliminar la salida.')
+    }
+
+    revalidatePath('/dashboard/asistencia')
+    return { ok: true, data: await getSalidas(supabase, member.orgId) }
+  } catch {
+    return fail('No tienes permiso para gestionar asistencia.')
+  }
+}

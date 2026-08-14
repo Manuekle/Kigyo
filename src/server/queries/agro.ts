@@ -60,11 +60,33 @@ export interface HarvestRow {
   notes: string
 }
 
+export interface InsumoRow {
+  id: string
+  name: string
+  kind: string
+  stockQty: number
+  unit: string
+  supplier: string
+  unitCostCents: number
+}
+
+export interface MaquinaRow {
+  id: string
+  name: string
+  kind: string
+  serialNo: string
+  status: string
+  hoursUsed: number
+  notes: string
+}
+
 export interface AgroData {
   lotes: LotRow[]
   lotesTotal: number
   ciclos: CycleRow[]
   cosechas: HarvestRow[]
+  insumos: InsumoRow[]
+  maquinaria: MaquinaRow[]
   roster: RosterEntry[]
   canWrite: boolean
 }
@@ -107,9 +129,31 @@ interface HarvestRecord {
   notes: string
 }
 
+interface InsumoRecord {
+  id: string
+  name: string
+  kind: string
+  stock_qty: number
+  unit: string
+  supplier: string
+  unit_cost_cents: number
+}
+
+interface MaquinaRecord {
+  id: string
+  name: string
+  kind: string
+  serial_no: string
+  status: string
+  hours_used: number
+  notes: string
+}
+
 const LOT_COLUMNS = 'id, code, name, farm, hectares, soil_type, location, status, notes'
 const CYCLE_COLUMNS = `id, lot_id, crop, variety, status, hectares, sown_on, expected_harvest_on,
    expected_yield_kg, input_cost_cents, responsible_id, notes`
+const INSUMO_COLUMNS = 'id, name, kind, stock_qty, unit, supplier, unit_cost_cents'
+const MAQUINA_COLUMNS = 'id, name, kind, serial_no, status, hours_used, notes'
 
 /** Harvested kilos and revenue per cycle, in one pass. */
 function tally(rows: HarvestRecord[]) {
@@ -178,7 +222,7 @@ export async function getAgro(): Promise<AgroData> {
   const member = await requirePermission('agro:read')
   const supabase = await createClient()
 
-  const [lotsResult, cyclesResult, roster] = await Promise.all([
+  const [lotsResult, cyclesResult, inputsResult, machineryResult, roster] = await Promise.all([
     supabase
       .from('farm_lots')
       .select(LOT_COLUMNS, { count: 'exact' })
@@ -193,17 +237,42 @@ export async function getAgro(): Promise<AgroData> {
       .is('deleted_at', null)
       .order('sown_on', { ascending: false, nullsFirst: false })
       .limit(500),
+    supabase
+      .from('farm_inputs' as never)
+      .select(INSUMO_COLUMNS)
+      .eq('org_id', member.orgId)
+      .order('name', { ascending: true })
+      .limit(500),
+    supabase
+      .from('farm_machinery' as never)
+      .select(MAQUINA_COLUMNS)
+      .eq('org_id', member.orgId)
+      .order('name', { ascending: true })
+      .limit(500),
     rosterFor(supabase, member),
   ])
 
   if (lotsResult.error) {
     console.error('[agro] getAgro', lotsResult.error)
-    return { lotes: [], lotesTotal: 0, ciclos: [], cosechas: [], roster: [], canWrite: false }
+    return {
+      lotes: [],
+      lotesTotal: 0,
+      ciclos: [],
+      cosechas: [],
+      insumos: [],
+      maquinaria: [],
+      roster: [],
+      canWrite: false,
+    }
   }
   if (cyclesResult.error) console.error('[agro] cycles', cyclesResult.error)
+  if (inputsResult.error) console.error('[agro] inputs', inputsResult.error)
+  if (machineryResult.error) console.error('[agro] machinery', machineryResult.error)
 
   const lotRows = lotsResult.data as unknown as LotRecord[]
   const cycleRows = (cyclesResult.data ?? []) as unknown as CycleRecord[]
+  const insumoRows = (inputsResult.data ?? []) as unknown as InsumoRecord[]
+  const maquinaRows = (machineryResult.data ?? []) as unknown as MaquinaRecord[]
   const lotNames = new Map(lotRows.map((l) => [l.id, l.name]))
 
   const { data: harvestData, error: harvestError } = await supabase
@@ -269,6 +338,24 @@ export async function getAgro(): Promise<AgroData> {
       pricePerKgCents: row.price_per_kg_cents,
       buyer: row.buyer,
       harvestedOn: row.harvested_on,
+      notes: row.notes,
+    })),
+    insumos: insumoRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      kind: row.kind,
+      stockQty: row.stock_qty,
+      unit: row.unit,
+      supplier: row.supplier,
+      unitCostCents: row.unit_cost_cents,
+    })),
+    maquinaria: maquinaRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      kind: row.kind,
+      serialNo: row.serial_no,
+      status: row.status,
+      hoursUsed: row.hours_used,
       notes: row.notes,
     })),
     roster,

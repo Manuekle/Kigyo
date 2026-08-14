@@ -267,3 +267,125 @@ export async function createCarpeta(
     return fail('No tienes permiso para gestionar documentos.')
   }
 }
+
+const SHARE_ACCESSES = ['Propietario', 'Puede editar', 'Puede ver'] as const
+
+export type DocumentShare = {
+  id: string
+  employeeId: string | null
+  employeeName: string | null
+  email: string | null
+  access: (typeof SHARE_ACCESSES)[number]
+  createdAt: string
+}
+
+export async function fetchDocumentShares(
+  documentId: string,
+): Promise<DocumentoResult<DocumentShare[]>> {
+  try {
+    await requirePermission('documentos:read')
+    if (!z.uuid().safeParse(documentId).success) return fail('Documento desconocido.')
+
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('document_shares')
+      .select('id, employee_id, email, access, created_at, employees ( full_name )')
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('[documentos] fetchDocumentShares', error)
+      return fail('No se pudieron cargar los accesos al documento.')
+    }
+
+    return {
+      ok: true,
+      data: (data ?? []).map((row) => ({
+        id: row.id,
+        employeeId: row.employee_id,
+        employeeName: row.employees?.full_name ?? null,
+        email: row.email,
+        access: row.access,
+        createdAt: row.created_at,
+      })),
+    }
+  } catch {
+    return fail('No tienes permiso para ver este documento.')
+  }
+}
+
+const shareSchema = z
+  .object({
+    documentId: z.uuid(),
+    employeeId: z.uuid().nullable().default(null),
+    email: z.email().trim().toLowerCase().nullable().default(null),
+    access: z.enum(SHARE_ACCESSES),
+  })
+  .refine((v) => (v.employeeId === null) !== (v.email === null), {
+    message: 'Indica una persona o un correo, no ambos.',
+  })
+
+export async function shareDocument(
+  input: z.input<typeof shareSchema>,
+): Promise<DocumentoResult<DocumentShare[]>> {
+  try {
+    const member = await requirePermission('documentos:write')
+    const parsed = shareSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.employeeId, member.orgId))) {
+      return fail('Esa persona no está en el equipo de tu organización.')
+    }
+
+    const { error } = await supabase.from('document_shares').insert({
+      document_id: parsed.data.documentId,
+      employee_id: parsed.data.employeeId,
+      email: parsed.data.email,
+      access: parsed.data.access,
+    })
+
+    if (error) {
+      console.error('[documentos] shareDocument', error)
+      if (error.code === '23505') return fail('Ya está compartido con esa persona/correo.')
+      return fail('No se pudo compartir el documento.')
+    }
+
+    revalidatePath('/dashboard/documentos')
+    const fresh = await fetchDocumentShares(parsed.data.documentId)
+    if (!fresh.ok) return fresh
+    return { ok: true, data: fresh.data }
+  } catch {
+    return fail('No tienes permiso para gestionar documentos.')
+  }
+}
+
+export async function revokeShare(id: string): Promise<DocumentoResult<DocumentShare[]>> {
+  try {
+    await requirePermission('documentos:write')
+    if (!z.uuid().safeParse(id).success) return fail('Ese acceso no existe.')
+
+    const supabase = await createClient()
+    const { data: share } = await supabase
+      .from('document_shares')
+      .select('document_id')
+      .eq('id', id)
+      .maybeSingle()
+
+    if (!share) return fail('Ese acceso no existe.')
+
+    const { error } = await supabase.from('document_shares').delete().eq('id', id)
+
+    if (error) {
+      console.error('[documentos] revokeShare', error)
+      return fail('No se pudo revocar el acceso.')
+    }
+
+    revalidatePath('/dashboard/documentos')
+    const fresh = await fetchDocumentShares(share.document_id)
+    if (!fresh.ok) return fresh
+    return { ok: true, data: fresh.data }
+  } catch {
+    return fail('No tienes permiso para gestionar documentos.')
+  }
+}

@@ -26,6 +26,8 @@ const baseSchema = z.object({
   dueOn: z.string().date().nullable().default(null),
 })
 
+const updateSchema = baseSchema.extend({ id: z.uuid() })
+
 export async function createRiesgo(
   input: z.input<typeof baseSchema>,
 ): Promise<RiesgoResult<RiesgosData>> {
@@ -55,6 +57,46 @@ export async function createRiesgo(
     if (error) {
       console.error('[riesgos] createRiesgo', error)
       return fail('No se pudo registrar el riesgo.')
+    }
+
+    revalidatePath('/dashboard/riesgos')
+    return { ok: true, data: await getRiesgos() }
+  } catch {
+    return fail('No tienes permiso para gestionar riesgos.')
+  }
+}
+
+export async function updateRiesgo(
+  input: z.input<typeof updateSchema>,
+): Promise<RiesgoResult<RiesgosData>> {
+  try {
+    const member = await requirePermission('riesgos:write')
+    const parsed = updateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.employeeId, member.orgId))) {
+      return fail('Esa persona no está en el equipo de tu organización.')
+    }
+
+    const { error } = await supabase
+      .from('risks')
+      .update({
+        category: parsed.data.category,
+        title: parsed.data.title,
+        employee_id: parsed.data.employeeId,
+        area: parsed.data.area,
+        severity: parsed.data.severity,
+        detail: parsed.data.detail,
+        action: parsed.data.action,
+        due_on: parsed.data.dueOn,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[riesgos] updateRiesgo', error)
+      return fail('No se pudo actualizar el riesgo.')
     }
 
     revalidatePath('/dashboard/riesgos')

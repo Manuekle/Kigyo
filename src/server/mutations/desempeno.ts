@@ -383,3 +383,96 @@ export async function deleteGoal(id: string): Promise<DesempenoResult<DesempenoD
     return fail('No tienes permiso para gestionar desempeño.')
   }
 }
+
+/* ─── Encuestas ─────────────────────────────────────────────────────────── */
+
+export interface EncuestaRow {
+  id: string
+  name: string
+  responses: number
+  score: number | null
+  closedOn: string | null
+}
+
+const encuestaSchema = z.object({
+  name: z.string().trim().min(2, 'Ponle nombre a la encuesta.').max(120),
+  responses: z.coerce.number().int().min(0).max(9999).default(0),
+  score: z.coerce.number().min(-100).max(100).nullable().default(null),
+  closedOn: z.string().date().nullable().default(null),
+})
+
+export async function fetchEncuestas(): Promise<EncuestaRow[]> {
+  const member = await requirePermission('desempeno:read')
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('surveys')
+    .select('id, name, responses, score, closed_on')
+    .eq('org_id', member.orgId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('[desempeno] fetchEncuestas', error)
+    return []
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    responses: row.responses,
+    score: row.score,
+    closedOn: row.closed_on,
+  }))
+}
+
+export async function createEncuesta(
+  input: z.input<typeof encuestaSchema>,
+): Promise<DesempenoResult<EncuestaRow[]>> {
+  try {
+    const member = await requirePermission('desempeno:write')
+    const parsed = encuestaSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('surveys').insert({
+      org_id: member.orgId,
+      name: parsed.data.name,
+      responses: parsed.data.responses,
+      score: parsed.data.score,
+      closed_on: parsed.data.closedOn,
+    })
+
+    if (error) {
+      console.error('[desempeno] createEncuesta', error)
+      return fail('No se pudo crear la encuesta.')
+    }
+
+    revalidatePath('/dashboard/desempeno')
+    return { ok: true, data: await fetchEncuestas() }
+  } catch {
+    return fail('No tienes permiso para gestionar desempeño.')
+  }
+}
+
+export async function deleteEncuesta(id: string): Promise<DesempenoResult<EncuestaRow[]>> {
+  try {
+    const member = await requirePermission('desempeno:write')
+    if (!z.uuid().safeParse(id).success) return fail('Encuesta desconocida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('surveys')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[desempeno] deleteEncuesta', error)
+      return fail('No se pudo eliminar la encuesta.')
+    }
+
+    revalidatePath('/dashboard/desempeno')
+    return { ok: true, data: await fetchEncuestas() }
+  } catch {
+    return fail('No tienes permiso para gestionar desempeño.')
+  }
+}

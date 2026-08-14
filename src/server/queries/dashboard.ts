@@ -49,6 +49,22 @@ export interface DashboardData {
   /** Six months of signed documents vs documents created. */
   serie: ActividadPoint[]
   orgName: string
+  /**
+   * Nothing has been entered yet — every counter the caller can see is zero
+   * and nothing has happened.
+   *
+   * Derived from the reads this function already makes rather than from a new
+   * "created recently" query, because age is the wrong question: an account
+   * opened in March that still has no data needs the same help as one opened
+   * this morning, and one that filled its directory on day one does not need
+   * it at all. A dashboard of zeros is not a report, it is a blank page with
+   * decorations — this is what lets it be replaced with somewhere to start.
+   *
+   * `false` for a caller whose role sees no counters at all: an empty KPI list
+   * means "you may not look", not "there is nothing there", and greeting an
+   * employee with the administrator's setup checklist would be wrong twice.
+   */
+  isEmpty: boolean
 }
 
 function allows(member: Member, permission: Permission): boolean {
@@ -239,5 +255,12 @@ export async function getDashboard(): Promise<DashboardData> {
     })),
     serie: [...buckets.values()],
     orgName: member.orgName,
+    // Counted off the KPI values themselves, so this cannot disagree with the
+    // zeros on screen — the two would drift the moment a KPI changed shape.
+    isEmpty:
+      kpis.length > 0 &&
+      kpis.every((k) => k.value === '0') &&
+      pendientes.length === 0 &&
+      riesgoRows.length === 0,
   }
 }

@@ -21,6 +21,8 @@ const createSchema = z.object({
   advisor: z.string().trim().max(120).default(''),
 })
 
+const updateSchema = createSchema.extend({ id: z.uuid() })
+
 export async function createConsulta(
   input: z.input<typeof createSchema>,
 ): Promise<ConsultoriaResult<ConsultoriaData>> {
@@ -46,6 +48,42 @@ export async function createConsulta(
     if (error) {
       console.error('[consultoria] createConsulta', error)
       return fail('No se pudo registrar la consulta.')
+    }
+
+    revalidatePath('/dashboard/consultoria')
+    return { ok: true, data: await getConsultoria() }
+  } catch {
+    return fail('No tienes permiso para gestionar consultoría.')
+  }
+}
+
+export async function updateConsulta(
+  input: z.input<typeof updateSchema>,
+): Promise<ConsultoriaResult<ConsultoriaData>> {
+  try {
+    const member = await requirePermission('consultoria:write')
+    const parsed = updateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.requesterId, member.orgId))) {
+      return fail('Esa persona no está en el equipo de tu organización.')
+    }
+
+    const { error } = await supabase
+      .from('consultations')
+      .update({
+        topic: parsed.data.topic,
+        requester_id: parsed.data.requesterId,
+        category: parsed.data.category,
+        advisor: parsed.data.advisor,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[consultoria] updateConsulta', error)
+      return fail('No se pudo actualizar la consulta.')
     }
 
     revalidatePath('/dashboard/consultoria')

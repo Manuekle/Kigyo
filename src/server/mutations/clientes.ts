@@ -97,6 +97,53 @@ export async function createCliente(
   }
 }
 
+const updateSchema = clientSchema.extend({ id: z.uuid() })
+
+export async function updateCliente(
+  input: z.input<typeof updateSchema>,
+): Promise<ClientesResult<ClientesData>> {
+  try {
+    const member = await requirePermission('clientes:write')
+    const parsed = updateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.ownerId, member.orgId))) {
+      return fail('Esa persona no está en el equipo de tu organización.')
+    }
+
+    const { error } = await supabase
+      .from('clients')
+      .update({
+        name: parsed.data.name,
+        legal_name: parsed.data.legalName,
+        tax_id: parsed.data.taxId,
+        kind: parsed.data.kind,
+        industry: parsed.data.industry,
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        address: parsed.data.address,
+        city: parsed.data.city,
+        owner_id: parsed.data.ownerId,
+        credit_limit_cents: parsed.data.creditLimitCents,
+        payment_terms_days: parsed.data.paymentTermsDays,
+        notes: parsed.data.notes,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[clientes] updateCliente', error)
+      return fail('No se pudo actualizar el cliente.')
+    }
+
+    revalidatePath('/dashboard/clientes')
+    return { ok: true, data: await getClientes() }
+  } catch {
+    return fail('No tienes permiso para gestionar clientes.')
+  }
+}
+
 const statusSchema = z.object({ id: z.uuid(), status: z.enum(CLIENT_STATUSES) })
 
 export async function setClienteStatus(

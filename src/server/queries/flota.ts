@@ -57,11 +57,26 @@ export interface FuelRow {
   filledOn: string
 }
 
+export interface RouteRow {
+  id: string
+  origin: string
+  destination: string
+  vehicleId: string | null
+  vehicleName: string
+  driverId: string | null
+  driverName: string
+  distanceKm: number | null
+  scheduledOn: string
+  status: string
+  notes: string
+}
+
 export interface FlotaData {
   vehiculos: VehicleRow[]
   vehiculosTotal: number
   servicios: ServiceRow[]
   combustible: FuelRow[]
+  rutas: RouteRow[]
   roster: RosterEntry[]
   canWrite: boolean
 }
@@ -105,6 +120,18 @@ interface FuelRecord {
   station: string
   driver_id: string | null
   filled_on: string
+}
+
+interface RouteRecord {
+  id: string
+  origin: string
+  destination: string
+  vehicle_id: string | null
+  driver_id: string | null
+  distance_km: number | null
+  scheduled_on: string
+  status: string
+  notes: string
 }
 
 const VEHICLE_COLUMNS = `id, plate, kind, brand, model, model_year, fuel, status, driver_id,
@@ -157,7 +184,7 @@ export async function getFlota(): Promise<FlotaData> {
   const member = await requirePermission('flota:read')
   const supabase = await createClient()
 
-  const [vehiclesResult, roster] = await Promise.all([
+  const [vehiclesResult, roster, routesResult] = await Promise.all([
     supabase
       .from('vehicles')
       .select(VEHICLE_COLUMNS, { count: 'exact' })
@@ -166,20 +193,27 @@ export async function getFlota(): Promise<FlotaData> {
       .order('plate', { ascending: true })
       .range(...pageRange(0)),
     rosterFor(supabase, member),
+    supabase
+      .from('delivery_routes' as never)
+      .select('id, origin, destination, vehicle_id, driver_id, distance_km, scheduled_on, status, notes')
+      .eq('org_id', member.orgId)
+      .order('scheduled_on', { ascending: false })
+      .limit(300),
   ])
 
   if (vehiclesResult.error) {
     console.error('[flota] getFlota', vehiclesResult.error)
-    return { vehiculos: [], vehiculosTotal: 0, servicios: [], combustible: [], roster: [], canWrite: false }
+    return { vehiculos: [], vehiculosTotal: 0, servicios: [], combustible: [], rutas: [], roster: [], canWrite: false }
   }
 
   const vehicleRows = vehiclesResult.data as unknown as VehicleRecord[]
   const ids = vehicleRows.map((r) => r.id)
   const plates = new Map(vehicleRows.map((r) => [r.id, r.plate]))
+  const routeRows = (routesResult.data ?? []) as unknown as RouteRecord[]
 
   // Both child tables read isolation through the vehicle, so the `in` filter is
   // about which page is on screen, not about tenant scoping.
-  const [servicesResult, fuelResult] = await Promise.all([
+  const [servicesResult, fuelResult, vehicleNamesResult, driverNamesResult] = await Promise.all([
     supabase
       .from('vehicle_services')
       .select('id, vehicle_id, kind, description, provider, odometer_km, cost_cents, serviced_on, next_service_on')
@@ -192,10 +226,30 @@ export async function getFlota(): Promise<FlotaData> {
       .in('vehicle_id', ids)
       .order('filled_on', { ascending: false })
       .limit(300),
+    supabase
+      .from('vehicles')
+      .select('id, plate')
+      .in('id', routeRows.map((r) => r.vehicle_id).filter((id): id is string => id !== null))
+      .is('deleted_at', null),
+    supabase
+      .from('employees')
+      .select('id, full_name')
+      .in('id', routeRows.map((r) => r.driver_id).filter((id): id is string => id !== null))
+      .is('deleted_at', null),
   ])
 
   if (servicesResult.error) console.error('[flota] services', servicesResult.error)
   if (fuelResult.error) console.error('[flota] fuel', fuelResult.error)
+  if (routesResult.error) console.error('[flota] routes', routesResult.error)
+  if (vehicleNamesResult.error) console.error('[flota] route vehicles', vehicleNamesResult.error)
+  if (driverNamesResult.error) console.error('[flota] route drivers', driverNamesResult.error)
+
+  const vehicleNames = new Map(
+    (vehicleNamesResult.data ?? []).map((r) => [r.id, r.plate]),
+  )
+  const driverNames = new Map(
+    (driverNamesResult.data ?? []).map((r) => [r.id, r.full_name]),
+  )
 
   return {
     vehiculos: vehicleRows.map(toVehicle),
@@ -222,6 +276,19 @@ export async function getFlota(): Promise<FlotaData> {
       station: row.station,
       driverId: row.driver_id,
       filledOn: row.filled_on,
+    })),
+    rutas: routeRows.map((row) => ({
+      id: row.id,
+      origin: row.origin,
+      destination: row.destination,
+      vehicleId: row.vehicle_id,
+      vehicleName: row.vehicle_id ? vehicleNames.get(row.vehicle_id) ?? '' : '',
+      driverId: row.driver_id,
+      driverName: row.driver_id ? driverNames.get(row.driver_id) ?? '' : '',
+      distanceKm: row.distance_km,
+      scheduledOn: row.scheduled_on,
+      status: row.status,
+      notes: row.notes,
     })),
     roster,
     canWrite: can(member.permissions, 'flota:write'),

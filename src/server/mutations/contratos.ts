@@ -46,6 +46,8 @@ const contractSchema = z.object({
   notes: z.string().trim().max(2000).default(''),
 })
 
+const updateSchema = contractSchema.extend({ id: z.uuid() })
+
 export async function createContrato(
   input: z.input<typeof contractSchema>,
 ): Promise<ContratosResult<ContratosData>> {
@@ -93,6 +95,61 @@ export async function createContrato(
     if (error) {
       console.error('[contratos] createContrato', error)
       return fail('No se pudo crear el contrato.')
+    }
+
+    revalidatePath('/dashboard/contratos')
+    return { ok: true, data: await getContratos() }
+  } catch {
+    return fail('No tienes permiso para gestionar contratos.')
+  }
+}
+
+export async function updateContrato(
+  input: z.input<typeof updateSchema>,
+): Promise<ContratosResult<ContratosData>> {
+  try {
+    const member = await requirePermission('contratos:write')
+    const parsed = updateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    if (parsed.data.startsOn && parsed.data.endsOn && parsed.data.endsOn < parsed.data.startsOn) {
+      return fail('La fecha de terminación no puede ser anterior a la de inicio.')
+    }
+
+    const supabase = await createClient()
+    const [clientOk, employeeOk, ownerOk] = await Promise.all([
+      clientBelongs(supabase, parsed.data.clientId, member.orgId),
+      belongsToOrg(supabase, 'employees', parsed.data.employeeId, member.orgId),
+      belongsToOrg(supabase, 'employees', parsed.data.ownerId, member.orgId),
+    ])
+
+    if (!clientOk) return fail('Ese cliente no existe en tu organización.')
+    if (!employeeOk || !ownerOk) {
+      return fail('Esa persona no está en el equipo de tu organización.')
+    }
+
+    const { error } = await supabase
+      .from('contracts')
+      .update({
+        title: parsed.data.title,
+        kind: parsed.data.kind,
+        counterparty: parsed.data.counterparty,
+        client_id: parsed.data.clientId,
+        employee_id: parsed.data.employeeId,
+        owner_id: parsed.data.ownerId,
+        value_cents: parsed.data.valueCents,
+        starts_on: parsed.data.startsOn,
+        ends_on: parsed.data.endsOn,
+        notice_days: parsed.data.noticeDays,
+        auto_renew: parsed.data.autoRenew,
+        notes: parsed.data.notes,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[contratos] updateContrato', error)
+      return fail('No se pudo actualizar el contrato.')
     }
 
     revalidatePath('/dashboard/contratos')

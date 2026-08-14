@@ -100,7 +100,7 @@ export interface AuditPage {
 export async function getAuditLog(
   options: { limit?: number; before?: number } = {},
 ): Promise<AuditPage> {
-  await requirePermission('trazabilidad:read')
+  const member = await requirePermission('trazabilidad:read')
   const supabase = await createClient()
 
   const limit = Math.min(Math.max(options.limit ?? 200, 1), 500)
@@ -112,6 +112,7 @@ export async function getAuditLog(
   let query = supabase
     .from('audit_log')
     .select('id, actor_email, action, table_name, record_code, changes, occurred_at')
+    .eq('org_id', member.orgId)
     .order('id', { ascending: false })
     .limit(limit)
 

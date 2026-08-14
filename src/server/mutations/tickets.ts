@@ -211,6 +211,109 @@ export async function deleteTicket(id: string): Promise<TicketResult<TicketsData
   }
 }
 
+export type TicketComment = {
+  id: string
+  authorName: string | null
+  body: string
+  createdAt: string
+}
+
+export async function fetchTicketComments(
+  ticketId: string,
+): Promise<TicketResult<TicketComment[]>> {
+  try {
+    const member = await requirePermission('tickets:read')
+    if (!z.uuid().safeParse(ticketId).success) return fail('Ticket desconocido.')
+
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('ticket_comments')
+      .select('id, body, created_at, employees (full_name)')
+      .eq('ticket_id', ticketId)
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('[tickets] fetchTicketComments', error)
+      return fail('No se pudieron cargar los comentarios.')
+    }
+
+    return {
+      ok: true,
+      data: data.map((row) => ({
+        id: row.id,
+        authorName: row.employees?.full_name ?? null,
+        body: row.body,
+        createdAt: row.created_at,
+      })),
+    }
+  } catch {
+    return fail('No tienes permiso para gestionar tickets.')
+  }
+}
+
+const createCommentSchema = z.object({
+  ticketId: z.uuid(),
+  body: z.string().trim().min(1, 'El comentario no puede estar vacío.').max(2000),
+})
+
+export async function createTicketComment(
+  input: z.input<typeof createCommentSchema>,
+): Promise<TicketResult<TicketComment[]>> {
+  try {
+    const member = await requirePermission('tickets:write')
+    const parsed = createCommentSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const authorId = await currentEmployeeId(supabase, member.orgId, member.userId)
+
+    const { error } = await supabase.from('ticket_comments').insert({
+      ticket_id: parsed.data.ticketId,
+      author_id: authorId,
+      body: parsed.data.body,
+    })
+
+    if (error) {
+      console.error('[tickets] createTicketComment', error)
+      return fail('No se pudo crear el comentario.')
+    }
+
+    revalidatePath('/dashboard/tickets')
+    const comments = await fetchTicketComments(parsed.data.ticketId)
+    if (!comments.ok) return comments
+    return { ok: true, data: comments.data }
+  } catch {
+    return fail('No tienes permiso para gestionar tickets.')
+  }
+}
+
+export async function deleteTicketComment(id: string): Promise<TicketResult<TicketComment[]>> {
+  try {
+    const member = await requirePermission('tickets:write')
+    if (!z.uuid().safeParse(id).success) return fail('Comentario desconocido.')
+
+    const supabase = await createClient()
+    const { data: deleted, error } = await supabase
+      .from('ticket_comments')
+      .delete()
+      .eq('id', id)
+      .select('ticket_id')
+      .maybeSingle()
+
+    if (error || !deleted) {
+      console.error('[tickets] deleteTicketComment', error)
+      return fail('No se pudo eliminar el comentario.')
+    }
+
+    revalidatePath('/dashboard/tickets')
+    const comments = await fetchTicketComments(deleted.ticket_id)
+    if (!comments.ok) return comments
+    return { ok: true, data: comments.data }
+  } catch {
+    return fail('No tienes permiso para gestionar tickets.')
+  }
+}
+
 const moveSchema = z.object({
   id: z.uuid(),
   status: z.enum(TICKET_STATUSES),

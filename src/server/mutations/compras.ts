@@ -7,13 +7,46 @@ import { requirePermission } from '@/lib/auth/session'
 import {
   PURCHASE_CATEGORIES, PURCHASE_ORDER_STATUSES, PURCHASE_REQUEST_STATUSES, PURCHASE_URGENCIES,
 } from '@/lib/domain'
-import { belongsToOrg } from '@/server/queries/shared'
+import { belongsToOrg, currentEmployeeId } from '@/server/queries/shared'
 import { getCompras, type ComprasData } from '@/server/queries/compras'
 
 export type CompraResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
 function fail(message: string): { ok: false; error: string } {
   return { ok: false, error: message }
+}
+
+export type PurchaseRequestEvent = {
+  id: string
+  actorName: string | null
+  note: string
+  occurredAt: string
+}
+
+export async function fetchRequestEvents(
+  purchaseRequestId: string,
+): Promise<PurchaseRequestEvent[]> {
+  try {
+    await requirePermission('compras:read')
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('purchase_request_events')
+      .select('id, note, occurred_at, employees ( full_name )')
+      .eq('purchase_request_id', purchaseRequestId)
+      .order('occurred_at', { ascending: true })
+    if (error) {
+      console.error('[compras] fetchRequestEvents', error)
+      return []
+    }
+    return (data ?? []).map((row) => ({
+      id: row.id,
+      actorName: row.employees?.full_name ?? null,
+      note: row.note,
+      occurredAt: row.occurred_at,
+    }))
+  } catch {
+    return []
+  }
 }
 
 const itemSchema = z.object({
@@ -215,6 +248,14 @@ export async function setCompraStatus(
       return fail('No se pudo actualizar la requisición.')
     }
 
+    const actorId = await currentEmployeeId(supabase, member.orgId, member.userId)
+    const { error: eventError } = await supabase.from('purchase_request_events').insert({
+      purchase_request_id: parsed.data.id,
+      actor_id: actorId,
+      note: `Estado cambiado a ${parsed.data.status}`,
+    })
+    if (eventError) console.error('[compras] setCompraStatus event', eventError)
+
     revalidatePath('/dashboard/compras')
     return { ok: true, data: await getCompras() }
   } catch {
@@ -370,6 +411,182 @@ export async function setOrdenStatus(
     revalidatePath('/dashboard/ordenes-compra')
     revalidatePath('/dashboard/compras')
     return { ok: true, data: await getCompras() }
+  } catch {
+    return fail('No tienes permiso para gestionar compras.')
+  }
+}
+
+export interface SupplierInvoiceRow {
+  id: string
+  code: string | null
+  supplier: string
+  issuedOn: string
+  status: string
+  totalCents: number
+}
+
+interface SupplierInvoiceRecord {
+  id: string
+  code: string | null
+  supplier: string
+  issued_on: string
+  status: string
+  supplier_invoice_items: Array<{ subtotal_cents: number }> | null
+}
+
+const SUPPLIER_INVOICE_STATUSES = ['Pendiente', 'En revisión', 'Pagada', 'Anulada'] as const
+
+const invoiceItemSchema = z.object({
+  description: z.string().trim().min(1, 'Cada línea necesita una descripción.').max(300),
+  quantity: z.number().positive('La cantidad debe ser mayor que cero.').max(1_000_000),
+  unitPriceCents: z.number().int().min(0, 'El precio no puede ser negativo.'),
+})
+
+const supplierInvoiceSchema = z.object({
+  supplier: z.string().trim().min(2, 'El proveedor debe tener al menos 2 caracteres.').max(160),
+  issuedOn: z.string().date('La fecha debe ser válida.'),
+  items: z.array(invoiceItemSchema).min(1, 'Agrega al menos una línea.').max(100),
+})
+
+const invoiceStatusSchema = z.object({
+  id: z.uuid(),
+  status: z.enum(SUPPLIER_INVOICE_STATUSES),
+})
+
+function toSupplierInvoice(row: SupplierInvoiceRecord): SupplierInvoiceRow {
+  return {
+    id: row.id,
+    code: row.code,
+    supplier: row.supplier,
+    issuedOn: row.issued_on,
+    status: row.status,
+    totalCents: (row.supplier_invoice_items ?? []).reduce((s, i) => s + Number(i.subtotal_cents), 0),
+  }
+}
+
+async function listSupplierInvoices(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+): Promise<SupplierInvoiceRow[]> {
+  const { data, error } = await supabase
+    .from('supplier_invoices')
+    .select('id, code, supplier, issued_on, status, supplier_invoice_items ( subtotal_cents )')
+    .eq('org_id', orgId)
+    .is('deleted_at', null)
+    .order('issued_on', { ascending: false })
+
+  if (error) {
+    console.error('[compras] listSupplierInvoices', error)
+    return []
+  }
+  return (data as unknown as SupplierInvoiceRecord[]).map(toSupplierInvoice)
+}
+
+export async function fetchSupplierInvoices(): Promise<CompraResult<SupplierInvoiceRow[]>> {
+  try {
+    const member = await requirePermission('compras:read')
+    const supabase = await createClient()
+    return { ok: true, data: await listSupplierInvoices(supabase, member.orgId) }
+  } catch {
+    return fail('No tienes permiso para consultar compras.')
+  }
+}
+
+export async function createSupplierInvoice(
+  input: z.input<typeof supplierInvoiceSchema>,
+): Promise<CompraResult<SupplierInvoiceRow[]>> {
+  try {
+    const member = await requirePermission('compras:write')
+    const parsed = supplierInvoiceSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { data: invoice, error } = await supabase
+      .from('supplier_invoices')
+      .insert({
+        org_id: member.orgId,
+        supplier: parsed.data.supplier,
+        issued_on: parsed.data.issuedOn,
+        status: 'Pendiente',
+      })
+      .select('id')
+      .single()
+
+    if (error || !invoice) {
+      console.error('[compras] createSupplierInvoice', error)
+      return fail('No se pudo crear la factura.')
+    }
+
+    const { error: itemsError } = await supabase.from('supplier_invoice_items').insert(
+      parsed.data.items.map((item, position) => ({
+        supplier_invoice_id: invoice.id,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price_cents: item.unitPriceCents,
+        position,
+      })),
+    )
+
+    if (itemsError) {
+      console.error('[compras] createSupplierInvoice items', itemsError)
+      return fail('La factura se creó pero sus líneas no se guardaron.')
+    }
+
+    revalidatePath('/dashboard/compras')
+    return { ok: true, data: await listSupplierInvoices(supabase, member.orgId) }
+  } catch {
+    return fail('No tienes permiso para gestionar compras.')
+  }
+}
+
+export async function setSupplierInvoiceStatus(
+  input: z.input<typeof invoiceStatusSchema>,
+): Promise<CompraResult<SupplierInvoiceRow[]>> {
+  try {
+    const member = await requirePermission('compras:write')
+    const parsed = invoiceStatusSchema.safeParse(input)
+    if (!parsed.success) return fail('Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('supplier_invoices')
+      .update({ status: parsed.data.status })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+
+    if (error) {
+      console.error('[compras] setSupplierInvoiceStatus', error)
+      return fail('No se pudo actualizar la factura.')
+    }
+
+    revalidatePath('/dashboard/compras')
+    return { ok: true, data: await listSupplierInvoices(supabase, member.orgId) }
+  } catch {
+    return fail('No tienes permiso para gestionar compras.')
+  }
+}
+
+export async function deleteSupplierInvoice(id: string): Promise<CompraResult<SupplierInvoiceRow[]>> {
+  try {
+    const member = await requirePermission('compras:write')
+    if (!z.uuid().safeParse(id).success) return fail('Factura desconocida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('supplier_invoices')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+
+    if (error) {
+      console.error('[compras] deleteSupplierInvoice', error)
+      return fail('No se pudo eliminar la factura.')
+    }
+
+    revalidatePath('/dashboard/compras')
+    return { ok: true, data: await listSupplierInvoices(supabase, member.orgId) }
   } catch {
     return fail('No tienes permiso para gestionar compras.')
   }

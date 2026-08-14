@@ -1,4 +1,5 @@
 import 'server-only'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
@@ -59,11 +60,37 @@ export interface EnrollmentRow {
   attendancePct: number | null
 }
 
+export interface HorarioRow {
+  id: string
+  programId: string | null
+  programName: string
+  subject: string
+  teacherId: string | null
+  teacherName: string
+  weekday: string
+  /** 'HH:MM' */
+  startTime: string
+  /** 'HH:MM' */
+  endTime: string
+  classroom: string
+}
+
+export interface AsistenciaRow {
+  id: string
+  studentId: string
+  studentName: string
+  date: string
+  present: boolean
+  scheduleId: string | null
+}
+
 export interface EstudiantesData {
   estudiantes: StudentRow[]
   estudiantesTotal: number
   programas: ProgramRow[]
   materias: EnrollmentRow[]
+  horarios: HorarioRow[]
+  asistencia: AsistenciaRow[]
   roster: RosterEntry[]
   canWrite: boolean
 }
@@ -105,6 +132,25 @@ interface EnrollmentRecord {
   status: string
   grade: number | null
   attendance_pct: number | null
+}
+
+interface HorarioRecord {
+  id: string
+  program_id: string | null
+  subject: string
+  teacher_id: string | null
+  weekday: string
+  start_time: string
+  end_time: string
+  classroom: string
+}
+
+interface AsistenciaRecord {
+  id: string
+  student_id: string
+  schedule_id: string | null
+  date: string
+  present: boolean
 }
 
 const STUDENT_COLUMNS = `id, code, full_name, document_id, birth_date, email, phone, address,
@@ -199,7 +245,10 @@ export async function getEstudiantes(): Promise<EstudiantesData> {
   const member = await requirePermission('estudiantes:read')
   const supabase = await createClient()
 
-  const [studentsResult, programsResult, roster] = await Promise.all([
+  const raw = supabase as unknown as SupabaseClient
+  const [
+    studentsResult, programsResult, roster, employeesResult, horariosResult, asistenciaResult,
+  ] = await Promise.all([
     supabase
       .from('students')
       .select(STUDENT_COLUMNS, { count: 'exact' })
@@ -215,21 +264,43 @@ export async function getEstudiantes(): Promise<EstudiantesData> {
       .order('name', { ascending: true })
       .limit(200),
     rosterFor(supabase, member),
+    supabase
+      .from('employees')
+      .select('id, full_name')
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null),
+    raw
+      .from('class_schedules')
+      .select('id, program_id, subject, teacher_id, weekday, start_time, end_time, classroom')
+      .eq('org_id', member.orgId)
+      .order('weekday', { ascending: true })
+      .order('start_time', { ascending: true })
+      .limit(500),
+    raw
+      .from('student_attendance')
+      .select('id, student_id, schedule_id, date, present')
+      .eq('org_id', member.orgId)
+      .order('date', { ascending: false })
+      .limit(1000),
   ])
 
   if (studentsResult.error) {
     console.error('[estudiantes] getEstudiantes', studentsResult.error)
     return {
       estudiantes: [], estudiantesTotal: 0, programas: [], materias: [],
-      roster: [], canWrite: false,
+      horarios: [], asistencia: [], roster: [], canWrite: false,
     }
   }
   if (programsResult.error) console.error('[estudiantes] programs', programsResult.error)
+  if (employeesResult.error) console.error('[estudiantes] teachers', employeesResult.error)
+  if (horariosResult.error) console.error('[estudiantes] horarios', horariosResult.error)
+  if (asistenciaResult.error) console.error('[estudiantes] asistencia', asistenciaResult.error)
 
   const studentRows = studentsResult.data as unknown as StudentRecord[]
   const programRows = (programsResult.data ?? []) as unknown as ProgramRecord[]
   const names = new Map(programRows.map((p) => [p.id, p.name]))
   const studentNames = new Map(studentRows.map((s) => [s.id, s.full_name]))
+  const teacherNames = new Map((employeesResult.data ?? []).map((e) => [e.id, e.full_name]))
 
   const { data: enrollmentData, error: enrollmentError } = await supabase
     .from('student_enrollments')
@@ -276,6 +347,26 @@ export async function getEstudiantes(): Promise<EstudiantesData> {
       status: row.status,
       grade: row.grade,
       attendancePct: row.attendance_pct,
+    })),
+    horarios: ((horariosResult.data ?? []) as unknown as HorarioRecord[]).map((row) => ({
+      id: row.id,
+      programId: row.program_id,
+      programName: row.program_id ? names.get(row.program_id) ?? '' : '',
+      subject: row.subject,
+      teacherId: row.teacher_id,
+      teacherName: row.teacher_id ? teacherNames.get(row.teacher_id) ?? '' : '',
+      weekday: row.weekday,
+      startTime: row.start_time.slice(0, 5),
+      endTime: row.end_time.slice(0, 5),
+      classroom: row.classroom,
+    })),
+    asistencia: ((asistenciaResult.data ?? []) as unknown as AsistenciaRecord[]).map((row) => ({
+      id: row.id,
+      studentId: row.student_id,
+      studentName: studentNames.get(row.student_id) ?? '',
+      date: row.date,
+      present: row.present,
+      scheduleId: row.schedule_id,
     })),
     roster,
     canWrite: can(member.permissions, 'estudiantes:write'),

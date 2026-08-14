@@ -1,7 +1,8 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
-import { can, ROLES, type RoleKey } from '@/lib/auth/permissions'
+import { can, type RoleKey } from '@/lib/auth/permissions'
+import { getRoles, type RoleRow } from './roles'
 import { pageRange, totalOf, type Page } from './shared'
 
 /**
@@ -24,7 +25,7 @@ export interface EmpleadoRow {
   location: string
   status: string
   employmentType: string
-  accessRole: RoleKey
+  intendedRole: RoleKey
   /** Null for the top of the org chart. Points at another row's `id`. */
   managerId: string | null
   hiredOn: string | null
@@ -40,11 +41,19 @@ export interface EmpleadosData {
   /** Distinct values already in use, so the form offers what the org uses. */
   departments: string[]
   locations: string[]
+  /**
+   * The organization's roles, for the "Rol de acceso" picker.
+   *
+   * Passed down rather than imported by the client: the set is tenant data
+   * since migration 24, so a hard-coded list here would offer three options to
+   * an organization that defined eight and reject the other five at the write.
+   */
+  roles: RoleRow[]
 }
 
 /** Columns shared by the list and the detail read, so the two cannot drift. */
 export const EMPLOYEE_COLUMNS =
-  'id, code, full_name, email, position, department, location, status, employment_type, access_role, manager_id, hired_on, user_id'
+  'id, code, full_name, email, position, department, location, status, employment_type, intended_role, manager_id, hired_on, user_id'
 
 interface EmployeeRecord {
   id: string
@@ -56,7 +65,7 @@ interface EmployeeRecord {
   location: string
   status: string
   employment_type: string
-  access_role: string
+  intended_role: string
   manager_id: string | null
   hired_on: string | null
   user_id: string | null
@@ -73,12 +82,12 @@ function toRow(row: EmployeeRecord, userId: string): EmpleadoRow {
     location: row.location,
     status: row.status,
     employmentType: row.employment_type,
-    // The column is a FK to `roles`, so an unknown value here means the roles
-    // table gained a key the app does not know about yet — fall back rather
-    // than render an empty cell.
-    accessRole: (ROLES as readonly string[]).includes(row.access_role)
-      ? (row.access_role as RoleKey)
-      : 'Empleado',
+    // Passed through rather than checked against a whitelist. The column is a
+    // composite FK to the organization's own `roles` table, so whatever is
+    // stored is by definition a role this organization defines — and since
+    // migration 24 that set is the customer's to extend. The old whitelist
+    // would have silently relabelled «Médico» as «Empleado».
+    intendedRole: row.intended_role,
     managerId: row.manager_id,
     hiredOn: row.hired_on,
     isSelf: row.user_id !== null && row.user_id === userId,
@@ -114,7 +123,7 @@ export async function getEmpleados(): Promise<EmpleadosData> {
   const member = await requirePermission('empleados:read')
   const supabase = await createClient()
 
-  const [pageResult, facetsResult] = await Promise.all([
+  const [pageResult, facetsResult, roles] = await Promise.all([
     supabase
       .from('employees')
       .select(EMPLOYEE_COLUMNS, { count: 'exact' })
@@ -130,11 +139,15 @@ export async function getEmpleados(): Promise<EmpleadosData> {
       .select('department, location')
       .eq('org_id', member.orgId)
       .is('deleted_at', null),
+    getRoles(member.orgId),
   ])
 
   if (pageResult.error) {
     console.error('[empleados] getEmpleados', pageResult.error)
-    return { empleados: [], empleadosTotal: 0, canWrite: false, departments: [], locations: [] }
+    return {
+      empleados: [], empleadosTotal: 0, canWrite: false,
+      departments: [], locations: [], roles,
+    }
   }
 
   const empleados = (pageResult.data as EmployeeRecord[]).map((row) => toRow(row, member.userId))
@@ -146,6 +159,7 @@ export async function getEmpleados(): Promise<EmpleadosData> {
     canWrite: can(member.permissions, 'empleados:write'),
     departments: [...new Set(facets.map((e) => e.department).filter(Boolean))].sort(),
     locations: [...new Set(facets.map((e) => e.location).filter(Boolean))].sort(),
+    roles,
   }
 }
 

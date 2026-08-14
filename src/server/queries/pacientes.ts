@@ -1,4 +1,5 @@
 import 'server-only'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
@@ -52,10 +53,48 @@ export interface VisitRow {
   followUpOn: string | null
 }
 
+export interface TurnoRow {
+  id: string
+  patientId: string
+  patientName: string
+  kind: string
+  scheduledFor: string
+  professionalId: string | null
+  status: string
+  reason: string
+  notes: string
+}
+
+export interface RecetaRow {
+  id: string
+  patientId: string
+  patientName: string
+  medication: string
+  dose: string
+  frequency: string
+  instructions: string
+  prescribedOn: string | null
+  professionalId: string | null
+}
+
+export interface LaboratorioRow {
+  id: string
+  patientId: string
+  patientName: string
+  testName: string
+  status: string
+  result: string
+  orderedOn: string | null
+  resultOn: string | null
+}
+
 export interface PacientesData {
   pacientes: PatientRow[]
   pacientesTotal: number
   consultas: VisitRow[]
+  turnos: TurnoRow[]
+  recetas: RecetaRow[]
+  laboratorio: LaboratorioRow[]
   roster: RosterEntry[]
   canWrite: boolean
 }
@@ -91,6 +130,38 @@ interface VisitRecord {
   fee_cents: number
   visited_at: string
   follow_up_on: string | null
+}
+
+interface TurnoRecord {
+  id: string
+  patient_id: string
+  kind: string
+  scheduled_for: string
+  professional_id: string | null
+  status: string
+  reason: string
+  notes: string
+}
+
+interface RecetaRecord {
+  id: string
+  patient_id: string
+  medication: string
+  dose: string
+  frequency: string
+  instructions: string
+  prescribed_on: string | null
+  professional_id: string | null
+}
+
+interface LaboratorioRecord {
+  id: string
+  patient_id: string
+  test_name: string
+  status: string
+  result: string
+  ordered_on: string | null
+  result_on: string | null
 }
 
 const PATIENT_COLUMNS = `id, code, full_name, document_id, birth_date, sex, blood_type, status,
@@ -190,7 +261,10 @@ export async function getPacientes(): Promise<PacientesData> {
 
   if (patientsResult.error) {
     console.error('[pacientes] getPacientes', patientsResult.error)
-    return { pacientes: [], pacientesTotal: 0, consultas: [], roster: [], canWrite: false }
+    return {
+      pacientes: [], pacientesTotal: 0, consultas: [], turnos: [], recetas: [], laboratorio: [],
+      roster: [], canWrite: false,
+    }
   }
 
   const patientRows = patientsResult.data as unknown as PatientRecord[]
@@ -213,6 +287,30 @@ export async function getPacientes(): Promise<PacientesData> {
     if (!lastSeen.has(row.patient_id)) lastSeen.set(row.patient_id, row.visited_at)
   }
 
+  const raw = supabase as unknown as SupabaseClient
+  const patientIds = patientRows.map((r) => r.id)
+  const [turnoResult, recetaResult, laboratorioResult] = await Promise.all([
+    raw
+      .from('patient_appointments')
+      .select('id, patient_id, kind, scheduled_for, professional_id, status, reason, notes')
+      .in('patient_id', patientIds)
+      .order('scheduled_for', { ascending: true }),
+    raw
+      .from('patient_prescriptions')
+      .select('id, patient_id, medication, dose, frequency, instructions, prescribed_on, professional_id')
+      .in('patient_id', patientIds)
+      .order('prescribed_on', { ascending: false }),
+    raw
+      .from('patient_lab_results')
+      .select('id, patient_id, test_name, status, result, ordered_on, result_on')
+      .in('patient_id', patientIds)
+      .order('ordered_on', { ascending: false }),
+  ])
+
+  if (turnoResult.error) console.error('[pacientes] turnos', turnoResult.error)
+  if (recetaResult.error) console.error('[pacientes] recetas', recetaResult.error)
+  if (laboratorioResult.error) console.error('[pacientes] laboratorio', laboratorioResult.error)
+
   return {
     pacientes: patientRows.map((row) => toPatient(row, counts, lastSeen)),
     pacientesTotal: totalOf(patientsResult.count, patientRows.length),
@@ -229,6 +327,38 @@ export async function getPacientes(): Promise<PacientesData> {
       feeCents: row.fee_cents,
       visitedAt: row.visited_at,
       followUpOn: row.follow_up_on,
+    })),
+    turnos: ((turnoResult.data ?? []) as unknown as TurnoRecord[]).map((row) => ({
+      id: row.id,
+      patientId: row.patient_id,
+      patientName: names.get(row.patient_id) ?? '',
+      kind: row.kind,
+      scheduledFor: row.scheduled_for,
+      professionalId: row.professional_id,
+      status: row.status,
+      reason: row.reason,
+      notes: row.notes,
+    })),
+    recetas: ((recetaResult.data ?? []) as unknown as RecetaRecord[]).map((row) => ({
+      id: row.id,
+      patientId: row.patient_id,
+      patientName: names.get(row.patient_id) ?? '',
+      medication: row.medication,
+      dose: row.dose,
+      frequency: row.frequency,
+      instructions: row.instructions,
+      prescribedOn: row.prescribed_on,
+      professionalId: row.professional_id,
+    })),
+    laboratorio: ((laboratorioResult.data ?? []) as unknown as LaboratorioRecord[]).map((row) => ({
+      id: row.id,
+      patientId: row.patient_id,
+      patientName: names.get(row.patient_id) ?? '',
+      testName: row.test_name,
+      status: row.status,
+      result: row.result,
+      orderedOn: row.ordered_on,
+      resultOn: row.result_on,
     })),
     roster,
     canWrite: can(member.permissions, 'pacientes:write'),

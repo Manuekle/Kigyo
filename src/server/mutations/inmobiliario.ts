@@ -71,6 +71,49 @@ export async function createInmueble(
   }
 }
 
+const propertyUpdateSchema = propertySchema.extend({ id: z.uuid() })
+
+export async function updateInmueble(
+  input: z.input<typeof propertyUpdateSchema>,
+): Promise<InmobiliarioResult<InmobiliarioData>> {
+  try {
+    const member = await requirePermission('inmobiliario:write')
+    const parsed = propertyUpdateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('properties')
+      .update({
+        name: parsed.data.name,
+        kind: parsed.data.kind,
+        address: parsed.data.address,
+        city: parsed.data.city,
+        area_m2: parsed.data.areaM2,
+        bedrooms: parsed.data.bedrooms,
+        bathrooms: parsed.data.bathrooms,
+        parking_spots: parsed.data.parkingSpots,
+        rent_cents: parsed.data.rentCents,
+        admin_fee_cents: parsed.data.adminFeeCents,
+        sale_price_cents: parsed.data.salePriceCents,
+        owner_name: parsed.data.ownerName,
+        notes: parsed.data.notes,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[inmobiliario] updateInmueble', error)
+      return fail('No se pudo actualizar el inmueble.')
+    }
+
+    revalidatePath('/dashboard/inmobiliario')
+    return { ok: true, data: await getInmobiliario() }
+  } catch {
+    return fail('No tienes permiso para gestionar inmuebles.')
+  }
+}
+
 const propertyStatusSchema = z.object({ id: z.uuid(), status: z.enum(PROPERTY_STATUSES) })
 
 export async function setInmuebleStatus(
@@ -205,6 +248,113 @@ export async function createContratoArriendo(
       .update({ status: 'Arrendado' })
       .eq('id', parsed.data.propertyId)
       .eq('org_id', member.orgId)
+
+    revalidatePath('/dashboard/inmobiliario')
+    return { ok: true, data: await getInmobiliario() }
+  } catch {
+    return fail('No tienes permiso para gestionar inmuebles.')
+  }
+}
+
+const leaseUpdateSchema = leaseSchema.extend({ id: z.uuid() })
+
+export async function updateContratoArriendo(
+  input: z.input<typeof leaseUpdateSchema>,
+): Promise<InmobiliarioResult<InmobiliarioData>> {
+  try {
+    const member = await requirePermission('inmobiliario:write')
+    const parsed = leaseUpdateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    if (parsed.data.endsOn && parsed.data.endsOn < parsed.data.startsOn) {
+      return fail('La fecha de terminación no puede ser anterior al inicio.')
+    }
+
+    const supabase = await createClient()
+    const { data: lease } = await supabase
+      .from('leases')
+      .select('id, property_id')
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (!lease) return fail('Ese contrato no existe en tu organización.')
+
+    const { data: property } = await supabase
+      .from('properties')
+      .select('id')
+      .eq('id', parsed.data.propertyId)
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (!property) return fail('Ese inmueble no existe en tu organización.')
+
+    // The lease being edited is excluded, so an untouched property still
+    // passes: the conflict is another contract on the same property.
+    const { data: existing } = await supabase
+      .from('leases')
+      .select('id')
+      .eq('property_id', parsed.data.propertyId)
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+      .neq('id', parsed.data.id)
+      .neq('status', 'Terminado')
+      .maybeSingle()
+
+    if (existing) return fail('Ese inmueble ya tiene un contrato de arriendo vigente.')
+
+    const { error } = await supabase
+      .from('leases')
+      .update({
+        property_id: parsed.data.propertyId,
+        tenant_name: parsed.data.tenantName,
+        tenant_document: parsed.data.tenantDocument,
+        tenant_email: parsed.data.tenantEmail,
+        tenant_phone: parsed.data.tenantPhone,
+        rent_cents: parsed.data.rentCents,
+        deposit_cents: parsed.data.depositCents,
+        due_day: parsed.data.dueDay,
+        starts_on: parsed.data.startsOn,
+        ends_on: parsed.data.endsOn,
+        notes: parsed.data.notes,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[inmobiliario] updateContratoArriendo', error)
+      return fail('No se pudo actualizar el contrato.')
+    }
+
+    // The property follows its lease, as on create: a moved contract leaves
+    // the old property available and marks the new one as rented.
+    if (lease.property_id !== parsed.data.propertyId) {
+      await supabase
+        .from('properties')
+        .update({ status: 'Arrendado' })
+        .eq('id', parsed.data.propertyId)
+        .eq('org_id', member.orgId)
+
+      const { data: others } = await supabase
+        .from('leases')
+        .select('id')
+        .eq('property_id', lease.property_id)
+        .eq('org_id', member.orgId)
+        .is('deleted_at', null)
+        .neq('id', parsed.data.id)
+        .neq('status', 'Terminado')
+        .maybeSingle()
+
+      if (!others) {
+        await supabase
+          .from('properties')
+          .update({ status: 'Disponible' })
+          .eq('id', lease.property_id)
+          .eq('org_id', member.orgId)
+      }
+    }
 
     revalidatePath('/dashboard/inmobiliario')
     return { ok: true, data: await getInmobiliario() }

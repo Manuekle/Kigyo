@@ -49,10 +49,24 @@ export interface ReservationRow {
   balanceCents: number
 }
 
+export interface LimpiezaRow {
+  id: string
+  roomId: string
+  roomNumber: string
+  assignedId: string | null
+  assignedName: string | null
+  kind: string
+  scheduledOn: string
+  done: boolean
+  doneOn: string | null
+  notes: string
+}
+
 export interface HoteleriaData {
   habitaciones: RoomRow[]
   habitacionesTotal: number
   reservas: ReservationRow[]
+  limpieza: LimpiezaRow[]
   /** Rooms occupied tonight over rooms that can be sold, as a percentage. */
   occupancyPct: number | null
   canWrite: boolean
@@ -86,6 +100,17 @@ interface ReservationRecord {
   total_cents: number
   paid_cents: number
   channel: string
+  notes: string
+}
+
+interface CleaningTaskRecord {
+  id: string
+  room_id: string
+  assigned_id: string | null
+  kind: string
+  scheduled_on: string
+  done: boolean
+  done_on: string | null
   notes: string
 }
 
@@ -181,7 +206,7 @@ export async function getHoteleria(): Promise<HoteleriaData> {
 
   if (roomsResult.error) {
     console.error('[hoteleria] getHoteleria', roomsResult.error)
-    return { habitaciones: [], habitacionesTotal: 0, reservas: [], occupancyPct: null, canWrite: false }
+    return { habitaciones: [], habitacionesTotal: 0, reservas: [], limpieza: [], occupancyPct: null, canWrite: false }
   }
   if (reservationsResult.error) console.error('[hoteleria] reservations', reservationsResult.error)
 
@@ -189,6 +214,28 @@ export async function getHoteleria(): Promise<HoteleriaData> {
   const reservationRows = (reservationsResult.data ?? []) as unknown as ReservationRecord[]
   const numbers = new Map(roomRows.map((r) => [r.id, r.number]))
   const today = new Date().toISOString().slice(0, 10)
+
+  const { data: taskRows, error: tasksError } = await supabase
+    .from('room_cleaning_tasks' as never)
+    .select('id, room_id, assigned_id, kind, scheduled_on, done, done_on, notes')
+    .in('room_id', roomRows.map((r) => r.id))
+    .order('scheduled_on', { ascending: true })
+    .order('done', { ascending: true })
+
+  if (tasksError) console.error('[hoteleria] limpieza tasks', tasksError)
+
+  const tasks = (taskRows ?? []) as unknown as CleaningTaskRecord[]
+  const assignedIds = [...new Set(
+    tasks.map((t) => t.assigned_id).filter((id): id is string => id !== null),
+  )]
+  const { data: employeeRows, error: employeesError } = await supabase
+    .from('employees')
+    .select('id, full_name')
+    .in('id', assignedIds)
+    .is('deleted_at', null)
+  if (employeesError) console.error('[hoteleria] limpieza employees', employeesError)
+
+  const assignedNames = new Map((employeeRows ?? []).map((r) => [r.id, r.full_name]))
 
   const upcoming = new Map<string, number>()
   const occupiedRooms = new Set<string>()
@@ -236,6 +283,18 @@ export async function getHoteleria(): Promise<HoteleriaData> {
       notes: row.notes,
       nights: nightsBetween(row.checkin_on, row.checkout_on),
       balanceCents: row.total_cents - row.paid_cents,
+    })),
+    limpieza: tasks.map((row) => ({
+      id: row.id,
+      roomId: row.room_id,
+      roomNumber: numbers.get(row.room_id) ?? '',
+      assignedId: row.assigned_id,
+      assignedName: row.assigned_id ? assignedNames.get(row.assigned_id) ?? null : null,
+      kind: row.kind,
+      scheduledOn: row.scheduled_on,
+      done: row.done,
+      doneOn: row.done_on,
+      notes: row.notes,
     })),
     occupancyPct: sellable.length > 0
       ? Math.round((occupiedRooms.size / sellable.length) * 100)

@@ -1,5 +1,6 @@
 import 'server-only'
 import type { createClient } from '@/lib/supabase/server'
+import type { Database } from '@/lib/supabase/types'
 import { can, type Permission } from '@/lib/auth/permissions'
 import type { Member } from '@/lib/auth/session'
 
@@ -91,6 +92,49 @@ export function allows(member: Member, permission: Permission): boolean {
 }
 
 /**
+ * Tables that carry `org_id` themselves.
+ *
+ * Narrows the `scoped` parameter so calling it on a child table that inherits
+ * its isolation from a parent (no `org_id` column of its own) is a compile
+ * error instead of a runtime surprise.
+ */
+type OrgScopedTable = {
+  [K in keyof Database['public']['Tables']]: 'org_id' extends keyof Database['public']['Tables'][K]['Row']
+    ? K
+    : never
+}[keyof Database['public']['Tables']]
+
+/**
+ * A query already confined to the active company.
+ *
+ * The one filter no query may forget: `org_id = member.orgId`. As a function
+ * argument it is impossible to omit — and because the parameter is narrowed
+ * to tables with an `org_id` column, calling it on a child table that inherits
+ * its isolation from a parent is refused by the compiler, which is how a table
+ * that was never a tenant-owned one gets caught at the type level instead of
+ * at a data leak.
+ *
+ * The filter is applied first, before `.select()`: PostgREST treats the first
+ * `.eq` the same as any other, and the query shape reads "this table, for
+ * this company, these columns" instead of "this table, these columns — oh
+ * right, and the filter".
+ */
+export function scoped<Table extends OrgScopedTable>(
+  supabase: Supabase,
+  member: Member,
+  table: Table,
+) {
+  // supabase-js collapses the row type to the whole catalogue when the table
+  // name is generic, so its own `.eq` refuses to type-check here. The escape
+  // is local on purpose: the *scope* guarantee lives in the parameter (typed,
+  // not generic), and the return is the same builder the call site would have
+  // had, with `.select()` promoted to the filter builder — which is where
+  // `.eq` lives; the call site's own `.select(...)` replaces the star.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (supabase.from(table).select() as any).eq('org_id', member.orgId) as any
+}
+
+/**
  * The directory, for assignment pickers.
  *
  * Returns an empty list rather than throwing when the caller cannot read
@@ -111,10 +155,8 @@ export async function rosterFor(
 ): Promise<RosterEntry[]> {
   if (!allows(member, 'empleados:read')) return []
 
-  const { data, error } = await supabase
-    .from('employees')
+  const { data, error } = await scoped(supabase, member, 'employees')
     .select('id, full_name, position')
-    .eq('org_id', member.orgId)
     .is('deleted_at', null)
     .neq('status', 'Salida')
     .order('full_name', { ascending: true })
@@ -125,7 +167,7 @@ export async function rosterFor(
     return []
   }
 
-  return (data ?? []).map((r) => ({
+  return (data ?? []).map((r: { id: string; full_name: string; position: string | null }) => ({
     employeeId: r.id,
     fullName: r.full_name,
     position: r.position,
@@ -140,10 +182,8 @@ export async function projectsFor(
 ): Promise<ProjectRef[]> {
   if (!allows(member, 'proyectos:read')) return []
 
-  const { data, error } = await supabase
-    .from('projects')
+  const { data, error } = await scoped(supabase, member, 'projects')
     .select('id, code, name')
-    .eq('org_id', member.orgId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(limit)
@@ -153,7 +193,11 @@ export async function projectsFor(
     return []
   }
 
-  return (data ?? []).map((r) => ({ id: r.id, code: r.code, name: r.name }))
+  return (data ?? []).map((r: { id: string; code: string | null; name: string }) => ({
+    id: r.id,
+    code: r.code,
+    name: r.name,
+  }))
 }
 
 /** The employee row behind the signed-in user, if they have one. */
@@ -181,7 +225,14 @@ export async function currentEmployeeId(
  */
 export async function belongsToOrg(
   supabase: Supabase,
-  table: 'employees' | 'projects' | 'products' | 'documents',
+  /**
+   * Every table listed here must carry both `org_id` and `deleted_at` — the
+   * query below filters on both, and adding one without `deleted_at` would
+   * make the call throw at runtime for a mistake the type system accepted.
+   */
+  table:
+    | 'employees' | 'projects' | 'products' | 'documents'
+    | 'dining_tables' | 'menu_items' | 'restaurant_orders',
   id: string | null,
   orgId: string,
 ): Promise<boolean> {

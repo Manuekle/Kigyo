@@ -137,3 +137,159 @@ export async function fetchMonth(monthIso: string): Promise<CalendarioResult<Cal
     return fail('No tienes permiso para ver el calendario.')
   }
 }
+
+export type AttendeeResponse = 'Pendiente' | 'Aceptada' | 'Rechazada'
+
+export interface CalendarioAttendee {
+  id: string
+  employeeId: string | null
+  employeeName: string | null
+  email: string | null
+  response: AttendeeResponse
+}
+
+interface AttendeeRecord {
+  id: string
+  employee_id: string | null
+  email: string | null
+  response: AttendeeResponse
+  employees: { full_name: string } | null
+}
+
+async function loadAttendees(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+): Promise<CalendarioAttendee[]> {
+  const { data, error } = await supabase
+    .from('calendar_attendees')
+    .select('id, employee_id, email, response, employees ( full_name )')
+    .eq('calendar_event_id', eventId)
+
+  if (error) {
+    console.error('[calendario] loadAttendees', error)
+    return []
+  }
+
+  return ((data ?? []) as unknown as AttendeeRecord[]).map((a) => ({
+    id: a.id,
+    employeeId: a.employee_id,
+    employeeName: a.employees?.full_name ?? null,
+    email: a.email,
+    response: a.response,
+  }))
+}
+
+export async function fetchAttendance(
+  eventId: string,
+): Promise<CalendarioResult<CalendarioAttendee[]>> {
+  try {
+    await requirePermission('calendario:read')
+    if (!z.uuid().safeParse(eventId).success) return fail('Reunión desconocida.')
+
+    const supabase = await createClient()
+    return { ok: true, data: await loadAttendees(supabase, eventId) }
+  } catch {
+    return fail('No tienes permiso para ver el calendario.')
+  }
+}
+
+const addAttendeeSchema = z
+  .object({
+    calendarEventId: z.uuid(),
+    employeeId: z.uuid().nullable().default(null),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email('Correo inválido.')
+      .nullable()
+      .default(null),
+  })
+  .refine((d) => Boolean(d.employeeId) !== Boolean(d.email), {
+    message: 'Indica un empleado o un correo, no ambos.',
+  })
+
+export async function addAttendee(
+  input: z.input<typeof addAttendeeSchema>,
+): Promise<CalendarioResult<CalendarioAttendee[]>> {
+  try {
+    const member = await requirePermission('calendario:write')
+    const parsed = addAttendeeSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('calendar_attendees').insert({
+      calendar_event_id: parsed.data.calendarEventId,
+      employee_id: parsed.data.employeeId,
+      email: parsed.data.email,
+    })
+
+    if (error) {
+      console.error('[calendario] addAttendee', error)
+      return fail('No se pudo agregar el asistente.')
+    }
+
+    revalidatePath('/dashboard/calendario')
+    return { ok: true, data: await loadAttendees(supabase, parsed.data.calendarEventId) }
+  } catch {
+    return fail('No tienes permiso para gestionar el calendario.')
+  }
+}
+
+const RESPONSES = ['Pendiente', 'Aceptada', 'Rechazada'] as const
+
+export async function setAttendeeResponse(
+  id: string,
+  response: AttendeeResponse,
+): Promise<CalendarioResult<null>> {
+  try {
+    const member = await requirePermission('calendario:write')
+    if (!z.uuid().safeParse(id).success) return fail('Asistente desconocido.')
+    const parsed = z.enum(RESPONSES).safeParse(response)
+    if (!parsed.success) return fail('Respuesta inválida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('calendar_attendees')
+      .update({ response: parsed.data })
+      .eq('id', id)
+
+    if (error) {
+      console.error('[calendario] setAttendeeResponse', error)
+      return fail('No se pudo actualizar la asistencia.')
+    }
+
+    revalidatePath('/dashboard/calendario')
+    return { ok: true, data: null }
+  } catch {
+    return fail('No tienes permiso para gestionar el calendario.')
+  }
+}
+
+export async function removeAttendee(
+  id: string,
+): Promise<CalendarioResult<CalendarioAttendee[]>> {
+  try {
+    const member = await requirePermission('calendario:write')
+    if (!z.uuid().safeParse(id).success) return fail('Asistente desconocido.')
+
+    const supabase = await createClient()
+    const { data: deleted, error } = await supabase
+      .from('calendar_attendees')
+      .delete()
+      .eq('id', id)
+      .select('calendar_event_id')
+      .maybeSingle()
+
+    if (error) {
+      console.error('[calendario] removeAttendee', error)
+      return fail('No se pudo quitar el asistente.')
+    }
+    if (!deleted) return fail('El asistente ya no está en el evento.')
+
+    revalidatePath('/dashboard/calendario')
+    return { ok: true, data: await loadAttendees(supabase, deleted.calendar_event_id) }
+  } catch {
+    return fail('No tienes permiso para gestionar el calendario.')
+  }
+}

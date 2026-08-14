@@ -166,6 +166,127 @@ export async function createFactura(
   }
 }
 
+const updateSchema = invoiceSchema.extend({ id: z.uuid() })
+
+export async function updateFactura(
+  input: z.input<typeof updateSchema>,
+): Promise<FacturacionResult<FacturacionData>> {
+  try {
+    const member = await requirePermission('facturacion:write')
+    const parsed = updateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    if (parsed.data.dueOn && parsed.data.dueOn < parsed.data.issuedOn) {
+      return fail('La fecha de vencimiento no puede ser anterior a la de emisión.')
+    }
+
+    const supabase = await createClient()
+    if (!(await clientBelongs(supabase, parsed.data.clientId, member.orgId))) {
+      return fail('Ese cliente no existe en tu organización.')
+    }
+
+    const productIds = [...new Set(parsed.data.items.map((i) => i.productId).filter(Boolean))] as string[]
+    if (productIds.length > 0) {
+      const { data: owned } = await supabase
+        .from('products')
+        .select('id')
+        .eq('org_id', member.orgId)
+        .is('deleted_at', null)
+        .in('id', productIds)
+
+      if ((owned ?? []).length !== productIds.length) {
+        return fail('Alguno de los productos no existe en tu catálogo.')
+      }
+    }
+
+    const { subtotal, tax, total } = totalsOf(parsed.data.items)
+
+    let clientName = parsed.data.clientName
+    if (parsed.data.clientId && !clientName) {
+      const { data: client } = await supabase
+        .from('clients')
+        .select('name')
+        .eq('id', parsed.data.clientId)
+        .eq('org_id', member.orgId)
+        .maybeSingle()
+      clientName = client?.name ?? ''
+    }
+
+    // The old lines stay aside until the replacement is in: if the second
+    // write fails, the invoice gets the lines it printed before rather than
+    // an empty one.
+    const { data: oldRows } = await supabase
+      .from('invoice_items')
+      .select('product_id, description, quantity, unit_price_cents, tax_rate, position')
+      .eq('invoice_id', parsed.data.id)
+      .order('position', { ascending: true })
+
+    const { error } = await supabase
+      .from('invoices')
+      .update({
+        client_id: parsed.data.clientId,
+        client_name: clientName,
+        issued_on: parsed.data.issuedOn,
+        due_on: parsed.data.dueOn,
+        subtotal_cents: subtotal,
+        tax_cents: tax,
+        total_cents: total,
+        currency: parsed.data.currency,
+        notes: parsed.data.notes,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[facturacion] updateFactura', error)
+      return fail('No se pudo actualizar la factura.')
+    }
+
+    const { error: deleteError } = await supabase
+      .from('invoice_items')
+      .delete()
+      .eq('invoice_id', parsed.data.id)
+
+    if (deleteError) {
+      console.error('[facturacion] updateFactura delete items', deleteError)
+      return fail('No se pudieron reemplazar las líneas de la factura.')
+    }
+
+    const { error: itemsError } = await supabase.from('invoice_items').insert(
+      parsed.data.items.map((item, index) => ({
+        invoice_id: parsed.data.id,
+        product_id: item.productId,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price_cents: item.unitPriceCents,
+        tax_rate: item.taxRate,
+        position: index,
+      })),
+    )
+
+    if (itemsError) {
+      console.error('[facturacion] updateFactura items', itemsError)
+      await supabase.from('invoice_items').insert(
+        (oldRows ?? []).map((row, index) => ({
+          invoice_id: parsed.data.id,
+          product_id: row.product_id,
+          description: row.description,
+          quantity: row.quantity,
+          unit_price_cents: row.unit_price_cents,
+          tax_rate: row.tax_rate,
+          position: row.position ?? index,
+        })),
+      )
+      return fail('No se pudieron guardar las líneas de la factura.')
+    }
+
+    revalidatePath('/dashboard/facturacion')
+    return { ok: true, data: await getFacturacion() }
+  } catch {
+    return fail('No tienes permiso para gestionar facturación.')
+  }
+}
+
 const statusSchema = z.object({ id: z.uuid(), status: z.enum(INVOICE_STATUSES) })
 
 export async function setFacturaStatus(

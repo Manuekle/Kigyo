@@ -36,6 +36,8 @@ export interface TicketRow {
   /** ISO. The client formats it, so "hace 2 h" is computed, not stored. */
   createdAt: string
   resolvedAt: string | null
+  /** ISO deadline, owned by a DB trigger (priority-based). */
+  slaDueAt: string | null
   commentCount: number
 }
 
@@ -62,6 +64,7 @@ interface TicketRecord {
   board_position: number
   created_at: string
   resolved_at: string | null
+  sla_due_at: string | null
   requester: { full_name: string } | null
   assignee: { full_name: string } | null
   ticket_comments: Array<{ count: number }> | null
@@ -70,7 +73,7 @@ interface TicketRecord {
 const UNKNOWN_AUTHOR = 'Alguien que ya no está en la organización'
 
 const TICKET_COLUMNS = `id, code, subject, body, area, priority, status, requester_id, assignee_id,
-   board_position, created_at, resolved_at,
+   board_position, created_at, resolved_at, sla_due_at,
    requester:employees!tickets_requester_id_fkey ( full_name ),
    assignee:employees!tickets_assignee_id_fkey ( full_name ),
    ticket_comments ( count )`
@@ -91,6 +94,7 @@ function toTicket(row: TicketRecord): TicketRow {
     boardPosition: row.board_position,
     createdAt: row.created_at,
     resolvedAt: row.resolved_at,
+    slaDueAt: row.sla_due_at,
     // PostgREST returns an aggregate embed as a one-element array.
     commentCount: row.ticket_comments?.[0]?.count ?? 0,
   }

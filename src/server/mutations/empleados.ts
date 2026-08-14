@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
-import { ROLES } from '@/lib/auth/permissions'
+import { DEFAULT_ROLE } from '@/lib/auth/permissions'
 import { getEmpleados, type EmpleadoRow, type EmpleadosData } from '@/server/queries/empleados'
 
 /**
@@ -41,7 +41,10 @@ const baseSchema = z.object({
   location: z.string().trim().max(120).default(''),
   status: z.enum(STATUSES).default('Activo'),
   employmentType: z.enum(EMPLOYMENT_TYPES).default('Tiempo completo'),
-  accessRole: z.enum(ROLES).default('Empleado'),
+  // Not an enum: roles are rows the organization creates (migration 24), so
+  // the valid set is a database question. Checked by `validRole` below, which
+  // asks the tenant's own table.
+  intendedRole: z.string().trim().min(2).max(40).default(DEFAULT_ROLE),
   managerId: z.uuid().nullable().default(null),
   hiredOn: z.string().date().nullable().default(null),
 })
@@ -77,6 +80,28 @@ async function validManager(
   return Boolean(data)
 }
 
+/**
+ * Rejects a role this organization does not define.
+ *
+ * `employees.intended_role` is a composite foreign key on `(org_id, key)`, so a
+ * role belonging to another tenant is already impossible. This turns the
+ * remaining case — a role that was deleted while the form was open — into a
+ * sentence instead of constraint violation 23503.
+ */
+async function validRole(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  role: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('roles')
+    .select('key')
+    .eq('org_id', orgId)
+    .eq('key', role)
+    .maybeSingle()
+  return Boolean(data)
+}
+
 export async function createEmpleado(
   input: z.input<typeof createSchema>,
 ): Promise<EmpleadoResult<EmpleadosData>> {
@@ -89,6 +114,9 @@ export async function createEmpleado(
     if (!(await validManager(supabase, member.orgId, parsed.data.managerId))) {
       return fail('El jefe seleccionado ya no está en el equipo.')
     }
+    if (!(await validRole(supabase, member.orgId, parsed.data.intendedRole))) {
+      return fail('Ese rol ya no existe en la organización.')
+    }
 
     const { error } = await supabase.from('employees').insert({
       org_id: member.orgId,
@@ -99,7 +127,7 @@ export async function createEmpleado(
       location: parsed.data.location,
       status: parsed.data.status,
       employment_type: parsed.data.employmentType,
-      access_role: parsed.data.accessRole,
+      intended_role: parsed.data.intendedRole,
       manager_id: parsed.data.managerId,
       hired_on: parsed.data.hiredOn,
     })
@@ -138,6 +166,9 @@ export async function updateEmpleado(
     if (!(await validManager(supabase, member.orgId, parsed.data.managerId))) {
       return fail('El jefe seleccionado ya no está en el equipo.')
     }
+    if (!(await validRole(supabase, member.orgId, parsed.data.intendedRole))) {
+      return fail('Ese rol ya no existe en la organización.')
+    }
 
     // Longer cycles (A reports to B reports to A) are the same hazard one step
     // removed, so the chain is walked before the write rather than left for the
@@ -172,7 +203,7 @@ export async function updateEmpleado(
         location: parsed.data.location,
         status: parsed.data.status,
         employment_type: parsed.data.employmentType,
-        access_role: parsed.data.accessRole,
+        intended_role: parsed.data.intendedRole,
         manager_id: parsed.data.managerId,
         hired_on: parsed.data.hiredOn,
       })

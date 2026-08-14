@@ -2,18 +2,23 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import {
   FUEL_KINDS, VEHICLE_KINDS, VEHICLE_STATUSES, WORK_ORDER_KINDS,
 } from '@/lib/domain'
-import { belongsToOrg } from '@/server/queries/shared'
+import { belongsToOrg, type Supabase } from '@/server/queries/shared'
 import { getFlota, type FlotaData } from '@/server/queries/flota'
 
 export type FlotaResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
 function fail(message: string): { ok: false; error: string } {
   return { ok: false, error: message }
+}
+
+function rawClient(supabase: Supabase): SupabaseClient {
+  return supabase as unknown as SupabaseClient
 }
 
 /**
@@ -92,6 +97,54 @@ export async function createVehiculo(
       console.error('[flota] createVehiculo', error)
       if (error.code === '23505') return fail('Ya existe un vehículo con esa placa.')
       return fail('No se pudo registrar el vehículo.')
+    }
+
+    revalidatePath('/dashboard/flota')
+    return { ok: true, data: await getFlota() }
+  } catch {
+    return fail('No tienes permiso para gestionar la flota.')
+  }
+}
+
+const updateVehicleSchema = vehicleSchema.extend({ id: z.uuid() })
+
+export async function updateVehiculo(
+  input: z.input<typeof updateVehicleSchema>,
+): Promise<FlotaResult<FlotaData>> {
+  try {
+    const member = await requirePermission('flota:write')
+    const parsed = updateVehicleSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.driverId, member.orgId))) {
+      return fail('Esa persona no está en el equipo de tu organización.')
+    }
+
+    const { error } = await supabase
+      .from('vehicles')
+      .update({
+        plate: parsed.data.plate,
+        kind: parsed.data.kind,
+        brand: parsed.data.brand,
+        model: parsed.data.model,
+        model_year: parsed.data.modelYear,
+        fuel: parsed.data.fuel,
+        driver_id: parsed.data.driverId,
+        odometer_km: parsed.data.odometerKm,
+        capacity_kg: parsed.data.capacityKg,
+        soat_expires_on: parsed.data.soatExpiresOn,
+        inspection_expires_on: parsed.data.inspectionExpiresOn,
+        insurance_expires_on: parsed.data.insuranceExpiresOn,
+        notes: parsed.data.notes,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[flota] updateVehiculo', error)
+      if (error.code === '23505') return fail('Ya existe un vehículo con esa placa.')
+      return fail('No se pudo actualizar el vehículo.')
     }
 
     revalidatePath('/dashboard/flota')
@@ -265,6 +318,116 @@ export async function logCombustible(
         .eq('id', parsed.data.vehicleId)
         .eq('org_id', member.orgId)
         .lt('odometer_km', parsed.data.odometerKm)
+    }
+
+    revalidatePath('/dashboard/flota')
+    return { ok: true, data: await getFlota() }
+  } catch {
+    return fail('No tienes permiso para gestionar la flota.')
+  }
+}
+
+/* ─── Rutas ─────────────────────────────────────────────────────────────── */
+
+const ROUTE_STATUSES = ['Planificada', 'En curso', 'Completada', 'Cancelada'] as const
+
+const routeSchema = z.object({
+  origin: z.string().trim().max(200).default(''),
+  destination: z.string().trim().min(2, 'Escribe el destino.').max(200),
+  vehicleId: z.uuid().nullable().default(null),
+  driverId: z.uuid().nullable().default(null),
+  distanceKm: z.coerce.number().min(0, 'La distancia no puede ser negativa.').nullable().default(null),
+  scheduledOn: z.string().date(),
+  notes: z.string().trim().default(''),
+})
+
+export async function createRuta(
+  input: z.input<typeof routeSchema>,
+): Promise<FlotaResult<FlotaData>> {
+  try {
+    const member = await requirePermission('flota:write')
+    const parsed = routeSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const [vehicleOk, driverOk] = await Promise.all([
+      parsed.data.vehicleId
+        ? vehicleBelongs(supabase, parsed.data.vehicleId, member.orgId)
+        : Promise.resolve(true),
+      belongsToOrg(supabase, 'employees', parsed.data.driverId, member.orgId),
+    ])
+
+    if (!vehicleOk) return fail('Ese vehículo no existe en tu organización.')
+    if (!driverOk) return fail('Esa persona no está en el equipo de tu organización.')
+
+    const raw = rawClient(supabase)
+    const { error } = await raw.from('delivery_routes').insert({
+      org_id: member.orgId,
+      origin: parsed.data.origin,
+      destination: parsed.data.destination,
+      vehicle_id: parsed.data.vehicleId,
+      driver_id: parsed.data.driverId,
+      distance_km: parsed.data.distanceKm,
+      scheduled_on: parsed.data.scheduledOn,
+      notes: parsed.data.notes,
+    })
+
+    if (error) {
+      console.error('[flota] createRuta', error)
+      return fail('No se pudo registrar la ruta.')
+    }
+
+    revalidatePath('/dashboard/flota')
+    return { ok: true, data: await getFlota() }
+  } catch {
+    return fail('No tienes permiso para gestionar la flota.')
+  }
+}
+
+const routeStatusSchema = z.object({ id: z.uuid(), status: z.enum(ROUTE_STATUSES) })
+
+export async function setRutaStatus(
+  input: z.input<typeof routeStatusSchema>,
+): Promise<FlotaResult<FlotaData>> {
+  try {
+    const member = await requirePermission('flota:write')
+    const parsed = routeStatusSchema.safeParse(input)
+    if (!parsed.success) return fail('Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await rawClient(supabase)
+      .from('delivery_routes')
+      .update({ status: parsed.data.status })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[flota] setRutaStatus', error)
+      return fail('No se pudo actualizar la ruta.')
+    }
+
+    revalidatePath('/dashboard/flota')
+    return { ok: true, data: await getFlota() }
+  } catch {
+    return fail('No tienes permiso para gestionar la flota.')
+  }
+}
+
+export async function deleteRuta(id: string): Promise<FlotaResult<FlotaData>> {
+  try {
+    const member = await requirePermission('flota:write')
+    if (!z.uuid().safeParse(id).success) return fail('Ruta desconocida.')
+
+    const supabase = await createClient()
+    const { error } = await rawClient(supabase)
+      .from('delivery_routes')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[flota] deleteRuta', error)
+      return fail('No se pudo eliminar la ruta.')
     }
 
     revalidatePath('/dashboard/flota')

@@ -77,6 +77,54 @@ export async function createCourse(
   }
 }
 
+const updateCourseSchema = courseSchema.extend({ id: z.uuid() })
+
+export async function updateCourse(
+  input: z.input<typeof updateCourseSchema>,
+): Promise<CapacitacionResult<CapacitacionData>> {
+  try {
+    const member = await requirePermission('capacitacion:write')
+    const parsed = updateCourseSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    if (parsed.data.startsOn && parsed.data.endsOn && parsed.data.endsOn < parsed.data.startsOn) {
+      return fail('La fecha de fin no puede ser anterior a la de inicio.')
+    }
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('courses')
+      .update({
+        name: parsed.data.name,
+        category: parsed.data.category || 'Otro',
+        mode: parsed.data.mode,
+        provider: parsed.data.provider,
+        instructor: parsed.data.instructor,
+        duration_hours: parsed.data.durationHours,
+        cost_cents: parsed.data.costCents,
+        seats: parsed.data.seats,
+        validity_months: parsed.data.validityMonths,
+        is_mandatory: parsed.data.isMandatory,
+        starts_on: parsed.data.startsOn,
+        ends_on: parsed.data.endsOn,
+        description: parsed.data.description,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[capacitacion] updateCourse', error)
+      if (error.code === '23505') return fail('Ya existe un curso con ese nombre.')
+      return fail('No se pudo actualizar el curso.')
+    }
+
+    revalidatePath('/dashboard/capacitacion')
+    return { ok: true, data: await getCapacitacion() }
+  } catch {
+    return fail('No tienes permiso para gestionar capacitación.')
+  }
+}
+
 export async function deleteCourse(id: string): Promise<CapacitacionResult<CapacitacionData>> {
   try {
     const member = await requirePermission('capacitacion:write')
@@ -254,6 +302,128 @@ export async function removeEnrollment(id: string): Promise<CapacitacionResult<C
 
     revalidatePath('/dashboard/capacitacion')
     return { ok: true, data: await getCapacitacion() }
+  } catch {
+    return fail('No tienes permiso para gestionar capacitación.')
+  }
+}
+
+export type CertificacionRow = {
+  id: string
+  employeeId: string | null
+  employeeName: string
+  name: string
+  provider: string
+  issuedOn: string | null
+  expiresOn: string | null
+}
+
+interface CertificacionRecord {
+  id: string
+  employee_id: string | null
+  name: string
+  provider: string
+  issued_on: string | null
+  expires_on: string | null
+  employees: { full_name: string } | null
+}
+
+const CERTIFICACION_COLUMNS = `id, employee_id, name, provider, issued_on, expires_on,
+   employees ( full_name )`
+
+export async function fetchCertificaciones(): Promise<CapacitacionResult<CertificacionRow[]>> {
+  try {
+    const member = await requirePermission('capacitacion:read')
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('certifications')
+      .select(CERTIFICACION_COLUMNS)
+      .eq('org_id', member.orgId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('[capacitacion] fetchCertificaciones', error)
+      return fail('No se pudieron cargar las certificaciones.')
+    }
+
+    const rows = (data ?? []) as unknown as CertificacionRecord[]
+    return {
+      ok: true,
+      data: rows.map((row) => ({
+        id: row.id,
+        employeeId: row.employee_id,
+        employeeName: row.employees?.full_name ?? '',
+        name: row.name,
+        provider: row.provider,
+        issuedOn: row.issued_on,
+        expiresOn: row.expires_on,
+      })),
+    }
+  } catch {
+    return fail('No tienes permiso para gestionar capacitación.')
+  }
+}
+
+const certificacionSchema = z.object({
+  employeeId: z.uuid('Elige a la persona.').nullable().default(null),
+  name: z.string().trim().min(2, 'Escribe el nombre de la certificación.').max(160),
+  provider: z.string().trim().max(120),
+  issuedOn: z.string().date().nullable().default(null),
+  expiresOn: z.string().date().nullable().default(null),
+})
+
+export async function createCertificacion(
+  input: z.input<typeof certificacionSchema>,
+): Promise<CapacitacionResult<CertificacionRow[]>> {
+  try {
+    const member = await requirePermission('capacitacion:write')
+    const parsed = certificacionSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    if (parsed.data.issuedOn && parsed.data.expiresOn && parsed.data.expiresOn < parsed.data.issuedOn) {
+      return fail('La fecha de vencimiento no puede ser anterior a la de emisión.')
+    }
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('certifications').insert({
+      org_id: member.orgId,
+      employee_id: parsed.data.employeeId,
+      name: parsed.data.name,
+      provider: parsed.data.provider,
+      issued_on: parsed.data.issuedOn,
+      expires_on: parsed.data.expiresOn,
+    })
+
+    if (error) {
+      console.error('[capacitacion] createCertificacion', error)
+      return fail('No se pudo crear la certificación.')
+    }
+
+    revalidatePath('/dashboard/capacitacion')
+    return await fetchCertificaciones()
+  } catch {
+    return fail('No tienes permiso para gestionar capacitación.')
+  }
+}
+
+export async function deleteCertificacion(id: string): Promise<CapacitacionResult<CertificacionRow[]>> {
+  try {
+    const member = await requirePermission('capacitacion:write')
+    if (!z.uuid().safeParse(id).success) return fail('Certificación desconocida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('certifications')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[capacitacion] deleteCertificacion', error)
+      return fail('No se pudo eliminar la certificación.')
+    }
+
+    revalidatePath('/dashboard/capacitacion')
+    return await fetchCertificaciones()
   } catch {
     return fail('No tienes permiso para gestionar capacitación.')
   }

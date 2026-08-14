@@ -181,15 +181,13 @@ export async function placeOrder(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
-    // `as never`: the generated types carry tables only, so `rpc()` has no
-    // signature to match against. Same shape as lib/api/rate-limit.ts.
-    const { error } = await supabase.rpc('place_storefront_order' as never, {
+    const { error } = await supabase.rpc('place_storefront_order', {
       p_org_id: member.orgId,
       p_items: parsed.data.items.map((item) => ({
         product_id: item.productId,
         quantity: item.quantity,
       })),
-    } as never)
+    })
 
     if (error) {
       console.error('[productos] placeOrder', error)

@@ -76,6 +76,55 @@ export async function createOpening(
   }
 }
 
+const openingUpdateSchema = openingSchema.extend({ id: z.uuid() })
+
+export async function updateOpening(
+  input: z.input<typeof openingUpdateSchema>,
+): Promise<ReclutamientoResult<ReclutamientoData>> {
+  try {
+    const member = await requirePermission('reclutamiento:write')
+    const parsed = openingUpdateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    // Mirrors `job_openings_salary_ordered`. Checked here so an inverted range
+    // reads as a sentence rather than as a constraint violation.
+    if (parsed.data.salaryMaxCents > 0 && parsed.data.salaryMaxCents < parsed.data.salaryMinCents) {
+      return fail('El salario máximo no puede ser menor que el mínimo.')
+    }
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.hiringManagerId, member.orgId))) {
+      return fail('Esa persona no está en el equipo de tu organización.')
+    }
+
+    const { error } = await supabase
+      .from('job_openings')
+      .update({
+        title: parsed.data.title,
+        department: parsed.data.department,
+        location: parsed.data.location,
+        employment_type: parsed.data.employmentType,
+        openings: parsed.data.openings,
+        salary_min_cents: parsed.data.salaryMinCents,
+        salary_max_cents: parsed.data.salaryMaxCents,
+        hiring_manager_id: parsed.data.hiringManagerId,
+        description: parsed.data.description,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[reclutamiento] updateOpening', error)
+      return fail('No se pudo actualizar la vacante.')
+    }
+
+    revalidatePath('/dashboard/reclutamiento')
+    return { ok: true, data: await getReclutamiento() }
+  } catch {
+    return fail('No tienes permiso para gestionar reclutamiento.')
+  }
+}
+
 const openingStatusSchema = z.object({
   id: z.uuid(),
   status: z.enum(OPENING_STATUSES),
@@ -190,6 +239,70 @@ export async function createCandidate(
     if (error) {
       console.error('[reclutamiento] createCandidate', error)
       return fail('No se pudo registrar el candidato.')
+    }
+
+    revalidatePath('/dashboard/reclutamiento')
+    return { ok: true, data: await getReclutamiento() }
+  } catch {
+    return fail('No tienes permiso para gestionar reclutamiento.')
+  }
+}
+
+const candidateUpdateSchema = candidateSchema.extend({ id: z.uuid() })
+
+export async function updateCandidate(
+  input: z.input<typeof candidateUpdateSchema>,
+): Promise<ReclutamientoResult<ReclutamientoData>> {
+  try {
+    const member = await requirePermission('reclutamiento:write')
+    const parsed = candidateUpdateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+
+    // `candidates` inherits RLS from its parent, so the policy cannot vouch for
+    // the other side of the row: without this check an opening id from another
+    // tenant is a valid-looking foreign key.
+    const { data: opening } = await supabase
+      .from('job_openings')
+      .select('id')
+      .eq('id', parsed.data.openingId)
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (!opening) return fail('Esa vacante no existe en tu organización.')
+
+    // The update is scoped through the parent, since `candidates` carries no
+    // org_id of its own. Without the join a candidate id from another tenant
+    // would be refused by RLS — but with an empty result, not an error, and
+    // the screen would report success.
+    const { data: owned } = await supabase
+      .from('candidates')
+      .select('id, job_openings!inner ( org_id )')
+      .eq('id', parsed.data.id)
+      .eq('job_openings.org_id', member.orgId)
+      .maybeSingle()
+
+    if (!owned) return fail('Ese candidato no existe en tu organización.')
+
+    const { error } = await supabase
+      .from('candidates')
+      .update({
+        job_opening_id: parsed.data.openingId,
+        full_name: parsed.data.fullName,
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        source: parsed.data.source,
+        rating: parsed.data.rating,
+        expected_salary_cents: parsed.data.expectedSalaryCents,
+        notes: parsed.data.notes,
+      })
+      .eq('id', parsed.data.id)
+
+    if (error) {
+      console.error('[reclutamiento] updateCandidate', error)
+      return fail('No se pudo actualizar el candidato.')
     }
 
     revalidatePath('/dashboard/reclutamiento')

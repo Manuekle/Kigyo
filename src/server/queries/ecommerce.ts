@@ -40,6 +40,16 @@ export interface OnlineOrderRow {
   items: number
 }
 
+export interface DevolucionRow {
+  id: string
+  orderId: string
+  orderCode: string | null
+  customerName: string
+  reason: string
+  amountCents: number
+  createdAt: string
+}
+
 export interface OrderItemRow {
   id: string
   orderId: string
@@ -77,6 +87,7 @@ export interface EcommerceData {
   cupones: CouponRow[]
   productos: ProductRef[]
   canWrite: boolean
+  devoluciones: DevolucionRow[]
 }
 
 interface OrderRecord {
@@ -123,6 +134,15 @@ interface CouponRecord {
   starts_on: string | null
   expires_on: string | null
   is_active: boolean
+}
+
+interface ReturnRecord {
+  id: string
+  order_id: string
+  reason: string
+  amount_cents: number
+  created_at: string
+  online_orders: { code: string | null; customer_name: string } | null
 }
 
 const ORDER_COLUMNS = `id, code, client_id, customer_name, customer_email, customer_phone,
@@ -213,7 +233,7 @@ export async function getEcommerce(): Promise<EcommerceData> {
   const member = await requirePermission('ecommerce:read')
   const supabase = await createClient()
 
-  const [ordersResult, couponsResult, productos] = await Promise.all([
+  const [ordersResult, couponsResult, productos, returnsResult] = await Promise.all([
     supabase
       .from('online_orders')
       .select(ORDER_COLUMNS, { count: 'exact' })
@@ -228,11 +248,17 @@ export async function getEcommerce(): Promise<EcommerceData> {
       .order('code', { ascending: true })
       .limit(200),
     productsFor(supabase, member),
+    supabase
+      .from('online_order_returns' as never)
+      .select('id, order_id, reason, amount_cents, created_at, online_orders (code, customer_name)')
+      .eq('org_id', member.orgId)
+      .order('created_at', { ascending: false })
+      .limit(200),
   ])
 
   if (ordersResult.error) {
     console.error('[ecommerce] getEcommerce', ordersResult.error)
-    return { pedidos: [], pedidosTotal: 0, items: [], cupones: [], productos: [], canWrite: false }
+    return { pedidos: [], pedidosTotal: 0, items: [], cupones: [], productos: [], canWrite: false, devoluciones: [] }
   }
   if (couponsResult.error) console.error('[ecommerce] coupons', couponsResult.error)
 
@@ -279,5 +305,14 @@ export async function getEcommerce(): Promise<EcommerceData> {
     })),
     productos,
     canWrite: can(member.permissions, 'ecommerce:write'),
+    devoluciones: ((returnsResult.data ?? []) as unknown as ReturnRecord[]).map((row) => ({
+      id: row.id,
+      orderId: row.order_id,
+      orderCode: row.online_orders?.code ?? null,
+      customerName: row.online_orders?.customer_name ?? '',
+      reason: row.reason,
+      amountCents: row.amount_cents,
+      createdAt: row.created_at,
+    })),
   }
 }

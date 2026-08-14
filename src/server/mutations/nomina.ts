@@ -53,6 +53,41 @@ export async function createBeneficio(
   }
 }
 
+const updateBenefitSchema = benefitSchema.extend({ id: z.uuid() })
+
+export async function updateBeneficio(
+  input: z.input<typeof updateBenefitSchema>,
+): Promise<NominaResult<NominaData>> {
+  try {
+    const member = await requirePermission('nomina:write')
+    const parsed = updateBenefitSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('benefits')
+      .update({
+        name: parsed.data.name,
+        kind: parsed.data.kind,
+        monthly_cost_cents: parsed.data.monthlyCostCents,
+        coverage_pct: parsed.data.coveragePct,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[nomina] updateBeneficio', error)
+      if (error.code === '23505') return fail('Ya existe un beneficio con ese nombre.')
+      return fail('No se pudo actualizar el beneficio.')
+    }
+
+    revalidatePath('/dashboard/nomina')
+    return { ok: true, data: await getNomina() }
+  } catch {
+    return fail('No tienes permiso para gestionar nómina.')
+  }
+}
+
 export async function deleteBeneficio(id: string): Promise<NominaResult<NominaData>> {
   try {
     const member = await requirePermission('nomina:write')

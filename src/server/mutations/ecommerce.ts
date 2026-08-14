@@ -230,6 +230,110 @@ export async function setPedidoStatus(
   }
 }
 
+const devolucionSchema = z.object({
+  orderId: z.uuid('Pedido desconocido.'),
+  reason: z.string().trim().min(2, 'Escribe el motivo de la devolución.'),
+  amountCents: z.coerce.number().int().min(0).default(0),
+})
+
+export async function registrarDevolucion(
+  input: z.input<typeof devolucionSchema>,
+): Promise<EcommerceResult<EcommerceData>> {
+  try {
+    const member = await requirePermission('ecommerce:write')
+    const parsed = devolucionSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { data: order } = await supabase
+      .from('online_orders')
+      .select('id, status')
+      .eq('id', parsed.data.orderId)
+      .eq('org_id', member.orgId)
+      .maybeSingle()
+
+    if (!order) return fail('Ese pedido no existe.')
+    if (order.status === 'Cancelado' || order.status === 'Devuelto') {
+      return fail('Ese pedido ya no se puede devolver.')
+    }
+
+    const { error: insertError } = await supabase
+      .from('online_order_returns' as never)
+      .insert({
+        order_id: parsed.data.orderId,
+        reason: parsed.data.reason,
+        amount_cents: parsed.data.amountCents,
+      } as never)
+
+    if (insertError) {
+      console.error('[ecommerce] registrarDevolucion', insertError)
+      return fail('No se pudo registrar la devolución.')
+    }
+
+    const { error: statusError } = await supabase
+      .from('online_orders')
+      .update({ status: 'Devuelto' })
+      .eq('id', parsed.data.orderId)
+      .eq('org_id', member.orgId)
+
+    if (statusError) {
+      console.error('[ecommerce] registrarDevolucion status', statusError)
+      return fail('No se pudo actualizar el pedido.')
+    }
+
+    revalidatePath('/dashboard/ecommerce')
+    return { ok: true, data: await getEcommerce() }
+  } catch {
+    return fail('No tienes permiso para gestionar ecommerce.')
+  }
+}
+
+const trackingSchema = z.object({
+  orderId: z.uuid('Pedido desconocido.'),
+  trackingCode: z.string().trim().max(120, 'El código de seguimiento es muy largo.'),
+})
+
+export async function setPedidoTracking(
+  input: z.input<typeof trackingSchema>,
+): Promise<EcommerceResult<EcommerceData>> {
+  try {
+    const member = await requirePermission('ecommerce:write')
+    const parsed = trackingSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { data: order } = await supabase
+      .from('online_orders')
+      .select('status')
+      .eq('id', parsed.data.orderId)
+      .eq('org_id', member.orgId)
+      .maybeSingle()
+
+    if (!order) return fail('Ese pedido no existe.')
+
+    const { error } = await supabase
+      .from('online_orders')
+      .update({
+        tracking_code: parsed.data.trackingCode,
+        ...(order.status === 'Nuevo' || order.status === 'Pagado' || order.status === 'En preparación'
+          ? { status: 'Enviado' }
+          : {}),
+      })
+      .eq('id', parsed.data.orderId)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[ecommerce] setPedidoTracking', error)
+      return fail('No se pudo actualizar el seguimiento.')
+    }
+
+    revalidatePath('/dashboard/ecommerce')
+    return { ok: true, data: await getEcommerce() }
+  } catch {
+    return fail('No tienes permiso para gestionar ecommerce.')
+  }
+}
+
 export async function deletePedido(id: string): Promise<EcommerceResult<EcommerceData>> {
   try {
     const member = await requirePermission('ecommerce:write')
@@ -301,6 +405,53 @@ export async function createCupon(
       console.error('[ecommerce] createCupon', error)
       if (error.code === '23505') return fail('Ya existe un cupón con ese código.')
       return fail('No se pudo crear el cupón.')
+    }
+
+    revalidatePath('/dashboard/ecommerce')
+    return { ok: true, data: await getEcommerce() }
+  } catch {
+    return fail('No tienes permiso para gestionar ecommerce.')
+  }
+}
+
+const couponUpdateSchema = couponSchema.extend({ id: z.uuid() })
+
+export async function updateCupon(
+  input: z.input<typeof couponUpdateSchema>,
+): Promise<EcommerceResult<EcommerceData>> {
+  try {
+    const member = await requirePermission('ecommerce:write')
+    const parsed = couponUpdateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const hasPercent = parsed.data.percentOff !== null
+    const hasAmount = parsed.data.amountOffCents !== null
+    if (hasPercent === hasAmount) {
+      return fail('Elige un solo tipo de descuento: porcentaje o monto fijo.')
+    }
+    if (parsed.data.startsOn && parsed.data.expiresOn && parsed.data.expiresOn < parsed.data.startsOn) {
+      return fail('La fecha de expiración no puede ser anterior a la de inicio.')
+    }
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('discount_coupons')
+      .update({
+        code: parsed.data.code,
+        percent_off: parsed.data.percentOff,
+        amount_off_cents: parsed.data.amountOffCents,
+        min_total_cents: parsed.data.minTotalCents,
+        max_uses: parsed.data.maxUses,
+        starts_on: parsed.data.startsOn,
+        expires_on: parsed.data.expiresOn,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[ecommerce] updateCupon', error)
+      if (error.code === '23505') return fail('Ya existe un cupón con ese código.')
+      return fail('No se pudo actualizar el cupón.')
     }
 
     revalidatePath('/dashboard/ecommerce')

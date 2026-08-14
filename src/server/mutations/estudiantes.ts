@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
@@ -32,6 +33,22 @@ async function programBelongs(
   return Boolean(data)
 }
 
+async function scheduleBelongs(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  id: string | null,
+  orgId: string,
+): Promise<boolean> {
+  if (!id) return true
+  const raw = supabase as unknown as SupabaseClient
+  const { data } = await raw
+    .from('class_schedules')
+    .select('id')
+    .eq('id', id)
+    .eq('org_id', orgId)
+    .maybeSingle()
+  return Boolean(data)
+}
+
 /* ─── Programmes ───────────────────────────────────────────────────────── */
 
 const programSchema = z.object({
@@ -42,6 +59,8 @@ const programSchema = z.object({
   coordinatorId: z.uuid().nullable().default(null),
   description: z.string().trim().max(2000).default(''),
 })
+
+const programUpdateSchema = programSchema.extend({ id: z.uuid() })
 
 export async function createPrograma(
   input: z.input<typeof programSchema>,
@@ -78,6 +97,44 @@ export async function createPrograma(
   }
 }
 
+export async function updatePrograma(
+  input: z.input<typeof programUpdateSchema>,
+): Promise<EstudiantesResult<EstudiantesData>> {
+  try {
+    const member = await requirePermission('estudiantes:write')
+    const parsed = programUpdateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.coordinatorId, member.orgId))) {
+      return fail('Esa persona no está en el equipo de tu organización.')
+    }
+
+    const { error } = await supabase
+      .from('academic_programs')
+      .update({
+        name: parsed.data.name,
+        level: parsed.data.level,
+        duration_terms: parsed.data.durationTerms,
+        tuition_cents: parsed.data.tuitionCents,
+        coordinator_id: parsed.data.coordinatorId,
+        description: parsed.data.description,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[estudiantes] updatePrograma', error)
+      return fail('No se pudo actualizar el programa.')
+    }
+
+    revalidatePath('/dashboard/estudiantes')
+    return { ok: true, data: await getEstudiantes() }
+  } catch {
+    return fail('No tienes permiso para gestionar estudiantes.')
+  }
+}
+
 /* ─── Students ─────────────────────────────────────────────────────────── */
 
 const studentSchema = z.object({
@@ -91,6 +148,8 @@ const studentSchema = z.object({
   guardianName: z.string().trim().max(160).default(''),
   guardianPhone: z.string().trim().max(40).default(''),
 })
+
+const studentUpdateSchema = studentSchema.extend({ id: z.uuid() })
 
 export async function createEstudiante(
   input: z.input<typeof studentSchema>,
@@ -135,6 +194,51 @@ export async function createEstudiante(
   }
 }
 
+export async function updateEstudiante(
+  input: z.input<typeof studentUpdateSchema>,
+): Promise<EstudiantesResult<EstudiantesData>> {
+  try {
+    const member = await requirePermission('estudiantes:write')
+    const parsed = studentUpdateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    if (parsed.data.birthDate && parsed.data.birthDate > new Date().toISOString().slice(0, 10)) {
+      return fail('La fecha de nacimiento no puede estar en el futuro.')
+    }
+
+    const supabase = await createClient()
+    if (!(await programBelongs(supabase, parsed.data.programId, member.orgId))) {
+      return fail('Ese programa no existe en tu organización.')
+    }
+
+    const { error } = await supabase
+      .from('students')
+      .update({
+        full_name: parsed.data.fullName,
+        document_id: parsed.data.documentId,
+        birth_date: parsed.data.birthDate,
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        address: parsed.data.address,
+        program_id: parsed.data.programId,
+        guardian_name: parsed.data.guardianName,
+        guardian_phone: parsed.data.guardianPhone,
+      })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[estudiantes] updateEstudiante', error)
+      return fail('No se pudo actualizar el estudiante.')
+    }
+
+    revalidatePath('/dashboard/estudiantes')
+    return { ok: true, data: await getEstudiantes() }
+  } catch {
+    return fail('No tienes permiso para gestionar estudiantes.')
+  }
+}
+
 const statusSchema = z.object({ id: z.uuid(), status: z.enum(STUDENT_STATUSES) })
 
 export async function setEstudianteStatus(
@@ -155,6 +259,202 @@ export async function setEstudianteStatus(
     if (error) {
       console.error('[estudiantes] setEstudianteStatus', error)
       return fail('No se pudo actualizar el estudiante.')
+    }
+
+    revalidatePath('/dashboard/estudiantes')
+    return { ok: true, data: await getEstudiantes() }
+  } catch {
+    return fail('No tienes permiso para gestionar estudiantes.')
+  }
+}
+
+/* ─── Schedules and attendance ─────────────────────────────────────────── */
+
+const WEEKDAYS = [
+  'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
+] as const
+
+const HOUR_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+const horarioSchema = z.object({
+  programId: z.uuid().nullable().default(null),
+  subject: z.string().trim().min(2, 'Escribe la materia.').max(160),
+  teacherId: z.uuid().nullable().default(null),
+  weekday: z.enum(WEEKDAYS, { error: 'Elige un día de la semana.' }),
+  startTime: z.string().regex(HOUR_PATTERN, 'Escribe la hora de inicio en formato HH:MM.'),
+  endTime: z.string().regex(HOUR_PATTERN, 'Escribe la hora de fin en formato HH:MM.'),
+  classroom: z.string().trim().max(160).default(''),
+})
+
+export async function createHorario(
+  input: z.input<typeof horarioSchema>,
+): Promise<EstudiantesResult<EstudiantesData>> {
+  try {
+    const member = await requirePermission('estudiantes:write')
+    const parsed = horarioSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+    if (parsed.data.endTime <= parsed.data.startTime) {
+      return fail('La hora de fin debe ser posterior a la de inicio.')
+    }
+
+    const supabase = await createClient()
+    if (!(await programBelongs(supabase, parsed.data.programId, member.orgId))) {
+      return fail('Ese programa no existe en tu organización.')
+    }
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.teacherId, member.orgId))) {
+      return fail('Esa persona no está en el equipo de tu organización.')
+    }
+
+    const raw = supabase as unknown as SupabaseClient
+    const { error } = await raw.from('class_schedules').insert({
+      org_id: member.orgId,
+      program_id: parsed.data.programId,
+      subject: parsed.data.subject,
+      teacher_id: parsed.data.teacherId,
+      weekday: parsed.data.weekday,
+      start_time: parsed.data.startTime,
+      end_time: parsed.data.endTime,
+      classroom: parsed.data.classroom,
+    })
+
+    if (error) {
+      console.error('[estudiantes] createHorario', error)
+      return fail('No se pudo crear el horario.')
+    }
+
+    revalidatePath('/dashboard/estudiantes')
+    return { ok: true, data: await getEstudiantes() }
+  } catch {
+    return fail('No tienes permiso para gestionar estudiantes.')
+  }
+}
+
+export async function deleteHorario(id: string): Promise<EstudiantesResult<EstudiantesData>> {
+  try {
+    const member = await requirePermission('estudiantes:write')
+    if (!z.uuid().safeParse(id).success) return fail('Horario desconocido.')
+
+    const supabase = await createClient()
+    const raw = supabase as unknown as SupabaseClient
+    const { error } = await raw
+      .from('class_schedules')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[estudiantes] deleteHorario', error)
+      return fail('No se pudo eliminar el horario.')
+    }
+
+    revalidatePath('/dashboard/estudiantes')
+    return { ok: true, data: await getEstudiantes() }
+  } catch {
+    return fail('No tienes permiso para gestionar estudiantes.')
+  }
+}
+
+const asistenciaSchema = z.object({
+  studentId: z.uuid('Elige el estudiante.'),
+  date: z.string().regex(DATE_PATTERN, 'Elige una fecha válida.'),
+  present: z.boolean(),
+  scheduleId: z.uuid().nullable().default(null),
+})
+
+export async function marcarAsistencia(
+  input: z.input<typeof asistenciaSchema>,
+): Promise<EstudiantesResult<EstudiantesData>> {
+  try {
+    const member = await requirePermission('estudiantes:write')
+    const parsed = asistenciaSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const [{ data: student }, scheduleOk] = await Promise.all([
+      supabase
+        .from('students')
+        .select('id')
+        .eq('id', parsed.data.studentId)
+        .eq('org_id', member.orgId)
+        .is('deleted_at', null)
+        .maybeSingle(),
+      scheduleBelongs(supabase, parsed.data.scheduleId, member.orgId),
+    ])
+
+    if (!student) return fail('Ese estudiante no existe en tu organización.')
+    if (!scheduleOk) return fail('Ese horario no existe en tu organización.')
+
+    const raw = supabase as unknown as SupabaseClient
+    const { error } = await raw.from('student_attendance').upsert({
+      org_id: member.orgId,
+      student_id: parsed.data.studentId,
+      date: parsed.data.date,
+      present: parsed.data.present,
+      schedule_id: parsed.data.scheduleId,
+    }, { onConflict: 'student_id,date' })
+
+    if (error) {
+      console.error('[estudiantes] marcarAsistencia', error)
+      return fail('No se pudo registrar la asistencia.')
+    }
+
+    revalidatePath('/dashboard/estudiantes')
+    return { ok: true, data: await getEstudiantes() }
+  } catch {
+    return fail('No tienes permiso para gestionar estudiantes.')
+  }
+}
+
+const asistenciaUpdateSchema = z.object({
+  id: z.uuid(),
+  present: z.boolean(),
+})
+
+export async function setAsistencia(
+  input: z.input<typeof asistenciaUpdateSchema>,
+): Promise<EstudiantesResult<EstudiantesData>> {
+  try {
+    const member = await requirePermission('estudiantes:write')
+    const parsed = asistenciaUpdateSchema.safeParse(input)
+    if (!parsed.success) return fail('Datos inválidos.')
+
+    const supabase = await createClient()
+    const raw = supabase as unknown as SupabaseClient
+    const { error } = await raw
+      .from('student_attendance')
+      .update({ present: parsed.data.present })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[estudiantes] setAsistencia', error)
+      return fail('No se pudo actualizar la asistencia.')
+    }
+
+    revalidatePath('/dashboard/estudiantes')
+    return { ok: true, data: await getEstudiantes() }
+  } catch {
+    return fail('No tienes permiso para gestionar estudiantes.')
+  }
+}
+
+export async function deleteAsistencia(id: string): Promise<EstudiantesResult<EstudiantesData>> {
+  try {
+    const member = await requirePermission('estudiantes:write')
+    if (!z.uuid().safeParse(id).success) return fail('Registro de asistencia desconocido.')
+
+    const supabase = await createClient()
+    const raw = supabase as unknown as SupabaseClient
+    const { error } = await raw
+      .from('student_attendance')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[estudiantes] deleteAsistencia', error)
+      return fail('No se pudo eliminar el registro de asistencia.')
     }
 
     revalidatePath('/dashboard/estudiantes')
