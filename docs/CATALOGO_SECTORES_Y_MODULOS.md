@@ -71,8 +71,8 @@ catálogo: es el módulo con el que se opera un gimnasio.
 | `integraciones` | Pasarela de pago, facturación electrónica, WhatsApp, contabilidad | todos | `integrations`, `integration_events` |
 | `sucursales` | Pantalla real para `public.sites`, que hoy solo se toca en el asistente | todos | ninguna — la tabla existe (mig. 31) |
 | `tiempos` | Horas facturables por persona, proyecto y tarifa | servicios, tecnologia, medios, legal | `time_entries` |
-| `suscripciones` | Cobro recurrente: mensualidad, membresía, canon, plan SaaS | fitness, educacion, inmobiliario, tecnologia | `subscription_plans`, `subscriptions` |
-| `cartera` | Cuentas por cobrar, edades, acuerdos de pago, gestión de mora | financiero, salud, educacion, servicios | `receivable_agreements` sobre `invoices` |
+| ~~`suscripciones`~~ ✅ | **Hecho** — migración 48: `subscription_plans` y `subscriptions` con ciclo, renovación y precio por cliente | fitness, educacion, inmobiliario, tecnologia | |
+| ~~`cartera`~~ ✅ | **Hecho** — migración 49: `receivable_agreements` sobre `invoices` | financiero, salud, educacion, servicios | |
 
 ### 2.2 Verticales nuevos — uno por sector que hoy no tiene
 
@@ -389,8 +389,14 @@ Por hueco más grande y por reutilización, no por tamaño del sector.
 5. ~~**Las tres pantallas huérfanas**~~ ✅ — **hecho**: `delivery_routes` en
    Flota (crear ruta, estado, borrado), `room_cleaning_tasks` en Hotelería y
    `menu_item_ingredients` en Restaurante.
-6. **Verticales que faltan por completo:** `suscriptores`, `puestos`,
+6. ~~**`suscripciones` y `cartera`**~~ ✅ — **hecho** (migraciones 48 y 49):
+   planes y cobro recurrente (`subscription_plans`, `subscriptions`) y cuentas
+   por cobrar con acuerdos de pago (`receivable_agreements` sobre `invoices`).
+   Presets sembrados: suscripciones para fitness-bienestar, educacion,
+   tecnologia e inmobiliario; cartera para financiero, salud, educacion y
+   servicios.
+7. **Verticales que faltan por completo:** `suscriptores`, `puestos`,
    `donantes`, `creditos`, `obra`, `ph`.
-7. **Subsectores de los once sectores que no tienen.**
-8. **Transversales restantes:** `reportes`, `notificaciones`, `portal`,
-   `marketing`, `integraciones`, `sucursales`, `cartera`, `suscripciones`.
+8. **Subsectores de los once sectores que no tienen.**
+9. **Transversales restantes:** `reportes`, `notificaciones`, `portal`,
+   `marketing`, `integraciones`, `sucursales`.

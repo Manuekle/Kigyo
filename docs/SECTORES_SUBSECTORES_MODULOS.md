@@ -173,8 +173,9 @@ estado del pedido y subsectores (marketplace, tienda propia, dropshipping).
 | educacion-instituto | 16: + contratos inventario proyectos | Docente, Coordinador/a, Admisiones |
 | educacion-universidad | 19: + contratos desempeno inventario proyectos reclutamiento trazabilidad | Docente, Coordinador/a, Admisiones |
 
-**Revisión:** falta notas por periodo y boletín dentro de `estudiantes`,
-portal del acudiente, `suscripciones` (mensualidad) y `cartera` (pensiones).
+**Revisión:** falta notas por periodo y boletín dentro de `estudiantes` y
+portal del acudiente. `suscripciones` (mensualidad) y `cartera` (pensiones)
+ya entraron (migraciones 48-49).
 
 ### 7. energia — Energía y renovables
 **Vertical:** ninguno · **Subsectores:** 0 · **Roles:** ✓ (matriz de sector)
@@ -193,9 +194,8 @@ contratos de disponibilidad en mantenimiento.
 |---|---|---|
 | financiero (sector) | 17: asistencia calendario canales clientes consultoria contratos cotizaciones desempeno documentos empleados facturacion firmas ia nomina riesgos tickets trazabilidad | Asesor/a, Analista de riesgos, Cobranza |
 
-**Revisión:** un sector con 17 módulos genéricos y ninguno que hable de dinero
-prestado: falta `creditos` (colocación, amortización, mora) y `cartera`, más
-subsectores (cooperativa, corredora, fintech, cobranza).
+**Revisión:** falta `creditos` (colocación, amortización, mora) y subsectores
+(cooperativa, corredora, fintech, cobranza). `cartera` ya entró (migración 49).
 
 ### 9. fitness-bienestar — Fitness y bienestar
 **Vertical:** `socios` · **Subsectores:** 4 · **Roles:** ✓
@@ -207,9 +207,9 @@ subsectores (cooperativa, corredora, fintech, cobranza).
 | fitness-gimnasio | 16: + inventario mantenimiento | Instructor/a, Recepcionista, Encargado/a de sala |
 | fitness-spa | 18: + catalogos cotizaciones pos | Terapeuta, Recepcionista |
 
-**Revisión:** `socios` (migración 42) resolvió el hueco mayor. Falta marcar
-asistencia desde la pantalla de clases, `suscripciones`, control de acceso y
-`marketing`.
+**Revisión:** `socios` (migración 42) resolvió el hueco mayor y
+`suscripciones` (migración 48) cerró la membresía. Falta marcar asistencia
+desde la pantalla de clases, control de acceso y `marketing`.
 
 ### 10. gobierno — Sector público
 **Vertical:** ninguno · **Subsectores:** 0 · **Roles:** ✓ (matriz de sector)
@@ -244,7 +244,8 @@ y PQRS con término legal — `tickets` se le parece y no es lo mismo.
 | inmobiliario-ph | 16: + hseq riesgos | Administrador/a, Consejo de administración, Conserje |
 
 **Revisión:** falta el vertical `ph` (asambleas, cuotas, zonas comunes),
-liquidación al propietario, `cartera` y portal del inquilino.
+liquidación al propietario y portal del inquilino. `cartera` ya entró
+(migración 49).
 
 ### 13. logistica — Logística y transporte
 **Vertical:** ninguno · **Subsectores:** 3 · **Roles:** ✓
@@ -327,8 +328,8 @@ y el cliente activa el resto a mano.
 FDI, planes de tratamiento por pieza, laboratorio dental). Veterinaria es el
 siguiente hueco: falta mascota-vs-propietario, vacunas, peluquería y
 hospitalización (mismo patrón que odontología). Transversal al sector faltan
-radiografías, consentimientos, `portal` del paciente, `notificaciones` de cita
-y `cartera` (copagos y EPS).
+radiografías, consentimientos, `portal` del paciente y `notificaciones` de
+cita. `cartera` (copagos y EPS) ya entró (migración 49).
 
 ### 20. seguridad — Seguridad y vigilancia
 **Vertical:** ninguno · **Subsectores:** 0 · **Roles:** ✓ (matriz de sector)
@@ -353,8 +354,8 @@ cobertura del puesto.
 | servicios-ti | 17: … + desempeno inventario | Ingeniero/a, Soporte, Gerente/a |
 
 **Revisión:** `tiempos` es la ausencia central — el preset dice «se factura
-tiempo» y no hay dónde registrarlo. En contable, calendario tributario y
-`cartera`; en legal, expedientes y términos.
+tiempo» y no hay dónde registrarlo. `cartera` ya entró (migración 49); en
+contable falta el calendario tributario y en legal, expedientes y términos.
 
 ### 22. tecnologia — Tecnología y software
 **Vertical:** ninguno · **Subsectores:** 0 · **Roles:** ✓ (matriz de sector)
@@ -363,8 +364,8 @@ tiempo» y no hay dónde registrarlo. En contable, calendario tributario y
 |---|---|---|
 | tecnologia (sector) | 15: asistencia calendario canales clientes contratos cotizaciones desempeno documentos empleados facturacion ia nomina proyectos reclutamiento tickets | Ingeniero/a, Soporte, Gerente/a |
 
-**Revisión:** falta `tiempos`, `suscripciones` (MRR, renovaciones, churn) y
-subsectores (SaaS, a la medida, integrador).
+**Revisión:** falta `tiempos` y subsectores (SaaS, a la medida, integrador).
+`suscripciones` (MRR, renovaciones, churn) ya entró (migración 48).
 
 ### 23. telecomunicaciones — Telecomunicaciones
 **Vertical:** ninguno · **Subsectores:** 0 · **Roles:** ✓ (matriz de sector)
@@ -395,8 +396,8 @@ divide en tres capas:
 | `portal` | paciente, acudiente, inquilino, huésped | no existe |
 | `marketing` | comercio, alimentos, salud, fitness | no existe |
 | `integraciones` | pasarela, facturación electrónica, WhatsApp | no existe (billing webhook sí) |
-| `cartera` | financiero, salud, educacion, servicios | no existe |
-| `suscripciones` | fitness, educacion, tecnologia, inmobiliario | no existe |
+| ~~`cartera`~~ ✅ | financiero, salud, educacion, servicios | hecho (mig. 49) — cuentas por cobrar y acuerdos de pago |
+| ~~`suscripciones`~~ ✅ | fitness, educacion, tecnologia, inmobiliario | hecho (mig. 48) — planes y cobro recurrente |
 | `sucursales` | todos | tabla `sites` existe (mig. 31), sin pantalla propia |
 
 ### Capa 2 — Verticales (un sector sin su pantalla de negocio)
@@ -431,8 +432,11 @@ divide en tres capas:
    servicios, tecnologia y medios
 2. ~~Pantallas huérfanas~~ ✅ — `delivery_routes` en Flota (crear/estado/borrar),
    `room_cleaning_tasks` en Hotelería, `menu_item_ingredients` en Restaurante
-3. Veterinaria vertical (patrón odontología ya probado)
-4. `suscripciones` + `cartera` — cierran fitness, educacion, financiero
+3. ~~`suscripciones` + `cartera`~~ ✅ — hecho (migraciones 48 y 49): planes y
+   cobro recurrente con presets para fitness-bienestar, educacion, tecnologia
+   e inmobiliario (suscripciones) y financiero, salud, educacion y servicios
+   (cartera)
+4. Veterinaria vertical (patrón odontología ya probado)
 5. Verticales completos restantes: `suscriptores`, `puestos`, `donantes`,
    `creditos`, `obra`, `ph`
 6. Transversales: `reportes`, `notificaciones`, `portal`, `marketing`,
