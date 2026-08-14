@@ -1,0 +1,45 @@
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 35 — El guardián de un plan que ya no existe
+--
+-- Migration 32 dropped `organizations.plan`, the last copy of a value that had
+-- moved to `public.accounts` in migration 26. It did not drop the trigger
+-- guarding that column.
+--
+-- `app.guard_plan_change()` (migration 14) still runs `before update on
+-- public.organizations` and still evaluates:
+--
+--     new.plan is distinct from old.plan
+--
+-- against a record that no longer has the field. Postgres compiles a plpgsql
+-- expression on first execution, so nothing failed at migration time: it fails
+-- on the first UPDATE, with
+--
+--     ERROR:  record "new" has no field "plan"
+--
+-- and it fails for *every* update to the table regardless of which columns are
+-- being written. Renaming a company, saving the module selection, choosing a
+-- sector, writing the fiscal details or the branding — all of them were
+-- refused. `supabase/tests/rls/005_account_isolation.sql` is where it surfaced.
+--
+-- ─── Why the trigger is not repointed ──────────────────────────────────────
+--
+-- The rule it enforced — only the billing process may change a plan — is
+-- already enforced where the plan now lives: `app.guard_account_plan_change()`
+-- fires on `public.accounts` (migration 26), and the column-level grants there
+-- keep `authenticated` from writing it at all. Keeping a second guard on a
+-- table that no longer holds a plan would be a trigger with nothing to check.
+--
+-- The status guard added by migration 32 is untouched and still fires: it
+-- reads `new.status`, which does exist.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+drop trigger  if exists organizations_guard_plan on public.organizations;
+drop function if exists app.guard_plan_change();
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Rollback
+--
+-- Deliberately none. Restoring the trigger restores the outage: the column it
+-- reads does not exist, and re-adding *that* is what migration 32's own
+-- rollback block is for. If migration 32 is ever reverted, revert this first.
+-- ═══════════════════════════════════════════════════════════════════════════

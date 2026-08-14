@@ -137,6 +137,85 @@ export interface Database {
           },
         ]
       }
+      account_memberships: {
+        Row: {
+          account_id: string
+          user_id: string
+          role: "owner" | "billing" | "admin"
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          user_id: string
+          role: "owner" | "billing" | "admin"
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          user_id?: string
+          role?: "owner" | "billing" | "admin"
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_memberships_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_memberships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounts: {
+        Row: {
+          id: string
+          name: string
+          plan: "starter" | "growth" | "enterprise"
+          billing_customer_id: string | null
+          billing_subscription_id: string | null
+          billing_status: string | null
+          onboarding_completed_at: string | null
+          created_at: string
+          updated_at: string
+          billing_provider: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          plan?: "starter" | "growth" | "enterprise"
+          billing_customer_id?: string | null
+          billing_subscription_id?: string | null
+          billing_status?: string | null
+          onboarding_completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+          billing_provider?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          plan?: "starter" | "growth" | "enterprise"
+          billing_customer_id?: string | null
+          billing_subscription_id?: string | null
+          billing_status?: string | null
+          onboarding_completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+          billing_provider?: string | null
+        }
+        Relationships: [
+        ]
+      }
       ai_conversations: {
         Row: {
           id: string
@@ -351,6 +430,50 @@ export interface Database {
           },
         ]
       }
+      billing_events: {
+        Row: {
+          id: string
+          provider: string
+          event_id: string
+          kind: string
+          account_id: string | null
+          payload: Json
+          received_at: string
+          applied_at: string | null
+          error: string | null
+        }
+        Insert: {
+          id?: string
+          provider: string
+          event_id: string
+          kind: string
+          account_id?: string | null
+          payload?: Json
+          received_at?: string
+          applied_at?: string | null
+          error?: string | null
+        }
+        Update: {
+          id?: string
+          provider?: string
+          event_id?: string
+          kind?: string
+          account_id?: string | null
+          payload?: Json
+          received_at?: string
+          applied_at?: string | null
+          error?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_events_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_attendees: {
         Row: {
           id: string
@@ -511,6 +634,137 @@ export interface Database {
             columns: ["job_opening_id"]
             isOneToOne: false
             referencedRelation: "job_openings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_movements: {
+        Row: {
+          id: string
+          session_id: string
+          kind: "Ingreso" | "Egreso" | "Retiro" | "Gasto"
+          amount_cents: number
+          concept: string
+          method: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          kind?: "Ingreso" | "Egreso" | "Retiro" | "Gasto"
+          amount_cents: number
+          concept: string
+          method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          kind?: "Ingreso" | "Egreso" | "Retiro" | "Gasto"
+          amount_cents?: number
+          concept?: string
+          method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_movements_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "cash_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cash_sessions: {
+        Row: {
+          id: string
+          org_id: string
+          code: string | null
+          opened_by: string | null
+          opened_at: string
+          opening_float_cents: number
+          closed_at: string | null
+          closed_by: string | null
+          counted_cents: number | null
+          expected_cents: number | null
+          status: "Abierta" | "Cerrada"
+          notes: string
+          created_at: string
+          updated_at: string
+          site_id: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          code?: string | null
+          opened_by?: string | null
+          opened_at?: string
+          opening_float_cents?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          counted_cents?: number | null
+          expected_cents?: number | null
+          status?: "Abierta" | "Cerrada"
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          site_id?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          code?: string | null
+          opened_by?: string | null
+          opened_at?: string
+          opening_float_cents?: number
+          closed_at?: string | null
+          closed_by?: string | null
+          counted_cents?: number | null
+          expected_cents?: number | null
+          status?: "Abierta" | "Cerrada"
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          site_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_sessions_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_sessions_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_sessions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_sessions_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -695,6 +949,67 @@ export interface Database {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      class_schedules: {
+        Row: {
+          id: string
+          org_id: string
+          program_id: string | null
+          subject: string
+          teacher_id: string | null
+          weekday: "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado" | "Domingo"
+          start_time: string
+          end_time: string
+          classroom: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          program_id?: string | null
+          subject: string
+          teacher_id?: string | null
+          weekday: "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado" | "Domingo"
+          start_time: string
+          end_time: string
+          classroom?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          program_id?: string | null
+          subject?: string
+          teacher_id?: string | null
+          weekday?: "Lunes" | "Martes" | "Miércoles" | "Jueves" | "Viernes" | "Sábado" | "Domingo"
+          start_time?: string
+          end_time?: string
+          classroom?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_schedules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_schedules_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "academic_programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_schedules_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
             referencedColumns: ["id"]
           },
         ]
@@ -1288,6 +1603,73 @@ export interface Database {
           },
         ]
       }
+      delivery_routes: {
+        Row: {
+          id: string
+          org_id: string
+          origin: string
+          destination: string
+          vehicle_id: string | null
+          driver_id: string | null
+          distance_km: number | null
+          scheduled_on: string
+          status: "Planificada" | "En curso" | "Completada" | "Cancelada"
+          notes: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          origin?: string
+          destination: string
+          vehicle_id?: string | null
+          driver_id?: string | null
+          distance_km?: number | null
+          scheduled_on?: string
+          status?: "Planificada" | "En curso" | "Completada" | "Cancelada"
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          origin?: string
+          destination?: string
+          vehicle_id?: string | null
+          driver_id?: string | null
+          distance_km?: number | null
+          scheduled_on?: string
+          status?: "Planificada" | "En curso" | "Completada" | "Cancelada"
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_routes_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_routes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_routes_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       demo_requests: {
         Row: {
           id: string
@@ -1323,6 +1705,181 @@ export interface Database {
           updated_at?: string
         }
         Relationships: [
+        ]
+      }
+      dental_chart_teeth: {
+        Row: {
+          id: string
+          chart_id: string
+          tooth: number
+          surface: "Oclusal" | "Mesial" | "Distal" | "Vestibular" | "Lingual" | "Palatina" | null
+          condition: "Sano" | "Caries" | "Obturado" | "Corona" | "Ausente" | "Implante" | "Endodoncia" | "Fracturado" | "Sellante" | "Extracción indicada" | "Protesis" | "Ortodoncia"
+          notes: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          chart_id: string
+          tooth: number
+          surface?: "Oclusal" | "Mesial" | "Distal" | "Vestibular" | "Lingual" | "Palatina" | null
+          condition: "Sano" | "Caries" | "Obturado" | "Corona" | "Ausente" | "Implante" | "Endodoncia" | "Fracturado" | "Sellante" | "Extracción indicada" | "Protesis" | "Ortodoncia"
+          notes?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          chart_id?: string
+          tooth?: number
+          surface?: "Oclusal" | "Mesial" | "Distal" | "Vestibular" | "Lingual" | "Palatina" | null
+          condition?: "Sano" | "Caries" | "Obturado" | "Corona" | "Ausente" | "Implante" | "Endodoncia" | "Fracturado" | "Sellante" | "Extracción indicada" | "Protesis" | "Ortodoncia"
+          notes?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dental_chart_teeth_chart_id_fkey"
+            columns: ["chart_id"]
+            isOneToOne: false
+            referencedRelation: "dental_charts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dental_charts: {
+        Row: {
+          id: string
+          org_id: string
+          patient_id: string
+          professional_id: string | null
+          charted_on: string
+          kind: "Inicial" | "Control" | "Final"
+          notes: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          patient_id: string
+          professional_id?: string | null
+          charted_on?: string
+          kind?: "Inicial" | "Control" | "Final"
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          patient_id?: string
+          professional_id?: string | null
+          charted_on?: string
+          kind?: "Inicial" | "Control" | "Final"
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dental_charts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dental_charts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dental_charts_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dental_lab_orders: {
+        Row: {
+          id: string
+          org_id: string
+          patient_id: string
+          plan_item_id: string | null
+          code: string | null
+          lab_name: string
+          work_type: "Corona" | "Puente" | "Prótesis total" | "Prótesis parcial" | "Incrustación" | "Carilla" | "Férula" | "Placa" | "Otro"
+          tooth: number | null
+          sent_on: string
+          due_on: string | null
+          received_on: string | null
+          status: "Enviado" | "En proceso" | "Recibido" | "Reproceso" | "Cancelado"
+          cost_cents: number
+          notes: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          patient_id: string
+          plan_item_id?: string | null
+          code?: string | null
+          lab_name?: string
+          work_type?: "Corona" | "Puente" | "Prótesis total" | "Prótesis parcial" | "Incrustación" | "Carilla" | "Férula" | "Placa" | "Otro"
+          tooth?: number | null
+          sent_on?: string
+          due_on?: string | null
+          received_on?: string | null
+          status?: "Enviado" | "En proceso" | "Recibido" | "Reproceso" | "Cancelado"
+          cost_cents?: number
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          patient_id?: string
+          plan_item_id?: string | null
+          code?: string | null
+          lab_name?: string
+          work_type?: "Corona" | "Puente" | "Prótesis total" | "Prótesis parcial" | "Incrustación" | "Carilla" | "Férula" | "Placa" | "Otro"
+          tooth?: number | null
+          sent_on?: string
+          due_on?: string | null
+          received_on?: string | null
+          status?: "Enviado" | "En proceso" | "Recibido" | "Reproceso" | "Cancelado"
+          cost_cents?: number
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dental_lab_orders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dental_lab_orders_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dental_lab_orders_plan_item_id_fkey"
+            columns: ["plan_item_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_plan_items"
+            referencedColumns: ["id"]
+          },
         ]
       }
       departures: {
@@ -1384,6 +1941,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          site_id: string | null
         }
         Insert: {
           id?: string
@@ -1395,6 +1953,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Update: {
           id?: string
@@ -1406,6 +1965,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Relationships: [
           {
@@ -1413,6 +1973,13 @@ export interface Database {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dining_tables_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -1794,13 +2361,14 @@ export interface Database {
           location: string
           status: "Activo" | "Inactivo" | "Onboarding" | "En licencia" | "Salida"
           employment_type: "Tiempo completo" | "Medio tiempo" | "Contrato" | "Prácticas"
-          access_role: string
+          intended_role: string
           manager_id: string | null
           hired_on: string | null
           ended_on: string | null
           created_at: string
           updated_at: string
           deleted_at: string | null
+          site_id: string | null
         }
         Insert: {
           id?: string
@@ -1814,13 +2382,14 @@ export interface Database {
           location?: string
           status?: "Activo" | "Inactivo" | "Onboarding" | "En licencia" | "Salida"
           employment_type?: "Tiempo completo" | "Medio tiempo" | "Contrato" | "Prácticas"
-          access_role?: string
+          intended_role?: string
           manager_id?: string | null
           hired_on?: string | null
           ended_on?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Update: {
           id?: string
@@ -1834,21 +2403,22 @@ export interface Database {
           location?: string
           status?: "Activo" | "Inactivo" | "Onboarding" | "En licencia" | "Salida"
           employment_type?: "Tiempo completo" | "Medio tiempo" | "Contrato" | "Prácticas"
-          access_role?: string
+          intended_role?: string
           manager_id?: string | null
           hired_on?: string | null
           ended_on?: string | null
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "employees_access_role_fkey"
-            columns: ["access_role"]
+            foreignKeyName: "employees_intended_role_fkey"
+            columns: ["org_id", "intended_role"]
             isOneToOne: false
             referencedRelation: "roles"
-            referencedColumns: ["key"]
+            referencedColumns: ["org_id", "key"]
           },
           {
             foreignKeyName: "employees_manager_id_fkey"
@@ -1862,6 +2432,13 @@ export interface Database {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employees_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
           {
@@ -1968,6 +2545,50 @@ export interface Database {
           },
         ]
       }
+      farm_inputs: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          kind: "Semilla" | "Fertilizante" | "Agroquímico" | "Biocontrol" | "Otro"
+          stock_qty: number
+          unit: string
+          supplier: string
+          unit_cost_cents: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          kind?: "Semilla" | "Fertilizante" | "Agroquímico" | "Biocontrol" | "Otro"
+          stock_qty?: number
+          unit?: string
+          supplier?: string
+          unit_cost_cents?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          kind?: "Semilla" | "Fertilizante" | "Agroquímico" | "Biocontrol" | "Otro"
+          stock_qty?: number
+          unit?: string
+          supplier?: string
+          unit_cost_cents?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farm_inputs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farm_lots: {
         Row: {
           id: string
@@ -2020,6 +2641,367 @@ export interface Database {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      farm_machinery: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          kind: "Tractor" | "Implemento" | "Cosechadora" | "Riego" | "Otro"
+          serial_no: string
+          status: "Operativa" | "En mantenimiento" | "Fuera de servicio"
+          hours_used: number
+          notes: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          kind?: "Tractor" | "Implemento" | "Cosechadora" | "Riego" | "Otro"
+          serial_no?: string
+          status?: "Operativa" | "En mantenimiento" | "Fuera de servicio"
+          hours_used?: number
+          notes?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          kind?: "Tractor" | "Implemento" | "Cosechadora" | "Riego" | "Otro"
+          serial_no?: string
+          status?: "Operativa" | "En mantenimiento" | "Fuera de servicio"
+          hours_used?: number
+          notes?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "farm_machinery_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fitness_bookings: {
+        Row: {
+          id: string
+          class_id: string
+          member_id: string
+          status: "Reservada" | "En espera" | "Asistió" | "No asistió" | "Cancelada"
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          class_id: string
+          member_id: string
+          status?: "Reservada" | "En espera" | "Asistió" | "No asistió" | "Cancelada"
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          class_id?: string
+          member_id?: string
+          status?: "Reservada" | "En espera" | "Asistió" | "No asistió" | "Cancelada"
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fitness_bookings_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "fitness_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fitness_bookings_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "fitness_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fitness_checkins: {
+        Row: {
+          id: string
+          member_id: string
+          class_id: string | null
+          entered_at: string
+          method: "Manual" | "Documento" | "Código" | "Huella"
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          member_id: string
+          class_id?: string | null
+          entered_at?: string
+          method?: "Manual" | "Documento" | "Código" | "Huella"
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          member_id?: string
+          class_id?: string | null
+          entered_at?: string
+          method?: "Manual" | "Documento" | "Código" | "Huella"
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fitness_checkins_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "fitness_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fitness_checkins_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "fitness_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fitness_classes: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          instructor_id: string | null
+          starts_at: string
+          duration_min: number
+          capacity: number
+          room: string
+          status: "Programada" | "En curso" | "Dictada" | "Cancelada"
+          notes: string
+          created_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          instructor_id?: string | null
+          starts_at: string
+          duration_min?: number
+          capacity?: number
+          room?: string
+          status?: "Programada" | "En curso" | "Dictada" | "Cancelada"
+          notes?: string
+          created_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          instructor_id?: string | null
+          starts_at?: string
+          duration_min?: number
+          capacity?: number
+          room?: string
+          status?: "Programada" | "En curso" | "Dictada" | "Cancelada"
+          notes?: string
+          created_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fitness_classes_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fitness_classes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fitness_members: {
+        Row: {
+          id: string
+          org_id: string
+          code: string | null
+          full_name: string
+          document_id: string
+          email: string | null
+          phone: string
+          birth_date: string | null
+          status: "Activo" | "Inactivo" | "Suspendido" | "Retirado"
+          joined_on: string
+          notes: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          code?: string | null
+          full_name: string
+          document_id?: string
+          email?: string | null
+          phone?: string
+          birth_date?: string | null
+          status?: "Activo" | "Inactivo" | "Suspendido" | "Retirado"
+          joined_on?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          code?: string | null
+          full_name?: string
+          document_id?: string
+          email?: string | null
+          phone?: string
+          birth_date?: string | null
+          status?: "Activo" | "Inactivo" | "Suspendido" | "Retirado"
+          joined_on?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fitness_members_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fitness_plans: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          description: string
+          price_cents: number
+          billing: "Mensual" | "Trimestral" | "Semestral" | "Anual" | "Bono" | "Sesión"
+          credits: number | null
+          duration_days: number
+          active: boolean
+          created_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          description?: string
+          price_cents?: number
+          billing?: "Mensual" | "Trimestral" | "Semestral" | "Anual" | "Bono" | "Sesión"
+          credits?: number | null
+          duration_days?: number
+          active?: boolean
+          created_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          description?: string
+          price_cents?: number
+          billing?: "Mensual" | "Trimestral" | "Semestral" | "Anual" | "Bono" | "Sesión"
+          credits?: number | null
+          duration_days?: number
+          active?: boolean
+          created_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fitness_plans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fitness_subscriptions: {
+        Row: {
+          id: string
+          member_id: string
+          plan_id: string | null
+          plan_name: string
+          price_cents: number
+          starts_on: string
+          ends_on: string
+          credits_left: number | null
+          status: "Vigente" | "Vencida" | "Cancelada" | "Congelada"
+          paid: boolean
+          invoice_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          member_id: string
+          plan_id?: string | null
+          plan_name: string
+          price_cents?: number
+          starts_on?: string
+          ends_on: string
+          credits_left?: number | null
+          status?: "Vigente" | "Vencida" | "Cancelada" | "Congelada"
+          paid?: boolean
+          invoice_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          member_id?: string
+          plan_id?: string | null
+          plan_name?: string
+          price_cents?: number
+          starts_on?: string
+          ends_on?: string
+          credits_left?: number | null
+          status?: "Vigente" | "Vencida" | "Cancelada" | "Congelada"
+          paid?: boolean
+          invoice_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fitness_subscriptions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fitness_subscriptions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "fitness_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fitness_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "fitness_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -2134,6 +3116,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          site_id: string | null
         }
         Insert: {
           id?: string
@@ -2149,6 +3132,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Update: {
           id?: string
@@ -2164,6 +3148,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Relationships: [
           {
@@ -2171,6 +3156,13 @@ export interface Database {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hotel_rooms_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -2351,6 +3343,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          site_id: string | null
         }
         Insert: {
           id?: string
@@ -2365,6 +3358,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Update: {
           id?: string
@@ -2379,6 +3373,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Relationships: [
           {
@@ -2393,6 +3388,13 @@ export interface Database {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_assets_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -2511,10 +3513,10 @@ export interface Database {
           },
           {
             foreignKeyName: "invitations_role_fkey"
-            columns: ["role"]
+            columns: ["org_id", "role"]
             isOneToOne: false
             referencedRelation: "roles"
-            referencedColumns: ["key"]
+            referencedColumns: ["org_id", "key"]
           },
         ]
       }
@@ -2922,6 +3924,42 @@ export interface Database {
           },
         ]
       }
+      membership_sites: {
+        Row: {
+          org_id: string
+          user_id: string
+          site_id: string
+          created_at: string
+        }
+        Insert: {
+          org_id: string
+          user_id: string
+          site_id: string
+          created_at?: string
+        }
+        Update: {
+          org_id?: string
+          user_id?: string
+          site_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "membership_sites_org_id_user_id_fkey"
+            columns: ["org_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["org_id", "user_id"]
+          },
+          {
+            foreignKeyName: "membership_sites_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memberships: {
         Row: {
           id: string
@@ -2930,6 +3968,7 @@ export interface Database {
           role: string
           created_at: string
           updated_at: string
+          last_active_at: string | null
         }
         Insert: {
           id?: string
@@ -2938,6 +3977,7 @@ export interface Database {
           role: string
           created_at?: string
           updated_at?: string
+          last_active_at?: string | null
         }
         Update: {
           id?: string
@@ -2946,6 +3986,7 @@ export interface Database {
           role?: string
           created_at?: string
           updated_at?: string
+          last_active_at?: string | null
         }
         Relationships: [
           {
@@ -2957,16 +3998,54 @@ export interface Database {
           },
           {
             foreignKeyName: "memberships_role_fkey"
-            columns: ["role"]
+            columns: ["org_id", "role"]
             isOneToOne: false
             referencedRelation: "roles"
-            referencedColumns: ["key"]
+            referencedColumns: ["org_id", "key"]
           },
           {
             foreignKeyName: "memberships_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_item_ingredients: {
+        Row: {
+          id: string
+          menu_item_id: string
+          name: string
+          quantity: number
+          unit: "g" | "kg" | "ml" | "L" | "UN" | "Porción"
+          cost_cents: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          menu_item_id: string
+          name: string
+          quantity?: number
+          unit?: "g" | "kg" | "ml" | "L" | "UN" | "Porción"
+          cost_cents?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          menu_item_id?: string
+          name?: string
+          quantity?: number
+          unit?: "g" | "kg" | "ml" | "L" | "UN" | "Porción"
+          cost_cents?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_item_ingredients_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "menu_items"
             referencedColumns: ["id"]
           },
         ]
@@ -3027,6 +4106,25 @@ export interface Database {
           },
         ]
       }
+      module_dependencies: {
+        Row: {
+          module_key: string
+          requires_key: string
+          kind: "hard" | "soft"
+        }
+        Insert: {
+          module_key: string
+          requires_key: string
+          kind?: "hard" | "soft"
+        }
+        Update: {
+          module_key?: string
+          requires_key?: string
+          kind?: "hard" | "soft"
+        }
+        Relationships: [
+        ]
+      }
       online_order_items: {
         Row: {
           id: string
@@ -3068,6 +4166,38 @@ export interface Database {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      online_order_returns: {
+        Row: {
+          id: string
+          order_id: string
+          reason: string
+          amount_cents: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          reason: string
+          amount_cents?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          reason?: string
+          amount_cents?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "online_order_returns_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "online_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -3176,9 +4306,18 @@ export interface Database {
           industry: string | null
           created_at: string
           updated_at: string
-          company_type: "construccion" | "energia" | "manufactura" | "comercio" | "ecommerce" | "servicios" | "tecnologia" | "salud" | "educacion" | "logistica" | "alimentos" | "agro" | "inmobiliario" | "hoteleria" | "financiero" | "mineria" | "telecomunicaciones" | "seguridad" | "medios" | "ong" | "gobierno" | "otro" | null
+          company_type: string | null
           enabled_modules: string[]
-          plan: "starter" | "growth" | "enterprise"
+          account_id: string
+          subsector: string | null
+          legal_name: string | null
+          tax_id: string | null
+          country: string
+          currency: string
+          timezone: string
+          branding: Json
+          status: "active" | "suspended"
+          setup_completed_at: string | null
         }
         Insert: {
           id?: string
@@ -3187,9 +4326,18 @@ export interface Database {
           industry?: string | null
           created_at?: string
           updated_at?: string
-          company_type?: "construccion" | "energia" | "manufactura" | "comercio" | "ecommerce" | "servicios" | "tecnologia" | "salud" | "educacion" | "logistica" | "alimentos" | "agro" | "inmobiliario" | "hoteleria" | "financiero" | "mineria" | "telecomunicaciones" | "seguridad" | "medios" | "ong" | "gobierno" | "otro" | null
+          company_type?: string | null
           enabled_modules?: string[]
-          plan?: "starter" | "growth" | "enterprise"
+          account_id: string
+          subsector?: string | null
+          legal_name?: string | null
+          tax_id?: string | null
+          country?: string
+          currency?: string
+          timezone?: string
+          branding?: Json
+          status?: "active" | "suspended"
+          setup_completed_at?: string | null
         }
         Update: {
           id?: string
@@ -3198,18 +4346,191 @@ export interface Database {
           industry?: string | null
           created_at?: string
           updated_at?: string
-          company_type?: "construccion" | "energia" | "manufactura" | "comercio" | "ecommerce" | "servicios" | "tecnologia" | "salud" | "educacion" | "logistica" | "alimentos" | "agro" | "inmobiliario" | "hoteleria" | "financiero" | "mineria" | "telecomunicaciones" | "seguridad" | "medios" | "ong" | "gobierno" | "otro" | null
+          company_type?: string | null
           enabled_modules?: string[]
-          plan?: "starter" | "growth" | "enterprise"
+          account_id?: string
+          subsector?: string | null
+          legal_name?: string | null
+          tax_id?: string | null
+          country?: string
+          currency?: string
+          timezone?: string
+          branding?: Json
+          status?: "active" | "suspended"
+          setup_completed_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "organizations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organizations_company_type_fkey"
+            columns: ["company_type"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "organizations_subsector_fkey"
+            columns: ["subsector"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      patient_appointments: {
+        Row: {
+          id: string
+          patient_id: string
+          kind: "Consulta" | "Control" | "Vacunación" | "Examen" | "Otro"
+          scheduled_for: string
+          professional_id: string | null
+          status: "Programada" | "Confirmada" | "En sala" | "Atendida" | "Cancelada" | "No asistió"
+          reason: string
+          notes: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          patient_id: string
+          kind?: "Consulta" | "Control" | "Vacunación" | "Examen" | "Otro"
+          scheduled_for: string
+          professional_id?: string | null
+          status?: "Programada" | "Confirmada" | "En sala" | "Atendida" | "Cancelada" | "No asistió"
+          reason?: string
+          notes?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          patient_id?: string
+          kind?: "Consulta" | "Control" | "Vacunación" | "Examen" | "Otro"
+          scheduled_for?: string
+          professional_id?: string | null
+          status?: "Programada" | "Confirmada" | "En sala" | "Atendida" | "Cancelada" | "No asistió"
+          reason?: string
+          notes?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_appointments_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_lab_results: {
+        Row: {
+          id: string
+          patient_id: string
+          test_name: string
+          status: "Solicitado" | "En proceso" | "Resultado"
+          result: string
+          ordered_on: string
+          result_on: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          patient_id: string
+          test_name: string
+          status?: "Solicitado" | "En proceso" | "Resultado"
+          result?: string
+          ordered_on?: string
+          result_on?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          patient_id?: string
+          test_name?: string
+          status?: "Solicitado" | "En proceso" | "Resultado"
+          result?: string
+          ordered_on?: string
+          result_on?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_lab_results_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_prescriptions: {
+        Row: {
+          id: string
+          patient_id: string
+          professional_id: string | null
+          medication: string
+          dose: string
+          frequency: string
+          instructions: string
+          prescribed_on: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          patient_id: string
+          professional_id?: string | null
+          medication: string
+          dose?: string
+          frequency?: string
+          instructions?: string
+          prescribed_on?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          patient_id?: string
+          professional_id?: string | null
+          medication?: string
+          dose?: string
+          frequency?: string
+          instructions?: string
+          prescribed_on?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_prescriptions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_prescriptions_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
         ]
       }
       patient_visits: {
         Row: {
           id: string
           patient_id: string
-          kind: "Consulta" | "Control" | "Urgencia" | "Procedimiento" | "Teleconsulta"
+          kind: "Consulta" | "Control" | "Urgencia" | "Procedimiento" | "Teleconsulta" | "Vacunación" | "Examen" | "Otro"
           professional_id: string | null
           reason: string
           diagnosis: string
@@ -3224,7 +4545,7 @@ export interface Database {
         Insert: {
           id?: string
           patient_id: string
-          kind?: "Consulta" | "Control" | "Urgencia" | "Procedimiento" | "Teleconsulta"
+          kind?: "Consulta" | "Control" | "Urgencia" | "Procedimiento" | "Teleconsulta" | "Vacunación" | "Examen" | "Otro"
           professional_id?: string | null
           reason?: string
           diagnosis?: string
@@ -3239,7 +4560,7 @@ export interface Database {
         Update: {
           id?: string
           patient_id?: string
-          kind?: "Consulta" | "Control" | "Urgencia" | "Procedimiento" | "Teleconsulta"
+          kind?: "Consulta" | "Control" | "Urgencia" | "Procedimiento" | "Teleconsulta" | "Vacunación" | "Examen" | "Otro"
           professional_id?: string | null
           reason?: string
           diagnosis?: string
@@ -3446,6 +4767,162 @@ export interface Database {
           label?: string
         }
         Relationships: [
+        ]
+      }
+      plan_limits: {
+        Row: {
+          plan: "starter" | "growth" | "enterprise"
+          max_companies: number | null
+          max_sites_per_company: number | null
+        }
+        Insert: {
+          plan: "starter" | "growth" | "enterprise"
+          max_companies?: number | null
+          max_sites_per_company?: number | null
+        }
+        Update: {
+          plan?: "starter" | "growth" | "enterprise"
+          max_companies?: number | null
+          max_sites_per_company?: number | null
+        }
+        Relationships: [
+        ]
+      }
+      pos_sale_items: {
+        Row: {
+          id: string
+          sale_id: string
+          product_id: string | null
+          sku: string
+          name: string
+          quantity: number
+          unit_price_cents: number
+          total_cents: number
+        }
+        Insert: {
+          id?: string
+          sale_id: string
+          product_id?: string | null
+          sku?: string
+          name: string
+          quantity: number
+          unit_price_cents?: number
+          total_cents?: number
+        }
+        Update: {
+          id?: string
+          sale_id?: string
+          product_id?: string | null
+          sku?: string
+          name?: string
+          quantity?: number
+          unit_price_cents?: number
+          total_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sale_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_items_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pos_sales: {
+        Row: {
+          id: string
+          org_id: string
+          code: string | null
+          session_id: string | null
+          client_id: string | null
+          customer_name: string
+          subtotal_cents: number
+          discount_cents: number
+          tax_cents: number
+          total_cents: number
+          payment_method: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
+          status: "Pagada" | "Anulada"
+          sold_by: string | null
+          sold_at: string
+          notes: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          code?: string | null
+          session_id?: string | null
+          client_id?: string | null
+          customer_name?: string
+          subtotal_cents?: number
+          discount_cents?: number
+          tax_cents?: number
+          total_cents?: number
+          payment_method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
+          status?: "Pagada" | "Anulada"
+          sold_by?: string | null
+          sold_at?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          code?: string | null
+          session_id?: string | null
+          client_id?: string | null
+          customer_name?: string
+          subtotal_cents?: number
+          discount_cents?: number
+          tax_cents?: number
+          total_cents?: number
+          payment_method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
+          status?: "Pagada" | "Anulada"
+          sold_by?: string | null
+          sold_at?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sales_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "cash_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_sold_by_fkey"
+            columns: ["sold_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
         ]
       }
       production_orders: {
@@ -4414,6 +5891,66 @@ export interface Database {
           },
         ]
       }
+      restaurant_deliveries: {
+        Row: {
+          id: string
+          order_id: string
+          courier_id: string | null
+          address: string
+          phone: string
+          status: "Pendiente" | "En preparación" | "En camino" | "Entregado" | "Cancelado"
+          fee_cents: number
+          dispatched_at: string | null
+          delivered_at: string | null
+          notes: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          courier_id?: string | null
+          address: string
+          phone?: string
+          status?: "Pendiente" | "En preparación" | "En camino" | "Entregado" | "Cancelado"
+          fee_cents?: number
+          dispatched_at?: string | null
+          delivered_at?: string | null
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          courier_id?: string | null
+          address?: string
+          phone?: string
+          status?: "Pendiente" | "En preparación" | "En camino" | "Entregado" | "Cancelado"
+          fee_cents?: number
+          dispatched_at?: string | null
+          delivered_at?: string | null
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_deliveries_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_deliveries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurant_order_items: {
         Row: {
           id: string
@@ -4480,6 +6017,10 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          cash_session_id: string | null
+          service_kind: "Salón" | "Domicilio" | "Para llevar"
+          site_id: string | null
+          payment_method: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
         }
         Insert: {
           id?: string
@@ -4498,6 +6039,10 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          cash_session_id?: string | null
+          service_kind?: "Salón" | "Domicilio" | "Para llevar"
+          site_id?: string | null
+          payment_method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
         }
         Update: {
           id?: string
@@ -4516,13 +6061,31 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          cash_session_id?: string | null
+          service_kind?: "Salón" | "Domicilio" | "Para llevar"
+          site_id?: string | null
+          payment_method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
         }
         Relationships: [
+          {
+            foreignKeyName: "restaurant_orders_cash_session_id_fkey"
+            columns: ["cash_session_id"]
+            isOneToOne: false
+            referencedRelation: "cash_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "restaurant_orders_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_orders_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
           {
@@ -4537,6 +6100,79 @@ export interface Database {
             columns: ["waiter_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      restaurant_reservations: {
+        Row: {
+          id: string
+          org_id: string
+          code: string | null
+          table_id: string | null
+          guest_name: string
+          guest_phone: string
+          party_size: number
+          reserved_at: string
+          status: "Confirmada" | "Sentada" | "Cumplida" | "Cancelada" | "No show"
+          order_id: string | null
+          notes: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          code?: string | null
+          table_id?: string | null
+          guest_name: string
+          guest_phone?: string
+          party_size?: number
+          reserved_at: string
+          status?: "Confirmada" | "Sentada" | "Cumplida" | "Cancelada" | "No show"
+          order_id?: string | null
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          code?: string | null
+          table_id?: string | null
+          guest_name?: string
+          guest_phone?: string
+          party_size?: number
+          reserved_at?: string
+          status?: "Confirmada" | "Sentada" | "Cumplida" | "Cancelada" | "No show"
+          order_id?: string | null
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_reservations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_reservations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_reservations_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "dining_tables"
             referencedColumns: ["id"]
           },
         ]
@@ -4693,30 +6329,158 @@ export interface Database {
           },
           {
             foreignKeyName: "role_permissions_role_fkey"
-            columns: ["role"]
+            columns: ["org_id", "role"]
             isOneToOne: false
             referencedRelation: "roles"
-            referencedColumns: ["key"]
+            referencedColumns: ["org_id", "key"]
           },
         ]
       }
       roles: {
         Row: {
+          org_id: string
           key: string
           label: string
           rank: number
+          is_system: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          org_id: string
+          key: string
+          label: string
+          rank?: number
+          is_system?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          org_id?: string
+          key?: string
+          label?: string
+          rank?: number
+          is_system?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_cleaning_tasks: {
+        Row: {
+          id: string
+          room_id: string
+          assigned_id: string | null
+          kind: "Limpieza" | "Cambio de ropa" | "Revisión" | "Aseo profundo"
+          scheduled_on: string
+          done: boolean
+          done_on: string | null
+          notes: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          room_id: string
+          assigned_id?: string | null
+          kind?: "Limpieza" | "Cambio de ropa" | "Revisión" | "Aseo profundo"
+          scheduled_on?: string
+          done?: boolean
+          done_on?: string | null
+          notes?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          room_id?: string
+          assigned_id?: string | null
+          kind?: "Limpieza" | "Cambio de ropa" | "Revisión" | "Aseo profundo"
+          scheduled_on?: string
+          done?: boolean
+          done_on?: string | null
+          notes?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_cleaning_tasks_assigned_id_fkey"
+            columns: ["assigned_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "room_cleaning_tasks_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sector_modules: {
+        Row: {
+          sector_key: string
+          module_key: string
+          mode: "add" | "remove"
+        }
+        Insert: {
+          sector_key: string
+          module_key: string
+          mode?: "add" | "remove"
+        }
+        Update: {
+          sector_key?: string
+          module_key?: string
+          mode?: "add" | "remove"
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sector_modules_sector_key_fkey"
+            columns: ["sector_key"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      sectors: {
+        Row: {
+          key: string
+          label: string
+          parent_key: string | null
+          sort: number
+          is_active: boolean
         }
         Insert: {
           key: string
           label: string
-          rank: number
+          parent_key?: string | null
+          sort?: number
+          is_active?: boolean
         }
         Update: {
           key?: string
           label?: string
-          rank?: number
+          parent_key?: string | null
+          sort?: number
+          is_active?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "sectors_parent_key_fkey"
+            columns: ["parent_key"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["key"]
+          },
         ]
       }
       signature_requests: {
@@ -4791,6 +6555,108 @@ export interface Database {
             columns: ["signer_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sites: {
+        Row: {
+          id: string
+          org_id: string
+          code: string | null
+          name: string
+          address: string | null
+          city: string | null
+          phone: string | null
+          is_default: boolean
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          code?: string | null
+          name: string
+          address?: string | null
+          city?: string | null
+          phone?: string | null
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          code?: string | null
+          name?: string
+          address?: string | null
+          city?: string | null
+          phone?: string | null
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sites_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_attendance: {
+        Row: {
+          id: string
+          org_id: string
+          student_id: string
+          schedule_id: string | null
+          date: string
+          present: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          student_id: string
+          schedule_id?: string | null
+          date: string
+          present?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          student_id?: string
+          schedule_id?: string | null
+          date?: string
+          present?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_attendance_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_attendance_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "class_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
             referencedColumns: ["id"]
           },
         ]
@@ -5102,6 +6968,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          sla_due_at: string | null
         }
         Insert: {
           id?: string
@@ -5120,6 +6987,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          sla_due_at?: string | null
         }
         Update: {
           id?: string
@@ -5138,6 +7006,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          sla_due_at?: string | null
         }
         Relationships: [
           {
@@ -5159,6 +7028,156 @@ export interface Database {
             columns: ["requester_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treatment_plan_items: {
+        Row: {
+          id: string
+          plan_id: string
+          tooth: number | null
+          surface: "Oclusal" | "Mesial" | "Distal" | "Vestibular" | "Lingual" | "Palatina" | null
+          procedure: string
+          product_id: string | null
+          price_cents: number
+          status: "Pendiente" | "En curso" | "Hecho" | "Cancelado"
+          done_on: string | null
+          professional_id: string | null
+          notes: string
+          sort: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          tooth?: number | null
+          surface?: "Oclusal" | "Mesial" | "Distal" | "Vestibular" | "Lingual" | "Palatina" | null
+          procedure: string
+          product_id?: string | null
+          price_cents?: number
+          status?: "Pendiente" | "En curso" | "Hecho" | "Cancelado"
+          done_on?: string | null
+          professional_id?: string | null
+          notes?: string
+          sort?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          tooth?: number | null
+          surface?: "Oclusal" | "Mesial" | "Distal" | "Vestibular" | "Lingual" | "Palatina" | null
+          procedure?: string
+          product_id?: string | null
+          price_cents?: number
+          status?: "Pendiente" | "En curso" | "Hecho" | "Cancelado"
+          done_on?: string | null
+          professional_id?: string | null
+          notes?: string
+          sort?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treatment_plan_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "treatment_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_plan_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_plan_items_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      treatment_plans: {
+        Row: {
+          id: string
+          org_id: string
+          patient_id: string
+          code: string | null
+          professional_id: string | null
+          status: "Propuesto" | "Aceptado" | "En curso" | "Terminado" | "Rechazado"
+          proposed_on: string
+          accepted_on: string | null
+          total_cents: number
+          quote_id: string | null
+          notes: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          patient_id: string
+          code?: string | null
+          professional_id?: string | null
+          status?: "Propuesto" | "Aceptado" | "En curso" | "Terminado" | "Rechazado"
+          proposed_on?: string
+          accepted_on?: string | null
+          total_cents?: number
+          quote_id?: string | null
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          patient_id?: string
+          code?: string | null
+          professional_id?: string | null
+          status?: "Propuesto" | "Aceptado" | "En curso" | "Terminado" | "Rechazado"
+          proposed_on?: string
+          accepted_on?: string | null
+          total_cents?: number
+          quote_id?: string | null
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "treatment_plans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_plans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_plans_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "treatment_plans_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -5396,6 +7415,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          site_id: string | null
         }
         Insert: {
           id?: string
@@ -5420,6 +7440,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Update: {
           id?: string
@@ -5444,6 +7465,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          site_id?: string | null
         }
         Relationships: [
           {
@@ -5474,11 +7496,90 @@ export interface Database {
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "work_orders_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: Record<never, never>
-    Functions: Record<never, never>
+    Functions: {
+      apply_subscription: {
+        Args: { p_account_id: string; p_plan?: string | null; p_status?: string | null }
+        Returns: undefined
+      }
+      account_companies: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          org_id: string
+          name: string
+          slug: string
+          company_type: string | null
+          account_id: string
+          joined: boolean
+        }[]
+      }
+      complete_onboarding: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      complete_company_setup: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
+      can_change_sector: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
+      create_account: {
+        Args: { p_name: string; p_company_name: string; p_sector?: string | null }
+        Returns: string
+      }
+      create_company: {
+        Args: { p_name: string; p_sector?: string | null; p_account_id?: string | null }
+        Returns: string
+      }
+      join_company: {
+        Args: { p_org_id: string; p_role: string }
+        Returns: boolean
+      }
+      place_storefront_order: {
+        Args: { p_org_id: string; p_items: Json }
+        Returns: {
+          order_code: string
+          order_item: string
+          order_quantity: number
+          order_price_cents: number
+        }[]
+      }
+      register_pos_sale: {
+        Args: {
+          p_org_id: string
+          p_items: Json
+          p_payment_method?: string
+          p_customer_name?: string
+          p_discount_cents?: number
+          p_notes?: string
+        }
+        Returns: { sale_id: string; sale_code: string; sale_total_cents: number }[]
+      }
+      void_pos_sale: {
+        Args: { p_sale_id: string }
+        Returns: boolean
+      }
+      rate_limit_hit: {
+        Args: { p_bucket: string; p_limit: number; p_window_secs: number }
+        Returns: { allowed: boolean; remaining: number; reset_at: string }[]
+      }
+      set_active_company: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
+    }
     Enums: Record<never, never>
     CompositeTypes: Record<never, never>
   }
