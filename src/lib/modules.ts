@@ -323,7 +323,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'financiero',
     label: 'Financiero y seguros',
     description: 'Cooperativas, corredoras, fintech. Cartera y cumplimiento.',
-    modules: [...PEOPLE, ...COMMERCIAL, 'contratos', 'cartera', 'riesgos', 'firmas', 'trazabilidad', 'desempeno', 'tickets', 'consultoria', ...SPINE],
+    modules: [...PEOPLE, ...COMMERCIAL, 'contratos', 'cartera', 'creditos', 'riesgos', 'firmas', 'trazabilidad', 'desempeno', 'tickets', 'consultoria', ...SPINE],
   },
   {
     key: 'mineria',

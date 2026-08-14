@@ -3924,6 +3924,117 @@ export interface Database {
           },
         ]
       }
+      loan_installments: {
+        Row: {
+          id: string
+          org_id: string
+          loan_id: string
+          number: number
+          due_date: string
+          amount_cents: number
+          status: "pendiente" | "pagada"
+          paid_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          loan_id: string
+          number: number
+          due_date: string
+          amount_cents: number
+          status?: "pendiente" | "pagada"
+          paid_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          loan_id?: string
+          number?: number
+          due_date?: string
+          amount_cents?: number
+          status?: "pendiente" | "pagada"
+          paid_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_installments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loan_installments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loans: {
+        Row: {
+          id: string
+          org_id: string
+          client_id: string | null
+          amount_cents: number
+          interest_rate_bps: number
+          term_months: number
+          start_date: string
+          status: "activo" | "pagado" | "castigado"
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          client_id?: string | null
+          amount_cents: number
+          interest_rate_bps?: number
+          term_months: number
+          start_date?: string
+          status?: "activo" | "pagado" | "castigado"
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          client_id?: string | null
+          amount_cents?: number
+          interest_rate_bps?: number
+          term_months?: number
+          start_date?: string
+          status?: "activo" | "pagado" | "castigado"
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loans_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       membership_sites: {
         Row: {
           org_id: string

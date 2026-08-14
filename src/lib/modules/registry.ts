@@ -650,6 +650,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Reportes guardados por módulo y exportación a CSV.',
   },
   {
+    key: 'creditos',
+    label: 'Créditos',
+    description: 'Colocación, amortización, desembolsos y mora.',
+    group: 'Comercial',
+    icon: 'DollarSign',
+    route: '/dashboard/creditos',
+    actions: ['read', 'write'],
+    permissionNoun: 'créditos',
+    title: 'Créditos',
+    subtitle: 'Préstamos, cuotas y estado de mora por cliente.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
@@ -721,6 +733,7 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'suscripciones', requires: 'clientes', kind: 'soft' },
   { module: 'cartera', requires: 'facturacion', kind: 'soft' },
   { module: 'cartera', requires: 'clientes', kind: 'soft' },
+  { module: 'creditos', requires: 'clientes', kind: 'soft' },
 
   { module: 'nomina', requires: 'empleados', kind: 'hard' },
   { module: 'asistencia', requires: 'empleados', kind: 'hard' },
