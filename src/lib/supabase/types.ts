@@ -6584,6 +6584,50 @@ export interface Database {
           },
         ]
       }
+      saved_reports: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          module_key: string
+          period: "hoy" | "semana" | "mes" | "trimestre" | "todo"
+          notes: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          module_key: string
+          period?: "hoy" | "semana" | "mes" | "trimestre" | "todo"
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          module_key?: string
+          period?: "hoy" | "semana" | "mes" | "trimestre" | "todo"
+          notes?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_reports_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sector_modules: {
         Row: {
           sector_key: string

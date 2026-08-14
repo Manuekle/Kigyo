@@ -638,6 +638,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Reglas de recordatorio y qué se envió a quién.',
   },
   {
+    key: 'reportes',
+    label: 'Reportes',
+    description: 'Reportes guardados por módulo y exportación.',
+    group: 'Equipo',
+    icon: 'Activity',
+    route: '/dashboard/reportes',
+    actions: ['read', 'write'],
+    permissionNoun: 'reportes',
+    title: 'Reportes',
+    subtitle: 'Reportes guardados por módulo y exportación a CSV.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
