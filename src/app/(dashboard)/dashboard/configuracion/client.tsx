@@ -34,6 +34,7 @@ import {
   deleteRole,
   inviteMember,
   revokeInvitation,
+  seedSuggestedRoles,
   setMemberRole,
   setRolePermission,
   signOutEverywhere,
@@ -383,6 +384,15 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
           : `Rol ${label} creado. Ahora dale permisos en la matriz.`,
         'ok',
       )
+      router.refresh()
+    })
+  }
+
+  const seedRoles = () => {
+    startTransition(async () => {
+      const result = await seedSuggestedRoles()
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      addToast('Roles sugeridos añadidos.', 'ok')
       router.refresh()
     })
   }
@@ -1077,6 +1087,16 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
                 >
                   <Plus size={15} />Crear rol
                 </button>
+                {data.organization.companyType && (
+                  <button
+                    className="btn"
+                    disabled={pending}
+                    aria-busy={pending}
+                    onClick={seedRoles}
+                  >
+                    <Sparkles size={15} />Añadir roles sugeridos
+                  </button>
+                )}
               </div>
             )}
 

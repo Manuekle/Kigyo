@@ -331,6 +331,32 @@ export async function deleteRole(key: string): Promise<ActionResult> {
   }
 }
 
+/**
+ * Seeds the sector's suggested roles for this organization.
+ *
+ * The RPC (migration 46) is idempotent: it inserts only roles whose key does
+ * not exist yet, so re-running it adds nothing twice. With no sector set the
+ * UI does not offer the button — there are no suggestions without a sector.
+ */
+export async function seedSuggestedRoles(): Promise<ActionResult> {
+  try {
+    const member = await requirePermission('configuracion:manage')
+
+    const supabase = await createClient()
+    const { error } = await supabase.rpc('seed_suggested_roles', { p_org_id: member.orgId })
+
+    if (error) {
+      console.error('[settings] seedSuggestedRoles', error)
+      return { ok: false, error: 'No se pudieron añadir los roles sugeridos.' }
+    }
+
+    revalidatePath('/dashboard/configuracion')
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No tienes permiso para esta acción.' }
+  }
+}
+
 const profileSchema = z.object({
   fullName: z.string().trim().min(2, 'Ingresa tu nombre.').max(160),
 })

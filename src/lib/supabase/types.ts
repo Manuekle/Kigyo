@@ -6451,6 +6451,38 @@ export interface Database {
           },
         ]
       }
+      sector_roles: {
+        Row: {
+          sector_key: string
+          role_key: string
+          label: string
+          rank: number
+          permissions: string[]
+        }
+        Insert: {
+          sector_key: string
+          role_key: string
+          label: string
+          rank?: number
+          permissions: string[]
+        }
+        Update: {
+          sector_key?: string
+          role_key?: string
+          label?: string
+          rank?: number
+          permissions?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sector_roles_sector_key_fkey"
+            columns: ["sector_key"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       sectors: {
         Row: {
           key: string
@@ -7576,6 +7608,10 @@ export interface Database {
         Returns: { allowed: boolean; remaining: number; reset_at: string }[]
       }
       set_active_company: {
+        Args: { p_org_id: string }
+        Returns: boolean
+      }
+      seed_suggested_roles: {
         Args: { p_org_id: string }
         Returns: boolean
       }
