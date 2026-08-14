@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:verify": "./scripts/db-verify.sh --tests",
     "db:types": "node scripts/gen-db-types.mjs",
+    "db:module-sql": "node --experimental-strip-types scripts/gen-module-sql.mjs",
     "check:foundry": "node --env-file=.env.local scripts/check-foundry.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

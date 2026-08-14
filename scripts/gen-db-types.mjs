@@ -11,7 +11,7 @@
 // Against a real project, prefer `supabase gen types typescript --linked`.
 
 import { execFileSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
 const dbUrl = process.argv[2]
@@ -197,7 +197,11 @@ for (const table of [...byTable.keys()].sort()) {
 
 lines.push('    }')
 lines.push('    Views: Record<never, never>')
-lines.push('    Functions: Record<never, never>')
+// The RPC signatures are hand-written (see the Functions block in the current
+// types.ts): the introspection below has no PostgREST route table, and
+// regenerating the file must not silently drop the typed calls. Carried over
+// verbatim from the previous output.
+lines.push('    ' + readCarriedFunctions())
 lines.push('    Enums: Record<never, never>')
 lines.push('    CompositeTypes: Record<never, never>')
 lines.push('  }')
@@ -240,5 +244,23 @@ for (const [name, key] of named) {
 lines.push('')
 
 mkdirSync(dirname(OUT), { recursive: true })
+
+/**
+ * Carries the hand-maintained RPC signatures across a regeneration.
+ *
+ * `Functions:` is a typed block written by hand (see above). Extracted from
+ * the previous file if it exists; a fresh checkout without one falls back to
+ * the empty form.
+ */
+function readCarriedFunctions() {
+  try {
+    const previous = readFileSync(OUT, 'utf8')
+    const match = previous.match(/Functions: \{[\s\S]*?\n    \}/)
+    return match ? match[0] : 'Functions: Record<never, never>'
+  } catch {
+    return 'Functions: Record<never, never>'
+  }
+}
+
 writeFileSync(OUT, lines.join('\n'))
 console.log(`wrote ${OUT} — ${byTable.size} tables, ${enums.size} check-constraint unions`)
