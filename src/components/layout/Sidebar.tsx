@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, PenLine, Calendar, Clock, Wallet, GraduationCap,
   Package, FileText, MessageSquare, Ticket, ShieldAlert, ShieldCheck, Activity, Sparkles, Settings,
   X, LogOut, HelpCircle, Kanban, Receipt, ShoppingCart, Cashier, Store,
-  FileCheck2, LayoutGrid, UserPlus, Tag, ChevronRight, Search,
+  FileCheck2, LayoutGrid, UserPlus, Tag, ChevronRight,
   Wrench, Car, Factory, Stethoscope, School, Restaurant, Sprout, Home, Bed,
   Handshake, UserSearch, UserCheck, Target, Building2, DollarSign, Truck, BookOpen,
 } from '@/lib/icons'
@@ -93,15 +93,6 @@ function writeCollapsed(next: ReadonlySet<string>) {
   for (const listener of collapsedListeners) listener()
 }
 
-/**
- * Folds accents, so typing "nomina" finds «Nómina» and "operacion" finds
- * «Operación». Half the nav is accented and nobody reaches for the dead key
- * while filtering a list.
- */
-function fold(value: string) {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-}
-
 const ICON_MAP: Record<string, React.ReactNode> = {
   LayoutDashboard: <LayoutDashboard size={18} />,
   Users: <Users size={18} />,
@@ -159,7 +150,6 @@ export default function Sidebar() {
   // transition, but the scrim used to blink off the moment the flag flipped.
   const scrim = useExitTransition(sidebarOpen, DRAWER_CLOSE_MS)
 
-  const [query, setQuery] = useState('')
   const collapsed = useSyncExternalStore(
     subscribeCollapsed,
     readCollapsed,
@@ -178,8 +168,8 @@ export default function Sidebar() {
    *
    * `navFor` decides the order and the headings — the vertical on top under the
    * name of the business, the general groups in the order that sector works in,
-   * the tools at the bottom. This adds the two things that depend on who is
-   * looking: the permission filter and the search box.
+   * the tools at the bottom. This adds the thing that depends on who is
+   * looking: the permission filter.
    *
    * The permission filter is not the control. Every route is still gated on the
    * server by `RequirePermission` — without this, though, the sidebar
@@ -187,7 +177,6 @@ export default function Sidebar() {
    * clicked.
    */
   const sections = useMemo(() => {
-    const needle = fold(query.trim())
     const allowed = (key: string) => {
       const permission = ROUTE_PERMISSIONS[key]
       return !permission || member.can(permission)
@@ -201,21 +190,10 @@ export default function Sidebar() {
           .map((item) => ({
             ...item,
             children: (item.children ?? []).filter((c) => allowed(c.key)),
-          }))
-          // A parent matching keeps its children; a child matching pulls its
-          // parent in as its own row, because a nested item with no heading
-          // above it is a link to nowhere the reader can place.
-          .filter((item) =>
-            !needle ||
-            fold(item.label).includes(needle) ||
-            item.children.some((c) => fold(c.label).includes(needle)),
-          ),
+          })),
       }))
       .filter((section) => section.items.length > 0)
-  }, [member, query])
-
-  /** While searching, every heading opens: a hidden match is not a match. */
-  const searching = query.trim().length > 0
+  }, [member])
 
   function isActive(key: string) {
     const route = ROUTE_MAP[key]
@@ -261,25 +239,9 @@ export default function Sidebar() {
             for the single-company case. */}
         <CompanySwitcher />
 
-        {/* Thirty-seven items is more than anybody scans. The filter is not a
-            command palette — it does not leave the sidebar or search data — it
-            just shortens the list you are already looking at, which is the
-            thing people were doing by eye. */}
-        <div className="nav-find">
-          <Search size={14} />
-          <input
-            className="nav-find-input"
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar módulo"
-            aria-label="Buscar en el menú"
-          />
-        </div>
-
         <nav className="nav">
           {sections.map((section, si) => {
-            const shut = !searching && section.label !== undefined && collapsed.has(section.label)
+            const shut = section.label !== undefined && collapsed.has(section.label)
             return (
               <div key={section.label ?? si}>
                 {section.label && (
@@ -328,9 +290,6 @@ export default function Sidebar() {
               </div>
             )
           })}
-          {sections.length === 0 && (
-            <p className="nav-empty">Ningún módulo coincide con «{query.trim()}».</p>
-          )}
         </nav>
 
         <div className="sfoot">

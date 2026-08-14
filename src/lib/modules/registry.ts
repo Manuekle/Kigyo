@@ -594,13 +594,11 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
     group: null,
-    // It had no icon, which is how it was kept out of the sidebar — it was
-    // reached only from the user menu in the footer. That is a strange home for
-    // the screen that decides which modules the whole company sees and what
-    // each role may open: people looked for it in the nav, did not find it, and
-    // asked. It now sits under «Herramientas» at the bottom of the nav, which
-    // is both where it belongs and where it was already being looked for.
-    icon: 'Settings',
+    // No icon: Configuración is not a nav item. It is reachable from the user
+    // menu (and by direct route), while `group: null` marks it as unswitchable
+    // shell — the screen that decides which modules the whole company sees and
+    // what each role may open cannot itself be switched off.
+    icon: null,
     route: '/dashboard/configuracion',
     actions: ['read', 'manage'],
     permissionLabels: { manage: 'Administrar la organización' },

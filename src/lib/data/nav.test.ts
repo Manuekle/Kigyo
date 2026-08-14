@@ -29,7 +29,7 @@ describe('navFor', () => {
     expect(sections[1].items.map((i) => i.key)).toContain('pacientes')
 
     expect(sections.at(-1)?.label).toBe('Herramientas')
-    expect(sections.at(-1)?.items.map((i) => i.key)).toEqual(['ia', 'configuracion'])
+    expect(sections.at(-1)?.items.map((i) => i.key)).toEqual(['ia'])
   })
 
   it('orders the general groups per sector', () => {

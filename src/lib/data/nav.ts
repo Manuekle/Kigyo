@@ -40,19 +40,24 @@ const FLAT = REGISTRY.flatMap((m) => [
 ])
 
 /**
- * The two the «Herramientas» section at the bottom claims.
+ * The one entry the «Herramientas» section at the bottom claims.
  *
- * Named here so the groups they nominally belong to skip them, rather than each
- * rendering its own copy — `ia` is in `Equipo` and `configuracion` is in the
- * shell, and both of them appearing twice is the bug this constant prevents.
- * The AI assistant keeps its group because `group: null` is what marks a module
- * as unswitchable, and the assistant is very much switchable.
+ * Named here so the group it nominally belongs to skips it — `ia` lives in
+ * `Equipo`, and appearing under its own heading *and* under «Herramientas»
+ * was the bug this constant prevents. The assistant keeps that group rather
+ * than taking `group: null`, because `null` is what marks a module as
+ * unswitchable and the assistant is very much switchable.
+ *
+ * Configuración has no nav entry at all: it is reached from the user menu.
  */
-const TOOLS = ['ia', 'configuracion']
+const TOOLS = ['ia']
+
+/** Never a nav entry: its only door is the user menu in the sidebar footer. */
+const USER_MENU_ONLY = ['configuracion']
 
 function itemsIn(group: ModuleGroup | null): NavItem[] {
   return NAV_ENTRIES
-    .filter((e) => e.group === group && e.icon && !TOOLS.includes(e.key))
+    .filter((e) => e.group === group && e.icon && !TOOLS.includes(e.key) && !USER_MENU_ONLY.includes(e.key))
     .map((e) => ({
       key: e.key,
       label: e.label,
@@ -80,10 +85,9 @@ function itemsIn(group: ModuleGroup | null): NavItem[] {
  *      `SECTOR_NAV`.
  *   3. **The rest is ordered per sector.** A factory opens on Operación, an
  *      agency on Comercial.
- *   4. **The tools sit at the bottom.** The AI assistant and Configuración are
- *      not part of any group's story; they are where you go when you step out
- *      of the work. Configuración used to be reachable only from the user menu,
- *      which is a strange place for the screen that controls the whole company.
+ *   4. **The tools sit at the bottom.** The AI assistant is not part of any
+ *      group's story; it is where you go when you step out of the work.
+ *      Configuración is not here either — it lives in the user menu.
  *
  * A pure function of the sector, so it is the same on the server and in the
  * client and can be tested without rendering anything.
