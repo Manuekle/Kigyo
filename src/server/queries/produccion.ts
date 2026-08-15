@@ -53,11 +53,34 @@ export interface ProductRef {
   name: string
 }
 
+export interface BomItemRow {
+  id: string
+  componentId: string
+  componentName: string
+  quantity: number
+  unit: string
+  notes: string
+  /** Precio de catálogo por cantidad. */
+  lineCents: number
+}
+
+export interface BomRow {
+  id: string
+  productId: string
+  productName: string
+  version: string
+  notes: string
+  items: BomItemRow[]
+  /** Suma de los componentes a precio de catálogo. Derivado, no guardado. */
+  costCents: number
+}
+
 export interface ProduccionData {
   ordenes: ProductionRow[]
   ordenesTotal: number
   etapas: StageRow[]
   productos: ProductRef[]
+  boms: BomRow[]
   roster: RosterEntry[]
   canWrite: boolean
 }
@@ -176,7 +199,7 @@ export async function getProduccion(): Promise<ProduccionData> {
 
   if (ordersResult.error) {
     console.error('[produccion] getProduccion', ordersResult.error)
-    return { ordenes: [], ordenesTotal: 0, etapas: [], productos: [], roster: [], canWrite: false }
+    return { ordenes: [], ordenesTotal: 0, etapas: [], productos: [], boms: [], roster: [], canWrite: false }
   }
 
   const rows = ordersResult.data as unknown as ProductionRecord[]
@@ -189,6 +212,76 @@ export async function getProduccion(): Promise<ProduccionData> {
     .limit(500)
 
   if (stageError) console.error('[produccion] stages', stageError)
+
+  // Las BOM, con sus componentes y el costo derivado.
+  const [bomsResult, itemsResult] = await Promise.all([
+    supabase
+      .from('production_boms')
+      .select('id, product_id, version, notes')
+      .eq('org_id', member.orgId)
+      .order('created_at', { ascending: false })
+      .limit(100),
+    supabase
+      .from('production_bom_items')
+      .select('id, bom_id, component_id, quantity, unit, position, notes')
+      .order('position', { ascending: true })
+      .limit(500),
+  ])
+
+  const productNames = new Map(productos.map((p) => [p.id, p.name]))
+  // Precio de catálogo por componente: el costo de la BOM sale de aquí.
+  const productPrices = new Map<string, number>()
+  if (bomsResult.data && bomsResult.data.length > 0) {
+    const componentIds = [...new Set(
+      ((itemsResult.data ?? []) as unknown as Array<{ component_id: string }>)
+        .map((i) => i.component_id),
+    )]
+    if (componentIds.length > 0) {
+      const { data: priceRows } = await supabase
+        .from('products')
+        .select('id, price_cents')
+        .in('id', componentIds)
+        .eq('org_id', member.orgId)
+      for (const row of (priceRows ?? []) as unknown as Array<{ id: string; price_cents: number }>) {
+        productPrices.set(row.id, row.price_cents)
+      }
+    }
+  }
+
+  const itemsByBom = new Map<string, BomItemRow[]>()
+  for (const row of (itemsResult.data ?? []) as unknown as Array<{
+    id: string; bom_id: string; component_id: string; quantity: number
+    unit: string; notes: string
+  }>) {
+    const lineCents = Math.round((productPrices.get(row.component_id) ?? 0) * row.quantity)
+    const item: BomItemRow = {
+      id: row.id,
+      componentId: row.component_id,
+      componentName: productNames.get(row.component_id) ?? '—',
+      quantity: row.quantity,
+      unit: row.unit,
+      notes: row.notes,
+      lineCents,
+    }
+    const list = itemsByBom.get(row.bom_id)
+    if (list) list.push(item)
+    else itemsByBom.set(row.bom_id, [item])
+  }
+
+  const boms: BomRow[] = ((bomsResult.data ?? []) as unknown as Array<{
+    id: string; product_id: string; version: string; notes: string
+  }>).map((row) => {
+    const items = itemsByBom.get(row.id) ?? []
+    return {
+      id: row.id,
+      productId: row.product_id,
+      productName: productNames.get(row.product_id) ?? '—',
+      version: row.version,
+      notes: row.notes,
+      items,
+      costCents: items.reduce((sum, i) => sum + i.lineCents, 0),
+    }
+  })
 
   return {
     ordenes: rows.map(toRow),
@@ -205,6 +298,7 @@ export async function getProduccion(): Promise<ProduccionData> {
       position: row.position,
     })),
     productos,
+    boms,
     roster,
     canWrite: can(member.permissions, 'produccion:write'),
   }

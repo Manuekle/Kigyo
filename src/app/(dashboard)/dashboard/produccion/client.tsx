@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Factory, Check, Plus, Trash2, AlertTriangle, Layers } from '@/lib/icons'
+import { Factory, Check, Plus, Trash2, AlertTriangle, Layers, PenLine } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
@@ -9,10 +9,10 @@ import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
 import { PRODUCTION_STATUSES } from '@/lib/domain'
-import type { ProduccionData, ProductionRow } from '@/server/queries/produccion'
+import type { BomRow, ProduccionData, ProductionRow } from '@/server/queries/produccion'
 import {
-  addEtapa, createOrdenProduccion, deleteOrdenProduccion,
-  setEtapaStatus, updateOrdenProduccion,
+  addEtapa, createOrdenProduccion, deleteBom, deleteOrdenProduccion,
+  saveBom, setEtapaStatus, updateOrdenProduccion,
 } from '@/server/mutations/produccion'
 import { fetchMoreOrdenesProduccion } from '@/server/actions/produccion'
 
@@ -29,6 +29,11 @@ function toCents(value: string): number {
 
 function orNull(value: string): string | null {
   return value.trim() === '' ? null : value
+}
+
+function pesos(cents: number): string {
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+    .format(Math.round(cents / 100))
 }
 
 const EMPTY_ORDER = {
@@ -64,11 +69,20 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
   const [orderForm, setOrderForm] = useState(EMPTY_ORDER)
   const [stageForm, setStageForm] = useState({ orderId: '', name: '', operatorId: '', position: '0' })
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [boms, setBoms] = useState<BomRow[]>(data.boms ?? [])
+  const [bomOpen, setBomOpen] = useState(false)
+  const [bomForm, setBomForm] = useState<{
+    productId: string
+    version: string
+    notes: string
+    items: Array<{ componentId: string; quantity: string; unit: string }>
+  }>({ productId: '', version: '1', notes: '', items: [{ componentId: '', quantity: '1', unit: 'UN' }] })
 
   function apply(next: ProduccionData) {
     setOrdenes(next.ordenes)
     setTotal(next.ordenesTotal)
     setEtapas(next.etapas)
+    setBoms(next.boms)
   }
 
   function loadMore() {
@@ -151,6 +165,47 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
       apply(result.data)
       addToast('Orden eliminada', 'ok')
     })
+  }
+
+
+  function submitBom() {
+    startTransition(async () => {
+      const result = await saveBom({
+        productId: bomForm.productId,
+        version: bomForm.version || '1',
+        notes: bomForm.notes,
+        items: bomForm.items
+          .filter((i) => i.componentId)
+          .map((i) => ({ componentId: i.componentId, quantity: Number(i.quantity) || 0, unit: i.unit })),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setBomForm({ productId: '', version: '1', notes: '', items: [{ componentId: '', quantity: '1', unit: 'UN' }] })
+      setBomOpen(false)
+      addToast('Receta guardada', 'ok')
+    })
+  }
+
+  function removeBom(id: string) {
+    if (!window.confirm('¿Eliminar esta lista de materiales?')) return
+    startTransition(async () => {
+      const result = await deleteBom(id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Receta eliminada', 'ok')
+    })
+  }
+
+  function editBom(b: BomRow) {
+    setBomForm({
+      productId: b.productId,
+      version: b.version,
+      notes: b.notes,
+      items: b.items.length > 0
+        ? b.items.map((i) => ({ componentId: i.componentId, quantity: String(i.quantity), unit: i.unit }))
+        : [{ componentId: '', quantity: '1', unit: 'UN' }],
+    })
+    setBomOpen(true)
   }
 
   function submitOrder() {
@@ -373,6 +428,153 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
         />
       </div>
 
+      <div className="card rise d3" style={{ marginTop: 16 }}>
+        <div className="chead">
+          <div className="ctitle">Listas de materiales</div>
+          <div className="csub">
+            La receta de cada producto fabricado: componentes del catálogo y cantidad por
+            unidad. El costo se sugiere al crear la orden.
+          </div>
+          {data.canWrite && (
+            <button className="btn dark" disabled={pending || data.productos.length === 0}
+              onClick={() => {
+                setBomForm({ productId: '', version: '1', notes: '', items: [{ componentId: '', quantity: '1', unit: 'UN' }] })
+                setBomOpen(true)
+              }}>
+              <Plus size={15} />Nueva receta
+            </button>
+          )}
+        </div>
+
+        <div className="tblwrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th scope="col">Producto</th>
+                <th scope="col">Versión</th>
+                <th scope="col">Componentes</th>
+                <th scope="col">Costo de materiales</th>
+                <th scope="col" aria-label="Acciones" />
+              </tr>
+            </thead>
+            <tbody>
+              {boms.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>
+                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      Sin recetas. Crea la primera para que las órdenes sugieran su costo.
+                    </div>
+                  </td>
+                </tr>
+              ) : boms.map((b) => (
+                <tr key={b.id}>
+                  <td><div className="cename">{b.productName}</div></td>
+                  <td className="mono">{b.version}</td>
+                  <td>
+                    <div className="muted" style={{ fontSize: 12, maxWidth: 320 }}>
+                      {b.items.map((i) => `${i.quantity} ${i.unit} de ${i.componentName}`).join(' · ') || '—'}
+                    </div>
+                  </td>
+                  <td className="mono">{pesos(b.costCents)}</td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {data.canWrite && (
+                      <>
+                        <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Editar"
+                          disabled={pending} onClick={() => editBom(b)}
+                          aria-label={`Editar la receta de ${b.productName}`}>
+                          <PenLine size={13} />
+                        </button>
+                        <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }}
+                          data-tip="Eliminar" disabled={pending} onClick={() => removeBom(b.id)}
+                          aria-label={`Eliminar la receta de ${b.productName}`}>
+                          <Trash2 size={13} />
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <FormDrawer
+        open={bomOpen}
+        onClose={() => setBomOpen(false)}
+        title="Lista de materiales"
+        wide
+        footer={
+          <button className="btn dark" disabled={pending || !bomForm.productId || bomForm.items.every((i) => !i.componentId)} onClick={submitBom}>
+            <Check size={15} />Guardar receta
+          </button>
+        }
+      >
+        <div className="flabel">Producto fabricado</div>
+        <Select
+          value={bomForm.productId}
+          onChange={(v) => setBomForm({ ...bomForm, productId: v })}
+          options={data.productos.map((p) => ({ value: p.id, label: p.name }))}
+        />
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="bom-version">Versión</label>
+            <input id="bom-version" className="field" value={bomForm.version}
+              onChange={(e) => setBomForm({ ...bomForm, version: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="bom-notes">Notas</label>
+            <input id="bom-notes" className="field" value={bomForm.notes}
+              onChange={(e) => setBomForm({ ...bomForm, notes: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="flabel" style={{ marginTop: 8 }}>Componentes</div>
+        {bomForm.items.map((item, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
+            <div style={{ flex: '2 1 220px', minWidth: 160 }}>
+              <Select
+                value={item.componentId}
+                onChange={(v) => {
+                  const items = [...bomForm.items]
+                  items[i] = { ...items[i], componentId: v }
+                  setBomForm({ ...bomForm, items })
+                }}
+                options={data.productos.map((p) => ({ value: p.id, label: p.name }))}
+              />
+            </div>
+            <div style={{ flex: '0 1 90px', minWidth: 70 }}>
+              <input className="field" type="number" min={0} step="0.01" value={item.quantity}
+                aria-label={`Cantidad del componente ${i + 1}`}
+                onChange={(e) => {
+                  const items = [...bomForm.items]
+                  items[i] = { ...items[i], quantity: e.target.value }
+                  setBomForm({ ...bomForm, items })
+                }} />
+            </div>
+            <div style={{ flex: '0 1 70px', minWidth: 56 }}>
+              <input className="field" value={item.unit} maxLength={10}
+                aria-label={`Unidad del componente ${i + 1}`}
+                onChange={(e) => {
+                  const items = [...bomForm.items]
+                  items[i] = { ...items[i], unit: e.target.value }
+                  setBomForm({ ...bomForm, items })
+                }} />
+            </div>
+            <button className="ibtn" style={{ width: 28, height: 34, color: 'var(--redd)' }}
+              disabled={bomForm.items.length === 1}
+              onClick={() => setBomForm({ ...bomForm, items: bomForm.items.filter((_, j) => j !== i) })}
+              aria-label={`Quitar componente ${i + 1}`}>
+              <Trash2 size={13} />
+            </button>
+          </div>
+        ))}
+        <button className="btn" disabled={bomForm.items.length >= 50}
+          onClick={() => setBomForm({ ...bomForm, items: [...bomForm.items, { componentId: '', quantity: '1', unit: 'UN' }] })}>
+          <Plus size={14} />Añadir componente
+        </button>
+      </FormDrawer>
+
       <FormDrawer
         open={orderOpen}
         onClose={() => setOrderOpen(false)}
@@ -390,12 +592,15 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
               value={orderForm.productId}
               onChange={(v) => {
                 const product = data.productos.find((p) => p.id === v)
+                const bom = boms.find((b) => b.productId === v)
                 // The label follows the pick so the order still names what it
-                // made if the catalogue entry is later removed.
+                // made if the catalogue entry is later removed. La receta, si
+                // existe, sugiere el costo de materiales.
                 setOrderForm({
                   ...orderForm,
                   productId: v,
                   productLabel: product ? product.name : orderForm.productLabel,
+                  cost: bom && bom.costCents > 0 ? String(Math.round(bom.costCents / 100)) : orderForm.cost,
                 })
               }}
               placeholder="Sin producto del catálogo"

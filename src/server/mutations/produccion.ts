@@ -272,3 +272,122 @@ export async function deleteOrdenProduccion(id: string): Promise<ProduccionResul
     return fail('No tienes permiso para gestionar producción.')
   }
 }
+
+/* ─── Lista de materiales (BOM) ─────────────────────────────────────────── */
+
+const bomItemSchema = z.object({
+  componentId: z.string().uuid(),
+  quantity: z.coerce.number().min(0.001).max(1_000_000),
+  unit: z.string().trim().min(1).max(10).default('UN'),
+  notes: z.string().trim().max(200).default(''),
+})
+
+const saveBomSchema = z.object({
+  productId: z.string().uuid(),
+  version: z.string().trim().min(1).max(20).default('1'),
+  notes: z.string().trim().max(300).default(''),
+  items: z.array(bomItemSchema).min(1).max(50),
+})
+
+export async function saveBom(
+  input: z.input<typeof saveBomSchema>,
+): Promise<ProduccionResult<ProduccionData>> {
+  try {
+    const member = await requirePermission('produccion:write')
+    const parsed = saveBomSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+
+    // El producto y sus componentes deben ser del catálogo de *esta* org.
+    const ids = [parsed.data.productId, ...parsed.data.items.map((i) => i.componentId)]
+    const { data: products } = await supabase
+      .from('products')
+      .select('id')
+      .in('id', ids)
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+
+    const known = new Set((products ?? []).map((p: { id: string }) => p.id))
+    if (!known.has(parsed.data.productId)) return fail('Ese producto no pertenece a tu catálogo.')
+    for (const item of parsed.data.items) {
+      if (!known.has(item.componentId)) return fail('Un componente no pertenece a tu catálogo.')
+    }
+
+    const { data: bom, error: bomError } = await supabase
+      .from('production_boms')
+      .upsert(
+        {
+          org_id: member.orgId,
+          product_id: parsed.data.productId,
+          version: parsed.data.version,
+          notes: parsed.data.notes,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'org_id,product_id' },
+      )
+      .select('id')
+      .single()
+
+    if (bomError || !bom) {
+      console.error('[produccion] saveBom', bomError)
+      return fail('No se pudo guardar la lista de materiales.')
+    }
+
+    // La receta se reemplaza entera: editar es reescribir, no emparchar.
+    const { error: delError } = await supabase
+      .from('production_bom_items')
+      .delete()
+      .eq('bom_id', bom.id)
+
+    if (delError) {
+      console.error('[produccion] saveBom delete', delError)
+      return fail('No se pudo reemplazar la lista de materiales.')
+    }
+
+    const { error: itemsError } = await supabase.from('production_bom_items').insert(
+      parsed.data.items.map((item, i) => ({
+        bom_id: bom.id,
+        component_id: item.componentId,
+        quantity: item.quantity,
+        unit: item.unit,
+        position: i,
+        notes: item.notes,
+      })),
+    )
+
+    if (itemsError) {
+      console.error('[produccion] saveBom items', itemsError)
+      return fail('La receta se guardó sin sus componentes.')
+    }
+
+    revalidatePath('/dashboard/produccion')
+    return { ok: true, data: await getProduccion() }
+  } catch {
+    return fail('No tienes permiso para gestionar producción.')
+  }
+}
+
+export async function deleteBom(id: string): Promise<ProduccionResult<ProduccionData>> {
+  try {
+    const member = await requirePermission('produccion:write')
+    if (!z.uuid().safeParse(id).success) return fail('Receta desconocida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('production_boms')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[produccion] deleteBom', error)
+      return fail('No se pudo eliminar la receta.')
+    }
+
+    revalidatePath('/dashboard/produccion')
+    return { ok: true, data: await getProduccion() }
+  } catch {
+    return fail('No tienes permiso para gestionar producción.')
+  }
+}

@@ -6425,6 +6425,99 @@ export interface Database {
           },
         ]
       }
+      production_bom_items: {
+        Row: {
+          id: string
+          bom_id: string
+          component_id: string
+          quantity: number
+          unit: string
+          position: number
+          notes: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          bom_id: string
+          component_id: string
+          quantity: number
+          unit?: string
+          position?: number
+          notes?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          bom_id?: string
+          component_id?: string
+          quantity?: number
+          unit?: string
+          position?: number
+          notes?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_bom_items_bom_id_fkey"
+            columns: ["bom_id"]
+            isOneToOne: false
+            referencedRelation: "production_boms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_bom_items_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      production_boms: {
+        Row: {
+          id: string
+          org_id: string
+          product_id: string
+          version: string
+          notes: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          product_id: string
+          version?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          product_id?: string
+          version?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "production_boms_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_boms_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       production_orders: {
         Row: {
           id: string
