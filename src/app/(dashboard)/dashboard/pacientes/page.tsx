@@ -6,6 +6,7 @@ import { DENTAL_SUBSECTOR, VET_SUBSECTOR } from '@/lib/domain'
 import { getPacientes } from '@/server/queries/pacientes'
 import { getOdontologia } from '@/server/queries/odontologia'
 import { getVeterinaria } from '@/server/queries/veterinaria'
+import { getRadiografias } from '@/server/queries/radiografias'
 import Client from './client'
 
 /**
@@ -37,16 +38,19 @@ async function Loader() {
    * Es presentación, no acceso: quien tenga `pacientes:read` puede leer estas
    * tablas por RLS igual, y así debe ser el día que la clínica se reclasifique.
    */
-  const [data, odonto, vetData, catalogo] = await Promise.all([
+  const [data, odonto, vetData, imagenes, catalogo] = await Promise.all([
     getPacientes(),
     dental ? getOdontologia() : Promise.resolve(null),
     vet ? getVeterinaria() : Promise.resolve(null),
+    // Las imágenes son de todas las ramas de salud: una lesión fotografiada
+    // la necesita igual el veterinario que el odontólogo.
+    getRadiografias(),
     dental && member.modules.has('catalogos') && can(member.permissions, 'catalogos:read')
       ? catalogoDental(member.orgId)
       : Promise.resolve([]),
   ])
 
-  return <Client data={data} odonto={odonto} vet={vetData} catalogo={catalogo} />
+  return <Client data={data} odonto={odonto} vet={vetData} imagenes={imagenes} catalogo={catalogo} />
 }
 
 /**

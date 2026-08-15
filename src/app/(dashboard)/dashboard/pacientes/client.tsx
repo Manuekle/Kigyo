@@ -21,8 +21,10 @@ import {
 import { fetchMorePacientes } from '@/server/actions/pacientes'
 import type { OdontologiaData } from '@/server/queries/odontologia'
 import type { VeterinariaData } from '@/server/queries/veterinaria'
+import type { RadiografiasData } from '@/server/queries/radiografias'
 import Odontologia from './Odontologia'
 import Veterinaria from './Veterinaria'
+import ImagenesPaciente from './ImagenesPaciente'
 
 const DATE = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 
@@ -106,12 +108,15 @@ interface Props {
    * `pacientes:read`.
    */
   vet: VeterinariaData | null
+  /** Imágenes diagnósticas: todas las ramas de salud. */
+  imagenes: RadiografiasData
   catalogo: Array<{ id: string; name: string; priceCents: number }>
 }
 
-export default function PacientesPage({ data, odonto: odontoInitial, vet: vetInitial, catalogo }: Props) {
+export default function PacientesPage({ data, odonto: odontoInitial, vet: vetInitial, imagenes: imagenesInitial, catalogo }: Props) {
   const [odonto, setOdonto] = useState<OdontologiaData | null>(odontoInitial)
   const [vet, setVet] = useState<VeterinariaData | null>(vetInitial)
+  const [imagenes, setImagenes] = useState<RadiografiasData>(imagenesInitial)
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
@@ -436,6 +441,8 @@ items={[
                   { key: 'vacunas', label: 'Vacunas' },
                   { key: 'hospitalizacion', label: 'Hospitalización' },
                 ] : []),
+                // Todas las ramas de salud: la imagen diagnóstica es clínica.
+                { key: 'imagenes', label: 'Imágenes' },
               ]}
               value={tab}
               onChange={setTab}
@@ -852,6 +859,15 @@ items={[
             section={tab}
             data={vet}
             onData={setVet}
+            pacientes={pacientes.map((p) => ({ id: p.id, fullName: p.fullName }))}
+          />
+        )}
+
+        {/* La galería de imágenes diagnósticas. Ver la migración 66. */}
+        {tab === 'imagenes' && (
+          <ImagenesPaciente
+            data={imagenes}
+            onData={setImagenes}
             pacientes={pacientes.map((p) => ({ id: p.id, fullName: p.fullName }))}
           />
         )}

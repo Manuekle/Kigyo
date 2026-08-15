@@ -5400,6 +5400,69 @@ export interface Database {
           },
         ]
       }
+      patient_images: {
+        Row: {
+          id: string
+          org_id: string
+          patient_id: string
+          kind: "Radiografía" | "Ultrasonido" | "Tomografía" | "Fotografía" | "Otro"
+          study: string
+          taken_on: string
+          storage_path: string
+          mime_type: string | null
+          size_bytes: number
+          notes: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          patient_id: string
+          kind?: "Radiografía" | "Ultrasonido" | "Tomografía" | "Fotografía" | "Otro"
+          study: string
+          taken_on?: string
+          storage_path: string
+          mime_type?: string | null
+          size_bytes?: number
+          notes?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          patient_id?: string
+          kind?: "Radiografía" | "Ultrasonido" | "Tomografía" | "Fotografía" | "Otro"
+          study?: string
+          taken_on?: string
+          storage_path?: string
+          mime_type?: string | null
+          size_bytes?: number
+          notes?: string
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_images_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_images_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_lab_results: {
         Row: {
           id: string
