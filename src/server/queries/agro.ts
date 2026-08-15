@@ -80,6 +80,30 @@ export interface MaquinaRow {
   notes: string
 }
 
+export interface TreatmentRow {
+  id: string
+  cycleId: string
+  crop: string
+  kind: string
+  product: string
+  activeIngredient: string
+  dose: string
+  appliedOn: string
+  withholdingDays: number | null
+  notes: string
+}
+
+export interface IrrigationRow {
+  id: string
+  lotId: string
+  lotName: string
+  method: string
+  durationMin: number
+  waterM3: number
+  startedOn: string
+  notes: string
+}
+
 export interface AgroData {
   lotes: LotRow[]
   lotesTotal: number
@@ -87,6 +111,8 @@ export interface AgroData {
   cosechas: HarvestRow[]
   insumos: InsumoRow[]
   maquinaria: MaquinaRow[]
+  sanidad: TreatmentRow[]
+  riegos: IrrigationRow[]
   roster: RosterEntry[]
   canWrite: boolean
 }
@@ -261,6 +287,8 @@ export async function getAgro(): Promise<AgroData> {
       cosechas: [],
       insumos: [],
       maquinaria: [],
+      sanidad: [],
+      riegos: [],
       roster: [],
       canWrite: false,
     }
@@ -286,6 +314,54 @@ export async function getAgro(): Promise<AgroData> {
 
   const harvestRows = (harvestData ?? []) as unknown as HarvestRecord[]
   const { kilos, revenue } = tally(harvestRows)
+
+  // Sanidad (por ciclo) y riego (por lote), con los nombres de sus padres.
+  const [treatmentsResult, irrigationResult] = await Promise.all([
+    supabase
+      .from('crop_treatments')
+      .select('id, cycle_id, kind, product, active_ingredient, dose, applied_on, withholding_days, notes')
+      .in('cycle_id', cycleRows.map((c) => c.id))
+      .order('applied_on', { ascending: false })
+      .limit(500),
+    supabase
+      .from('irrigation_events')
+      .select('id, lot_id, method, duration_min, water_m3, started_on, notes')
+      .in('lot_id', lotRows.map((l) => l.id))
+      .order('started_on', { ascending: false })
+      .limit(500),
+  ])
+
+  const cropName = new Map(cycleRows.map((c) => [c.id, c.crop]))
+  const treatments = ((treatmentsResult.data ?? []) as unknown as Array<{
+    id: string; cycle_id: string; kind: string; product: string
+    active_ingredient: string; dose: string; applied_on: string
+    withholding_days: number | null; notes: string
+  }>).map((row) => ({
+    id: row.id,
+    cycleId: row.cycle_id,
+    crop: cropName.get(row.cycle_id) ?? '—',
+    kind: row.kind,
+    product: row.product,
+    activeIngredient: row.active_ingredient,
+    dose: row.dose,
+    appliedOn: row.applied_on,
+    withholdingDays: row.withholding_days,
+    notes: row.notes,
+  }))
+
+  const riegos = ((irrigationResult.data ?? []) as unknown as Array<{
+    id: string; lot_id: string; method: string; duration_min: number
+    water_m3: number; started_on: string; notes: string
+  }>).map((row) => ({
+    id: row.id,
+    lotId: row.lot_id,
+    lotName: lotNames.get(row.lot_id) ?? '—',
+    method: row.method,
+    durationMin: row.duration_min,
+    waterM3: row.water_m3,
+    startedOn: row.started_on,
+    notes: row.notes,
+  }))
 
   const active = new Map<string, number>()
   for (const row of cycleRows) {
@@ -358,6 +434,8 @@ export async function getAgro(): Promise<AgroData> {
       hoursUsed: row.hours_used,
       notes: row.notes,
     })),
+    sanidad: treatments,
+    riegos,
     roster,
     canWrite: can(member.permissions, 'agro:write'),
   }

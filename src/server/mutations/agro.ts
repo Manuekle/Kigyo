@@ -633,3 +633,149 @@ export async function deleteMaquina(id: string): Promise<AgroResult<AgroData>> {
     return fail('No tienes permiso para gestionar agro.')
   }
 }
+
+/* ─── Sanidad (aplicaciones fitosanitarias) ──────────────────────────────── */
+
+const addTreatmentSchema = z.object({
+  cycleId: z.string().uuid(),
+  kind: z.enum(['Fertilización', 'Herbicida', 'Fungicida', 'Insecticida', 'Foliar', 'Otro']).default('Fertilización'),
+  product: z.string().trim().min(1).max(160),
+  activeIngredient: z.string().trim().max(160).default(''),
+  dose: z.string().trim().max(80).default(''),
+  appliedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  withholdingDays: z.string().default(''),
+  notes: z.string().trim().max(300).default(''),
+})
+
+export async function addTreatment(
+  input: z.input<typeof addTreatmentSchema>,
+): Promise<AgroResult<AgroData>> {
+  try {
+    const member = await requirePermission('agro:write')
+    const parsed = addTreatmentSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { data: cycle } = await supabase
+      .from('crop_cycles')
+      .select('id')
+      .eq('id', parsed.data.cycleId)
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (!cycle) return fail('Ese ciclo no pertenece a tu organización.')
+
+    const { error } = await supabase.from('crop_treatments').insert({
+      cycle_id: parsed.data.cycleId,
+      kind: parsed.data.kind,
+      product: parsed.data.product,
+      active_ingredient: parsed.data.activeIngredient,
+      dose: parsed.data.dose,
+      applied_on: parsed.data.appliedOn,
+      withholding_days: parsed.data.withholdingDays ? Number(parsed.data.withholdingDays) : null,
+      notes: parsed.data.notes,
+    })
+
+    if (error) {
+      console.error('[agro] addTreatment', error)
+      return fail('No se pudo registrar la aplicación.')
+    }
+
+    revalidatePath('/dashboard/agro')
+    return { ok: true, data: await getAgro() }
+  } catch {
+    return fail('No tienes permiso para gestionar agro.')
+  }
+}
+
+export async function deleteTreatment(id: string): Promise<AgroResult<AgroData>> {
+  try {
+    await requirePermission('agro:write')
+    if (!z.uuid().safeParse(id).success) return fail('Aplicación desconocida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('crop_treatments').delete().eq('id', id)
+
+    if (error) {
+      console.error('[agro] deleteTreatment', error)
+      return fail('No se pudo eliminar la aplicación.')
+    }
+
+    revalidatePath('/dashboard/agro')
+    return { ok: true, data: await getAgro() }
+  } catch {
+    return fail('No tienes permiso para gestionar agro.')
+  }
+}
+
+/* ─── Riego ──────────────────────────────────────────────────────────────── */
+
+const addIrrigationSchema = z.object({
+  lotId: z.string().uuid(),
+  method: z.enum(['Goteo', 'Aspersión', 'Gravedad', 'Pivote', 'Manual', 'Otro']).default('Goteo'),
+  durationMin: z.coerce.number().int().min(0).max(1440),
+  waterM3: z.coerce.number().min(0).max(1_000_000),
+  startedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z.string().trim().max(300).default(''),
+})
+
+export async function addIrrigation(
+  input: z.input<typeof addIrrigationSchema>,
+): Promise<AgroResult<AgroData>> {
+  try {
+    const member = await requirePermission('agro:write')
+    const parsed = addIrrigationSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { data: lot } = await supabase
+      .from('farm_lots')
+      .select('id')
+      .eq('id', parsed.data.lotId)
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (!lot) return fail('Ese lote no pertenece a tu organización.')
+
+    const { error } = await supabase.from('irrigation_events').insert({
+      lot_id: parsed.data.lotId,
+      method: parsed.data.method,
+      duration_min: parsed.data.durationMin,
+      water_m3: parsed.data.waterM3,
+      started_on: parsed.data.startedOn,
+      notes: parsed.data.notes,
+    })
+
+    if (error) {
+      console.error('[agro] addIrrigation', error)
+      return fail('No se pudo registrar el riego.')
+    }
+
+    revalidatePath('/dashboard/agro')
+    return { ok: true, data: await getAgro() }
+  } catch {
+    return fail('No tienes permiso para gestionar agro.')
+  }
+}
+
+export async function deleteIrrigation(id: string): Promise<AgroResult<AgroData>> {
+  try {
+    await requirePermission('agro:write')
+    if (!z.uuid().safeParse(id).success) return fail('Riego desconocido.')
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('irrigation_events').delete().eq('id', id)
+
+    if (error) {
+      console.error('[agro] deleteIrrigation', error)
+      return fail('No se pudo eliminar el riego.')
+    }
+
+    revalidatePath('/dashboard/agro')
+    return { ok: true, data: await getAgro() }
+  } catch {
+    return fail('No tienes permiso para gestionar agro.')
+  }
+}

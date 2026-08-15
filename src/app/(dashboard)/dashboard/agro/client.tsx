@@ -14,8 +14,9 @@ import { cop } from '@/lib/utils'
 import { useExport } from '@/lib/hooks/use-export'
 import type { AgroData, InsumoRow, LotRow, MaquinaRow } from '@/server/queries/agro'
 import {
-  createCiclo, createInsumo, createLote, createMaquina, deleteInsumo, deleteLote,
-  deleteMaquina, registrarCosecha, setCicloStatus, setInsumoStock, setLoteStatus,
+  addIrrigation, addTreatment, createCiclo, createInsumo, createLote, createMaquina,
+  deleteInsumo, deleteIrrigation, deleteLote, deleteMaquina, deleteTreatment,
+  registrarCosecha, setCicloStatus, setInsumoStock, setLoteStatus,
   setMaquinaStatus, updateLote,
 } from '@/server/mutations/agro'
 import { fetchMoreLotes } from '@/server/actions/agro'
@@ -69,6 +70,13 @@ const MAQUINA_STATUSES = ['Operativa', 'En mantenimiento', 'Fuera de servicio'] 
 
 const EMPTY_INSUMO = { name: '', kind: 'Semilla', stockQty: '', unit: 'kg', supplier: '', unitCost: '' }
 const EMPTY_MAQUINA = { name: '', kind: 'Tractor', serialNo: '', hoursUsed: '', notes: '' }
+const EMPTY_TREATMENT = {
+  cycleId: '', kind: 'Fertilización', product: '', activeIngredient: '', dose: '',
+  appliedOn: '', withholdingDays: '', notes: '',
+}
+const EMPTY_IRRIGATION = {
+  lotId: '', method: 'Goteo', durationMin: '', waterM3: '', startedOn: '', notes: '',
+}
 
 export default function AgroPage({ data }: { data: AgroData }) {
   const { addToast } = useApp()
@@ -79,6 +87,8 @@ export default function AgroPage({ data }: { data: AgroData }) {
   const [total, setTotal] = useState(data.lotesTotal)
   const [ciclos, setCiclos] = useState(data.ciclos)
   const [cosechas, setCosechas] = useState(data.cosechas)
+  const [sanidad, setSanidad] = useState(data.sanidad ?? [])
+  const [riegos, setRiegos] = useState(data.riegos ?? [])
   const [insumos, setInsumos] = useState(data.insumos)
   const [maquinaria, setMaquinaria] = useState(data.maquinaria)
   const [loadingMore, startLoadingMore] = useTransition()
@@ -91,9 +101,13 @@ export default function AgroPage({ data }: { data: AgroData }) {
   const [harvestOpen, setHarvestOpen] = useState(false)
   const [insumoOpen, setInsumoOpen] = useState(false)
   const [maquinaOpen, setMaquinaOpen] = useState(false)
+  const [treatmentOpen, setTreatmentOpen] = useState(false)
+  const [irrigationOpen, setIrrigationOpen] = useState(false)
   const [lotForm, setLotForm] = useState(EMPTY_LOT)
   const [cycleForm, setCycleForm] = useState(EMPTY_CYCLE)
   const [harvestForm, setHarvestForm] = useState(EMPTY_HARVEST)
+  const [treatmentForm, setTreatmentForm] = useState(EMPTY_TREATMENT)
+  const [irrigationForm, setIrrigationForm] = useState(EMPTY_IRRIGATION)
   const [insumoForm, setInsumoForm] = useState(EMPTY_INSUMO)
   const [maquinaForm, setMaquinaForm] = useState(EMPTY_MAQUINA)
 
@@ -104,6 +118,8 @@ export default function AgroPage({ data }: { data: AgroData }) {
     setCosechas(next.cosechas)
     setInsumos(next.insumos)
     setMaquinaria(next.maquinaria)
+    setSanidad(next.sanidad)
+    setRiegos(next.riegos)
   }
 
   function loadMore() {
@@ -312,6 +328,62 @@ export default function AgroPage({ data }: { data: AgroData }) {
     })
   }
 
+  function submitTreatment() {
+    startTransition(async () => {
+      const result = await addTreatment({
+        cycleId: treatmentForm.cycleId,
+        kind: treatmentForm.kind as never,
+        product: treatmentForm.product,
+        activeIngredient: treatmentForm.activeIngredient,
+        dose: treatmentForm.dose,
+        appliedOn: treatmentForm.appliedOn || TODAY(),
+        withholdingDays: treatmentForm.withholdingDays,
+        notes: treatmentForm.notes,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setTreatmentForm(EMPTY_TREATMENT)
+      setTreatmentOpen(false)
+      addToast('Aplicación registrada', 'ok')
+    })
+  }
+
+  function removeTreatment(id: string) {
+    startTransition(async () => {
+      const result = await deleteTreatment(id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Aplicación eliminada', 'ok')
+    })
+  }
+
+  function submitIrrigation() {
+    startTransition(async () => {
+      const result = await addIrrigation({
+        lotId: irrigationForm.lotId,
+        method: irrigationForm.method as never,
+        durationMin: Number(irrigationForm.durationMin) || 0,
+        waterM3: Number(irrigationForm.waterM3) || 0,
+        startedOn: irrigationForm.startedOn || TODAY(),
+        notes: irrigationForm.notes,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setIrrigationForm(EMPTY_IRRIGATION)
+      setIrrigationOpen(false)
+      addToast('Riego registrado', 'ok')
+    })
+  }
+
+  function removeIrrigation(id: string) {
+    startTransition(async () => {
+      const result = await deleteIrrigation(id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Riego eliminado', 'ok')
+    })
+  }
+
   function changeMaquinaStatus(m: MaquinaRow, status: string) {
     startTransition(async () => {
       const result = await setMaquinaStatus({ id: m.id, status: status as never })
@@ -361,6 +433,8 @@ export default function AgroPage({ data }: { data: AgroData }) {
               { key: 'cosechas', label: 'Cosechas' },
               { key: 'insumos', label: 'Insumos' },
               { key: 'maquinaria', label: 'Maquinaria' },
+              { key: 'sanidad', label: 'Sanidad' },
+              { key: 'riego', label: 'Riego' },
             ]}
             value={tab}
             onChange={setTab}
@@ -392,6 +466,22 @@ export default function AgroPage({ data }: { data: AgroData }) {
                 <button className="btn dark" disabled={pending}
                   onClick={() => { setMaquinaForm(EMPTY_MAQUINA); setMaquinaOpen(true) }}>
                   <Plus size={15} />Máquina
+                </button>
+              ) : tab === 'sanidad' ? (
+                <button className="btn dark" disabled={pending || ciclos.length === 0}
+                  onClick={() => {
+                    setTreatmentForm({ ...EMPTY_TREATMENT, cycleId: ciclos[0]?.id ?? '', appliedOn: TODAY() })
+                    setTreatmentOpen(true)
+                  }}>
+                  <Plus size={15} />Aplicación
+                </button>
+              ) : tab === 'riego' ? (
+                <button className="btn dark" disabled={pending || lotes.length === 0}
+                  onClick={() => {
+                    setIrrigationForm({ ...EMPTY_IRRIGATION, lotId: lotes[0]?.id ?? '', startedOn: TODAY() })
+                    setIrrigationOpen(true)
+                  }}>
+                  <Plus size={15} />Riego
                 </button>
               ) : (
                 <button className="btn dark" disabled={pending || lotes.length === 0}
@@ -714,6 +804,103 @@ export default function AgroPage({ data }: { data: AgroData }) {
             </table>
           </div>
         )}
+
+        {tab === 'sanidad' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Cultivo</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Producto</th>
+                  <th scope="col">Dosis</th>
+                  <th scope="col">Aplicada</th>
+                  <th scope="col">Carencia</th>
+                  <th scope="col" aria-label="Acciones" />
+                </tr>
+              </thead>
+              <tbody>
+                {sanidad.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Sin aplicaciones registradas.
+                      </div>
+                    </td>
+                  </tr>
+                ) : sanidad.map((t) => (
+                  <tr key={t.id}>
+                    <td><div className="cename">{t.crop}</div></td>
+                    <td>{t.kind}</td>
+                    <td>
+                      {t.product}
+                      {t.activeIngredient && (
+                        <div className="muted" style={{ fontSize: 12 }}>{t.activeIngredient}</div>
+                      )}
+                    </td>
+                    <td className="mono">{t.dose || '—'}</td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{formatDate(t.appliedOn)}</td>
+                    <td className="mono">
+                      {t.withholdingDays !== null ? `${t.withholdingDays} d` : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }}
+                        data-tip="Eliminar" disabled={pending}
+                        onClick={() => removeTreatment(t.id)}
+                        aria-label={`Eliminar aplicación de ${t.product}`}>
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === 'riego' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Lote</th>
+                  <th scope="col">Método</th>
+                  <th scope="col">Duración</th>
+                  <th scope="col">Agua</th>
+                  <th scope="col">Fecha</th>
+                  <th scope="col" aria-label="Acciones" />
+                </tr>
+              </thead>
+              <tbody>
+                {riegos.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Sin riegos registrados.
+                      </div>
+                    </td>
+                  </tr>
+                ) : riegos.map((r) => (
+                  <tr key={r.id}>
+                    <td><div className="cename">{r.lotName}</div></td>
+                    <td>{r.method}</td>
+                    <td className="mono">{r.durationMin} min</td>
+                    <td className="mono">{r.waterM3.toLocaleString('es-CO')} m³</td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{formatDate(r.startedOn)}</td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }}
+                        data-tip="Eliminar" disabled={pending}
+                        onClick={() => removeIrrigation(r.id)}
+                        aria-label={`Eliminar riego de ${r.lotName}`}>
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <FormDrawer
@@ -974,6 +1161,97 @@ export default function AgroPage({ data }: { data: AgroData }) {
         <label className="flabel" htmlFor="maq-notes">Notas</label>
         <textarea id="maq-notes" className="field" rows={3} value={maquinaForm.notes}
           onChange={(e) => setMaquinaForm({ ...maquinaForm, notes: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={treatmentOpen}
+        onClose={() => setTreatmentOpen(false)}
+        title="Registrar aplicación"
+        footer={
+          <button className="btn dark" disabled={pending || !treatmentForm.cycleId || !treatmentForm.product.trim()} onClick={submitTreatment}>
+            <Check size={15} />Registrar
+          </button>
+        }
+      >
+        <label className="flabel">Ciclo</label>
+        <Select value={treatmentForm.cycleId}
+          onChange={(v) => setTreatmentForm({ ...treatmentForm, cycleId: v })}
+          options={cycleOptions} />
+        <div className="fg2">
+          <div>
+            <label className="flabel">Tipo</label>
+            <Select value={treatmentForm.kind}
+              onChange={(v) => setTreatmentForm({ ...treatmentForm, kind: v })}
+              options={['Fertilización', 'Herbicida', 'Fungicida', 'Insecticida', 'Foliar', 'Otro']} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="trt-on">Aplicada</label>
+            <input id="trt-on" className="field" type="date" value={treatmentForm.appliedOn}
+              onChange={(e) => setTreatmentForm({ ...treatmentForm, appliedOn: e.target.value })} />
+          </div>
+        </div>
+        <label className="flabel" htmlFor="trt-product">Producto</label>
+        <input id="trt-product" className="field" value={treatmentForm.product}
+          placeholder="Nombre comercial"
+          onChange={(e) => setTreatmentForm({ ...treatmentForm, product: e.target.value })} />
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="trt-active">Ingrediente activo</label>
+            <input id="trt-active" className="field" value={treatmentForm.activeIngredient}
+              onChange={(e) => setTreatmentForm({ ...treatmentForm, activeIngredient: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="trt-dose">Dosis</label>
+            <input id="trt-dose" className="field" value={treatmentForm.dose}
+              placeholder="Ej: 2 L/ha"
+              onChange={(e) => setTreatmentForm({ ...treatmentForm, dose: e.target.value })} />
+          </div>
+        </div>
+        <label className="flabel" htmlFor="trt-withholding">Periodo de carencia (días)</label>
+        <input id="trt-withholding" className="field" type="number" min={0} value={treatmentForm.withholdingDays}
+          placeholder="Sin restricción"
+          onChange={(e) => setTreatmentForm({ ...treatmentForm, withholdingDays: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={irrigationOpen}
+        onClose={() => setIrrigationOpen(false)}
+        title="Registrar riego"
+        footer={
+          <button className="btn dark" disabled={pending || !irrigationForm.lotId} onClick={submitIrrigation}>
+            <Check size={15} />Registrar
+          </button>
+        }
+      >
+        <label className="flabel">Lote</label>
+        <Select value={irrigationForm.lotId}
+          onChange={(v) => setIrrigationForm({ ...irrigationForm, lotId: v })}
+          options={lotes.map((l) => ({ value: l.id, label: l.name }))} />
+        <div className="fg2">
+          <div>
+            <label className="flabel">Método</label>
+            <Select value={irrigationForm.method}
+              onChange={(v) => setIrrigationForm({ ...irrigationForm, method: v })}
+              options={['Goteo', 'Aspersión', 'Gravedad', 'Pivote', 'Manual', 'Otro']} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="irr-on">Fecha</label>
+            <input id="irr-on" className="field" type="date" value={irrigationForm.startedOn}
+              onChange={(e) => setIrrigationForm({ ...irrigationForm, startedOn: e.target.value })} />
+          </div>
+        </div>
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="irr-dur">Duración (min)</label>
+            <input id="irr-dur" className="field" type="number" min={0} value={irrigationForm.durationMin}
+              onChange={(e) => setIrrigationForm({ ...irrigationForm, durationMin: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="irr-water">Agua (m³)</label>
+            <input id="irr-water" className="field" type="number" min={0} step="0.1" value={irrigationForm.waterM3}
+              onChange={(e) => setIrrigationForm({ ...irrigationForm, waterM3: e.target.value })} />
+          </div>
+        </div>
       </FormDrawer>
     </>
   )

@@ -1755,6 +1755,63 @@ export interface Database {
           },
         ]
       }
+      crop_treatments: {
+        Row: {
+          id: string
+          cycle_id: string
+          kind: "Fertilización" | "Herbicida" | "Fungicida" | "Insecticida" | "Foliar" | "Otro"
+          product: string
+          active_ingredient: string
+          dose: string
+          applied_on: string
+          responsible_id: string | null
+          withholding_days: number | null
+          notes: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          cycle_id: string
+          kind?: "Fertilización" | "Herbicida" | "Fungicida" | "Insecticida" | "Foliar" | "Otro"
+          product: string
+          active_ingredient?: string
+          dose?: string
+          applied_on?: string
+          responsible_id?: string | null
+          withholding_days?: number | null
+          notes?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          cycle_id?: string
+          kind?: "Fertilización" | "Herbicida" | "Fungicida" | "Insecticida" | "Foliar" | "Otro"
+          product?: string
+          active_ingredient?: string
+          dose?: string
+          applied_on?: string
+          responsible_id?: string | null
+          withholding_days?: number | null
+          notes?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_treatments_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "crop_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crop_treatments_responsible_id_fkey"
+            columns: ["responsible_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_routes: {
         Row: {
           id: string
@@ -4121,6 +4178,47 @@ export interface Database {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      irrigation_events: {
+        Row: {
+          id: string
+          lot_id: string
+          method: "Goteo" | "Aspersión" | "Gravedad" | "Pivote" | "Manual" | "Otro"
+          duration_min: number
+          water_m3: number
+          started_on: string
+          notes: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          lot_id: string
+          method?: "Goteo" | "Aspersión" | "Gravedad" | "Pivote" | "Manual" | "Otro"
+          duration_min?: number
+          water_m3?: number
+          started_on?: string
+          notes?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          lot_id?: string
+          method?: "Goteo" | "Aspersión" | "Gravedad" | "Pivote" | "Manual" | "Otro"
+          duration_min?: number
+          water_m3?: number
+          started_on?: string
+          notes?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "irrigation_events_lot_id_fkey"
+            columns: ["lot_id"]
+            isOneToOne: false
+            referencedRelation: "farm_lots"
             referencedColumns: ["id"]
           },
         ]
