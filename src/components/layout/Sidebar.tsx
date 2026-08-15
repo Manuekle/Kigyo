@@ -13,6 +13,7 @@ import {
   Apartment,
   Contracts,
   Link2,
+  Send,
 } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
 import CompanySwitcher from '@/components/layout/CompanySwitcher'
@@ -145,6 +146,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Apartment: <Apartment size={18} />,
   Contracts: <Contracts size={18} />,
   Link2: <Link2 size={18} />,
+  Send: <Send size={18} />,
 }
 
 export default function Sidebar() {

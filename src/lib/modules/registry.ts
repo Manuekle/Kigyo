@@ -752,6 +752,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     vertical: 'contratacion',
   },
   {
+    key: 'marketing',
+    label: 'Marketing',
+    description: 'Campañas a clientes y fidelización por puntos.',
+    group: 'Comercial',
+    icon: 'Send',
+    route: '/dashboard/marketing',
+    actions: ['read', 'write'],
+    permissionNoun: 'campañas y fidelización',
+    title: 'Marketing',
+    subtitle: 'Campañas a clientes y programa de fidelización por puntos.',
+  },
+  {
     key: 'portal',
     label: 'Portal',
     description: 'Enlaces públicos firmados y con vencimiento para clientes sin cuenta.',
@@ -881,6 +893,7 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
 
   { module: 'notificaciones', requires: 'facturacion', kind: 'soft' },
   { module: 'notificaciones', requires: 'calendario', kind: 'soft' },
+  { module: 'marketing', requires: 'clientes', kind: 'soft' },
 ]
 
 /** What a module needs, at the given strength. */

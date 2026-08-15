@@ -197,7 +197,7 @@ export function sectorNav(key: string | null): SectorNav {
  * company's own answer.
  */
 const PEOPLE = ['empleados', 'asistencia', 'nomina']
-const SPINE = ['canales', 'documentos', 'calendario', 'ia', 'reportes', 'portal']
+const SPINE = ['canales', 'documentos', 'calendario', 'ia', 'reportes', 'portal', 'marketing']
 /** "Who buys from us, what did we promise, did they pay." Nearly universal. */
 const COMMERCIAL = ['clientes', 'cotizaciones', 'facturacion']
 

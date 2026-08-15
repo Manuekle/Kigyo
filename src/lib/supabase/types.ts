@@ -4345,6 +4345,149 @@ export interface Database {
           },
         ]
       }
+      loyalty_points: {
+        Row: {
+          id: string
+          org_id: string
+          client_id: string
+          points: number
+          reason: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          client_id: string
+          points: number
+          reason: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          client_id?: string
+          points?: number
+          reason?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loyalty_points_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loyalty_points_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_campaigns: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          channel: "whatsapp" | "email" | "sms" | "otro"
+          message: string
+          status: "borrador" | "programada" | "enviada" | "cancelada"
+          scheduled_for: string | null
+          sent_at: string | null
+          audience_count: number
+          sent_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          channel?: "whatsapp" | "email" | "sms" | "otro"
+          message?: string
+          status?: "borrador" | "programada" | "enviada" | "cancelada"
+          scheduled_for?: string | null
+          sent_at?: string | null
+          audience_count?: number
+          sent_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          channel?: "whatsapp" | "email" | "sms" | "otro"
+          message?: string
+          status?: "borrador" | "programada" | "enviada" | "cancelada"
+          scheduled_for?: string | null
+          sent_at?: string | null
+          audience_count?: number
+          sent_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaigns_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_recipients: {
+        Row: {
+          id: string
+          campaign_id: string
+          client_id: string | null
+          contact_name: string
+          contact_address: string
+          sent_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          client_id?: string | null
+          contact_name?: string
+          contact_address?: string
+          sent_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          client_id?: string | null
+          contact_name?: string
+          contact_address?: string
+          sent_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_recipients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       membership_sites: {
         Row: {
           org_id: string
