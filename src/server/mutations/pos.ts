@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -16,6 +17,11 @@ function fail(message: string): { ok: false; error: string } {
 }
 
 const DENIED = 'No tienes permiso para vender.'
+
+function simulationAllowed(): boolean {
+  return paymentsSimulated()
+    && (process.env.NODE_ENV !== 'production' || process.env.PAYMENTS_DEMO === 'true')
+}
 
 async function refreshed(): Promise<PosResult<PosData>> {
   revalidatePath('/dashboard/pos')
@@ -170,7 +176,13 @@ export async function cobrarConQr(
       return fail('Los pagos con QR están disponibles en el plan Enterprise.')
     }
 
-    const simulated = paymentsSimulated()
+    if (process.env.NODE_ENV === 'production'
+      && process.env.PAYMENTS_DEMO !== 'true'
+      && process.env.WOMPI_REAL !== 'true') {
+      return fail('Configura WOMPI_REAL=true o PAYMENTS_DEMO=true en producción.')
+    }
+
+    const simulated = simulationAllowed()
 
     // En modo simulado no hay Wompi ni vault: el loop completo (venta
     // pendiente → intención sintética → simulación firma como el proveedor →
@@ -286,6 +298,149 @@ export async function cobrarConQr(
   } catch {
     return fail(DENIED)
   }
+}
+
+const simulatedSaleSchema = z.object({
+  items: z
+    .array(z.object({
+      productId: z.uuid(),
+      quantity: z.coerce.number().int().min(1).max(9999),
+    }))
+    .min(1, 'Agrega al menos un producto.')
+    .max(100, 'La venta tiene demasiadas líneas.'),
+  paymentMethod: z.enum(PAYMENT_METHODS),
+  customerName: z.string().trim().max(160).default(''),
+  discountCents: z.coerce.number().int().min(0).max(1_000_000_00).default(0),
+})
+
+export async function prepararPagoSimulado(
+  input: z.input<typeof simulatedSaleSchema>,
+): Promise<PosResult<QrSaleData>> {
+  try {
+    const member = await requirePermission('pos:write')
+    if (!simulationAllowed()) return fail('La simulación de pagos no está habilitada.')
+
+    const parsed = simulatedSaleSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('register_pos_sale', {
+      p_org_id: member.orgId,
+      p_items: parsed.data.items.map((i) => ({
+        product_id: i.productId,
+        quantity: i.quantity,
+      })),
+      p_payment_method: parsed.data.paymentMethod,
+      p_customer_name: parsed.data.customerName,
+      p_discount_cents: parsed.data.discountCents,
+      p_notes: '',
+      p_pending: true,
+    })
+
+    if (error) {
+      console.error('[pos] prepararPagoSimulado register', error)
+      if (error.code === 'KG103' || error.code === 'KG102') return fail(error.message)
+      if (error.code === 'KG101') return fail(DENIED)
+      return fail('No se pudo preparar la venta.')
+    }
+
+    const row = Array.isArray(data) ? data[0] : null
+    if (!row) return fail('No se pudo preparar la venta.')
+
+    const transactionId = `sim-${randomUUID()}`
+    const admin = createAdminClient()
+    const { error: payError } = await admin
+      .from('pos_payments')
+      .insert({
+        org_id: member.orgId,
+        sale_id: row.sale_id,
+        provider: 'otro',
+        status: 'Pendiente',
+        amount_cents: row.sale_total_cents,
+        reference: row.sale_code,
+        external_id: transactionId,
+      })
+
+    if (payError) {
+      console.error('[pos] prepararPagoSimulado payment row', payError)
+      return fail('La venta quedó pendiente pero no se pudo registrar el pago simulado.')
+    }
+
+    const refresh = await refreshed()
+    if (!refresh.ok) return refresh
+
+    return {
+      ok: true,
+      data: {
+        ...refresh.data,
+        qr: {
+          saleId: row.sale_id,
+          saleCode: row.sale_code,
+          amountCents: row.sale_total_cents,
+          qrUrl: null,
+          redirectUrl: null,
+          simulated: true,
+          transactionId,
+        },
+      },
+    }
+  } catch {
+    return fail(DENIED)
+  }
+}
+
+const paymentMethodSchema = z.union([z.enum(PAYMENT_METHODS), z.literal('QR Wompi')])
+const paymentInputSchema = z.object({
+  items: z.array(z.object({ productId: z.uuid(), quantity: z.coerce.number().int().min(1).max(9999) }))
+    .min(1).max(100),
+  paymentMethod: paymentMethodSchema,
+  customerName: z.string().trim().max(160).default(''),
+  customerEmail: z.string().trim().email().max(200).optional(),
+  discountCents: z.coerce.number().int().min(0).max(1_000_000_00).default(0),
+  notes: z.string().trim().max(1000).default(''),
+})
+
+type PaymentResultData = PosData & {
+  saleCode: string | null
+  qr?: QrSaleData['qr']
+}
+
+export async function cobrarPago(
+  input: z.input<typeof paymentInputSchema>,
+): Promise<PosResult<PaymentResultData>> {
+  const parsed = paymentInputSchema.safeParse(input)
+  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+  if (parsed.data.paymentMethod === 'QR Wompi') {
+    const result = await cobrarConQr({
+      items: parsed.data.items,
+      customerName: parsed.data.customerName,
+      customerEmail: parsed.data.customerEmail ?? 'simulado@kigyo.local',
+      discountCents: parsed.data.discountCents,
+    })
+    if (!result.ok) return result
+    return { ok: true, data: { ...result.data, saleCode: null } }
+  }
+
+  if (simulationAllowed()) {
+    const normalInput = {
+      items: parsed.data.items,
+      paymentMethod: parsed.data.paymentMethod as (typeof PAYMENT_METHODS)[number],
+      customerName: parsed.data.customerName,
+      discountCents: parsed.data.discountCents,
+    }
+    const result = await prepararPagoSimulado(normalInput)
+    if (!result.ok) return result
+    return { ok: true, data: { ...result.data, saleCode: null } }
+  }
+
+  return cobrarVenta({
+    items: parsed.data.items,
+    paymentMethod: parsed.data.paymentMethod as (typeof PAYMENT_METHODS)[number],
+    customerName: parsed.data.customerName,
+    discountCents: parsed.data.discountCents,
+    notes: parsed.data.notes,
+  })
 }
 
 const receiptPrefsSchema = z.object({

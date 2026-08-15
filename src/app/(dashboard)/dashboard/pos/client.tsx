@@ -17,7 +17,7 @@ import { useExport } from '@/lib/hooks/use-export'
 import { PAYMENT_METHODS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { PosData, ReceiptPrefs, SaleRow, SellableRow } from '@/server/queries/pos'
-import { anularVenta, cobrarConQr, cobrarVenta, saveReceiptPrefs } from '@/server/mutations/pos'
+import { anularVenta, cobrarPago, saveReceiptPrefs } from '@/server/mutations/pos'
 import { fetchPos } from '@/server/actions/pos'
 
 const DATETIME = new Intl.DateTimeFormat('es-CO', {
@@ -140,6 +140,37 @@ interface CartLine {
   stock: number
 }
 
+function SimulatedPaymentDialog({
+  paymentMethod,
+  amountCents,
+  pending,
+  onOutcome,
+}: {
+  paymentMethod: string
+  amountCents: number
+  pending: boolean
+  onOutcome: (status: 'APPROVED' | 'DECLINED') => void
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center' }}>
+      <Badge st="Pago simulado" tone="amb" />
+      <div className="cename" style={{ fontSize: 17 }}>{pesos(amountCents)}</div>
+      <div className="elsub">Medio: {paymentMethod}</div>
+      <div className="elsub">
+        No hay dinero real moviéndose. La confirmación usa el mismo camino del webhook.
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn dark" disabled={pending} onClick={() => onOutcome('APPROVED')}>
+          <Check size={15} />Simular aprobación
+        </button>
+        <button className="btn" disabled={pending} onClick={() => onOutcome('DECLINED')}>
+          Simular rechazo
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function PosPage({ data }: { data: PosData }) {
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
@@ -156,10 +187,10 @@ export default function PosPage({ data }: { data: PosData }) {
   const [prefsForm, setPrefsForm] = useState({ width: '80', footer: '', showLogo: true })
   const [qrEmail, setQrEmail] = useState('')
   const [qrOpen, setQrOpen] = useState(false)
-  const [qrState, setQrState] = useState<{
+  const [paymentState, setPaymentState] = useState<{
     saleId: string; saleCode: string; amountCents: number
     qrUrl: string | null; redirectUrl: string | null
-    simulated: boolean; transactionId: string
+    simulated: boolean; transactionId: string; paymentMethod: string
   } | null>(null)
   const scanRef = useRef<HTMLInputElement>(null)
 
@@ -248,6 +279,29 @@ export default function PosPage({ data }: { data: PosData }) {
 
   const paymentMethods = [...PAYMENT_METHODS, ...(state.qrEnabled ? ['QR Wompi' as const] : [])]
 
+  function watchPayment(saleId: string, saleCode: string) {
+    let tries = 0
+    const timer = setInterval(async () => {
+      tries += 1
+      const fresh = await fetchPos()
+      if (!fresh) return
+      setState(fresh)
+      const sale = fresh.ventas.find((v) => v.id === saleId)
+      if (!sale) return
+      if (sale.status === 'Pagada') {
+        clearInterval(timer)
+        setQrOpen(false)
+        setPaymentState(null)
+        addToast(`Venta ${saleCode} cobrada`, 'ok')
+      } else if (sale.status === 'Anulada' || tries >= 40) {
+        clearInterval(timer)
+        setQrOpen(false)
+        setPaymentState(null)
+        addToast('El pago no se confirmó; la venta quedó pendiente para anular', 'info')
+      }
+    }, 3000)
+  }
+
   function charge() {
     if (cart.length === 0) return
     if (paymentMethod === 'QR Wompi') {
@@ -255,7 +309,7 @@ export default function PosPage({ data }: { data: PosData }) {
       return
     }
     startTransition(async () => {
-      const result = await cobrarVenta({
+      const result = await cobrarPago({
         items: cart.map((l) => ({ productId: l.productId, quantity: l.quantity })),
         paymentMethod: paymentMethod as (typeof PAYMENT_METHODS)[number],
         customerName,
@@ -267,6 +321,13 @@ export default function PosPage({ data }: { data: PosData }) {
         return
       }
       setState(result.data)
+      if (result.data.qr) {
+        setPaymentState({ ...result.data.qr, paymentMethod })
+        clearCart()
+        setQrOpen(true)
+        watchPayment(result.data.qr.saleId, result.data.qr.saleCode)
+        return
+      }
       addToast(
         result.data.saleCode ? `Venta ${result.data.saleCode} cobrada` : 'Venta cobrada',
         'ok',
@@ -288,54 +349,37 @@ export default function PosPage({ data }: { data: PosData }) {
       return
     }
     startTransition(async () => {
-      const result = await cobrarConQr({
+      const result = await cobrarPago({
         items: cart.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+        paymentMethod: 'QR Wompi',
         customerName,
         customerEmail: qrEmail.trim(),
         discountCents,
       })
       if (!result.ok) { addToast(result.error, 'err'); return }
       setState(result.data)
-      setQrState(result.data.qr)
+      if (!result.data.qr) { addToast('No se pudo preparar el pago.', 'err'); return }
+      setPaymentState({ ...result.data.qr, paymentMethod: 'QR Wompi' })
       addToast(`Venta ${result.data.qr.saleCode} pendiente de pago`, 'info')
       clearCart()
-
-      // Sondeo de SOLO LECTURA para cerrar el modal cuando el webhook
-      // confirma. La venta la paga el webhook, nunca este reloj.
-      const saleId = result.data.qr.saleId
-      let tries = 0
-      const timer = setInterval(async () => {
-        tries += 1
-        const fresh = await fetchPos()
-        if (!fresh) return
-        setState(fresh)
-        const sale = fresh.ventas.find((v) => v.id === saleId)
-        if (!sale) return
-        if (sale.status === 'Pagada') {
-          clearInterval(timer)
-          setQrOpen(false)
-          setQrState(null)
-          addToast(`Venta ${result.data.qr.saleCode} cobrada`, 'ok')
-        } else if (sale.status === 'Anulada' || tries >= 40) {
-          clearInterval(timer)
-          setQrOpen(false)
-          setQrState(null)
-          addToast('El pago no se confirmó; la venta quedó pendiente para anular', 'info')
-        }
-      }, 3000)
+      watchPayment(result.data.qr.saleId, result.data.qr.saleCode)
     })
   }
 
   /** La simulación firma como el proveedor: el único camino a «Pagada». */
   function simulatePayment(status: 'APPROVED' | 'DECLINED') {
-    if (!qrState) return
+    if (!paymentState) return
     startTransition(async () => {
       try {
-        await fetch('/api/wompi/simulate', {
+        const response = await fetch('/api/wompi/simulate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transactionId: qrState.transactionId, status }),
+          body: JSON.stringify({ transactionId: paymentState.transactionId, status }),
         })
+        if (!response.ok) {
+          addToast('No se pudo simular el pago', 'err')
+          return
+        }
       } catch {
         addToast('No se pudo simular el pago', 'err')
         return
@@ -694,49 +738,38 @@ export default function PosPage({ data }: { data: PosData }) {
       <FormDrawer
         open={qrOpen}
         onClose={() => setQrOpen(false)}
-        title={qrState ? `Pago pendiente · ${qrState.saleCode}` : 'Cobrar con QR'}
-        footer={qrState ? (
-          <button className="btn" onClick={() => { setQrOpen(false); setQrState(null) }}>
+        title={paymentState ? `Pago pendiente · ${paymentState.saleCode}` : 'Preparar pago'}
+        footer={paymentState ? (
+          <button className="btn" onClick={() => { setQrOpen(false); setPaymentState(null) }}>
             Cerrar (la venta queda pendiente)
           </button>
         ) : (
           <button className="btn dark" disabled={pending} onClick={submitQr}>
-            <Check size={15} />Generar QR
+            <Check size={15} />Preparar pago
           </button>
         )}
       >
-        {qrState ? (
-          qrState.simulated ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center' }}>
-              <Badge st="Pago simulado" tone="amb" />
-              <div className="cename" style={{ fontSize: 17 }}>{pesos(qrState.amountCents)}</div>
-              <div className="elsub">
-                Modo simulado: no hay dinero real moviéndose. La confirmación sigue el
-                mismo camino que el webhook de Wompi — la simulación ocupa el lugar del
-                proveedor.
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn dark" disabled={pending} onClick={() => simulatePayment('APPROVED')}>
-                  <Check size={15} />Simular pago aprobado
-                </button>
-                <button className="btn" disabled={pending} onClick={() => simulatePayment('DECLINED')}>
-                  Simular rechazo
-                </button>
-              </div>
-            </div>
+        {paymentState ? (
+          paymentState.simulated ? (
+            <SimulatedPaymentDialog
+              paymentMethod={paymentState.paymentMethod}
+              amountCents={paymentState.amountCents}
+              pending={pending}
+              onOutcome={simulatePayment}
+            />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', textAlign: 'center' }}>
-              {qrState.qrUrl ? (
+              {paymentState.qrUrl ? (
                 // El QR viene de Wompi como URL; se muestra tal cual. Sin la
                 // URL (método no QR), el cliente paga por el enlace.
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={qrState.qrUrl} alt="QR de pago Wompi" width={220} height={220} />
+                <img src={paymentState.qrUrl} alt="QR de pago Wompi" width={220} height={220} />
               ) : (
-                <a className="btn dark" href={qrState.redirectUrl ?? undefined} target="_blank" rel="noreferrer">
+                <a className="btn dark" href={paymentState.redirectUrl ?? undefined} target="_blank" rel="noreferrer">
                   Abrir pago en Wompi
                 </a>
               )}
-              <div className="cename" style={{ fontSize: 17 }}>{pesos(qrState.amountCents)}</div>
+              <div className="cename" style={{ fontSize: 17 }}>{pesos(paymentState.amountCents)}</div>
               <div className="elsub">
                 Escanea con la app de tu banco. La venta se confirma sola cuando el pago llega;
                 no cobres en efectivo mientras tanto.
@@ -745,9 +778,9 @@ export default function PosPage({ data }: { data: PosData }) {
           )
         ) : (
           <>
-            <div className="elsub" style={{ marginBottom: 12 }}>
-              La venta se registra como pendiente y la confirmación llega sola cuando el
-              pago se aprueba — por ahora en modo simulado: sin dinero real.
+             <div className="elsub" style={{ marginBottom: 12 }}>
+               La venta se registra como pendiente y la confirmación llega sola cuando el
+               pago se aprueba.
             </div>
             <label className="flabel" htmlFor="qr-email">Correo del cliente</label>
             <input id="qr-email" className="field" type="email" value={qrEmail}

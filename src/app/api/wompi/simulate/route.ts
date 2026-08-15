@@ -1,5 +1,6 @@
 import { paymentsSimulated } from '@/lib/wompi'
 import { applyWompiEvent } from '@/lib/wompi-apply'
+import { hasPermission } from '@/lib/auth/session'
 
 /**
  * Simulación del proveedor de pagos.
@@ -10,16 +11,22 @@ import { applyWompiEvent } from '@/lib/wompi-apply'
  * (`applyWompiEvent`) — lo que se prueba es exactamente lo que correrá con
  * Wompi, con la única diferencia de quién firma.
  *
- * Solo existe en modo simulado y fuera de producción: con WOMPI_REAL=true
- * responde 404 y la confirmación vuelve a ser asunto exclusivo del webhook
- * firmado.
+ * Solo existe en modo simulado; producción demo exige PAYMENTS_DEMO=true.
+ * Con WOMPI_REAL=true responde 404 y la confirmación vuelve a ser asunto
+ * exclusivo del webhook firmado.
  */
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
-  if (!paymentsSimulated() || process.env.NODE_ENV === 'production') {
+  const allowed = paymentsSimulated()
+    && (process.env.NODE_ENV !== 'production' || process.env.PAYMENTS_DEMO === 'true')
+  if (!allowed) {
     return Response.json({ error: 'not available' }, { status: 404 })
+  }
+
+  if (!await hasPermission('pos:write')) {
+    return Response.json({ error: 'forbidden' }, { status: 403 })
   }
 
   let body: { transactionId?: string; status?: string }
@@ -29,7 +36,7 @@ export async function POST(request: Request) {
     return Response.json({ error: 'unreadable body' }, { status: 400 })
   }
 
-  if (!body.transactionId || !body.status) {
+  if (!body.transactionId || !body.status || !['APPROVED', 'DECLINED'].includes(body.status)) {
     return Response.json({ error: 'transactionId and status are required' }, { status: 400 })
   }
 
