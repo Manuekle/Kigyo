@@ -698,6 +698,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Puestos de vigilancia, turnos y quién los cubre.',
   },
   {
+    key: 'calidad',
+    label: 'Calidad',
+    description: 'Controles de calidad, lotes y no conformidades.',
+    group: 'Operación',
+    icon: 'ShieldAlert',
+    route: '/dashboard/calidad',
+    actions: ['read', 'write'],
+    permissionNoun: 'controles de calidad',
+    title: 'Calidad',
+    subtitle: 'Controles de calidad, lotes y no conformidades.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
@@ -781,6 +793,7 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
 
   { module: 'produccion', requires: 'inventario', kind: 'hard' },
   { module: 'produccion', requires: 'catalogos', kind: 'soft' },
+  { module: 'calidad', requires: 'catalogos', kind: 'soft' },
   { module: 'mantenimiento', requires: 'inventario', kind: 'soft' },
   { module: 'flota', requires: 'mantenimiento', kind: 'soft' },
 

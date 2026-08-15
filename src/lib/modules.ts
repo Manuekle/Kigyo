@@ -235,7 +235,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'manufactura',
     label: 'Manufactura y producción',
     description: 'Planta propia, línea de producción, control de existencias.',
-    modules: [...PEOPLE, 'riesgos', 'hseq', 'inventario', 'produccion', 'mantenimiento', ...COMMERCIAL, 'catalogos', 'compras', 'firmas', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'riesgos', 'hseq', 'inventario', 'produccion', 'calidad', 'mantenimiento', ...COMMERCIAL, 'catalogos', 'compras', 'firmas', 'tickets', ...SPINE],
   },
   {
     key: 'comercio',
@@ -295,14 +295,14 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     // `caja` deja de vivir dentro de `restaurante` (migración 43) y pasa a ser
     // el módulo que también usan la clínica, el hotel y el gimnasio. El
     // restaurante no pierde nada: la misma tabla, el mismo arqueo.
-    modules: [...PEOPLE, 'restaurante', 'inventario', 'catalogos', 'caja', 'compras', 'hseq', 'facturacion', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'restaurante', 'inventario', 'catalogos', 'caja', 'compras', 'hseq', 'calidad', 'facturacion', 'tickets', ...SPINE],
     vertical: 'restaurante',
   },
   {
     key: 'agro',
     label: 'Agro y agroindustria',
     description: 'Cultivos, fincas, ciclos productivos y cosecha.',
-    modules: [...PEOPLE, 'agro', 'inventario', 'mantenimiento', 'flota', 'hseq', 'riesgos', ...COMMERCIAL, 'compras', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'agro', 'calidad', 'inventario', 'mantenimiento', 'flota', 'hseq', 'riesgos', ...COMMERCIAL, 'compras', 'tickets', ...SPINE],
     vertical: 'agro',
   },
   {
