@@ -9243,6 +9243,8 @@ export interface Database {
           updated_at: string
           deleted_at: string | null
           sla_due_at: string | null
+          client_id: string | null
+          origin: "Interno" | "Cliente"
         }
         Insert: {
           id?: string
@@ -9262,6 +9264,8 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           sla_due_at?: string | null
+          client_id?: string | null
+          origin?: "Interno" | "Cliente"
         }
         Update: {
           id?: string
@@ -9281,6 +9285,8 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           sla_due_at?: string | null
+          client_id?: string | null
+          origin?: "Interno" | "Cliente"
         }
         Relationships: [
           {
@@ -9288,6 +9294,13 @@ export interface Database {
             columns: ["assignee_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {

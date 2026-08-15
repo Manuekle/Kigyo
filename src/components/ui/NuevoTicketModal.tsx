@@ -14,6 +14,8 @@ export interface NuevoTicketData {
   /** Employee id (uuid), or null. The requester comes from the session. */
   assigneeId: string | null
   body: string
+  /** El cliente al que refiere, cuando el ticket viene de un cliente. */
+  clientId: string | null
 }
 
 interface Props {
@@ -24,14 +26,17 @@ interface Props {
   areas: string[]
   /** Live directory. Empty when the caller cannot read `empleados`. */
   roster: Array<{ employeeId: string; fullName: string }>
+  /** Directorio de clientes. Vacío sin clientes:read. */
+  clientes: Array<{ id: string; name: string }>
   onCreate: (data: NuevoTicketData) => void
 }
 
-export default function NuevoTicketModal({ open, busy = false, onClose, areas, roster, onCreate }: Props) {
+export default function NuevoTicketModal({ open, busy = false, onClose, areas, roster, clientes, onCreate }: Props) {
   const [title, setTitle] = useState('')
   const [area, setArea] = useState(areas[0])
   const [prio, setPrio] = useState('Media')
   const [assigneeId, setAssigneeId] = useState('')
+  const [clientId, setClientId] = useState('')
   const [desc, setDesc] = useState('')
 
   // Destructured rather than kept as an object: the React Compiler treats a
@@ -43,7 +48,7 @@ export default function NuevoTicketModal({ open, busy = false, onClose, areas, r
   } = useErrorShake<HTMLInputElement>()
 
   function reset() {
-    setTitle(''); setArea(areas[0]); setPrio('Media'); setAssigneeId(''); setDesc('')
+    setTitle(''); setArea(areas[0]); setPrio('Media'); setAssigneeId(''); setClientId(''); setDesc('')
     clearTitleErr()
   }
 
@@ -62,6 +67,7 @@ export default function NuevoTicketModal({ open, busy = false, onClose, areas, r
       priority: prio,
       assigneeId: assigneeId || null,
       body: desc.trim(),
+      clientId: clientId || null,
     })
     reset()
   }
@@ -123,6 +129,24 @@ export default function NuevoTicketModal({ open, busy = false, onClose, areas, r
               options={[
                 { value: '', label: 'Sin asignar' },
                 ...roster.map((r) => ({ value: r.employeeId, label: r.fullName })),
+              ]}
+            />
+          </div>
+        )}
+
+        {/* El paso barato del CRM: un ticket puede venir de un cliente y
+            entonces aparece en su ficha. Sin clientes:read, no hay selector
+            y el ticket nace interno. */}
+        {clientes.length > 0 && (
+          <div>
+            <div className="flabel">Cliente</div>
+            <Select
+              value={clientId}
+              onChange={setClientId}
+              placeholder="Ticket interno, sin cliente"
+              options={[
+                { value: '', label: 'Ticket interno, sin cliente' },
+                ...clientes.map((c) => ({ value: c.id, label: c.name })),
               ]}
             />
           </div>

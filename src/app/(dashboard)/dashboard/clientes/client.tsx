@@ -384,9 +384,9 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
                       expanded === c.id ? (
                         <tr key={`${c.id}-contacts`}>
                           <td colSpan={data.canWrite ? 7 : 6} style={{ background: 'var(--bg2)' }}>
-                            {rows.length === 0 ? (
+                            {rows.length === 0 && c.tickets.length === 0 ? (
                               <div className="dempty" style={{ padding: '12px 0' }}>
-                                Esta cuenta no tiene contactos registrados.
+                                Esta cuenta no tiene contactos ni tickets registrados.
                               </div>
                             ) : (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0' }}>
@@ -409,6 +409,22 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
                                     )}
                                   </div>
                                 ))}
+                                {c.tickets.length > 0 && (
+                                  <div style={{ marginTop: 4 }}>
+                                    <div className="dsect" style={{ margin: '4px 0 6px' }}>
+                                      Tickets ({c.tickets.length})
+                                    </div>
+                                    {c.tickets.map((t) => (
+                                      <div className="elrow" key={t.id}>
+                                        <div className="eltxt">
+                                          <div className="cename">{t.subject}</div>
+                                          <div className="elsub">{t.code ?? '—'} · {t.origin}</div>
+                                        </div>
+                                        <Badge st={t.status} tone={t.status === 'Resuelto' || t.status === 'Cerrado' ? 'grn' : 'amb'} />
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </td>

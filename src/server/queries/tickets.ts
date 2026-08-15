@@ -39,6 +39,10 @@ export interface TicketRow {
   /** ISO deadline, owned by a DB trigger (priority-based). */
   slaDueAt: string | null
   commentCount: number
+  /** El cliente al que refiere, cuando el ticket es de cliente. */
+  clientId: string | null
+  clientName: string | null
+  origin: string
 }
 
 export interface TicketsData {
@@ -46,6 +50,8 @@ export interface TicketsData {
   /** Tickets in the organization, of which `tickets` is the first page. */
   ticketsTotal: number
   roster: Array<{ employeeId: string; fullName: string }>
+  /** Directorio de clientes para el selector; vacío sin clientes:read. */
+  clientes: Array<{ id: string; name: string }>
   canWrite: boolean
   /** The signed-in user's own employee row, used to file a ticket as them. */
   meEmployeeId: string | null
@@ -65,6 +71,9 @@ interface TicketRecord {
   created_at: string
   resolved_at: string | null
   sla_due_at: string | null
+  client_id: string | null
+  origin: string
+  clients: { name: string } | null
   requester: { full_name: string } | null
   assignee: { full_name: string } | null
   ticket_comments: Array<{ count: number }> | null
@@ -73,7 +82,9 @@ interface TicketRecord {
 const UNKNOWN_AUTHOR = 'Alguien que ya no está en la organización'
 
 const TICKET_COLUMNS = `id, code, subject, body, area, priority, status, requester_id, assignee_id,
+   client_id, origin,
    board_position, created_at, resolved_at, sla_due_at,
+   clients ( name ),
    requester:employees!tickets_requester_id_fkey ( full_name ),
    assignee:employees!tickets_assignee_id_fkey ( full_name ),
    ticket_comments ( count )`
@@ -95,6 +106,9 @@ function toTicket(row: TicketRecord): TicketRow {
     createdAt: row.created_at,
     resolvedAt: row.resolved_at,
     slaDueAt: row.sla_due_at,
+    clientId: row.client_id,
+    clientName: row.clients?.name ?? null,
+    origin: row.origin,
     // PostgREST returns an aggregate embed as a one-element array.
     commentCount: row.ticket_comments?.[0]?.count ?? 0,
   }
@@ -132,8 +146,10 @@ export async function getTickets(): Promise<TicketsData> {
 
   const canReadRoster =
     can(member.permissions, 'empleados:read') && member.modules.has('empleados')
+  const canReadClients =
+    can(member.permissions, 'clientes:read') && member.modules.has('clientes')
 
-  const [ticketsResult, meResult, rosterResult] = await Promise.all([
+  const [ticketsResult, meResult, rosterResult, clientsResult] = await Promise.all([
     supabase
       .from('tickets')
       .select(TICKET_COLUMNS, { count: 'exact' })
@@ -159,11 +175,23 @@ export async function getTickets(): Promise<TicketsData> {
           .order('full_name', { ascending: true })
           .limit(200)
       : Promise.resolve({ data: [], error: null }),
+    canReadClients
+      ? supabase
+          .from('clients')
+          .select('id, name')
+          .eq('org_id', member.orgId)
+          .is('deleted_at', null)
+          .order('name', { ascending: true })
+          .limit(300)
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   if (ticketsResult.error) {
     console.error('[tickets] getTickets', ticketsResult.error)
-    return { tickets: [], ticketsTotal: 0, roster: [], canWrite: false, meEmployeeId: null }
+    return {
+      tickets: [], ticketsTotal: 0, roster: [], clientes: [],
+      canWrite: false, meEmployeeId: null,
+    }
   }
 
   const tickets = (ticketsResult.data as unknown as TicketRecord[]).map(toTicket)
@@ -173,6 +201,7 @@ export async function getTickets(): Promise<TicketsData> {
     ticketsTotal: totalOf(ticketsResult.count, tickets.length),
     roster: ((rosterResult.data ?? []) as Array<{ id: string; full_name: string }>)
       .map((r) => ({ employeeId: r.id, fullName: r.full_name })),
+    clientes: ((clientsResult.data ?? []) as Array<{ id: string; name: string }>),
     canWrite: can(member.permissions, 'tickets:write'),
     meEmployeeId: meResult.data?.id ?? null,
   }

@@ -794,6 +794,7 @@ export default function TicketsPage({ data }: { data: TicketsData }) {
           busy={pending}
           areas={[...TICKET_AREAS]}
           roster={data.roster}
+          clientes={data.clientes}
           onClose={() => setAddOpen(false)}
           onCreate={(form) =>
             startTransition(async () => {
@@ -803,6 +804,8 @@ export default function TicketsPage({ data }: { data: TicketsData }) {
                 area: form.area as (typeof TICKET_AREAS)[number],
                 priority: form.priority as (typeof TICKET_PRIORITIES)[number],
                 assigneeId: form.assigneeId,
+                clientId: form.clientId,
+                origin: form.clientId ? 'Cliente' : 'Interno',
               })
               if (!result.ok) { addToast(result.error, 'err'); return }
               setAddOpen(false)

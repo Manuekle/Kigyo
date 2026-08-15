@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
+import { belongsToOrg } from '@/server/queries/shared'
 import {
   getTickets,
   TICKET_AREAS,
@@ -64,6 +65,8 @@ const createSchema = z.object({
   area: z.enum(TICKET_AREAS).default('Otro'),
   priority: z.enum(TICKET_PRIORITIES).default('Media'),
   assigneeId: z.uuid().nullable().default(null),
+  clientId: z.uuid().nullable().default(null),
+  origin: z.enum(['Interno', 'Cliente']).default('Interno'),
 })
 
 export async function createTicket(
@@ -77,6 +80,9 @@ export async function createTicket(
     const supabase = await createClient()
     if (!(await validEmployee(supabase, member.orgId, parsed.data.assigneeId))) {
       return fail('La persona asignada ya no está en el equipo.')
+    }
+    if (!(await belongsToOrg(supabase, 'clients', parsed.data.clientId, member.orgId))) {
+      return fail('Ese cliente no pertenece a tu organización.')
     }
 
     // The requester is whoever is signed in, taken from the session rather
@@ -94,6 +100,8 @@ export async function createTicket(
       status: 'Abierto',
       requester_id: requesterId,
       assignee_id: parsed.data.assigneeId,
+      client_id: parsed.data.clientId,
+      origin: parsed.data.origin,
     })
 
     if (error) {
@@ -116,6 +124,8 @@ const updateSchema = z.object({
   priority: z.enum(TICKET_PRIORITIES).optional(),
   status: z.enum(TICKET_STATUSES).optional(),
   assigneeId: z.uuid().nullable().optional(),
+  clientId: z.uuid().nullable().optional(),
+  origin: z.enum(['Interno', 'Cliente']).optional(),
 })
 
 export async function updateTicket(
@@ -133,6 +143,12 @@ export async function updateTicket(
     ) {
       return fail('La persona asignada ya no está en el equipo.')
     }
+    if (
+      parsed.data.clientId !== undefined &&
+      !(await belongsToOrg(supabase, 'clients', parsed.data.clientId, member.orgId))
+    ) {
+      return fail('Ese cliente no pertenece a tu organización.')
+    }
 
     // Explicitly shaped rather than `Record<string, unknown>`: the generated
     // table types reject an index signature, and losing them here is how a
@@ -143,6 +159,8 @@ export async function updateTicket(
       area?: (typeof TICKET_AREAS)[number]
       priority?: (typeof TICKET_PRIORITIES)[number]
       assignee_id?: string | null
+      client_id?: string | null
+      origin?: 'Interno' | 'Cliente'
       status?: (typeof TICKET_STATUSES)[number]
       resolved_at?: string | null
     } = {}
@@ -151,6 +169,8 @@ export async function updateTicket(
     if (parsed.data.area !== undefined) patch.area = parsed.data.area
     if (parsed.data.priority !== undefined) patch.priority = parsed.data.priority
     if (parsed.data.assigneeId !== undefined) patch.assignee_id = parsed.data.assigneeId
+    if (parsed.data.clientId !== undefined) patch.client_id = parsed.data.clientId
+    if (parsed.data.origin !== undefined) patch.origin = parsed.data.origin
 
     if (parsed.data.status !== undefined) {
       patch.status = parsed.data.status

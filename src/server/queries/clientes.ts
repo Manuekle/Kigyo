@@ -34,6 +34,8 @@ export interface ClientRow {
   /** Contacts and interactions recorded against this account. */
   contacts: number
   lastInteractionAt: string | null
+  /** Tickets que refieren a este cliente (vacíos sin tickets:read). */
+  tickets: Array<{ id: string; code: string | null; subject: string; status: string; origin: string }>
 }
 
 export interface ContactRow {
@@ -84,6 +86,7 @@ interface ClientRecord {
   credit_limit_cents: number
   payment_terms_days: number
   notes: string
+  tickets: Array<{ id: string; code: string | null; subject: string; status: string; origin: string }> | null
 }
 
 interface ContactRecord {
@@ -108,7 +111,8 @@ interface InteractionRecord {
 }
 
 const CLIENT_COLUMNS = `id, code, name, legal_name, tax_id, kind, status, industry, email,
-   phone, address, city, owner_id, credit_limit_cents, payment_terms_days, notes`
+   phone, address, city, owner_id, credit_limit_cents, payment_terms_days, notes,
+   tickets ( id, code, subject, status, origin )`
 
 function toClient(
   row: ClientRecord,
@@ -132,6 +136,7 @@ function toClient(
     creditLimitCents: row.credit_limit_cents,
     paymentTermsDays: row.payment_terms_days,
     notes: row.notes,
+    tickets: (row.tickets ?? []).slice(0, 20),
     contacts: contacts.get(row.id) ?? 0,
     lastInteractionAt: lastSeen.get(row.id) ?? null,
   }
