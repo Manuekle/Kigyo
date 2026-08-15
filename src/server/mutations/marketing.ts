@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
+import { allows, scoped } from '@/server/queries/shared'
 import { getMarketing, type MarketingData } from '@/server/queries/marketing'
 
 export type MarketingResult<T> = { ok: true; data: T } | { ok: false; error: string }
@@ -61,46 +62,80 @@ export async function addCampaign(
  * no tiene el permiso — el resultado sería una lista vacía con cara de
  * éxito, así que se rechaza explícito en vez de dejar que parezca un envío a
  * nadie.
+ *
+ * `filters` recorta el directorio antes de armar la lista: status, kind,
+ * city, ownerId, hasEmail. Sin filtros = todos los clientes con teléfono
+ * (comportamiento previo, retrocompatible).
  */
-export async function generateRecipients(campaignId: string): Promise<MarketingResult<MarketingData>> {
+const generateFiltersSchema = z.object({
+  status: z.enum(['Prospecto', 'Activo', 'Inactivo', 'Perdido']).optional(),
+  kind: z.enum(['Empresa', 'Persona natural', 'Entidad pública', 'Otro']).optional(),
+  city: z.string().trim().min(1).max(80).optional(),
+  ownerId: z.string().uuid().optional(),
+  hasEmail: z.boolean().optional(),
+})
+
+const generateRecipientsSchema = z.object({
+  campaignId: z.string().uuid(),
+  filters: generateFiltersSchema.optional(),
+})
+
+export async function generateRecipients(
+  input: z.input<typeof generateRecipientsSchema>,
+): Promise<MarketingResult<MarketingData>> {
   try {
     const member = await requirePermission('marketing:write')
-    if (!z.uuid().safeParse(campaignId).success) return fail('Campaña inválida.')
+    const parsed = generateRecipientsSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+    const { campaignId, filters } = parsed.data
+
+    if (!allows(member, 'clientes:read')) {
+      return fail('Necesitas permiso sobre el directorio de clientes para armar la lista.')
+    }
 
     const supabase = await createClient()
 
-    const { data: campaign } = await supabase
-      .from('marketing_campaigns')
+    const { data: campaign } = await scoped(supabase, member, 'marketing_campaigns')
       .select('id, status')
       .eq('id', campaignId)
-      .eq('org_id', member.orgId)
       .maybeSingle()
 
     if (!campaign) return fail('Esa campaña no pertenece a tu organización.')
     if (campaign.status !== 'borrador') return fail('Solo una campaña en borrador arma su lista.')
 
-    const { data: clients, error: clientsError } = await supabase
-      .from('clients')
-      .select('id, name, phone')
-      .eq('org_id', member.orgId)
+    let clientsQuery = scoped(supabase, member, 'clients')
+      .select('id, name, phone, email')
       .is('deleted_at', null)
       .neq('phone', '')
-      .limit(500)
+
+    if (filters?.status) clientsQuery = clientsQuery.eq('status', filters.status)
+    if (filters?.kind) clientsQuery = clientsQuery.eq('kind', filters.kind)
+    if (filters?.city) clientsQuery = clientsQuery.ilike('city', `%${filters.city}%`)
+    if (filters?.ownerId) clientsQuery = clientsQuery.eq('owner_id', filters.ownerId)
+    if (filters?.hasEmail) clientsQuery = clientsQuery.not('email', 'is', null).neq('email', '')
+
+    const { data: clients, error: clientsError } = await clientsQuery.limit(500)
 
     if (clientsError || !clients) {
       console.error('[marketing] generateRecipients clients', clientsError)
       return fail('No se pudo leer el directorio de clientes.')
     }
     if (clients.length === 0) {
-      return fail('No hay clientes con teléfono registrado. Añade teléfonos en Clientes.')
+      return fail('No hay clientes con teléfono que cumplan los filtros.')
     }
 
-    const rows = clients.map((c: { id: string; name: string; phone: string }) => ({
+    const rows = (clients as { id: string; name: string; phone: string }[]).map((c) => ({
       campaign_id: campaignId,
       client_id: c.id,
       contact_name: c.name,
       contact_address: c.phone,
     }))
+
+    // Reemplaza cualquier lista previa de una generación fallida anterior.
+    await supabase
+      .from('marketing_recipients')
+      .delete()
+      .eq('campaign_id', campaignId)
 
     const { error: insertError } = await supabase.from('marketing_recipients').insert(rows)
     if (insertError) {
@@ -271,6 +306,62 @@ export async function deletePoints(id: string): Promise<MarketingResult<Marketin
     if (error) {
       console.error('[marketing] deletePoints', error)
       return fail('No se pudo eliminar el movimiento.')
+    }
+    return refreshed()
+  } catch {
+    return fail(DENIED)
+  }
+}
+
+/* ─── Plantillas ──────────────────────────────────────────────────────────── */
+
+const addTemplateSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  channel: z.enum(['whatsapp', 'email', 'sms', 'otro']).default('whatsapp'),
+  message: z.string().trim().max(1000).default(''),
+})
+
+export async function addTemplate(
+  input: z.input<typeof addTemplateSchema>,
+): Promise<MarketingResult<MarketingData>> {
+  try {
+    const member = await requirePermission('marketing:write')
+    const parsed = addTemplateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('marketing_templates').insert({
+      org_id: member.orgId,
+      name: parsed.data.name,
+      channel: parsed.data.channel,
+      message: parsed.data.message,
+    })
+
+    if (error) {
+      console.error('[marketing] addTemplate', error)
+      return fail('No se pudo guardar la plantilla.')
+    }
+    return refreshed()
+  } catch {
+    return fail(DENIED)
+  }
+}
+
+export async function deleteTemplate(id: string): Promise<MarketingResult<MarketingData>> {
+  try {
+    const member = await requirePermission('marketing:write')
+    if (!z.uuid().safeParse(id).success) return fail('Plantilla inválida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('marketing_templates')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[marketing] deleteTemplate', error)
+      return fail('No se pudo eliminar la plantilla.')
     }
     return refreshed()
   } catch {

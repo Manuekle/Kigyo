@@ -36,6 +36,14 @@ export interface RecipientRow {
   sentAt: string | null
 }
 
+export interface TemplateRow {
+  id: string
+  name: string
+  channel: CampaignChannel
+  message: string
+  createdAt: string
+}
+
 export interface ClientRef {
   id: string
   name: string
@@ -62,6 +70,7 @@ export interface MarketingData {
   clients: ClientRef[]
   points: PointRow[]
   balances: BalanceRow[]
+  templates: TemplateRow[]
   /** Campañas en borrador o programadas: el trabajo por delante. */
   activasCount: number
 }
@@ -70,7 +79,7 @@ export async function getMarketing(): Promise<MarketingData> {
   const member = await requirePermission('marketing:read')
   const supabase = await createClient()
 
-  const [campaignsResult, recipientsResult, clientsResult, pointsResult] = await Promise.all([
+  const [campaignsResult, recipientsResult, clientsResult, pointsResult, templatesResult] = await Promise.all([
     scoped(supabase, member, 'marketing_campaigns')
       .select(
         'id, name, channel, message, status, scheduled_for, sent_at, ' +
@@ -95,6 +104,10 @@ export async function getMarketing(): Promise<MarketingData> {
       .select('id, client_id, points, reason, created_at, clients ( name )')
       .order('created_at', { ascending: false })
       .limit(200),
+    scoped(supabase, member, 'marketing_templates')
+      .select('id, name, channel, message, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100),
   ])
 
   const campaigns = ((campaignsResult.data ?? []) as unknown as {
@@ -166,12 +179,27 @@ export async function getMarketing(): Promise<MarketingData> {
     .filter((b) => b.balance !== 0)
     .sort((a, b) => b.balance - a.balance)
 
+  const templates: TemplateRow[] = ((templatesResult.data ?? []) as unknown as {
+    id: string
+    name: string
+    channel: CampaignChannel
+    message: string
+    created_at: string
+  }[]).map((r) => ({
+    id: r.id,
+    name: r.name,
+    channel: r.channel,
+    message: r.message,
+    createdAt: r.created_at,
+  }))
+
   return {
     campaigns,
     recipients,
     clients: ((clientsResult.data ?? []) as unknown as { id: string; name: string }[]),
     points,
     balances,
+    templates,
     activasCount: campaigns.filter((c) => c.status === 'borrador' || c.status === 'programada').length,
   }
 }

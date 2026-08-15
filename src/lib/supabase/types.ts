@@ -5126,6 +5126,44 @@ export interface Database {
           },
         ]
       }
+      marketing_templates: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          channel: "whatsapp" | "email" | "sms" | "otro"
+          message: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          channel?: "whatsapp" | "email" | "sms" | "otro"
+          message?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          channel?: "whatsapp" | "email" | "sms" | "otro"
+          message?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       membership_sites: {
         Row: {
           org_id: string
