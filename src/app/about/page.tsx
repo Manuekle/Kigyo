@@ -7,7 +7,7 @@ import { Users, Shield, Sparkles } from '@/lib/icons'
 export const metadata: Metadata = {
   title: 'Sobre nosotros',
   description:
-    'Conoce la misión de Kigyo: simplificar la gestión de personas para equipos modernos en Colombia.',
+    'Conoce la misión de Kigyo: simplificar la operación de tu negocio — clientes, inventario, ventas y personas — para empresas en América Latina.',
 }
 
 // One line each. Three cards side by side are read as a set, not studied one
@@ -35,10 +35,10 @@ export default function AboutPage() {
     <PublicPageShell>
       <div className="pub-page-head">
         <span className="pub-page-eyebrow">Sobre nosotros</span>
-        <h1 className="pub-page-title">Construimos el sistema operativo de personas</h1>
+        <h1 className="pub-page-title">Construimos el sistema operativo de tu negocio</h1>
         <p className="pub-page-sub">
-          Nacimos de la frustración de gestionar equipos con hojas de cálculo
-          y procesos manuales.
+          Nacimos de la frustración de operar un negocio con hojas de cálculo,
+          herramientas sueltas y procesos manuales.
         </p>
       </div>
 

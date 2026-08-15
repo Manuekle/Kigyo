@@ -15,10 +15,10 @@ import {
   Shield,
   Sparkles,
   LayoutDashboard,
-  FileText,
   Calendar,
   UserPlus,
-  PenTool,
+  Package,
+  DollarSign,
   TrendingUp,
   Star,
 } from '@/lib/icons'
@@ -64,11 +64,12 @@ export default function LandingPage() {
         </div>
         <div className="l-hero-content">
           <h1 className="l-hero-title">
-            People Operating System
+            CRM, ERP y Punto de Venta en un solo lugar
           </h1>
           <p className="l-hero-sub">
-            Simplifica la gestión de personas, nómina, documentos, vacaciones
-            y más. Todo en un solo lugar, diseñado para equipos modernos.
+            Clientes, inventario, ventas, documentos y personas en una
+            plataforma que se adapta al sector de tu empresa. Con IA integrada
+            y más de 60 módulos activables.
           </p>
           <div className="l-hero-actions">
             {/* The ring is drawn on layers behind the child, so the button
@@ -109,16 +110,16 @@ export default function LandingPage() {
       <section className="l-stats">
         <div className="l-stats-inner">
           <div className="l-stat" data-reveal>
-            <span className="l-stat-val">+2,500</span>
-            <span className="l-stat-lab">Empleados gestionados</span>
+            <span className="l-stat-val">+60</span>
+            <span className="l-stat-lab">Módulos integrados</span>
           </div>
           <div className="l-stat" data-reveal>
-            <span className="l-stat-val">98%</span>
-            <span className="l-stat-lab">Satisfacción de clientes</span>
+            <span className="l-stat-val">Multi-sector</span>
+            <span className="l-stat-lab">Cada negocio con su combinación</span>
           </div>
           <div className="l-stat" data-reveal>
-            <span className="l-stat-val">40%</span>
-            <span className="l-stat-lab">Menos tiempo administrativo</span>
+            <span className="l-stat-val">IA</span>
+            <span className="l-stat-lab">Responde sobre tus documentos</span>
           </div>
           <div className="l-stat" data-reveal>
             <span className="l-stat-val">24/7</span>
@@ -136,10 +137,10 @@ export default function LandingPage() {
       <section id="features" className="l-section">
         <div className="l-section-head" data-reveal>
           <span className="l-eyebrow">Plataforma</span>
-          <h2 className="l-section-title">Todo lo que necesitas para gestionar tu equipo</h2>
+          <h2 className="l-section-title">Todo lo que tu negocio necesita para operar</h2>
           <p className="l-section-sub">
-            Desde la contratación hasta la nómina, Kigyo centraliza cada proceso de
-            recursos humanos en una plataforma moderna y fácil de usar.
+            Desde el primer cliente hasta la nómina, Kigyo centraliza la
+            operación completa en una plataforma que crece contigo.
           </p>
         </div>
 
@@ -148,54 +149,32 @@ export default function LandingPage() {
             <div className="l-feature-icon">
               <Users size={22} />
             </div>
-            <h3 className="l-feature-title">Gestión de personal</h3>
+            <h3 className="l-feature-title">CRM — clientes y ventas</h3>
             <p className="l-feature-desc">
-              Perfiles completos, organigrama interactivo, documentos
-              y control de asistencia en tiempo real.
+              Leads, embudo, cotizaciones y cartera. Todo el ciclo comercial
+              de tu negocio en un solo lugar.
             </p>
           </TiltCard>
 
           <TiltCard className="card l-feature" data-reveal>
             <div className="l-feature-icon">
-              <FileText size={22} />
+              <Package size={22} />
             </div>
-            <h3 className="l-feature-title">Documentos y firmas</h3>
+            <h3 className="l-feature-title">ERP — inventario y compras</h3>
             <p className="l-feature-desc">
-              Crea, envía y firma contratos, anexos y políticas.
-              Todo con validez legal y trazabilidad completa.
+              Productos, stock, compras a proveedores y contabilidad.
+              Control total de la operación interna.
             </p>
           </TiltCard>
 
           <TiltCard className="card l-feature" data-reveal>
             <div className="l-feature-icon">
-              <Calendar size={22} />
+              <DollarSign size={22} />
             </div>
-            <h3 className="l-feature-title">Vacaciones y ausencias</h3>
+            <h3 className="l-feature-title">POS — punto de venta</h3>
             <p className="l-feature-desc">
-              Solicitudes, aprobaciones y calendario de equipo.
-              Control de días disponibles y políticas personalizadas.
-            </p>
-          </TiltCard>
-
-          <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-icon">
-              <LayoutDashboard size={22} />
-            </div>
-            <h3 className="l-feature-title">Dashboard inteligente</h3>
-            <p className="l-feature-desc">
-              KPIs, rotación, clima laboral y headcount en
-              tiempo real. Toda la data de tu equipo en un solo lugar.
-            </p>
-          </TiltCard>
-
-          <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-icon">
-              <Shield size={22} />
-            </div>
-            <h3 className="l-feature-title">Seguridad y cumplimiento</h3>
-            <p className="l-feature-desc">
-              Datos encriptados, backups automáticos y cumplimiento
-              con la normativa laboral colombiana.
+              Caja, ventas y pagos con Wompi. Emite y cobra sin salir de la
+              plataforma, en línea o en mostrador.
             </p>
           </TiltCard>
 
@@ -203,10 +182,32 @@ export default function LandingPage() {
             <div className="l-feature-icon">
               <Sparkles size={22} />
             </div>
-            <h3 className="l-feature-title">IA integrada</h3>
+            <h3 className="l-feature-title">Documentos con IA</h3>
             <p className="l-feature-desc">
-              Asistente inteligente para consultas, generación de reportes
-              y análisis predictivo de tu equipo.
+              Firma electrónica con trazabilidad y un asistente que responde
+              con citas a tus propios documentos.
+            </p>
+          </TiltCard>
+
+          <TiltCard className="card l-feature" data-reveal>
+            <div className="l-feature-icon">
+              <Calendar size={22} />
+            </div>
+            <h3 className="l-feature-title">Personas y nómina</h3>
+            <p className="l-feature-desc">
+              Empleados, asistencia, vacaciones y nómina. La gestión del
+              equipo, integrada a la operación.
+            </p>
+          </TiltCard>
+
+          <TiltCard className="card l-feature" data-reveal>
+            <div className="l-feature-icon">
+              <Shield size={22} />
+            </div>
+            <h3 className="l-feature-title">Seguridad multi-empresa</h3>
+            <p className="l-feature-desc">
+              Cada empresa con sus datos aislados y su propio plan.
+              Cumplimiento por diseño, no por parche.
             </p>
           </TiltCard>
         </div>
@@ -218,8 +219,8 @@ export default function LandingPage() {
           <span className="l-eyebrow">Puesta en marcha</span>
           <h2 className="l-section-title">Empieza en minutos, no en semanas</h2>
           <p className="l-section-sub">
-            Migra tu equipo y ten Kigyo funcionando en tres pasos simples,
-            sin curva de aprendizaje ni implementaciones eternas.
+            Crea tu empresa, elige tu sector y deja que Kigyo te proponga los
+            módulos que tu negocio necesita. Sin implementaciones eternas.
           </p>
         </div>
 
@@ -228,21 +229,21 @@ export default function LandingPage() {
             <div className="l-step-num">
               <UserPlus size={20} />
             </div>
-            <h3 className="l-step-title">Crea tu equipo</h3>
+            <h3 className="l-step-title">Crea tu empresa</h3>
             <p className="l-step-desc">
-              Importa tu nómina actual o agrega colaboradores manualmente.
-              Sin archivos complicados ni configuraciones extensas.
+              Nombre, país y moneda. Puedes configurarla manualmente y
+              completar los detalles después.
             </p>
           </div>
 
           <div className="l-step" data-reveal>
             <div className="l-step-num">
-              <PenTool size={20} />
+              <LayoutDashboard size={20} />
             </div>
-            <h3 className="l-step-title">Configura procesos</h3>
+            <h3 className="l-step-title">Elige tu sector</h3>
             <p className="l-step-desc">
-              Define políticas de vacaciones, flujos de aprobación y plantillas
-              de documentos adaptadas a tu operación.
+              Kigyo propone los módulos de tu industria y el dashboard se
+              adapta a lo que realmente operas.
             </p>
           </div>
 
@@ -252,8 +253,8 @@ export default function LandingPage() {
             </div>
             <h3 className="l-step-title">Opera y crece</h3>
             <p className="l-step-desc">
-              Visualiza KPIs en tiempo real y deja que Kigyo se encargue del
-              trabajo operativo mientras tú te enfocas en tu gente.
+              Ventas del día, clientes activos, leads y stock en un vistazo.
+              La IA responde sobre tus documentos.
             </p>
           </div>
         </div>
@@ -270,23 +271,23 @@ export default function LandingPage() {
             <Star size={16} />
           </div>
           <p className="l-quote-text">
-            &ldquo;Kigyo nos permitió centralizar toda la gestión de personas en
-            semanas. Redujimos el trabajo administrativo de nómina y documentos
-            a una fracción del tiempo que nos tomaba antes.&rdquo;
+            &ldquo;Kigyo nos permitió centralizar clientes, inventario y ventas
+            en semanas. El dashboard se adaptó a nuestro sector y dejamos de
+            saltar entre cinco herramientas.&rdquo;
           </p>
           <div className="l-quote-author">
             <div className="l-quote-avatar">MG</div>
             <div>
               <div className="l-quote-name">María González</div>
-              <div className="l-quote-role">Directora de RRHH</div>
+              <div className="l-quote-role">Gerente General</div>
             </div>
           </div>
         </div>
       </section>
 
       <PublicCta
-        title="¿Listo para transformar tu gestión de personas?"
-        subtitle="Únete a las empresas que ya confían en Kigyo como su sistema operativo de personas."
+        title="¿Listo para operar tu negocio en un solo lugar?"
+        subtitle="Únete a las empresas que ya confían en Kigyo como su plataforma de operación."
         primary={{ href: '/login', label: 'Comenzar ahora' }}
       />
     </PublicPageShell>

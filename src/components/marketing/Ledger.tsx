@@ -3,7 +3,7 @@
  *
  * Every other block on the landing page describes the product; this one is
  * made of it — the same record ids, states and ageing counters the dashboard
- * renders, in the same monospace the app uses for identifiers. An HR lead
+ * renders, in the same monospace the app uses for identifiers. A store owner
  * should recognise their own Monday in it before reading a word of copy.
  *
  * Sample records, matching the app's demo data. Presented as an interface
@@ -12,12 +12,30 @@
 
 const RECORDS = [
   {
-    id: 'DOC-3190',
-    what: 'Anexo de teletrabajo',
+    id: 'VT-0042',
+    what: 'Venta de mostrador',
+    who: 'Café El Bosque',
+    age: '2',
+    unit: 'ventas esta mañana',
+    state: 'Pagada',
+    tone: 'grn',
+  },
+  {
+    id: 'COT-0142',
+    what: 'Cotización — catering evento',
     who: 'María González',
-    age: '18',
-    unit: 'días sin firmar',
-    state: 'Vencido',
+    age: '3',
+    unit: 'días sin respuesta',
+    state: 'Enviada',
+    tone: 'amb',
+  },
+  {
+    id: 'STK-031',
+    what: 'Stock bajo — grano 1kg',
+    who: 'Inventario',
+    age: '6',
+    unit: 'unidades restantes',
+    state: 'Alerta',
     tone: 'red',
   },
   {
@@ -39,22 +57,13 @@ const RECORDS = [
     tone: 'amb',
   },
   {
-    id: 'TK-1287',
-    what: 'Certificado laboral',
+    id: 'LEAD-1287',
+    what: 'Lead calificado — flota',
     who: 'Juan Pérez',
     age: '4',
-    unit: 'días sin respuesta',
+    unit: 'días en embudo',
     state: 'Abierto',
     tone: 'neu',
-  },
-  {
-    id: 'INV-0601',
-    what: 'Teclado mecánico',
-    who: 'Daniel Ospina',
-    age: '—',
-    unit: 'asignado hoy',
-    state: 'Al día',
-    tone: 'grn',
   },
 ] as const
 
@@ -65,8 +74,9 @@ export default function Ledger() {
         <span className="l-eyebrow">Operación</span>
         <h2 className="l-section-title">Tu lunes, ya ordenado</h2>
         <p className="l-section-sub">
-          Kigyo vigila contratos, firmas, riesgos y tickets sin que nadie tenga que
-          acordarse. Esto es lo que encuentra antes de que preguntes.
+          Kigyo vigila ventas, cotizaciones, inventario, contratos y firmas sin
+          que nadie tenga que acordarse. Esto es lo que encuentra antes de que
+          preguntes.
         </p>
       </div>
 
@@ -74,7 +84,7 @@ export default function Ledger() {
         <div className="l-ledger-bar">
           <span className="l-ledger-when mono">lun · 08:40</span>
           <span className="l-ledger-tally">
-            <b>3</b> requieren acción hoy
+            <b>4</b> requieren acción hoy
           </span>
         </div>
 
