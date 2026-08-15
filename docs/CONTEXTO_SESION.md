@@ -1,17 +1,17 @@
 # Contexto de sesión — para retomar
 
-Fecha: 2026-08-15. Rama: `feat/design-system-refresh` (~13 commits ahead de origin).
-Working tree: limpio tras commit DIAN. Próximo activo: POS offline (pendiente 5, XL).
+Fecha: 2026-08-15. Rama: `feat/design-system-refresh` (~14 commits ahead de origin).
+Working tree: limpio tras commit POS offline. Plan CRM/ERP/POS completo (18/18 filas ejecutadas). Próximo: Fase 7 RAG documental o e2e smoke pendiente.
 
 ---
 
 ## Estado
 
-Suite re-corrida tras DIAN: vitest 256/256 · tsc 0 · build verde. db-verify local NO válido: mig 86 (`vector` extension) no instalada en homebrew PG; migs 87–92 validan por apply remota + psql policy check directo. E2e smoke (nómina + marketing + DIAN) **deferido** (ver pendiente 1).
-Remota: migraciones 1–92 aplicadas. Tipos regenerados (201 tablas) tras mig 92; tipos `dian_documents`/`dian_events` añadidos por generador (tablas, no RPC — sin toques a mano).
+Suite re-corrida tras POS offline: vitest 256/256 · tsc 0 · build verde. db-verify local NO válido: mig 86 (`vector` extension) no instalada en homebrew PG; migs 87–93 validan por apply remota + psql policy check directo. E2e smoke (nómina + marketing + DIAN + POS offline + cola IndexedDB) **deferido** (ver pendiente 1).
+Remota: migraciones 1–93 aplicadas. Tipos regenerados (201 tablas) tras mig 93; `pos_sales.client_uuid` añadido por generador; `register_pos_sale` firma nueva (8 params, último `p_client_uuid uuid default null`) — el generador NO peeka firmas RPC, esa cambia manualmente si se necesita el signature reflejado en TS, pero el proyecto rutea por `.rpc('register_pos_sale', {...})` sin tipar firma, así que no hay toques a mano en este caso.
 tipos `lock_payroll_period`/`export_payroll_pila` añadidos a mano al bloque `Functions` (mig 90).
 
-Branch ahead ~13 commits orig no pusheados desde cuts anteriores (usuario decide cuándo push).
+Branch ahead ~14 commits orig no pusheados desde cuts anteriores (usuario decide cuándo push).
 
 ## Commits de esta jornada
 
@@ -25,6 +25,7 @@ Branch ahead ~13 commits orig no pusheados desde cuts anteriores (usuario decide
 | `chore(docs)` (este jorna) | chore(docs): poda de planes históricos y refs (borra 5 docs absorbidos en AGENTS.md/AUDITORIA; actualiza refs en AUDITORIA/FASE_0/PLAN_CRM_ERP_POS/CONTEXTO) |
 | `feat(marketing)` (este jorna) | feat(marketing): plantillas reusables y segmentación de destinatarios (mig 91 marketing_templates; queries/mutations addTemplate/deleteTemplate; generateRecipients firma nueva con filters {status,kind,city,hasEmail}; client.tsx con sección Plantillas + panel inline de filtros por campaña borrador) |
 | `feat(dian)` (este jorna) | feat(dian): facturación electrónica DIAN en modo demo (mig 92 dian_documents 1:1 invoices + dian_events append-only; integration_settings kind='dian' + provider 'dian_demo'; RPCs del vault reescritas para aceptar namespace dian; lib/dian/ubl.ts genera XML UBL 2.1 + simula CUFE SHA-256 — NO válido ante la DIAN; sendInvoiceToDian genera/inserta/actualiza doc + eventos envío/aceptación/rechazo; ruta nueva /dashboard/dian con panel + picker facturas Emitidas sin doc + modal detalle (XML + bitácora); sección DIAN en integraciones client; ROUTE_MAP register dian; actions/dian.ts envoltura para getDianDetalle y no romper build con next/headers). **Modo demo, sin firma digital ni envío real — prod DEFERIDO** (proveedor homologado + certificado + revisor fiscal). |
+| `feat(pos)` (este jorna) | feat(pos): cola offline con idempotencia por client_uuid (mig 93 pos_sales.client_uuid + index unique parcial; register_pos_sale p_client_uuid early-return idempotente; lib/pos/offline-queue.ts IndexedDB sin Dexie; mutations/pos.ts replayPosSale sobre RPC; pos/client.tsx listeners online/offline + auto-replay + modal cola con badge; banner 'Sin conexión · N en cola'). DefFer: resolver conflictos timestamp + límite inventario offline (valida servidor al ejecutar, KG103 rechaza). |
 
 ## Commit pendiente (sin stage)
 
@@ -49,12 +50,13 @@ Branch ahead ~13 commits orig no pusheados desde cuts anteriores (usuario decide
 
 ## Pendiente (orden sugerido)
 
-### 1. Smoke e2e (nómina + marketing + DIAN) — DEFERIDO, arrancar próxima sesión
+### 1. Smoke e2e (nómina + marketing + DIAN + POS offline) — DEFERIDO, arrancar próxima sesión
 
-- Único spec existente: `e2e/company-switch.spec.ts`. Smoke de módulos nuevos requiere `e2e/{nomina,marketing,dian}.spec.ts` (nuevos archivos `.ts`, permitidos) + `npm run dev` + creds demo de `.env.local` (org `f8eafe69…`, admin `eb711727…`).
+- Único spec existente: `e2e/company-switch.spec.ts`. Smoke de módulos nuevos requiere `e2e/{nomina,marketing,dian,pos}.spec.ts` (nuevos archivos `.ts`, permitidos) + `npm run dev` + creds demo de `.env.local` (org `f8eafe69…`, admin `eb711727…`).
 - **Mínimo nómina**: abrir periodo → añadir concepto → editar monto línea → cerrar → verificar read-only → exportar PILA.
 - **Mínimo marketing**: crear plantilla → aplicar a formulario → crear campaña → armar lista con filtros (status + hasEmail) → marcar enviada → verificar audienceCount.
 - **Mínimo DIAN**: habilitar integración en /dashboard/integraciones → Abrir panel DIAN → elegir factura Emitida → Enviar a DIAN demo → verificar doc + CUFE + bitácora (envío + aceptación) → descargar XML.
+- **Mínimo POS offline**: devtools offline ( throttle network → Offline) → crear carrito → cobrar Efectivo → verificar banner 'venta encolada' + badge +1 → devtools online → verificar auto-replay (toast 'Cobrado hoy' actualiza, cola vacía, venta aparece en lista Ventas) → NO habilitar QR Wompi offline (se niega explícito).
 - `npm run playwright test` tras specs.
 
 ### 2. Nómina legal — commiteado (DONE); queda validación contador
@@ -89,13 +91,28 @@ Branch ahead ~13 commits orig no pusheados desde cuts anteriores (usuario decide
   - **Validación con revisor fiscal OBLIGATORIA** antes de prod.
 - 0 filas en `integration_settings where kind='dian'` (aún no habilitada para ninguna empresa demo — el admin debe activarla en Integraciones).
 
-### 5. POS offline (plan fila 16, XL) — ACTIVO (próxima jornada)
+### 5. POS offline — commiteado (DONE); conflictos y límite inventario DEFERIDOS
 
-- IndexedDB/Dexie para cola de ventas sin conexión.
-- Sync al regresar conexión: resuelve conflictos por secuencia de timestamp.
-- `register_pos_sale` (mig 85) ya produce ventas; offline enqueue local + replay.
-- Manejo de numeración de CIU/sincronización. Dificultad alta.
-- Antes de offline, plan mencionaba `sites`/sucursales como contexto operativo (`site_id` en caja/POS/inventario/ventas). Ver PLAN_CRM_ERP_POS.md 6.4.
+- **Commiteado** este jorna (`400919e`). Mig 93 aplicada a remota. `pos_sales.client_uuid` uuid nullable + unique index parcial `(org_id, client_uuid) where client_uuid is not null`. `register_pos_sale` extendido con `p_client_uuid uuid default null`: early return si existe → reintento no duplica, no recobra stock.
+- `lib/pos/offline-queue.ts` wrapper IndexedDB crudo (sin Dexie — sin nueva dependencia). Store `pos_outbox` keyPath `clientUuid`, indices `createdAt` y `status`. Operaciones: `enqueuePosSale`/`listPendingPosSales`/`countPendingPosSales`/`clearPosSale`/`markPosSaleError`/`clearAllPosOutbox`.
+- `mutations/pos.ts replayPosSale` — envoltura sobre RPC con `clientUuid` obligatorio. Reusa `saleSchema` via `.extend({clientUuid})`. Mismo mapeo de errores KG10x.
+- `pos/client.tsx`:
+  - Listeners `online`/`offline` (navigator.onLine + eventos) → `setOnline`.
+  - `charge()`: offline + paymentMethod no-QR → `enqueuePosSale`, toast "Venta encolada". QR Wompi offline → niega explícito (no webhook offline).
+  - `useEffect([online])`: auto-replay cuando regresa red.
+  - Banner `Sin conexión · N en cola` con `aria-live="polite"`.
+  - Modal cola con tabla (líneas/medio/estado/error, total "—" porque precio se decide en server).
+- **DEFERIDO**: **resolución de conflictos por timestamp** (plan 16) — ahora FIFO simple, sin merge si dos cajeros vendieron offline la última unidad: `register_pos_sale` rechaza con KG103, marca error para revisión manual.
+- **DEFERIDO**: **límite de inventario offline** — el navegador asume "hay stock" y encola; el servidor valida al ejecutar. UI no advierte "stock potencial bajo" mientras offline.
+- **DEFERIDO**: **PWA service worker** — manifest ya existe, pero no hay SW que cache catálogo para uso sin red. IndexedDB almacena solo outbox, no catálogo.
+
+## Siguiente (post-plan CRM/ERP/POS — decisión)
+
+- **Plan CRM/ERP/POS fila 1–18 completo**. Fases 5 y 6 (multiempresa + sites + plan CRM/ERP/POS) cerradas.
+- **Fase 7 RAG documental nativo** (PLAN_CRM_ERP_POS.md 7.1): RAG sobre `documents` como fuente principal, Foundry IQ como fallback. Pipeline: ingestión + chunking + embeddings en `vault` (no columnas públicas). XL nuevo.
+- **Sites como contexto operativo** (mig 31 ya existe tabla `sites`, pero `site_id` no está propagado a `pos_sales`/`invoices`): deferred desde plan 16. Pre-requisito si se quieren cierres por sucursal oficiales.
+- **Módulos verticales**: 10 verticales existentes con crumbs; sin cobertura adicional 6 pendiente en PLAN.
+- **Push remoto**: ~14 commits sin push (usuario decide).
 
 ## Gotchas nuevos de esta jornada (nómina + marketing)
 
@@ -122,6 +139,15 @@ Branch ahead ~13 commits orig no pusheados desde cuts anteriores (usuario decide
 - **`REVOKE UPDATE, DELETE FROM table FROM authenticated`** — confirma vía `pg_class.relacl`: `authenticated=arDxtm` (sin `w` ni `d`) = append-only enforcement. RLS adicional a `apply_child_rls`. Útil para bitácoras fiscales (`dian_events`).
 - **Mig con `CREATE OR REPLACE FUNCTION` sobre RPC ya aplicada** — idempotente. Mig 92 reemplazó las 3 RPCs del namespace vault (`integraciones_set_secret`/`get_secret`/`has_secret`) sin drop explícito. Fallar al aplicar una mig parcial por typo en grants nombre firma (e.g. `integraciones_get_secret(text, text)` vs `(text)`) rompe ahí; corregir y reejecutar archivo completo — las sentencias anteriores son idempotentes.
 - **`integration_settings` check constraint nombre exacto** — `\d integration_settings` o `pg_constraint` lookup. Para alter: `alter table ... drop constraint integration_settings_kind_check`, `add constraint integration_settings_kind_check check (kind in (...))`. Mig 92 hace eso para añadir 'dian' sin recrear la tabla.
+
+### POS offline
+
+- **`drop function` antes de `create or replace function` cuando la firma cambia** — Postgres distingue funciones por (nombre, tipos de args). Cambiar el número de params requiere `drop function if exists <name>(<old args>)` y luego `create or replace <name>(<new args>)`. Mig 93 hace eso con `register_pos_sale` (7→8 params). Sin drop, quedan dos versiones y `.rpc()` puede llamar la antigua.
+- **Unique index parcial con `where ... is not null`** permite múltiples nulls — `client_uuid`nullable, ventas online no lo envían, no chocan. Si también requisitas `org_id` dentro del unique, es `(org_id, client_uuid) where client_uuid is not null`: dos empresas con même uuid no colisionan (next a impossible, pero diseño sound).
+- **`store.index()` retorna `IDBIndex` no `IDBRequest`** — wrapper helper `tx('readonly', fn)` que retorna `req.result` no sirve para `index.count()`. Para index access hay que hacer la transacción manualmente en lib/lib: `db.transaction(STORE).objectStore(STORE).index('status').count('pending')`. Mi wrapper crudo solo cubre getAll/add/put/delete/get.
+- **`navigator.onLine` NO garantiza red realmente arriba** — un `true` puede falso positivo (WiFi conectado, sin DNS, sin ruta). El `cobrarPago` falla por timeout y toast errurso. Mejor UX: capturar el fetch y ofrecer encolar manual si falla 2 veces seguidas. Defense-in-depth.
+- **Auto-replay no debe disparar si ya está corriendo** — `outboxRunning` ref guarda el lock; `useEffect([online])` lo checkea. Sin eso, dos `online` events seguidos disparan dos loops y duplican llamadas (idempotencia RPC lo protege, pero consume ancho de banda).
+- **Generador TS no peeka firmas RPC** — `src/lib/supabase/types.ts` lista tablas + check-constraints; funciones RPC deben hand-mantained en bloque `Functions` si se quiere tipar la llamada. El proyecto rutea `.rpc('register_pos_sale', {...})` sin tipar firma, así que cambio de firma no requiere toque a mano — pero un dev que la espera tipada va a buscar fantasmas.
 
 ## Gotchas previos que siguen vigentes
 
@@ -162,6 +188,17 @@ Registry (`src/lib/modules/registry.ts`) → gen-module-sql (`node --experimenta
 - RLS-route para server query reads en client: envolver en `actions/<modulo>.ts` con `'use server'`. Patrón `actions/facturacion.ts`. Query mutations (`'use server'`) ya son importables desde client directo; queries (`server-only`) requieren la envoltura.
 - Snapshot fiscal debe almacenar copia (invoice_code, client_name, total_cents) en la tabla fiscal, no solo FK — una invoice editada después no altera el histórico fiscal (mismo patrón que `invoices.client_name` snapshot).
 
+### Receta POS offline idempotencia (de esta jornada)
+
+- No hay módulo nuevo (`pos` ya existe). No ruta nueva (pane POS existente). Mig toca tabla + RPC existente.
+- Columnas nuevas nullable + unique index parcial `where <col> is not null` para idempotencia sin romper filas antiguas. Default null en el parámetro RPC para callers previos (retrocompatible).
+- Firma RPC cambia (pora Idempotency-Key) → `drop function if exists <name>(<old args>); create or replace <name>(<new args>)` SIN saltar drop deja dos versiones en paralelo y `.rpc('name')` puede disparar la antigua.
+- Early return idempotente: `select * from public.t where org_id = p_org_id and client_uuid = p_client_uuid; if found then return query select <existing fields>; return; end if;`. Sin recobrar existencias, sin reescrebir — el reintento duplicado no daña.
+- Lib offline wrapper en `src/lib/<modulo>/offline-queue.ts` sin dependencias externas (IndexedDB crudo). Store con `keyPath = clientUuid`, indices `createdAt`/`status`. Operaciones saga: `enqueue`/`listPending`/`count`/`clear`/`markError`. Helper `disponible()` comprueba `typeof indexedDB`.
+- Mutation `replayPosSale` como envoltura sobre RPC con `clientUuid` obligatorio. Reusa `saleSchema` via `.extend({clientUuid})` — no redefinir todo. Mismo mapping de códigos error.
+- UI: listeners `online`/`offline` (`navigator.onLine` + window events) en `useEffect([])`. Auto-replay en `useEffect([online])` con `outboxRunning` ref guard. Banner `aria-live="polite"`. Modal cola con tabla — total "—" si el precio se decide en server (no confías en browser).
+- **QR Wompi offline niega explícito** en `charge()`: el webhook no garantiza offline; el pago en línea inherente no puede encolarse.
+
 ## Estado demo (datos remota)
 
 - Usuario: `DEMO_ACCOUNT_EMAIL`/`DEMO_ACCOUNT_PASSWORD` en `.env.local`.
@@ -190,27 +227,45 @@ Copia este bloque como primer mensaje del próximo chat para arrancar con contex
 ```
 Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (actualizado 2026-08-15): estado, commits de la jornada, pendientes ordenados y gotchas.
 
-Nómina legal (fila 12), marketing automation (fila 14) y facturación electrónica DIAN modo demo (fila 15) ya commiteados y verificados (vitest 256/256, tsc 0, build verde). Working tree limpio. Branch ahead origin ~13 commits (no push).
+Nómina legal (fila 12), marketing automation (fila 14), facturación electrónica DIAN modo demo (fila 15) y POS offline con cola IndexedDB + idempotencia client_uuid (fila 16) ya commiteados y verificados (vitest 256/256, tsc 0, build verde). Plan CRM/ERP/POS completo (18/18 filas). Working tree limpio. Branch ahead origin ~14 commits (no push).
 
-Próximo paso: POS offline (plan fila 16, XL). Ver PLAN_CRM_ERP_POS.md sección 6.4. Plan mencionaba `sites`/sucursales como contexto operativo previo (`site_id` en caja/POS/inventario/ventas) — decidir si arrancar por sites o por POS offline directo.
+Próximo paso: decisión abierta. Opciones:
+  (a) E2e smoke DEFERIDO de los 4 módulos nuevos (`e2e/{nomina,marketing,dian,pos}.spec.ts`) — cubrir deuda pendiente.
+  (b) Fase 7 RAG documental nativo (PLAN_CRM_ERP_POS.md 7.1): RAG sobre `documents` como fuente principal, Foundry IQ como fallback. Pipeline: ingestión + chunking + embeddings en vault.
+  (c) Propagar `site_id` a `pos_sales`/`invoices` (mig 31 ya tiene `sites`, falta propagar) — pre-requisito para cierres por sucursal.
+  (d) Push remoto de los ~14 commits pendientes (usuario decide).
 
-Pasos sugeridos, en orden:
-1. E2e smoke DEFERIDO de nómina + marketing + DIAN (escribir `e2e/{nomina,marketing,dian}.spec.ts`, levantar `npm run dev`, creds demo de `.env.local` org f8eafe69… admin eb711727…). Mínimo en CONTEXTO_SESION pendiente 1. SI chrono aprieta, saltar y marcar.
-2. POS offline (fila 16, XL): IndexedDB/Dexie cola ventas, sync anti-conflictos timestamp, replay queue. Posiblemente antes: `sites`/sucursales como contexto operativo (`site_id`).
+Pasos sugeridos, en orden si opción elegida = (a) e2e smoke:
+1. Escribir primer spec `e2e/dian.spec.ts` (más aislado — invierte Integraciones → DIAN → Enviar factura Emitida → verificar CUFE + bitácora).
+2. Replicar para nomina/marketing/pos.
+3. `npm run playwright test` verde.
+Si opción = (b) Fase 7 RAG:
+1. Mig [nueva]: `documents.chunks` (parent doc FK, chunk_index, content, content_hash, token_count) + `documents.embeddings` (chunk_id FK, vector stored en vault no columna por seguridad — embeddings clave encriptada).
+2. Pipeline ingestión server action: extract texto → normalizar → chunk 800 tokens overlap 120 → guardar.
+3. Server action retrieve (Foundry IQ fallback) con `documents:read` gate.
+4. UI IA consume chunks (rag tool ya existe).
+Si opción = (c) sites propagation:
+1. Mig 94: `pos_sales.site_id` + `invoices.site_id` (`employees.site_id` ya existe).
+2. RLS chain via `app.may_access_site` ya existe (mig 31).
+3. UI: site picker en POS / Facturación; por defecto "todas" para admin.
+Si opción = (d) push:
+1. `git push origin feat/design-system-refresh` (revisar si hay commits conflictivos primero).
 
 Reglas vinculantes (AGENTS.md):
 - org_id = empresa, nunca company_id. Sin public.companies ni CompanyId.
 - app.apply_standard_rls/apply_child_rls/orgs_with congelados.
 - Supabase MCP apunta a otro proyecto — TODO vía psql con SUPABASE_DB_URL de .env.local.
 - Mutations: 'use server', no 'server-only'.
-- Migraciones ya aplicadas a remota: cambios → SQL manual a remota + editar archivo local para bases frescas (patrón 57/58/90/91/92).
-- Tipos RPC a mano en Functions; tablas + check-constraints por generador.
+- Migraciones ya aplicadas a remota: cambios → SQL manual a remota + editar archivo local para bases frescas (patrón 57/58/90/91/92/93).
+- Tipos RPC a mano en Functions; tablas + check-constraints por generador. NOTA: firmas RPC cambiantes (como register_pos_sale) no se tipan a mano si el proyecto rutea via `.rpc('name', {...})` sin tipar signature.
 - db-verify local falla en mig 86 (vector extension) — validar migs nuevas aplicando remota + psql policy check.
 - Nómina 4.3: validación contador laboral OBLIGATORIA antes de producción. Valores por defecto a 0; NO inventar cifras regulatorias.
 - Marketing conversión DEFERIDA (sin proveedor real). No inventar métricas sin fuente.
-- DIAN: ambiente demo, NO producción. Producción DEFERIDA — requiere proveedor tecnológico homologado por la DIAN, certificado de firma digital y validación de revisor fiscal. Misma lib `src/lib/dian/ubl.ts` será la puerta de reemplazo.
+- DIAN: ambiente demo, NO producción. Producción DEFERIDA — requiere proveedor tecnológico homologado por la DIAN + certificado firma digital + revisor fiscal. Misma lib `src/lib/dian/ubl.ts` será la puerta de reemplazo.
+- POS offline: conflictos timestamp y límite inventario DEFERIDOS (valida server al ejecutar, KG103 rechaza). navigator.onLine puede falsear positive.
 - Client component NO importa runtime query server-only — usar `import type` o envolver en `actions/x.ts` con `'use server'`.
 - Ruta nueva en /dashboard/<x>/page.tsx requiere entrada en ROUTE_MAP (src/lib/data/nav.ts), mismo patrón que `empresas`.
+- Drop function required cuando firma RPC cambia — `drop function if exists <name>(<old args>); create or replace <name>(<new args>)`.
 
 Modo caveman ultra. No crees archivos .md nuevos (los planificamos). Updatea CONTEXTO_SESION.md al terminar para que la próxima sesión arranque con el prompt de acá.
 ```
