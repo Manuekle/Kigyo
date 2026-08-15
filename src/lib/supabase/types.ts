@@ -5402,6 +5402,144 @@ export interface Database {
         Relationships: [
         ]
       }
+      ph_asambleas: {
+        Row: {
+          id: string
+          org_id: string
+          fecha: string
+          tema: string
+          tipo: "ordinaria" | "extraordinaria"
+          estado: "convocada" | "realizada" | "acta_firmada"
+          asistentes: number
+          decisiones: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          fecha?: string
+          tema: string
+          tipo?: "ordinaria" | "extraordinaria"
+          estado?: "convocada" | "realizada" | "acta_firmada"
+          asistentes?: number
+          decisiones?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          fecha?: string
+          tema?: string
+          tipo?: "ordinaria" | "extraordinaria"
+          estado?: "convocada" | "realizada" | "acta_firmada"
+          asistentes?: number
+          decisiones?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ph_asambleas_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ph_cuotas: {
+        Row: {
+          id: string
+          org_id: string
+          unidad: string
+          periodo: string
+          tipo: "ordinaria" | "extraordinaria"
+          monto: number
+          estado: "pendiente" | "pagada"
+          vence: string | null
+          pagada_on: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          unidad: string
+          periodo: string
+          tipo?: "ordinaria" | "extraordinaria"
+          monto?: number
+          estado?: "pendiente" | "pagada"
+          vence?: string | null
+          pagada_on?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          unidad?: string
+          periodo?: string
+          tipo?: "ordinaria" | "extraordinaria"
+          monto?: number
+          estado?: "pendiente" | "pagada"
+          vence?: string | null
+          pagada_on?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ph_cuotas_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ph_zonas: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          tipo: "salon" | "piscina" | "gimnasio" | "parqueadero" | "otro"
+          estado: "operativa" | "mantenimiento" | "cerrada"
+          notas: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          tipo?: "salon" | "piscina" | "gimnasio" | "parqueadero" | "otro"
+          estado?: "operativa" | "mantenimiento" | "cerrada"
+          notas?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          tipo?: "salon" | "piscina" | "gimnasio" | "parqueadero" | "otro"
+          estado?: "operativa" | "mantenimiento" | "cerrada"
+          notas?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ph_zonas_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_limits: {
         Row: {
           plan: "starter" | "growth" | "enterprise"

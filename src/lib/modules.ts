@@ -509,7 +509,7 @@ export const SUBSECTOR_PRESETS: Record<string, SectorDelta> = {
   /* ─── Inmobiliario ──────────────────────────────────────────────────────── */
   'inmobiliario-arriendo':  { add: [], remove: ['cotizaciones'] },
   // Common areas: safety, incidents and residents raising them.
-  'inmobiliario-ph':        { add: ['hseq', 'riesgos'], remove: ['cotizaciones'] },
+  'inmobiliario-ph':        { add: ['hseq', 'riesgos', 'ph'], remove: ['cotizaciones'] },
   // Brokers close deals; they do not fix taps.
   'inmobiliario-corretaje': { add: ['desempeno'], remove: ['mantenimiento'] },
 

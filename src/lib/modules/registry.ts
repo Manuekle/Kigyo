@@ -723,6 +723,22 @@ export const REGISTRY: readonly ModuleEntry[] = [
     vertical: 'obra',
   },
   {
+    key: 'ph',
+    label: 'Propiedad horizontal',
+    description: 'Asambleas, cuotas por unidad y zonas comunes del edificio.',
+    group: 'Operación',
+    icon: 'Apartment',
+    route: '/dashboard/ph',
+    actions: ['read', 'write'],
+    shortLabel: 'PH',
+    permissionLabels: {
+      read: 'Ver propiedad horizontal',
+      write: 'Gestionar propiedad horizontal',
+    },
+    title: 'Propiedad Horizontal',
+    subtitle: 'Asambleas, cuotas por unidad y zonas comunes del edificio.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
@@ -820,6 +836,7 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'puestos', requires: 'clientes', kind: 'soft' },
   { module: 'obra', requires: 'proyectos', kind: 'soft' },
   { module: 'obra', requires: 'clientes', kind: 'soft' },
+  { module: 'ph', requires: 'inmobiliario', kind: 'soft' },
 
   // A till with nothing to sell is an empty drawer, so the catalogue is hard.
   // Selling *without* opening a till is legitimate — a spa that charges by

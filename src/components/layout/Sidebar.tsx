@@ -10,6 +10,7 @@ import {
   Wrench, Car, Factory, Stethoscope, School, Restaurant, Sprout, Home, Bed,
   Handshake, UserSearch, UserCheck, Target, Building2, DollarSign, Truck, BookOpen,
   Construction,
+  Apartment,
 } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
 import CompanySwitcher from '@/components/layout/CompanySwitcher'
@@ -139,6 +140,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Truck: <Truck size={18} />,
   BookOpen: <BookOpen size={18} />,
   Construction: <Construction size={18} />,
+  Apartment: <Apartment size={18} />,
 }
 
 export default function Sidebar() {
