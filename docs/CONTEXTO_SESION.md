@@ -1,7 +1,7 @@
 # Contexto de sesión — para retomar
 
-Fecha: 2026-08-14. Rama: `feat/design-system-refresh` (local, sin push).
-Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · db-verify 61 migraciones limpias.
+Fecha: 2026-08-14 (jornada 3). Rama: `feat/design-system-refresh` (local, sin push).
+Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · db-verify 70 migraciones limpias.
 
 ---
 
@@ -35,7 +35,46 @@ Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · 
 - Verticales totales: 10 (pacientes, estudiantes, restaurante, agro, inmobiliario,
   hoteleria, ecommerce, socios, obra, contratacion).
 
-### Gotcha nuevo de esta jornada
+### Jornada 3 (esta)
+| Migración | Módulo | Commit |
+|---|---|---|
+| 62 | `portal` (transversal): enlaces públicos firmados con análisis de abuso (token 24B, vencimiento 1-30d, max_views atómico, rate limit por enlace e IP, respuesta sin oráculo, auditoría). Ruta pública `/portal/[token]` | ed6da42 |
+| 63 | `marketing` (transversal): campañas por canal con destinatarios desde clientes + fidelización por puntos (libro, saldo derivado) | f87fb42 |
+| 64 | `integraciones` (transversal): pasarela (Wompi) y WhatsApp Cloud. Secretos SOLO en vault, RPCs de puerta grant service_role, navegador solo ve hasSecret | 739b2f1 |
+| 65 | veterinaria bajo `pacientes` (patrón 45): mascota/propietario, vacunas con refuerzos, hospitalización con notas | bbcb4e2 |
+| 66 | radiografías: bucket privado `radiographs` + `patient_images`, URL firmada 60s servidor | bbf5374 |
+| 67 | notas estudiantes: cortes ponderados, trigger promedia la nota de la matrícula (ensanche numeric(5,2): 100.00 desbordaba) | 0bc2fdb |
+| 68 | tarifas hotelería: temporadas + tarifa por tipo, RPC `hotel_rate_for` sugiere en reserva | e55c6ad |
+| 69 | agro: sanidad (aplicaciones con carencia) y riego por lote | 2f967e1 |
+| 70 | BOM producción: receta por producto, costo derivado de catálogo, sugiere en orden | f74f91e |
+
+Transversales van en SPINE (los 23 presets); portal/marketing/integraciones
+en plan growth; integraciones SIN filas de sector_modules (config técnica).
+
+### Gotchas nuevos de esta jornada
+- **psql `-c` con varias sentencias = una sola transacción**: un ERROR en la
+  tercera revierte la primera (el UPDATE de enabled_modules se perdió dos
+  veces). Para data-fixes multi-sentencia, verificar con `select` al final en
+  el mismo bloque, o ejecutar de a una.
+- **`storage.objects` protegido contra DELETE directo** (trigger
+  storage.protect_delete). Borrar objetos de buckets usa la Storage API con
+  service_role, no SQL.
+- **Playwright `filter({ hasText })` NO tiene opción `exact`** — se ignora en
+  silencio (esbuild no tipea). Exacto = regex `/^texto$/`.
+- **Menús de nselect que persisten en el DOM**: durante el exit el menú
+  anterior sigue vivo; un `.nselect-menu .nselect-item` puede matchear el
+  viejo y el nuevo. Usar `.nselect-menu.is-open .nselect-item`.
+- **Dos `page.on('dialog')` sobre el mismo diálogo** rompen el segundo accept
+  («already handled»). Un solo handler por test, registrado temprano.
+- **vault en db-verify**: funciones plpgsql con refs a `vault.*` crean OK en
+  PG plano (cuerpo se valida en ejecución). No referenciar vault en
+  migraciones de tablas.
+- **`hotel_rate_for`/`portal_view` definer + RLS force**: postgres es
+  superuser y salta RLS aunque la tabla tenga FORCE; el patrón definer
+  funciona. Validar membresía dentro del definer (orgs_with) para no exponer
+  datos a cualquier authenticated.
+
+### Gotcha nuevo de la jornada anterior
 - **Funciones RPC de módulos deben vivir en `public`, no en `app`**: PostgREST
   solo expone esquemas expuestos. La 57 las creó en `app` y la 58 las movió
   (migración 57 ya aplicada a remota → no re-editable; patrón: editar la vieja
@@ -70,19 +109,14 @@ Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · 
 
 ## 2. Pendiente (orden sugerido)
 
-1. **Transversales (3):** `portal` (enlace público firmado — requiere análisis de
-   abuso), `marketing` (campañas, fidelización), `integraciones` (pasarela,
-   WhatsApp; secretos en vault, no en tabla).
-2. **Profundidad (6):** veterinaria (mascota/propietario, vacunas,
-   hospitalización — patrón odontología de migración 45), radiografías
-   (storage), notas estudiantes, tarifas hoteleria por temporada, agro
-   sanidad/riego, BOM en produccion.
-3. **Subsectores de los 11 sectores que no tienen** (energia, ecommerce,
+1. **Subsectores de los 11 sectores que no tienen** (energia, ecommerce,
    tecnologia, financiero, mineria, telecomunicaciones, seguridad, medios, ong,
    gobierno, logistica): el catálogo los soporta como datos; falta la decisión
-   de producto.
-4. **CRM/ERP/POS:** `docs/PLAN_CRM_ERP_POS.md` cuando el usuario lo pida.
-5. `test-results/` ya está en .gitignore.
+   de producto. Propuesta preparada — pedir al usuario.
+2. **CRM/ERP/POS:** `docs/PLAN_CRM_ERP_POS.md` cuando el usuario lo pida.
+3. **Docs:** `docs/CATALOGO_SECTORES_Y_MODULOS.md` tabla maestra (2.1-2.3) con
+   la columna de brechas parcialmente actualizada — repasar deltas en próximo
+   pase.
 
 ---
 
@@ -154,8 +188,9 @@ Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · 
 - Dos empresas: «IPS Bogota» (tecnologia) y «Kigyo Demo Dos» (salud, subsector
   `salud-veterinaria` — el caso flagship del pitch: roles sugeridos Veterinario/a,
   Auxiliar veterinario, Recepción y caja).
-- «Kigyo Demo Dos» tiene `enabled_modules` explícito con los módulos de las dos
-  jornadas (incluye obra, ph, contratacion de esta).
+- «Kigyo Demo Dos» tiene `enabled_modules` explícito con los módulos de las tres
+  jornadas (incluye los 3 transversales + pacientes/estudiantes/hoteleria/
+  agro/produccion/catalogos/clientes para probes). Cuenta demo en plan growth.
 - `BILLING_WEBHOOK_SECRET` sin valor en `.env.example` (el webhook responde 503 sin él).
 
 ## 6. Comandos rápidos

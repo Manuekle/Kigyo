@@ -96,7 +96,7 @@ No son módulos: son pantallas dentro del módulo que ya existe, para que
 
 | Vertical | Qué le falta |
 |---|---|
-| `pacientes` | ✅ odontograma, planes de tratamiento y laboratorio dental (migración 45). Faltan imágenes y teleconsulta |
+| `pacientes` | ✅ odontograma/planes/lab dental (45), veterinaria (65: mascotas, vacunas, hospitalización), imágenes diagnósticas (66: bucket privado con URL firmada). Falta teleconsulta |
 | `estudiantes` | notas por periodo, boletín, horarios, biblioteca, transporte |
 | `restaurante` | escandallo (`menu_item_ingredients` existe sin pantalla), delivery (`restaurant_deliveries` idem), propinas |
 | `agro` | sanidad y fitosanitario, riego, clima, certificaciones (GlobalGAP) |
@@ -143,7 +143,7 @@ Formato: preset actual → subsectores con su delta → qué falta.
 | textil | `+tienda` | BOM por talla y color |
 | alimentos | `+trazabilidad` | lotes y vencimientos, HACCP |
 
-**Falta:** lista de materiales dentro de `produccion`. `calidad` ya está
+**Hecho:** BOM en `produccion` (migración 70). `calidad` ya está
 (migración 56).
 
 ### 4. comercio — Comercio y retail
@@ -157,14 +157,14 @@ Formato: preset actual → subsectores con su delta → qué falta.
 | farmacia | `+trazabilidad` `−cotizaciones` | lotes y vencimientos, control de fórmulas |
 | super | `+flota,mantenimiento` `−cotizaciones` | balanza, mermas |
 
-**Falta:** `marketing` y fidelización. `pos` y `caja` ya están (migraciones
+**Hecho:** `marketing` y fidelización (transversales). `pos` y `caja` ya están (migraciones
 43-44) y son el mostrador del sector.
 
 ### 5. ecommerce — Ecommerce y venta en línea
 **Vertical:** `ecommerce` (en grupo Comercial). **Preset (16).** **Sin subsectores.**
 **Faltan subsectores:** marketplace, tienda propia, dropshipping, suscripción.
-**Falta:** `marketing` (cupones existen dentro de ecommerce; campañas no) e
-`integraciones` (pasarela, transportadora). `notificaciones` ya está (mig. 50).
+**Hecho:** `marketing` e `integraciones` (transversales); cupones existen dentro
+de ecommerce. Falta la transportadora en integraciones. `notificaciones` ya está (mig. 50).
 
 ### 6. servicios — Servicios profesionales
 **Vertical:** ninguno. **Preset (15).**

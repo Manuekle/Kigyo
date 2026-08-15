@@ -13,8 +13,9 @@
 | Subsectores | 51 |
 | Presets resueltos (sector o subsector) | 62 |
 | Matrices de roles sugeridos | 61 (todos menos `otro`, que es el caso «sin opinión») |
-| Módulos conmutables | 48 + shell (`dashboard`, `configuracion`) |
+| Módulos conmutables | 51 + shell (`dashboard`, `configuracion`) |
 | Verticales | 10: `pacientes`, `estudiantes`, `restaurante`, `agro`, `inmobiliario`, `hoteleria`, `ecommerce` (en grupo Comercial), `socios`, `obra` (construccion), `contratacion` (gobierno) |
+| Transversales | 3: `portal` (enlaces públicos firmados), `marketing` (campañas y fidelización), `integraciones` (pasarela y WhatsApp con vault) |
 
 **Método.** Elegir subsector produce:
 
@@ -40,7 +41,7 @@ subsector recibe la matriz del sector cuando existe.
   migraciones y el nav.
 - `src/lib/suggested-roles.test.ts` — matrices de roles TS ↔ `sector_roles`
   en ambas direcciones, permisos válidos, sin `configuracion:manage`.
-- `scripts/db-verify.sh` — las 61 migraciones aplican limpias en un Postgres
+- `scripts/db-verify.sh` — las 70 migraciones aplican limpias en un Postgres
   desechable.
 
 ---
@@ -119,9 +120,10 @@ presets.
 | agro-transitorio | 21: anterior − trazabilidad + produccion | Administrador/a de finca, Técnico/a de campo, Capataz |
 
 **Revisión:** presets y roles completos; `calidad` ya está en el preset con
-permisos en los roles de campo. Falta profundidad dentro de `agro`:
-sanidad/fitosanitario, riego, clima, certificaciones (GlobalGAP). La ganadería
-probablemente merece pantalla propia: un semoviente no es un lote.
+permisos en los roles de campo. Sanidad y riego hechos (migración 69:
+aplicaciones fitosanitarias con carencia y registro de riego por lote).
+Falta clima y certificaciones (GlobalGAP). La ganadería probablemente merece
+pantalla propia: un semoviente no es un lote.
 
 ### 2. alimentos — Restaurantes y alimentos
 **Vertical:** `restaurante` · **Subsectores:** 5 · **Roles:** ✓
@@ -150,9 +152,9 @@ delivery (`restaurant_deliveries` idem) y propinas.
 | comercio-retail | 17: … + pos − cotizaciones | Vendedor/a, Cajero/a, Supervisor/a de inventario |
 | comercio-super | 19: … + flota mantenimiento pos − cotizaciones | Cajero/a, Reponedor/a, Supervisor/a |
 
-**Revisión:** el mostrador quedó resuelto (pos/caja). Falta `marketing` y
-fidelización; en mayorista, listas de precio por cliente y cupo de crédito;
-en farmacia, lotes y vencimientos.
+**Revisión:** el mostrador quedó resuelto (pos/caja) y `marketing` con
+fidelización por puntos ya está (transversal). Falta en mayorista listas de
+precio por cliente y cupo de crédito; en farmacia, lotes y vencimientos.
 
 ### 4. construccion — Construcción e infraestructura
 **Vertical:** `obra` · **Subsectores:** 4 · **Roles:** ✓
@@ -176,9 +178,9 @@ parte de cuadrillas y aún no está en el preset.
 |---|---|---|
 | ecommerce (sector) | 17: asistencia calendario canales catalogos clientes compras cotizaciones documentos ecommerce empleados facturacion ia inventario nomina reportes tickets tienda | Gestor/a de tienda, Atención al cliente, Despacho |
 
-**Revisión:** falta `marketing` (campañas; los cupones viven dentro de
-ecommerce), `integraciones` (pasarela, transportadora) y subsectores
-(marketplace, tienda propia, dropshipping).
+**Revisión:** `marketing` e `integraciones` ya están (transversales; los
+cupones siguen viviendo dentro de ecommerce). Falta la transportadora en
+integraciones y subsectores (marketplace, tienda propia, dropshipping).
 
 ### 6. educacion — Educación
 **Vertical:** `estudiantes` · **Subsectores:** 4 · **Roles:** ✓
@@ -192,8 +194,9 @@ ecommerce), `integraciones` (pasarela, transportadora) y subsectores
 
 **Revisión:** `suscripciones` (mensualidad), `cartera` (pensiones) y
 `notificaciones` (migraciones 48-50) ya están en el preset y en los roles de
-secretaría/admisiones/recepción. Falta notas por periodo y boletín dentro de
-`estudiantes` y portal del acudiente.
+secretaría/admisiones/recepción. Notas hechas (migración 67: cortes
+ponderados con promedio por materia en trigger). Falta boletín y portal del
+acudiente (el `portal` transversal ya puede compartir).
 
 ### 7. energia — Energía y renovables
 **Vertical:** ninguno · **Subsectores:** 0 · **Roles:** ✓ (matriz de sector)
@@ -254,7 +257,8 @@ PQRS con término legal — `tickets` se le parece y no es lo mismo.
 | hoteleria-operador | 15: − hoteleria restaurante inventario mantenimiento caja + contratos cotizaciones proyectos | Agente de viajes, Operador/a de itinerario |
 
 **Revisión:** `notificaciones` ya está en el preset (migración 50). Falta
-tarifas por temporada, canales de reserva, housekeeping
+tarifas por temporada ✅ (migración 68: temporadas con tarifa por tipo que
+mandan sobre la base), canales de reserva, housekeeping
 (`room_cleaning_tasks` existe sin pantalla) y `caja` ya está incluida.
 
 ### 12. inmobiliario — Inmobiliario
@@ -295,8 +299,9 @@ guías, prueba de entrega ni portal de rastreo.
 | manufactura-textil | 22: … + tienda | Diseñador/a, Patronista, Despachador/a |
 
 **Revisión:** `calidad` ya está en el preset (migración 56) con permisos en
-control de calidad/jefatura/patronista. Falta lista de materiales (BOM)
-dentro de `produccion` y vencimientos en manufactura-alimentos.
+control de calidad/jefatura/patronista. BOM hecho (migración 70: recetas con
+componentes del catálogo y costo derivado). Falta vencimientos en
+manufactura-alimentos.
 
 ### 15. medios — Medios y publicidad
 **Vertical:** ninguno · **Subsectores:** 0 · **Roles:** ✓ (matriz de sector)
@@ -352,10 +357,11 @@ y el cliente activa el resto a mano.
 | salud-veterinaria | 22: + catalogos inventario pos tienda hseq riesgos − consultoria trazabilidad | Veterinario/a, Auxiliar veterinario, Recepción y caja |
 
 **Revisión:** odontología tiene profundidad completa (migración 45: odontograma
-FDI, planes de tratamiento por pieza, laboratorio dental). Veterinaria es el
-siguiente hueco: falta mascota-vs-propietario, vacunas, peluquería y
-hospitalización (mismo patrón que odontología). Transversal al sector faltan
-radiografías, consentimientos y `portal` del paciente. `cartera` (copagos y
+FDI, planes de tratamiento por pieza, laboratorio dental). Veterinaria hecha
+(migración 65: mascota vs propietario, vacunas con refuerzos, hospitalización
+con notas de evolución). Radiografías hechas (migración 66: imágenes
+diagnósticas en bucket privado con URL firmada). `portal` del paciente ya
+está (transversal). Faltan consentimientos y peluquería. `cartera` (copagos y
 EPS), `notificaciones` de cita y los permisos en recepción ya están
 (migraciones 49-50 y pase 61).
 
@@ -453,7 +459,7 @@ divide en tres capas:
 | `estudiantes` | notas por periodo, boletín, portal del acudiente |
 | `restaurante` | propinas — escandallo y delivery ya tienen pantalla |
 | `agro` | sanidad, riego, clima, certificaciones |
-| `hoteleria` | tarifas por temporada, canales — housekeeping ✅ pantalla en Hotelería |
+| `hoteleria` | tarifas por temporada ✅, canales — housekeeping ✅ pantalla en Hotelería |
 | `inmobiliario` | avalúos, liquidación al propietario |
 | `produccion` | BOM, órdenes por lote |
 
@@ -466,10 +472,13 @@ divide en tres capas:
    `suscripciones`, `cartera` y `tiempos` hechos (migraciones 47-51).
 3. ~~Pase de roles~~ ✅ — migración 61: los módulos 47-60 entran a las
    matrices sugeridas de los sectores que los prenden.
-4. Veterinaria vertical (patrón odontología ya probado)
-5. Transversales restantes: `portal`, `marketing`, `integraciones`
-6. Profundidad: radiografías, notas estudiantes, tarifas hotelería,
-   sanidad/riego agro, BOM en producción.
+4. ~~Veterinaria~~ ✅ — migración 65 (mascotas, vacunas, hospitalización).
+5. ~~Transversales~~ ✅ — `portal` (62, enlaces firmados con análisis de
+   abuso), `marketing` (63, campañas y puntos), `integraciones` (64, pasarela
+   y WhatsApp con secretos en el vault).
+6. ~~Profundidad~~ ✅ — radiografías (66, bucket privado), notas de
+   estudiantes (67, cortes ponderados), tarifas de hotelería (68,
+   temporadas), sanidad/riego agro (69), BOM en producción (70).
 
 Cada uno de esos módulos entra por el mismo camino: migración con
 `app.apply_standard_rls`, entrada en el registro, preset en `sector_modules`,
