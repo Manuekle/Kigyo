@@ -8270,6 +8270,60 @@ export interface Database {
           },
         ]
       }
+      student_grades: {
+        Row: {
+          id: string
+          org_id: string
+          enrollment_id: string
+          kind: "Parcial" | "Corte" | "Quiz" | "Tarea" | "Examen final" | "Otro"
+          grade: number
+          weight: number | null
+          graded_on: string
+          notes: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          enrollment_id: string
+          kind?: "Parcial" | "Corte" | "Quiz" | "Tarea" | "Examen final" | "Otro"
+          grade: number
+          weight?: number | null
+          graded_on?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          enrollment_id?: string
+          kind?: "Parcial" | "Corte" | "Quiz" | "Tarea" | "Examen final" | "Otro"
+          grade?: number
+          weight?: number | null
+          graded_on?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_grades_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "student_enrollments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_grades_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           id: string

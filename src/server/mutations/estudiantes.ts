@@ -607,3 +607,80 @@ export async function calificarMateria(
     return fail('No tienes permiso para gestionar estudiantes.')
   }
 }
+
+/* ─── Notas (cortes) ─────────────────────────────────────────────────────── */
+
+const addNotaSchema = z.object({
+  enrollmentId: z.string().uuid(),
+  kind: z.enum(['Parcial', 'Corte', 'Quiz', 'Tarea', 'Examen final', 'Otro']).default('Parcial'),
+  grade: z.coerce.number().min(0).max(100),
+  weight: z.string().default(''),
+  gradedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z.string().trim().max(300).default(''),
+})
+
+export async function addNota(
+  input: z.input<typeof addNotaSchema>,
+): Promise<EstudiantesResult<EstudiantesData>> {
+  try {
+    const member = await requirePermission('estudiantes:write')
+    const parsed = addNotaSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    // La matrícula debe ser de un estudiante de *esta* organización.
+    const { data: enrollment } = await supabase
+      .from('student_enrollments')
+      .select('id, students!inner ( org_id )')
+      .eq('id', parsed.data.enrollmentId)
+      .maybeSingle()
+
+    if (!enrollment) return fail('Esa matrícula no pertenece a tu organización.')
+    const orgId = (enrollment as unknown as { students: { org_id: string } }).students.org_id
+    if (orgId !== member.orgId) return fail('Esa matrícula no pertenece a tu organización.')
+
+    const { error } = await supabase.from('student_grades').insert({
+      org_id: member.orgId,
+      enrollment_id: parsed.data.enrollmentId,
+      kind: parsed.data.kind,
+      grade: parsed.data.grade,
+      weight: parsed.data.weight ? Number(parsed.data.weight) : null,
+      graded_on: parsed.data.gradedOn,
+      notes: parsed.data.notes,
+    })
+
+    if (error) {
+      console.error('[estudiantes] addNota', error)
+      return fail('No se pudo registrar la nota.')
+    }
+
+    revalidatePath('/dashboard/estudiantes')
+    return { ok: true, data: await getEstudiantes() }
+  } catch {
+    return fail('No tienes permiso para gestionar estudiantes.')
+  }
+}
+
+export async function deleteNota(id: string): Promise<EstudiantesResult<EstudiantesData>> {
+  try {
+    const member = await requirePermission('estudiantes:write')
+    if (!z.uuid().safeParse(id).success) return fail('Nota inválida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('student_grades')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[estudiantes] deleteNota', error)
+      return fail('No se pudo eliminar la nota.')
+    }
+
+    revalidatePath('/dashboard/estudiantes')
+    return { ok: true, data: await getEstudiantes() }
+  } catch {
+    return fail('No tienes permiso para gestionar estudiantes.')
+  }
+}

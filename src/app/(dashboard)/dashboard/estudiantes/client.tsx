@@ -15,8 +15,9 @@ import { cop } from '@/lib/utils'
 import type { AsistenciaRow, EstudiantesData, HorarioRow, StudentRow } from '@/server/queries/estudiantes'
 import {
   calificarMateria, createEstudiante, createHorario, createPrograma,
-  deleteAsistencia, deleteEstudiante, deleteHorario, marcarAsistencia,
+  deleteAsistencia, deleteEstudiante, deleteHorario, deleteNota, marcarAsistencia,
   matricularMateria, setAsistencia, setEstudianteStatus, updateEstudiante,
+  addNota,
 } from '@/server/mutations/estudiantes'
 import { fetchMoreEstudiantes } from '@/server/actions/estudiantes'
 
@@ -42,6 +43,13 @@ const EMPTY_PROGRAM = {
 }
 const EMPTY_SUBJECT = { studentId: '', subject: '', term: '', teacherId: '' }
 
+const DAY = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+
+const EMPTY_NOTA = {
+  enrollmentId: '', kind: 'Parcial', grade: '', weight: '',
+  gradedOn: '', notes: '',
+}
+
 const WEEKDAYS = [
   'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
 ]
@@ -61,6 +69,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
   const [materias, setMaterias] = useState(data.materias)
   const [horarios, setHorarios] = useState(data.horarios)
   const [asistencia, setAsistenciaRows] = useState(data.asistencia)
+  const [notas, setNotas] = useState(data.notas)
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
 
@@ -76,6 +85,8 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
   const [subjectForm, setSubjectForm] = useState(EMPTY_SUBJECT)
   const [horarioOpen, setHorarioOpen] = useState(false)
   const [horarioForm, setHorarioForm] = useState(EMPTY_HORARIO)
+  const [notaOpen, setNotaOpen] = useState(false)
+  const [notaForm, setNotaForm] = useState(EMPTY_NOTA)
   const [attendanceDate, setAttendanceDate] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -88,6 +99,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
     setMaterias(next.materias)
     setHorarios(next.horarios)
     setAsistenciaRows(next.asistencia)
+    setNotas(next.notas)
   }
 
   function loadMore() {
@@ -274,8 +286,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
 
   function submitHorario() {
     startTransition(async () => {
-      const result = await createHorario({
-        programId: orNull(horarioForm.programId),
+      const result = await createHorario({        programId: orNull(horarioForm.programId),
         subject: horarioForm.subject,
         teacherId: orNull(horarioForm.teacherId),
         weekday: horarioForm.weekday as never,
@@ -298,6 +309,34 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       addToast('Horario eliminado', 'ok')
+    })
+  }
+
+  function submitNota() {
+    startTransition(async () => {
+      const result = await addNota({
+        enrollmentId: notaForm.enrollmentId,
+        kind: notaForm.kind as never,
+        grade: Number(notaForm.grade),
+        weight: notaForm.weight,
+        gradedOn: notaForm.gradedOn,
+        notes: notaForm.notes,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setNotaForm(EMPTY_NOTA)
+      setNotaOpen(false)
+      addToast('Nota registrada', 'ok')
+    })
+  }
+
+  function removeNota(id: string) {
+    if (!window.confirm('¿Eliminar este corte? La nota de la materia se recalcula.')) return
+    startTransition(async () => {
+      const result = await deleteNota(id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Corte eliminado', 'ok')
     })
   }
 
@@ -354,6 +393,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
               { key: 'materias', label: 'Materias' },
               { key: 'horarios', label: 'Horarios' },
               { key: 'asistencia', label: 'Asistencia' },
+              { key: 'notas', label: 'Notas' },
             ]}
             value={tab}
             onChange={setTab}
@@ -375,6 +415,16 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                       setSubjectOpen(true)
                     }}>
                     <Plus size={15} />Matricular
+                  </button>
+                ) : tab === 'notas' ? (
+                  <button className="btn dark" disabled={pending || materias.length === 0}
+                    onClick={() => {
+                      const now = new Date()
+                      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+                      setNotaForm({ ...EMPTY_NOTA, enrollmentId: materias[0]?.id ?? '', gradedOn: today })
+                      setNotaOpen(true)
+                    }}>
+                    <Plus size={15} />Registrar corte
                   </button>
                 ) : tab === 'horarios' ? (
                   <button className="btn dark" disabled={pending}
@@ -738,6 +788,54 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
             </div>
           </>
         )}
+
+        {tab === 'notas' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Estudiante</th>
+                  <th scope="col">Materia</th>
+                  <th scope="col">Corte</th>
+                  <th scope="col">Nota</th>
+                  <th scope="col">Peso</th>
+                  <th scope="col">Fecha</th>
+                  <th scope="col" aria-label="Acciones" />
+                </tr>
+              </thead>
+              <tbody>
+                {notas.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Sin cortes registrados. La nota final de cada materia sale de aquí.
+                      </div>
+                    </td>
+                  </tr>
+                ) : notas.map((n) => (
+                  <tr key={n.id}>
+                    <td><div className="cename">{n.studentName}</div></td>
+                    <td>{n.subject}</td>
+                    <td>{n.kind}</td>
+                    <td className="mono" style={{ fontWeight: 600 }}>{n.grade}</td>
+                    <td className="muted mono">{n.weight !== null ? `${n.weight}` : '—'}</td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>
+                      {DAY.format(new Date(`${n.gradedOn}T00:00:00`))}
+                    </td>
+                    <td>
+                      {data.canWrite && (
+                        <button className="ibtn" aria-label={`Eliminar corte de ${n.subject}`}
+                          disabled={pending} onClick={() => removeNota(n.id)}>
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <FormDrawer
@@ -931,6 +1029,60 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
         <input id="hor-room" className="field" value={horarioForm.classroom}
           onChange={(e) => setHorarioForm({ ...horarioForm, classroom: e.target.value })}
           placeholder="Aula 101" />
+      </FormDrawer>
+
+      <FormDrawer
+        open={notaOpen}
+        onClose={() => setNotaOpen(false)}
+        title="Registrar corte"
+        footer={
+          <button className="btn dark" disabled={pending || !notaForm.enrollmentId || !notaForm.grade || !notaForm.gradedOn} onClick={submitNota}>
+            <Check size={15} />Registrar
+          </button>
+        }
+      >
+        <label className="flabel">Matrícula</label>
+        <Select
+          value={notaForm.enrollmentId}
+          onChange={(v) => setNotaForm({ ...notaForm, enrollmentId: v })}
+          options={materias.map((m) => ({
+            value: m.id,
+            label: `${m.studentName} · ${m.subject}${m.term ? ` (${m.term})` : ''}`,
+          }))}
+        />
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="nota-kind">Tipo</label>
+            <Select
+              value={notaForm.kind}
+              onChange={(v) => setNotaForm({ ...notaForm, kind: v })}
+              options={['Parcial', 'Corte', 'Quiz', 'Tarea', 'Examen final', 'Otro']}
+            />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="nota-grade">Nota (0–100)</label>
+            <input id="nota-grade" className="field" type="number" min={0} max={100} step="0.1"
+              value={notaForm.grade}
+              onChange={(e) => setNotaForm({ ...notaForm, grade: e.target.value })} />
+          </div>
+        </div>
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="nota-weight">Peso (opcional)</label>
+            <input id="nota-weight" className="field" type="number" min={0} step="0.01"
+              value={notaForm.weight} placeholder="Ej: 0.3"
+              onChange={(e) => setNotaForm({ ...notaForm, weight: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="nota-on">Fecha</label>
+            <input id="nota-on" className="field" type="date" value={notaForm.gradedOn}
+              onChange={(e) => setNotaForm({ ...notaForm, gradedOn: e.target.value })} />
+          </div>
+        </div>
+        <label className="flabel" htmlFor="nota-notes">Nota</label>
+        <input id="nota-notes" className="field" value={notaForm.notes}
+          placeholder="Ej: recuperación del primer parcial"
+          onChange={(e) => setNotaForm({ ...notaForm, notes: e.target.value })} />
       </FormDrawer>
     </>
   )

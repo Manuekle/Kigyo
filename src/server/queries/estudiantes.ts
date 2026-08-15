@@ -84,6 +84,20 @@ export interface AsistenciaRow {
   scheduleId: string | null
 }
 
+export interface GradeRow {
+  id: string
+  enrollmentId: string
+  studentId: string
+  studentName: string
+  subject: string
+  term: string
+  kind: string
+  grade: number
+  weight: number | null
+  gradedOn: string
+  notes: string
+}
+
 export interface EstudiantesData {
   estudiantes: StudentRow[]
   estudiantesTotal: number
@@ -91,6 +105,7 @@ export interface EstudiantesData {
   materias: EnrollmentRow[]
   horarios: HorarioRow[]
   asistencia: AsistenciaRow[]
+  notas: GradeRow[]
   roster: RosterEntry[]
   canWrite: boolean
 }
@@ -288,7 +303,7 @@ export async function getEstudiantes(): Promise<EstudiantesData> {
     console.error('[estudiantes] getEstudiantes', studentsResult.error)
     return {
       estudiantes: [], estudiantesTotal: 0, programas: [], materias: [],
-      horarios: [], asistencia: [], roster: [], canWrite: false,
+      horarios: [], asistencia: [], notas: [], roster: [], canWrite: false,
     }
   }
   if (programsResult.error) console.error('[estudiantes] programs', programsResult.error)
@@ -313,6 +328,22 @@ export async function getEstudiantes(): Promise<EstudiantesData> {
 
   const enrollmentRows = (enrollmentData ?? []) as unknown as EnrollmentRecord[]
   const s = summarise(enrollmentRows)
+
+  // Los cortes de todas las matrículas en mano, en una consulta.
+  const { data: gradeData, error: gradeError } = await supabase
+    .from('student_grades')
+    .select('id, enrollment_id, kind, grade, weight, graded_on, notes')
+    .in('enrollment_id', enrollmentRows.map((e) => e.id))
+    .order('graded_on', { ascending: false })
+    .limit(1000)
+
+  if (gradeError) console.error('[estudiantes] grades', gradeError)
+
+  const enrollmentById = new Map(enrollmentRows.map((e) => [e.id, e]))
+  const gradeRows = (gradeData ?? []) as unknown as Array<{
+    id: string; enrollment_id: string; kind: string; grade: number
+    weight: number | null; graded_on: string; notes: string
+  }>
 
   // Students per programme, counted off the page in hand rather than with a
   // second aggregate query.
@@ -368,6 +399,22 @@ export async function getEstudiantes(): Promise<EstudiantesData> {
       present: row.present,
       scheduleId: row.schedule_id,
     })),
+    notas: gradeRows.map((row) => {
+      const enrollment = enrollmentById.get(row.enrollment_id)
+      return {
+        id: row.id,
+        enrollmentId: row.enrollment_id,
+        studentId: enrollment?.student_id ?? '',
+        studentName: enrollment ? studentNames.get(enrollment.student_id) ?? '' : '',
+        subject: enrollment?.subject ?? '—',
+        term: enrollment?.term ?? '',
+        kind: row.kind,
+        grade: row.grade,
+        weight: row.weight,
+        gradedOn: row.graded_on,
+        notes: row.notes,
+      }
+    }),
     roster,
     canWrite: can(member.permissions, 'estudiantes:write'),
   }
