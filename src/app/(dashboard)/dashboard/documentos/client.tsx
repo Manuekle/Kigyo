@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Sparkles, Upload, FileText, X, Check, Calendar, ChevronLeft, PenLine, Trash2, Download, Plus, Share2, FileSpreadsheet,
+  Sparkles, Upload, FileText, X, Check, Calendar, ChevronLeft, PenLine, Trash2, Download, Plus, Share2, FileSpreadsheet, RotateCcw,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import LoadMore from '@/components/ui/LoadMore'
@@ -214,6 +214,7 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
   const [loadMoreError, setLoadMoreError] = useState('')
   /** Id of the document whose review is in flight, so only its button spins. */
   const [reviewing, setReviewing] = useState<string | null>(null)
+  const [indexing, setIndexing] = useState<string | null>(null)
 
   const { carpetas, documentos } = state
 
@@ -263,6 +264,26 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
         addToast('No se pudo contactar la revisión con IA.', 'err')
       } finally {
         setReviewing(null)
+      }
+    })
+  }
+
+  function index(doc: DocumentoRow) {
+    setIndexing(doc.id)
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/ai/ingest?id=${doc.id}`, { method: 'POST' })
+        const payload = await response.json().catch(() => null)
+        if (!response.ok) {
+          addToast(payload?.detail ?? 'No se pudo indexar el documento.', 'err')
+          return
+        }
+        addToast(payload?.indexed ? `${payload.chunks} fragmentos indexados` : 'Formato no compatible para RAG', 'info')
+      } catch (error) {
+        console.error('[documentos] index', error)
+        addToast('No se pudo contactar la indexación con IA.', 'err')
+      } finally {
+        setIndexing(null)
       }
     })
   }
@@ -372,10 +393,18 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
         expiresOn: null,
       })
       setUpload(null)
-      if (!result.ok) { addToast(result.error, 'err'); return }
-      setState(result.data)
-      addToast('Documento subido', 'ok')
-    })
+       if (!result.ok) { addToast(result.error, 'err'); return }
+       setState(result.data)
+       addToast('Documento subido', 'ok')
+       const created = result.data.documentos.find((document) => document.storagePath === key)
+       if (created) {
+         void fetch(`/api/ai/ingest?id=${created.id}`, { method: 'POST' })
+           .then((response) => {
+             if (response.ok) addToast('Documento indexado para la IA', 'ok')
+           })
+           .catch((error) => console.error('[documentos] rag ingest', error))
+       }
+     })
   }
 
   function pickFile(folderId: string | null) {
@@ -480,7 +509,7 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
               </button>
             )}
           </div>
-          <DocTable rows={activeDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} onEdit={setEditing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} />
+          <DocTable rows={activeDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} indexing={indexing} onEdit={setEditing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} onIndex={index} />
         </div>
       ) : (
         <>
@@ -523,7 +552,7 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
                 )}
               </div>
             </div>
-            <DocTable rows={rows.length > 0 ? rows : looseDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} onEdit={setEditing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} />
+          <DocTable rows={rows.length > 0 ? rows : looseDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} indexing={indexing} onEdit={setEditing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} onIndex={index} />
           </div>
         </>
       )}
@@ -602,18 +631,20 @@ const AI_TONE: Record<string, string> = {
 }
 
 function DocTable({
-  rows, canWrite, busy, reviewing, onEdit, onShare, onDelete, onDownload, onReview,
+  rows, canWrite, busy, reviewing, indexing, onEdit, onShare, onDelete, onDownload, onReview, onIndex,
 }: {
   rows: DocumentoRow[]
   canWrite: boolean
   busy: boolean
   /** Id of the row whose review is running, or null. */
   reviewing: string | null
+  indexing: string | null
   onEdit: (d: DocumentoRow) => void
   onShare: (d: DocumentoRow) => void
   onDelete: (d: DocumentoRow) => void
   onDownload: (d: DocumentoRow) => void
   onReview: (d: DocumentoRow) => void
+  onIndex: (d: DocumentoRow) => void
 }) {
   return (
     <div className="tblwrap">
@@ -657,12 +688,23 @@ function DocTable({
                         className="ibtn"
                         style={{ width: 28, height: 28 }}
                         data-tip={d.aiCheckedAt ? 'Revisar de nuevo con IA' : 'Revisar con IA'}
-                        disabled={busy || reviewing !== null}
+                        disabled={busy || reviewing !== null || indexing !== null}
                         aria-busy={reviewing === d.id}
                         onClick={() => onReview(d)}
                         aria-label={`Revisar ${d.name} con IA`}
                       >
                         <Sparkles size={13} />
+                      </button>
+                      <button
+                        className="ibtn"
+                        style={{ width: 28, height: 28 }}
+                        data-tip="Indexar para la IA"
+                        disabled={busy || reviewing !== null || indexing !== null}
+                        aria-busy={indexing === d.id}
+                        onClick={() => onIndex(d)}
+                        aria-label={`Indexar ${d.name} para la IA`}
+                      >
+                        <RotateCcw size={13} />
                       </button>
                       <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Editar" onClick={() => onEdit(d)} aria-label={`Editar ${d.name}`}>
                         <PenLine size={13} />

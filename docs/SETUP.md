@@ -234,6 +234,8 @@ Rellena `.env.local`. **No las pegues en un chat ni las subas al repositorio**
 | `AZURE_FOUNDRY_ENDPOINT` | para la IA | Recurso de Foundry, ruta `/openai/v1` |
 | `AZURE_FOUNDRY_DEPLOYMENT` | para la IA | Nombre del deployment, no del modelo |
 | `AZURE_FOUNDRY_API_KEY` | no | En blanco para usar Entra |
+| `AZURE_FOUNDRY_EMBEDDING_DEPLOYMENT` | opcional, RAG nativo | Deployment de embeddings de 1536 dimensiones |
+| `AI_*_COST_*` | opcional, RAG nativo | Tarifas estimadas por 1.000 tokens, en centavos |
 | `AZURE_SEARCH_ENDPOINT` | no | Solo si usas Foundry IQ |
 | `FOUNDRY_IQ_KNOWLEDGE_BASE` | no | Solo si usas Foundry IQ |
 | `FOUNDRY_IQ_KNOWLEDGE_SOURCE` | no | Solo si usas Foundry IQ |

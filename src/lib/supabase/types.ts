@@ -334,6 +334,108 @@ export interface Database {
           },
         ]
       }
+      ai_monthly_budgets: {
+        Row: {
+          org_id: string
+          month_start: string
+          limit_cents: number
+          reserved_cents: number
+          mode: "soft" | "hard"
+          updated_at: string
+        }
+        Insert: {
+          org_id: string
+          month_start: string
+          limit_cents?: number
+          reserved_cents?: number
+          mode?: "soft" | "hard"
+          updated_at?: string
+        }
+        Update: {
+          org_id?: string
+          month_start?: string
+          limit_cents?: number
+          reserved_cents?: number
+          mode?: "soft" | "hard"
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_monthly_budgets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_usage_events: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string | null
+          document_id: string | null
+          operation: "chat" | "embedding" | "retrieval" | "review"
+          model: string
+          input_tokens: number
+          output_tokens: number
+          embedding_tokens: number
+          estimated_cost_cents: number
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id?: string | null
+          document_id?: string | null
+          operation: "chat" | "embedding" | "retrieval" | "review"
+          model: string
+          input_tokens?: number
+          output_tokens?: number
+          embedding_tokens?: number
+          estimated_cost_cents?: number
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          user_id?: string | null
+          document_id?: string | null
+          operation?: "chat" | "embedding" | "retrieval" | "review"
+          model?: string
+          input_tokens?: number
+          output_tokens?: number
+          embedding_tokens?: number
+          estimated_cost_cents?: number
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           id: number
@@ -2242,6 +2344,72 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "discount_coupons_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_chunks: {
+        Row: {
+          id: string
+          org_id: string
+          document_id: string
+          chunk_index: number
+          content: string
+          content_hash: string
+          token_count: number
+          embedding: unknown | null
+          embedding_model: string | null
+          status: "pending" | "ready" | "failed" | "stale" | "deleted"
+          error: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          document_id: string
+          chunk_index: number
+          content: string
+          content_hash: string
+          token_count?: number
+          embedding?: unknown | null
+          embedding_model?: string | null
+          status?: "pending" | "ready" | "failed" | "stale" | "deleted"
+          error?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          document_id?: string
+          chunk_index?: number
+          content?: string
+          content_hash?: string
+          token_count?: number
+          embedding?: unknown | null
+          embedding_model?: string | null
+          status?: "pending" | "ready" | "failed" | "stale" | "deleted"
+          error?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_chunks_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -10307,6 +10475,26 @@ export interface Database {
       apply_subscription: {
         Args: { p_account_id: string; p_plan?: string | null; p_status?: string | null }
         Returns: undefined
+      }
+      match_document_chunks: {
+        Args: {
+          query_embedding: unknown
+          p_org_id: string
+          match_threshold?: number
+          match_count?: number
+        }
+        Returns: {
+          id: string
+          document_id: string
+          content: string
+          chunk_index: number
+          metadata: Json | null
+          similarity: number
+        }[]
+      }
+      reserve_ai_budget: {
+        Args: { p_org_id: string; p_month_start: string; p_cost_cents: number }
+        Returns: { allowed: boolean; reserved_cents: number; limit_cents: number }[]
       }
       account_companies: {
         Args: Record<PropertyKey, never>

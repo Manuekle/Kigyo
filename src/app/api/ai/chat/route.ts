@@ -16,6 +16,14 @@ import {
   FoundryIqError,
   type RetrievalResult,
 } from '@/lib/ai/foundry-iq'
+import {
+  AiBudgetError,
+  estimateChatCostCents,
+  nativeRagConfigured,
+  recordAiUsage,
+  reserveAiBudget,
+  searchDocumentChunks,
+} from '@/lib/ai/rag'
 
 /**
  * Streaming chat, grounded on Foundry IQ plus live Supabase data.
@@ -73,13 +81,21 @@ export const POST = route({
     const question = latestUserText(body.messages)
     if (!question) throw new ApiError(400, 'Mensaje vacío', { detail: 'Escribe una pregunta.' })
 
-    // Document grounding is optional and best-effort. A knowledge base is a
-    // separate Azure resource from the chat model, so many installs have no
-    // retrieval at all — and when one exists, a failure should degrade the
-    // answer rather than break the conversation. Either way the tools below
-    // still answer the operational questions.
+    const supabase = await createClient()
+
     let retrieval: RetrievalResult | null = null
-    if (isRetrievalConfigured()) {
+    if (nativeRagConfigured()) {
+      try {
+        retrieval = await searchDocumentChunks(supabase, member.orgId, question)
+      } catch (error) {
+        if (error instanceof AiBudgetError) throw new ApiError(429, error.message)
+        console.warn('[ai] native RAG retrieval failed', error)
+      }
+    }
+
+    // Foundry IQ remains the fallback for installations that already have an
+    // externally indexed knowledge base.
+    if (!retrieval && isRetrievalConfigured()) {
       try {
         retrieval = await retrieve({
           orgId: member.orgId,
@@ -95,7 +111,12 @@ export const POST = route({
       }
     }
 
-    const supabase = await createClient()
+    try {
+      await reserveAiBudget(supabase, member.orgId, estimateChatCostCents(2000, 1000))
+    } catch (error) {
+      if (error instanceof AiBudgetError) throw new ApiError(429, error.message)
+      throw error
+    }
 
     // Reuse the conversation when the client supplies one. RLS scopes the
     // update to conversations this user owns, so a forged id changes nothing.
@@ -146,6 +167,19 @@ export const POST = route({
             outputTokens: usage?.outputTokens ?? null,
             retrievalActivity: retrieval?.activity ?? [],
           } as unknown as never,
+        })
+        await recordAiUsage(supabase, {
+          orgId: member.orgId,
+          userId: member.userId,
+          operation: 'chat',
+          model: process.env.AZURE_FOUNDRY_DEPLOYMENT ?? 'foundry',
+          inputTokens: usage?.inputTokens ?? 0,
+          outputTokens: usage?.outputTokens ?? 0,
+          estimatedCostCents: estimateChatCostCents(
+            usage?.inputTokens ?? 0,
+            usage?.outputTokens ?? 0,
+          ),
+          metadata: { retrieval: Boolean(retrieval), partial: retrieval?.partial ?? false },
         })
         await supabase
           .from('ai_conversations')

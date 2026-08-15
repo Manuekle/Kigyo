@@ -2,10 +2,16 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import { route } from '@/lib/api/handler'
 import { RATE_LIMITS } from '@/lib/api/rate-limit'
-import { badRequest, notFound } from '@/lib/api/errors'
+import { ApiError, badRequest, notFound } from '@/lib/api/errors'
 import { createClient } from '@/lib/supabase/server'
 import { modelEnv } from '@/lib/env'
 import { chatModel } from '@/lib/ai/model'
+import {
+  AiBudgetError,
+  estimateChatCostCents,
+  recordAiUsage,
+  reserveAiBudget,
+} from '@/lib/ai/rag'
 
 /**
  * The document review that `documents.ai_verdict` was always for.
@@ -94,7 +100,18 @@ export const POST = route({
     const contenido = await readText(supabase, doc.storage_path, doc.mime_type)
     const alcance = contenido === null ? 'registro' : 'contenido'
 
-    const { object } = await generateObject({
+    const estimatedCostCents = estimateChatCostCents(
+      Math.ceil((contenido?.length ?? 1500) / 4),
+      200,
+    )
+    try {
+      await reserveAiBudget(supabase, member.orgId, estimatedCostCents)
+    } catch (error) {
+      if (error instanceof AiBudgetError) throw new ApiError(429, error.message)
+      throw error
+    }
+
+    const { object, usage } = await generateObject({
       model: chatModel(),
       schema: verdictSchema,
       temperature: 0.2,
@@ -124,6 +141,18 @@ export const POST = route({
       console.error('[ai/documento] write', writeError)
       throw badRequest('Se generó la revisión pero no se pudo guardar.')
     }
+
+    await recordAiUsage(supabase, {
+      orgId: member.orgId,
+      userId: member.userId,
+      documentId: doc.id,
+      operation: 'review',
+      model: process.env.AZURE_FOUNDRY_DEPLOYMENT ?? 'foundry',
+      inputTokens: usage?.inputTokens ?? 0,
+      outputTokens: usage?.outputTokens ?? 0,
+      estimatedCostCents,
+      metadata: { alcance },
+    })
 
     return { ...object, revisadoEn, alcance } satisfies DocumentoRevision
   },

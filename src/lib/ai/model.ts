@@ -61,6 +61,14 @@ export function chatModel() {
   return provider()(modelEnvOrThrow().AZURE_FOUNDRY_DEPLOYMENT)
 }
 
+export function embeddingModel() {
+  const deployment = process.env.AZURE_FOUNDRY_EMBEDDING_DEPLOYMENT?.trim()
+  if (!deployment) {
+    throw new Error('Falta AZURE_FOUNDRY_EMBEDDING_DEPLOYMENT para RAG nativo.')
+  }
+  return provider().embeddingModel(deployment)
+}
+
 /** Resets the memoized provider. Tests only. */
 export function resetModelCache() {
   cached = null
