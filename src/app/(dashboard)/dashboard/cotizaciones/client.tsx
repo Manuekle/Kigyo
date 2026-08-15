@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import {
-  Receipt, TrendingUp, Check, Clock, Plus, X, PenLine, Trash2, ChevronRight, FileSpreadsheet,
+  Receipt, TrendingUp, Check, Clock, Plus, X, PenLine, Trash2, ChevronRight, FileSpreadsheet, RotateCcw,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import Badge from '@/components/ui/Badge'
@@ -20,7 +20,8 @@ import Drawer from '@/components/ui/Drawer'
 import type { CotizacionesData, CotizacionRow, CotizacionItem } from '@/server/queries/cotizaciones'
 import { fetchMoreCotizaciones } from '@/server/actions/cotizaciones'
 import {
-  createCotizacion, deleteCotizacion, setCotizacionStatus, updateCotizacion,
+  createCotizacion, deleteCotizacion, resetPipelineStages, setCotizacionStage,
+  setCotizacionStatus, updateCotizacion,
 } from '@/server/mutations/cotizaciones'
 
 const DAY = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -32,7 +33,7 @@ const EMPTY_DRAFT: DraftItem = { productId: null, description: '', quantity: '1'
 
 const EMPTY_FORM = {
   client: '', contact: '', projectId: '', ownerId: '',
-  kind: 'Comercial', probability: '0', expiresOn: '', notes: '',
+  kind: 'Comercial', probability: '0', expiresOn: '', notes: '', stageId: '',
   items: [{ ...EMPTY_DRAFT }] as DraftItem[],
 }
 
@@ -48,6 +49,7 @@ function toForm(q: CotizacionRow): FormState {
     probability: String(q.probability),
     expiresOn: q.expiresOn ?? '',
     notes: q.notes,
+    stageId: q.stageId ?? '',
     items: q.items.length > 0
       ? q.items.map((i) => ({
         productId: i.productId,
@@ -69,6 +71,7 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
 
   const [state, setState] = useState<CotizacionesData>(data)
   const [filter, setFilter] = useState('Todas')
+  const [view, setView] = useState<'Lista' | 'Kanban'>('Lista')
   const [selected, setSelected] = useState<CotizacionRow | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editing, setEditing] = useState<CotizacionRow | null>(null)
@@ -161,6 +164,7 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
         probability: Math.min(100, Math.max(0, Number(form.probability) || 0)),
         expiresOn: form.expiresOn || null,
         notes: form.notes.trim(),
+        stageId: form.stageId || null,
         items,
       }
       const result = editing
@@ -180,6 +184,23 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
       if (!result.ok) { addToast(result.error, 'err'); return }
       setSelected(null)
       apply(result.data, `Cotización ${status.toLowerCase()}`)
+    })
+  }
+
+  function changeStage(q: CotizacionRow, stageId: string) {
+    startTransition(async () => {
+      const result = await setCotizacionStage({ id: q.id, stageId: stageId || null })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+    })
+  }
+
+  function resetStages() {
+    if (!window.confirm('¿Restablecer las etapas por defecto? Las tuyas se conservan y se reactivan; las que falten se agregan.')) return
+    startTransition(async () => {
+      const result = await resetPipelineStages()
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data, 'Etapas restablecidas')
     })
   }
 
@@ -227,11 +248,27 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
               label: s === 'Todas' ? `Todas · ${cotizaciones.length}` : `${s} · ${cotizaciones.filter((q) => q.status === s).length}`,
             }))}
           />
-          <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
-          {state.canWrite && (
-            <button className="btn pri" onClick={() => openEditor(null)}><Plus size={15} />Nueva cotización</button>
-          )}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
+            {view === 'Kanban' && state.canWrite && (
+              <button className="btn" disabled={pending} onClick={resetStages}>
+                <RotateCcw size={15} />Etapas
+              </button>
+            )}
+            <button className="btn" disabled={exporting} aria-busy={exporting} onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
+            {state.canWrite && (
+              <button className="btn pri" onClick={() => openEditor(null)}><Plus size={15} />Nueva cotización</button>
+            )}
+          </div>
         </div>
+        <div className="cpad" style={{ display: 'flex', gap: 8, paddingBottom: 0 }}>
+          <button className={view === 'Lista' ? 'btn dark' : 'btn'}
+            onClick={() => setView('Lista')} aria-pressed={view === 'Lista'}>Lista</button>
+          <button className={view === 'Kanban' ? 'btn dark' : 'btn'}
+            onClick={() => setView('Kanban')} aria-pressed={view === 'Kanban'}>Kanban</button>
+        </div>
+
+        {view === 'Lista' ? (
+        <>
         <div className="tblwrap">
           <table className="tbl">
             <thead><tr><th scope="col">Cliente</th><th scope="col">Proyecto</th><th scope="col">Líneas</th><th scope="col">Total</th><th scope="col">Prob.</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
@@ -269,6 +306,56 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
           onLoadMore={loadMore}
           noun="cotizaciones"
         />
+        </>
+        ) : (
+          <div className="kb-board">
+            {[...state.stages.filter((s) => s.isActive), { id: null, name: 'Sin etapa', position: 999 } as const].map((stage) => {
+              const cards = filtered.filter((q) => (q.stageId ?? null) === stage.id)
+              const columnTotal = cards.reduce((s, q) => s + q.totalCents, 0)
+              return (
+                <div className="kb-col" key={stage.id ?? 'sin-etapa'}>
+                  <div className="kb-col-head">
+                    <span className="cename">{stage.name}</span>
+                    <span className="elsub">{cards.length} · {cop(columnTotal / 100)}</span>
+                  </div>
+                  <div className="kb-cards">
+                    {cards.length === 0 ? (
+                      <div className="kb-empty">Vacío</div>
+                    ) : cards.map((q) => (
+                      <div className="kb-card" key={q.id}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <div className="cename" style={{ fontSize: 13 }}>{q.client}</div>
+                          <Badge st={q.status} tone={q.status === 'Aceptada' ? 'grn' : q.status === 'Rechazada' || q.status === 'Vencida' ? 'red' : 'neu'} />
+                        </div>
+                        <div className="ceid mono">{q.code ?? '—'} · {q.items.length} {q.items.length === 1 ? 'línea' : 'líneas'}</div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                          <div className="cename">{cop(q.totalCents / 100)}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>{q.probability}%</div>
+                        </div>
+                        {state.canWrite && (
+                          <div style={{ marginTop: 8 }}>
+                            <Select
+                              value={q.stageId ?? ''}
+                              onChange={(v) => changeStage(q, v)}
+                              placeholder="Sin etapa"
+                              options={[
+                                { value: '', label: 'Sin etapa' },
+                                ...state.stages.filter((s) => s.isActive).map((s) => ({ value: s.id, label: s.name })),
+                              ]}
+                            />
+                          </div>
+                        )}
+                        <button className="kb-open" {...activatable(() => setSelected(q), `Abrir la cotización de ${q.client}`)}>
+                          Ver detalle <ChevronRight size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       <Drawer value={selected} onClose={() => setSelected(null)}>
@@ -399,6 +486,20 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
                     options={[
                       { value: '', label: 'Sin responsable' },
                       ...state.roster.map((r) => ({ value: r.employeeId, label: r.fullName })),
+                    ]}
+                  />
+                </>
+              )}
+              {state.stages.length > 0 && (
+                <>
+                  <div className="flabel">Etapa del trato</div>
+                  <Select
+                    value={form.stageId}
+                    onChange={(v) => setForm((f) => ({ ...f, stageId: v }))}
+                    placeholder="Sin etapa"
+                    options={[
+                      { value: '', label: 'Sin etapa' },
+                      ...state.stages.filter((s) => s.isActive).map((s) => ({ value: s.id, label: s.name })),
                     ]}
                   />
                 </>

@@ -30,6 +30,7 @@ const baseSchema = z.object({
   probability: z.number().int().min(0).max(100).default(0),
   expiresOn: z.string().date().nullable().default(null),
   notes: z.string().trim().max(4000).default(''),
+  stageId: z.uuid().nullable().default(null),
   items: z.array(itemSchema).max(100).default([]),
 })
 
@@ -75,12 +76,24 @@ async function refsValid(
   orgId: string,
   projectId: string | null,
   ownerId: string | null,
+  stageId: string | null,
 ): Promise<string | null> {
   if (!(await belongsToOrg(supabase, 'projects', projectId, orgId))) {
     return 'Ese proyecto no pertenece a tu organización.'
   }
   if (!(await belongsToOrg(supabase, 'employees', ownerId, orgId))) {
     return 'Esa persona no está en el equipo de tu organización.'
+  }
+  // `pipeline_stages` no tiene deleted_at, así que belongsToOrg no aplica;
+  // la consulta propia valida la pertenencia a la empresa.
+  if (stageId) {
+    const { data } = await supabase
+      .from('pipeline_stages')
+      .select('id')
+      .eq('id', stageId)
+      .eq('org_id', orgId)
+      .maybeSingle()
+    if (!data) return 'Esa etapa no pertenece a tu organización.'
   }
   return null
 }
@@ -94,7 +107,7 @@ export async function createCotizacion(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
-    const refError = await refsValid(supabase, member.orgId, parsed.data.projectId, parsed.data.ownerId)
+    const refError = await refsValid(supabase, member.orgId, parsed.data.projectId, parsed.data.ownerId, parsed.data.stageId)
     if (refError) return fail(refError)
 
     const { data: quote, error } = await supabase
@@ -110,6 +123,7 @@ export async function createCotizacion(
         probability: parsed.data.probability,
         expires_on: parsed.data.expiresOn,
         notes: parsed.data.notes,
+        stage_id: parsed.data.stageId,
       })
       .select('id')
       .single()
@@ -139,7 +153,7 @@ export async function updateCotizacion(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
-    const refError = await refsValid(supabase, member.orgId, parsed.data.projectId, parsed.data.ownerId)
+    const refError = await refsValid(supabase, member.orgId, parsed.data.projectId, parsed.data.ownerId, parsed.data.stageId)
     if (refError) return fail(refError)
 
     const { error } = await supabase
@@ -153,6 +167,7 @@ export async function updateCotizacion(
         probability: parsed.data.probability,
         expires_on: parsed.data.expiresOn,
         notes: parsed.data.notes,
+        stage_id: parsed.data.stageId,
       })
       .eq('id', parsed.data.id)
       .eq('org_id', member.orgId)
@@ -175,6 +190,58 @@ export async function updateCotizacion(
 
 const statusSchema = z.object({ id: z.uuid(), status: z.enum(QUOTE_STATUSES) })
 
+const stageSchema = z.object({ id: z.uuid(), stageId: z.uuid().nullable() })
+
+/**
+ * Mueve la cotización de etapa. La etapa es el estado del trato; el estado
+ * del documento (Borrador/Enviada/…) no se toca. El trigger en la base
+ * rechaza una etapa de otra empresa con check_violation.
+ */
+export async function setCotizacionStage(
+  input: z.input<typeof stageSchema>,
+): Promise<CotizacionResult<CotizacionesData>> {
+  try {
+    const member = await requirePermission('cotizaciones:write')
+    const parsed = stageSchema.safeParse(input)
+    if (!parsed.success) return fail('Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('quotes')
+      .update({ stage_id: parsed.data.stageId })
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[cotizaciones] setCotizacionStage', error)
+      return fail(error.code === '23514'
+        ? 'Esa etapa no pertenece a tu organización.'
+        : 'No se pudo mover la cotización de etapa.')
+    }
+
+    revalidatePath('/dashboard/cotizaciones')
+    return { ok: true, data: await getCotizaciones() }
+  } catch {
+    return fail('No tienes permiso para gestionar cotizaciones.')
+  }
+}
+
+/** Re-siembra las etapas por defecto (idempotente por nombre). */
+export async function resetPipelineStages(): Promise<CotizacionResult<CotizacionesData>> {
+  try {
+    await requirePermission('cotizaciones:write')
+    const supabase = await createClient()
+    const { error } = await supabase.rpc('reset_pipeline_stages')
+    if (error) {
+      console.error('[cotizaciones] resetPipelineStages', error)
+      return fail('No se pudieron restablecer las etapas.')
+    }
+    revalidatePath('/dashboard/cotizaciones')
+    return { ok: true, data: await getCotizaciones() }
+  } catch {
+    return fail('No tienes permiso para gestionar cotizaciones.')
+  }
+}
 export async function setCotizacionStatus(
   input: z.input<typeof statusSchema>,
 ): Promise<CotizacionResult<CotizacionesData>> {

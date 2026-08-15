@@ -31,6 +31,13 @@ export interface CotizacionItem {
   position: number
 }
 
+export interface PipelineStage {
+  id: string
+  name: string
+  position: number
+  isActive: boolean
+}
+
 export interface CotizacionRow {
   id: string
   code: string | null
@@ -46,6 +53,8 @@ export interface CotizacionRow {
   issuedOn: string
   expiresOn: string | null
   notes: string
+  /** La etapa del trato; null si la cotización es anterior al pipeline. */
+  stageId: string | null
   items: CotizacionItem[]
   /** Sum of the lines, in cents. Never stored — always derived. */
   totalCents: number
@@ -57,6 +66,8 @@ export interface CotizacionesData {
   cotizacionesTotal: number
   roster: RosterEntry[]
   proyectos: ProjectRef[]
+  /** Etapas del pipeline, en orden. */
+  stages: PipelineStage[]
   /** Catalogue for the line picker; empty without `catalogos:read`. */
   productos: Array<{ id: string; sku: string; name: string; priceCents: number }>
   canWrite: boolean
@@ -75,6 +86,7 @@ interface QuoteRecord {
   issued_on: string
   expires_on: string | null
   notes: string
+  stage_id: string | null
   employees: { full_name: string } | null
   projects: { code: string | null; name: string } | null
   quote_items: Array<{
@@ -88,7 +100,7 @@ interface QuoteRecord {
 }
 
 const QUOTE_COLUMNS = `id, code, client, contact, project_id, owner_id, kind, status, probability,
-   issued_on, expires_on, notes,
+   issued_on, expires_on, notes, stage_id,
    employees ( full_name ),
    projects ( code, name ),
    quote_items ( id, product_id, description, quantity, unit_price_cents, position )`
@@ -122,6 +134,7 @@ function toCotizacion(row: QuoteRecord): CotizacionRow {
     issuedOn: row.issued_on,
     expiresOn: row.expires_on,
     notes: row.notes,
+    stageId: row.stage_id,
     items,
     // Rounded per line before summing: quantity is numeric(12,2), so a
     // fractional quantity times a cents price is not an integer.
@@ -161,7 +174,7 @@ export async function getCotizaciones(): Promise<CotizacionesData> {
   const canReadProducts =
     member.modules.has('catalogos') && can(member.permissions, 'catalogos:read')
 
-  const [quotesResult, roster, proyectos, productsResult] = await Promise.all([
+  const [quotesResult, roster, proyectos, productsResult, stagesResult] = await Promise.all([
     supabase
       .from('quotes')
       .select(QUOTE_COLUMNS, { count: 'exact' })
@@ -181,23 +194,38 @@ export async function getCotizaciones(): Promise<CotizacionesData> {
           .order('name', { ascending: true })
           .limit(300)
       : Promise.resolve({ data: [], error: null }),
+    supabase
+      .from('pipeline_stages')
+      .select('id, name, position, is_active')
+      .eq('org_id', member.orgId)
+      .order('position', { ascending: true })
+      .limit(50),
   ])
 
   if (quotesResult.error) {
     console.error('[cotizaciones] getCotizaciones', quotesResult.error)
     return {
       cotizaciones: [], cotizacionesTotal: 0, roster: [], proyectos: [],
-      productos: [], canWrite: false,
+      productos: [], stages: [], canWrite: false,
     }
   }
 
   const cotizaciones = (quotesResult.data as unknown as QuoteRecord[]).map(toCotizacion)
+  const stages: PipelineStage[] = ((stagesResult.data ?? []) as Array<{
+    id: string; name: string; position: number; is_active: boolean
+  }>).map((s) => ({
+    id: s.id,
+    name: s.name,
+    position: s.position,
+    isActive: s.is_active,
+  }))
 
   return {
     cotizaciones,
     cotizacionesTotal: totalOf(quotesResult.count, cotizaciones.length),
     roster,
     proyectos,
+    stages,
     productos: ((productsResult.data ?? []) as Array<{
       id: string; sku: string; name: string; price_cents: number
     }>).map((p) => ({

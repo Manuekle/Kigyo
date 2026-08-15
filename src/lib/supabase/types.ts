@@ -6231,6 +6231,44 @@ export interface Database {
           },
         ]
       }
+      pipeline_stages: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          position: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          position?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          position?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stages_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_limits: {
         Row: {
           plan: "starter" | "growth" | "enterprise"
@@ -7457,6 +7495,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          stage_id: string | null
         }
         Insert: {
           id?: string
@@ -7475,6 +7514,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          stage_id?: string | null
         }
         Update: {
           id?: string
@@ -7493,6 +7533,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          stage_id?: string | null
         }
         Relationships: [
           {
@@ -7514,6 +7555,13 @@ export interface Database {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
             referencedColumns: ["id"]
           },
         ]
@@ -10087,6 +10135,10 @@ export interface Database {
       leads_convert: {
         Args: { p_lead_id: string }
         Returns: string
+      }
+      reset_pipeline_stages: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
     }
     Enums: Record<never, never>
