@@ -138,15 +138,21 @@ export const META: Record<string, string> = {
   // Account-level, so it has no registry entry: it is not a module, cannot be
   // switched off, and belongs to no plan. Reached from the company switcher.
   empresas: 'Empresas',
+  // Route reached from Integraciones → Abrir panel DIAN. Not a switchable
+  // module: the badge is `facturacion:read`, and the integration lives in
+  // `integration_settings` kind 'dian'. Demo only — see /dashboard/dian.
+  dian: 'Facturación electrónica DIAN',
 }
 
 export const META_SUB: Record<string, string> = {
   ...Object.fromEntries(FLAT.map((e) => [e.key, e.subtitle])),
   empresas: 'Las empresas de tu cuenta, su sector y quién pertenece a cada una.',
+  dian: 'Proyección fiscal de facturas ante la DIAN — ambiente demo, no válido ante la DIAN.',
 }
 
 /** Nav key → route. Derived, so it can no longer drift from the nav it serves. */
 export const ROUTE_MAP: Record<string, string> = {
   ...Object.fromEntries(FLAT.map((e) => [e.key, e.route])),
   empresas: '/dashboard/empresas',
+  dian: '/dashboard/dian',
 }

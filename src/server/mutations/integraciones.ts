@@ -231,3 +231,75 @@ export async function testWhatsapp(): Promise<TestResult> {
     return { ok: false, message: 'No se pudo probar la conexión.' }
   }
 }
+
+/* ─── DIAN (modo demo) ─────────────────────────────────────────────────────── */
+
+const saveDianSchema = z.object({
+  enabled: z.boolean().default(false),
+})
+
+/**
+ * Guarda la configuración de la integración con DIAN.
+ *
+ * En modo demo no hay secretos en el vault (sin firma digital real): el
+ * CUFE es simulado, el ambiente siempre es 'demo'. El campo `provider` queda
+ * fijo en 'dian_demo'. El modo productivo estaría fuera del check de la
+ * tabla y por tanto fuera de este guardado.
+ */
+export async function saveDianConfig(
+  input: z.input<typeof saveDianSchema>,
+): Promise<IntegracionesResult<IntegracionesData>> {
+  try {
+    const member = await requirePermission('integraciones:write')
+    const parsed = saveDianSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('integration_settings').upsert(
+      {
+        org_id: member.orgId,
+        kind: 'dian',
+        provider: 'dian_demo',
+        enabled: parsed.data.enabled,
+        config: { ambiente: 'demo' },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'org_id,kind' },
+    )
+
+    if (error) {
+      console.error('[integraciones] saveDianConfig', error)
+      return fail('No se pudo guardar la configuración de DIAN.')
+    }
+    return refreshed()
+  } catch {
+    return fail(DENIED)
+  }
+}
+
+/**
+ * "Prueba" la integración DIAN demo. No hay red ni API a llamar: en modo
+ * demo, una conexión buena es simplemente haber guardado la fila de
+ * integración con `enabled = true`. El mensaje deja explícito que no es
+ * válido ante la DIAN.
+ */
+export async function testDian(): Promise<TestResult> {
+  try {
+    await requirePermission('integraciones:write')
+    const data = await getIntegraciones()
+    if (!data.dian) {
+      return { ok: false, message: 'Guarda la configuración de DIAN primero.' }
+    }
+    if (!data.dian.enabled) {
+      return { ok: false, message: 'La integración DIAN está deshabilitada.' }
+    }
+    return {
+      ok: true,
+      message:
+        'Ambiente demo listo. Sin envío real a la DIAN: el CUFE se simula y no es válido ante la DIAN.',
+    }
+  } catch (e) {
+    console.error('[integraciones] testDian', e)
+    return { ok: false, message: 'No se pudo probar la integración.' }
+  }
+}

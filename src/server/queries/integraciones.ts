@@ -23,9 +23,18 @@ export interface WhatsappConfig {
   phoneNumberId: string
 }
 
+export interface DianConfig {
+  enabled: boolean
+  /** En demo siempre 'dian_demo'. En prod requeriría extender el check. */
+  provider: 'dian_demo' | null
+  /** Ambiente fiscal. Por ahora solo 'demo' está permitido por el check. */
+  ambiente: 'demo'
+}
+
 export interface IntegracionesData {
   pagos: PagosConfig | null
   whatsapp: WhatsappConfig | null
+  dian: DianConfig | null
   hasPagosPrivateKey: boolean
   hasPagosWebhook: boolean
   hasWhatsappToken: boolean
@@ -65,6 +74,7 @@ export async function getIntegraciones(): Promise<IntegracionesData> {
 
   const pagos = rows.find((r) => r.kind === 'pagos')
   const whatsapp = rows.find((r) => r.kind === 'whatsapp')
+  const dian = rows.find((r) => r.kind === 'dian')
 
   return {
     pagos: pagos
@@ -78,6 +88,13 @@ export async function getIntegraciones(): Promise<IntegracionesData> {
       ? {
           enabled: whatsapp.enabled,
           phoneNumberId: whatsapp.config?.phoneNumberId ?? '',
+        }
+      : null,
+    dian: dian
+      ? {
+          enabled: dian.enabled,
+          provider: dian.provider === 'dian_demo' ? 'dian_demo' : null,
+          ambiente: 'demo',
         }
       : null,
     hasPagosPrivateKey: pkResult.data === true,

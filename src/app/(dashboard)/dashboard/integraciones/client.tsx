@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Lock, ShieldCheck, Zap } from '@/lib/icons'
+import { AlertTriangle, Lock, ShieldCheck, Zap } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import { useApp } from '@/lib/context/AppContext'
 import type { IntegracionesData } from '@/server/queries/integraciones'
-import { saveGateway, saveWhatsapp, testGateway, testWhatsapp } from '@/server/mutations/integraciones'
+import {
+  saveDianConfig, saveGateway, saveWhatsapp, testDian, testGateway, testWhatsapp,
+} from '@/server/mutations/integraciones'
 
 const GATEWAYS = ['wompi', 'payu', 'epayco', 'stripe', 'otro'] as const
 
@@ -49,6 +51,8 @@ export default function IntegracionesPage({ data }: { data: IntegracionesData })
   })
   const [gatewayTest, setGatewayTest] = useState<string | null>(null)
   const [waTest, setWaTest] = useState<string | null>(null)
+  const [dianForm, setDianForm] = useState({ enabled: data.dian?.enabled ?? false })
+  const [dianTest, setDianTest] = useState<string | null>(null)
 
   function submitGateway() {
     startTransition(async () => {
@@ -81,6 +85,22 @@ export default function IntegracionesPage({ data }: { data: IntegracionesData })
     startTransition(async () => {
       const result = await testWhatsapp()
       setWaTest(result.message)
+    })
+  }
+
+  function submitDian() {
+    startTransition(async () => {
+      const result = await saveDianConfig(dianForm)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      addToast('Configuración DIAN guardada', 'ok')
+    })
+  }
+
+  function probeDian() {
+    startTransition(async () => {
+      const result = await testDian()
+      setDianTest(result.message)
     })
   }
 
@@ -239,6 +259,78 @@ export default function IntegracionesPage({ data }: { data: IntegracionesData })
             {waTest && (
               <span className="muted" style={{ fontSize: 12.5 }}>
                 {waTest}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="card rise d3" style={{ marginTop: 16 }}>
+        <div className="chead">
+          <div className="ctitle">
+            <AlertTriangle size={14} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--ambd)' }} />
+            Facturación electrónica DIAN (modo demo)
+          </div>
+          <div className="csub">
+            Ambiente DEMO. Sin firma digital ni envío real: el CUFE se simula localmente y{' '}
+            <b>no es válido ante la DIAN</b>. Producción requiere proveedor tecnológico homologado,
+            certificado de firma digital y revisor fiscal — flujo aparte.
+          </div>
+        </div>
+
+        <div className="cpad" style={{ paddingBottom: 0 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ flex: '1 1 240px', minWidth: 200, paddingBottom: 8 }}>
+              <div className="flabel" style={{ marginTop: 0 }}>Proveedor</div>
+              <div className="muted">dian_demo (fijo — prod fuera de este módulo)</div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={dianForm.enabled}
+                onChange={(e) => setDianForm((f) => ({ ...f, enabled: e.target.checked }))}
+              />
+              Habilitada
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="btn ghost"
+                disabled={pending}
+                aria-busy={pending}
+                onClick={probeDian}
+              >
+                <Zap size={14} />Probar
+              </button>
+              <button
+                className="btn dark"
+                disabled={pending}
+                aria-busy={pending}
+                onClick={submitDian}
+              >
+                Guardar
+              </button>
+              <a
+                href="/dashboard/dian"
+                aria-disabled={!state.dian?.enabled}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '8px 14px',
+                  opacity: state.dian?.enabled ? 1 : 0.45,
+                  pointerEvents: state.dian?.enabled ? 'auto' : 'none',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                }}
+              >
+                Abrir panel DIAN
+              </a>
+            </div>
+          </div>
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <Badge st={state.dian?.enabled ? 'Habilitada' : 'Deshabilitada'} tone={state.dian?.enabled ? 'grn' : 'neu'} />
+            {dianTest && (
+              <span className="muted" style={{ fontSize: 12.5 }}>
+                {dianTest}
               </span>
             )}
           </div>

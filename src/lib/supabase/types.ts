@@ -2241,6 +2241,117 @@ export interface Database {
           },
         ]
       }
+      dian_documents: {
+        Row: {
+          id: string
+          org_id: string
+          invoice_id: string
+          invoice_code: string
+          client_name: string
+          total_cents: number
+          ambiente: string
+          status: "procesando" | "aceptada" | "rechazada" | "pendiente"
+          cufe: string
+          xml_content: string
+          error: string
+          sent_at: string
+          responded_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          invoice_id: string
+          invoice_code?: string
+          client_name?: string
+          total_cents?: number
+          ambiente?: string
+          status?: "procesando" | "aceptada" | "rechazada" | "pendiente"
+          cufe?: string
+          xml_content?: string
+          error?: string
+          sent_at?: string
+          responded_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          invoice_id?: string
+          invoice_code?: string
+          client_name?: string
+          total_cents?: number
+          ambiente?: string
+          status?: "procesando" | "aceptada" | "rechazada" | "pendiente"
+          cufe?: string
+          xml_content?: string
+          error?: string
+          sent_at?: string
+          responded_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dian_documents_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dian_documents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dian_events: {
+        Row: {
+          id: string
+          org_id: string
+          dian_document_id: string
+          kind: "envio" | "aceptacion" | "rechazo" | "consulta" | "error"
+          message: string
+          response_raw: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          dian_document_id: string
+          kind: "envio" | "aceptacion" | "rechazo" | "consulta" | "error"
+          message?: string
+          response_raw?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          dian_document_id?: string
+          kind?: "envio" | "aceptacion" | "rechazo" | "consulta" | "error"
+          message?: string
+          response_raw?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dian_events_dian_document_id_fkey"
+            columns: ["dian_document_id"]
+            isOneToOne: false
+            referencedRelation: "dian_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dian_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dining_tables: {
         Row: {
           id: string
@@ -3982,8 +4093,8 @@ export interface Database {
         Row: {
           id: string
           org_id: string
-          kind: "pagos" | "whatsapp"
-          provider: "wompi" | "payu" | "epayco" | "stripe" | "whatsapp" | "otro"
+          kind: "pagos" | "whatsapp" | "dian"
+          provider: "wompi" | "payu" | "epayco" | "stripe" | "whatsapp" | "dian_demo" | "otro"
           enabled: boolean
           config: Json
           updated_at: string
@@ -3991,8 +4102,8 @@ export interface Database {
         Insert: {
           id?: string
           org_id: string
-          kind: "pagos" | "whatsapp"
-          provider?: "wompi" | "payu" | "epayco" | "stripe" | "whatsapp" | "otro"
+          kind: "pagos" | "whatsapp" | "dian"
+          provider?: "wompi" | "payu" | "epayco" | "stripe" | "whatsapp" | "dian_demo" | "otro"
           enabled?: boolean
           config?: Json
           updated_at?: string
@@ -4000,8 +4111,8 @@ export interface Database {
         Update: {
           id?: string
           org_id?: string
-          kind?: "pagos" | "whatsapp"
-          provider?: "wompi" | "payu" | "epayco" | "stripe" | "whatsapp" | "otro"
+          kind?: "pagos" | "whatsapp" | "dian"
+          provider?: "wompi" | "payu" | "epayco" | "stripe" | "whatsapp" | "dian_demo" | "otro"
           enabled?: boolean
           config?: Json
           updated_at?: string
