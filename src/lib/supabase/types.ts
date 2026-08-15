@@ -4301,6 +4301,124 @@ export interface Database {
           },
         ]
       }
+      lead_activities: {
+        Row: {
+          id: string
+          org_id: string
+          lead_id: string
+          kind: "Llamada" | "Correo" | "Nota" | "Agenda"
+          note: string
+          occurred_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          lead_id: string
+          kind?: "Llamada" | "Correo" | "Nota" | "Agenda"
+          note: string
+          occurred_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          lead_id?: string
+          kind?: "Llamada" | "Correo" | "Nota" | "Agenda"
+          note?: string
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activities_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          company_name: string
+          email: string
+          phone: string
+          source: "Referido" | "Web" | "Campaña" | "Llamada" | "Otro"
+          stage: "Nuevo" | "Contactado" | "Calificado" | "Perdido" | "Convertido"
+          owner_id: string | null
+          lost_reason: string
+          notes: string
+          converted_client_id: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          company_name?: string
+          email?: string
+          phone?: string
+          source?: "Referido" | "Web" | "Campaña" | "Llamada" | "Otro"
+          stage?: "Nuevo" | "Contactado" | "Calificado" | "Perdido" | "Convertido"
+          owner_id?: string | null
+          lost_reason?: string
+          notes?: string
+          converted_client_id?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          company_name?: string
+          email?: string
+          phone?: string
+          source?: "Referido" | "Web" | "Campaña" | "Llamada" | "Otro"
+          stage?: "Nuevo" | "Contactado" | "Calificado" | "Perdido" | "Convertido"
+          owner_id?: string | null
+          lost_reason?: string
+          notes?: string
+          converted_client_id?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_converted_client_id_fkey"
+            columns: ["converted_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lease_payments: {
         Row: {
           id: string
@@ -9965,6 +10083,10 @@ export interface Database {
       hotel_rate_for: {
         Args: { p_room_id: string; p_date: string }
         Returns: number | null
+      }
+      leads_convert: {
+        Args: { p_lead_id: string }
+        Returns: string
       }
     }
     Enums: Record<never, never>

@@ -109,7 +109,7 @@ const GROWTH = [
   ...STARTER,
   'nomina', 'riesgos', 'firmas', 'reclutamiento', 'capacitacion', 'desempeno',
   'proyectos', 'hseq', 'inventario', 'mantenimiento', 'flota', 'produccion',
-  'cotizaciones', 'compras', 'facturacion', 'catalogos',
+  'cotizaciones', 'leads', 'compras', 'facturacion', 'catalogos',
   // The counter and the till are operating tools, not scale ones. `tienda` and
   // `ecommerce` sit in Enterprise because selling to the public over the
   // internet is a different business; charging the person standing in front of

@@ -245,7 +245,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     // `pos` y `caja` son el mostrador. Un retail vendía por `tienda`, que es un
     // catálogo web con carrito: sirve para que alguien pida desde el celular y
     // no para cobrarle a quien está parado enfrente.
-    modules: [...PEOPLE, 'inventario', 'catalogos', 'pos', 'caja', 'tienda', ...COMMERCIAL, 'compras', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'inventario', 'catalogos', 'pos', 'caja', 'tienda', ...COMMERCIAL, 'leads', 'compras', 'tickets', ...SPINE],
   },
   {
     key: 'ecommerce',
@@ -258,13 +258,13 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'servicios',
     label: 'Servicios profesionales',
     description: 'Consultoría, contabilidad, legal, agencias. Se factura tiempo.',
-    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'cartera', 'firmas', 'tickets', 'consultoria', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'leads', 'contratos', 'cartera', 'firmas', 'tickets', 'consultoria', ...SPINE],
   },
   {
     key: 'tecnologia',
     label: 'Tecnología y software',
     description: 'Producto digital o desarrollo a la medida.',
-    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'suscripciones', 'reclutamiento', 'desempeno', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'leads', 'contratos', 'suscripciones', 'reclutamiento', 'desempeno', 'tickets', ...SPINE],
   },
   {
     key: 'salud',
@@ -310,7 +310,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'inmobiliario',
     label: 'Inmobiliario',
     description: 'Arriendo y administración de inmuebles, propiedad horizontal.',
-    modules: [...PEOPLE, 'inmobiliario', 'contratos', ...COMMERCIAL, 'suscripciones', 'mantenimiento', 'firmas', 'tickets', 'notificaciones', ...SPINE],
+    modules: [...PEOPLE, 'inmobiliario', 'contratos', ...COMMERCIAL, 'leads', 'suscripciones', 'mantenimiento', 'firmas', 'tickets', 'notificaciones', ...SPINE],
     vertical: 'inmobiliario',
   },
   {
@@ -324,7 +324,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'financiero',
     label: 'Financiero y seguros',
     description: 'Cooperativas, corredoras, fintech. Cartera y cumplimiento.',
-    modules: [...PEOPLE, ...COMMERCIAL, 'contratos', 'cartera', 'creditos', 'riesgos', 'firmas', 'trazabilidad', 'desempeno', 'tickets', 'consultoria', ...SPINE],
+    modules: [...PEOPLE, ...COMMERCIAL, 'leads', 'contratos', 'cartera', 'creditos', 'riesgos', 'firmas', 'trazabilidad', 'desempeno', 'tickets', 'consultoria', ...SPINE],
   },
   {
     key: 'mineria',
@@ -350,7 +350,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'medios',
     label: 'Medios y publicidad',
     description: 'Agencias, productoras y medios. Trabajo por campaña.',
-    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'contratos', 'inventario', 'firmas', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'tiempos', ...COMMERCIAL, 'leads', 'contratos', 'inventario', 'firmas', 'tickets', ...SPINE],
   },
   {
     key: 'ong',

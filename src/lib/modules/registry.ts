@@ -328,6 +328,17 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Genera propuestas comerciales, seguimiento de clientes y pipeline.',
   },
   {
+    key: 'leads',
+    label: 'Leads',
+    description: 'Prospectos antes de ser clientes: origen, etapa y seguimiento.',
+    group: 'Comercial',
+    icon: 'Target',
+    route: '/dashboard/leads',
+    actions: ['read', 'write'],
+    title: 'Leads',
+    subtitle: 'Prospectos y su camino hasta convertirse en clientes.',
+  },
+  {
     key: 'facturacion',
     label: 'Facturación',
     description: 'Facturas, pagos recibidos y cartera vencida.',
@@ -860,6 +871,9 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'cartera', requires: 'facturacion', kind: 'soft' },
   { module: 'cartera', requires: 'clientes', kind: 'soft' },
   { module: 'creditos', requires: 'clientes', kind: 'soft' },
+  // Converting a lead creates a client, so the directory is the other half of
+  // the flow — but soft: a lead can be registered and worked without it.
+  { module: 'leads', requires: 'clientes', kind: 'soft' },
 
   { module: 'nomina', requires: 'empleados', kind: 'hard' },
   { module: 'asistencia', requires: 'empleados', kind: 'hard' },
