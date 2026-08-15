@@ -2853,6 +2853,7 @@ export interface Database {
           updated_at: string
           deleted_at: string | null
           site_id: string | null
+          tax_id: string
         }
         Insert: {
           id?: string
@@ -2874,6 +2875,7 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           site_id?: string | null
+          tax_id?: string
         }
         Update: {
           id?: string
@@ -2895,6 +2897,7 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           site_id?: string | null
+          tax_id?: string
         }
         Relationships: [
           {
@@ -6331,6 +6334,99 @@ export interface Database {
           },
         ]
       }
+      payroll_concept_lines: {
+        Row: {
+          id: string
+          org_id: string
+          payroll_period_id: string
+          employee_id: string
+          name: string
+          kind: "Devengo" | "Deducción"
+          amount_cents: number
+          position: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          payroll_period_id: string
+          employee_id: string
+          name: string
+          kind: "Devengo" | "Deducción"
+          amount_cents: number
+          position?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          payroll_period_id?: string
+          employee_id?: string
+          name?: string
+          kind?: "Devengo" | "Deducción"
+          amount_cents?: number
+          position?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_concept_lines_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_concept_lines_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_concept_lines_payroll_period_id_fkey"
+            columns: ["payroll_period_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_concepts: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          kind: "Devengo" | "Deducción"
+          position: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          kind: "Devengo" | "Deducción"
+          position?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          kind?: "Devengo" | "Deducción"
+          position?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_concepts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_lines: {
         Row: {
           id: string
@@ -6383,6 +6479,7 @@ export interface Database {
           status: "Borrador" | "En revisión" | "Aprobada" | "Pagada"
           created_at: string
           updated_at: string
+          locked_at: string | null
         }
         Insert: {
           id?: string
@@ -6392,6 +6489,7 @@ export interface Database {
           status?: "Borrador" | "En revisión" | "Aprobada" | "Pagada"
           created_at?: string
           updated_at?: string
+          locked_at?: string | null
         }
         Update: {
           id?: string
@@ -6401,10 +6499,82 @@ export interface Database {
           status?: "Borrador" | "En revisión" | "Aprobada" | "Pagada"
           created_at?: string
           updated_at?: string
+          locked_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "payroll_periods_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_rules: {
+        Row: {
+          id: string
+          org_id: string
+          year: number
+          min_wage_cents: number
+          transport_cents: number
+          cesantias_pct: number
+          prima_pct: number
+          interes_cesantias_pct: number
+          vacaciones_pct: number
+          salud_employee_pct: number
+          salud_employer_pct: number
+          pension_employee_pct: number
+          pension_employer_pct: number
+          arl_pct: number
+          caja_pct: number
+          vacation_days: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          year: number
+          min_wage_cents?: number
+          transport_cents?: number
+          cesantias_pct?: number
+          prima_pct?: number
+          interes_cesantias_pct?: number
+          vacaciones_pct?: number
+          salud_employee_pct?: number
+          salud_employer_pct?: number
+          pension_employee_pct?: number
+          pension_employer_pct?: number
+          arl_pct?: number
+          caja_pct?: number
+          vacation_days?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          year?: number
+          min_wage_cents?: number
+          transport_cents?: number
+          cesantias_pct?: number
+          prima_pct?: number
+          interes_cesantias_pct?: number
+          vacaciones_pct?: number
+          salud_employee_pct?: number
+          salud_employer_pct?: number
+          pension_employee_pct?: number
+          pension_employer_pct?: number
+          arl_pct?: number
+          caja_pct?: number
+          vacation_days?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_rules_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -10925,6 +11095,25 @@ export interface Database {
       portal_reply_ticket: {
         Args: { p_token: string; p_code: string; p_body: string }
         Returns: undefined
+      }
+      lock_payroll_period: {
+        Args: { p_period_id: string }
+        Returns: undefined
+      }
+      export_payroll_pila: {
+        Args: { p_period_id: string }
+        Returns: {
+          tipo_documento: string
+          documento: string
+          nombre: string
+          tipo_cotizante: string
+          salario_base_cents: number
+          salud_cents: number
+          pension_cents: number
+          arl_cents: number
+          caja_cents: number
+          total_aportes_cents: number
+        }[]
       }
       integraciones_set_secret: {
         Args: { p_name: string; p_value: string }
