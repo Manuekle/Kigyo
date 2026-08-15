@@ -529,6 +529,95 @@ export const SUBSECTOR_PRESETS: Record<string, SectorDelta> = {
   'fitness-spa':         { add: ['contratos', 'catalogos', 'cotizaciones', 'pos'], remove: [] },
   // Therapies with a record of who was seen and when.
   'fitness-centro':      { add: ['contratos', 'pacientes'], remove: [] },
+
+  /* ─── Energía ───────────────────────────────────────────────────────────── */
+  // The installer quotes what it builds; it sells no catalogue of products.
+  'energia-solar':         { add: [], remove: ['catalogos'] },
+  // A wind farm develops projects, and sells even less of a catalogue.
+  'energia-eolica':        { add: [], remove: ['catalogos'] },
+  // Audits live on evidence: what was measured, what was saved.
+  'energia-eficiencia':    { add: ['trazabilidad'], remove: [] },
+  // Operates somebody else's plant under availability contracts: services it,
+  // bills it, and builds nothing.
+  'energia-om':            { add: ['cartera'], remove: ['proyectos', 'obra'] },
+
+  /* ─── Ecommerce ─────────────────────────────────────────────────────────── */
+  // Sells on somebody else's platform, so it operates no storefront at all —
+  // and `ecommerce` cannot stay once `tienda` goes, because it needs it.
+  'ecommerce-marketplace':  { add: ['notificaciones'], remove: ['tienda', 'ecommerce'] },
+  // The sector itself: the store is the business, and the customer hears about
+  // the order.
+  'ecommerce-tienda':       { add: ['notificaciones'], remove: [] },
+  // Never touches the product: the supplier ships.
+  'ecommerce-dropshipping': { add: [], remove: ['inventario'] },
+  // Recurrence is the business model.
+  'ecommerce-suscripcion':  { add: ['suscripciones'], remove: [] },
+
+  /* ─── Tecnología ────────────────────────────────────────────────────────── */
+  // A product company bills subscriptions, not hours.
+  'tecnologia-saas':        { add: [], remove: ['tiempos'] },
+  // A software factory sells hours, not recurrence.
+  'tecnologia-medida':      { add: [], remove: ['suscripciones'] },
+  // Resells hardware and infrastructure alongside the build.
+  'tecnologia-integrador':  { add: ['inventario'], remove: ['suscripciones'] },
+
+  /* ─── Financiero ────────────────────────────────────────────────────────── */
+  // Savings walk in over a counter.
+  'financiero-cooperativa': { add: ['caja'], remove: [] },
+  // Places no credit: it intermediates somebody else's.
+  'financiero-seguros':     { add: [], remove: ['creditos'] },
+  // Product, not practice: it does not consult.
+  'financiero-fintech':     { add: [], remove: ['consultoria'] },
+  // Collects other people's debt; it never places its own.
+  'financiero-cobranza':    { add: [], remove: ['creditos'] },
+
+  /* ─── Minería ───────────────────────────────────────────────────────────── */
+  // Tonnage out of the pit is production, not a project.
+  'mineria-abierto':        { add: ['produccion'], remove: [] },
+  // Underground adds constant rescue and ventilation training.
+  'mineria-subterranea':    { add: ['produccion', 'capacitacion'], remove: [] },
+  // Crushes and sells aggregate; it executes no projects and no civil works.
+  'mineria-agregados':      { add: ['produccion'], remove: ['proyectos', 'obra'] },
+
+  /* ─── Telecomunicaciones ────────────────────────────────────────────────── */
+  // Subscribers pay their bill at a counter.
+  'telecomunicaciones-isp':         { add: ['caja'], remove: [] },
+  // Installs somebody else's network: no subscribers of its own.
+  'telecomunicaciones-instalador':  { add: [], remove: ['suscriptores'] },
+  // Corporate networks, not subscriber lines.
+  'telecomunicaciones-integrador':  { add: [], remove: ['suscriptores'] },
+
+  /* ─── Seguridad ─────────────────────────────────────────────────────────── */
+  // Lives on monthly billing per guard post contract.
+  'seguridad-vigilancia':  { add: ['cartera'], remove: [] },
+  // Sells alarm equipment from a catalogue; the control room is no guard post.
+  'seguridad-monitoreo':   { add: ['catalogos'], remove: ['puestos'] },
+  // Moves with the principal: a vehicle, and no fixed post or warehouse.
+  'seguridad-escoltas':    { add: ['flota'], remove: ['puestos', 'inventario'] },
+
+  /* ─── Medios ────────────────────────────────────────────────────────────── */
+  // A pure creative shop owns no equipment stock.
+  'medios-agencia':        { add: [], remove: ['inventario'] },
+  // Cameras and lights are assets that get serviced.
+  'medios-productora':     { add: ['mantenimiento'], remove: [] },
+  // Sells ad space and memberships, not campaigns run as projects.
+  'medios-medio':          { add: ['suscripciones'], remove: ['proyectos', 'tiempos'] },
+
+  /* ─── ONG ───────────────────────────────────────────────────────────────── */
+  // Donor programmes are recurring by design.
+  'ong-fundacion':         { add: ['suscripciones'], remove: [] },
+  // Institutional agreements with disbursements to collect.
+  'ong-cooperacion':       { add: ['cartera'], remove: [] },
+  // Volunteers donate time; nobody is on payroll for it.
+  'ong-voluntariado':      { add: [], remove: ['nomina'] },
+
+  /* ─── Gobierno ──────────────────────────────────────────────────────────── */
+  // The entity runs the process and evaluates the people who carry it out.
+  'gobierno-entidad':      { add: ['desempeno'], remove: [] },
+  // Executes somebody else's procurement; it does not run one.
+  'gobierno-contratista':  { add: [], remove: ['contratacion'] },
+  // A utility operates networks with subscribers, not procurement processes.
+  'gobierno-servicios':    { add: ['suscriptores', 'flota', 'mantenimiento'], remove: ['contratacion'] },
 }
 
 export const COMPANY_TYPE_KEYS: CompanyTypeKey[] = COMPANY_TYPES.map((t) => t.key)

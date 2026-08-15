@@ -1,10 +1,10 @@
-# Catálogo: los 23 sectores, sus 45 subsectores, y qué le falta a cada uno
+# Catálogo: los 23 sectores, sus 84 subsectores, y qué le falta a cada uno
 
 Inventario generado desde el código, no de memoria: `COMPANY_TYPES` y
 `SUBSECTOR_PRESETS` en `src/lib/modules.ts`, `REGISTRY` en
 `src/lib/modules/registry.ts`, y las tablas de `supabase/migrations/`.
 
-**Estado hoy:** 23 sectores · 51 subsectores · **48 módulos conmutables** ·
+**Estado hoy:** 23 sectores · 84 subsectores · **48 módulos conmutables** ·
 **10 verticales** (`pacientes`, `estudiantes`, `restaurante`, `agro`,
 `inmobiliario`, `hoteleria`, `ecommerce`*, `socios`, `obra`, `contratacion`).
 
@@ -20,36 +20,37 @@ de pedidos en línea que cualquier comercio puede encender.
 | # | Sector | Vertical | Subs. | Preset | Qué le falta |
 |---|--------|----------|-------|--------|--------------|
 | 1 | construccion | **obra** ✅ | 4 | 21 | bitácora y actas, `tiempos` |
-| 2 | energia | — | 0 | 22 | subsectores |
-| 3 | manufactura | — | 4 | 21 | BOM en `produccion` |
-| 4 | comercio | — | 5 | 18 | `marketing` |
-| 5 | ecommerce | ecommerce* | 0 | 17 | `marketing`, `integraciones`, subsectores |
+| 2 | energia | — | 4 | 22 | contratos de disponibilidad (O&M) |
+| 3 | manufactura | — | 4 | 21 | vencimientos en manufactura-alimentos |
+| 4 | comercio | — | 5 | 18 | listas de precio por cliente |
+| 5 | ecommerce | ecommerce* | 4 | 17 | transportadora en `integraciones` |
 | 6 | servicios | — | 5 | 18 | calendario tributario, expedientes |
-| 7 | tecnologia | — | 0 | 18 | subsectores |
-| 8 | salud | pacientes | 6 | 21 | profundidad por subsector, `portal` |
-| 9 | educacion | estudiantes | 4 | 19 | notas y boletines, `portal` |
+| 7 | tecnologia | — | 3 | 18 | — |
+| 8 | salud | pacientes | 6 | 21 | teleconsulta, consentimientos |
+| 9 | educacion | estudiantes | 4 | 19 | boletín, horarios, `portal` |
 | 10 | logistica | — | 3 | 19 | manifiestos, guías, `portal` (rastreo) |
-| 11 | alimentos | restaurante | 5 | 17 | escandallo, `marketing` |
-| 12 | agro | agro | 4 | 20 | sanidad, riego, certificaciones |
-| 13 | inmobiliario | inmobiliario | 3 | 18 | `portal`, liquidación al propietario |
-| 14 | hoteleria | hoteleria | 4 | 17 | tarifas, canales de reserva |
-| 15 | financiero | — | 0 | 20 | subsectores |
-| 16 | mineria | — | 0 | 20 | producción mineral, subsectores |
-| 17 | telecomunicaciones | **suscriptores** ✅ | 0 | 18 | subsectores |
-| 18 | seguridad | **puestos** ✅ | 0 | 20 | rondas, minuta, subsectores |
-| 19 | medios | — | 0 | 17 | aprobación de piezas, subsectores |
-| 20 | ong | — | 0 | 16 | subsectores |
-| 21 | gobierno | **contratacion** ✅ | 0 | 17 | PQRS, subsectores |
+| 11 | alimentos | restaurante | 5 | 17 | propinas |
+| 12 | agro | agro | 4 | 20 | certificaciones (GlobalGAP) |
+| 13 | inmobiliario | inmobiliario | 3 | 18 | liquidación al propietario |
+| 14 | hoteleria | hoteleria | 4 | 17 | canales de reserva |
+| 15 | financiero | — | 4 | 20 | — |
+| 16 | mineria | — | 3 | 20 | producción por frente, títulos con vencimiento |
+| 17 | telecomunicaciones | **suscriptores** ✅ | 3 | 18 | — |
+| 18 | seguridad | **puestos** ✅ | 3 | 20 | rondas, minuta, dotación |
+| 19 | medios | — | 3 | 17 | aprobación de piezas |
+| 20 | ong | — | 3 | 16 | — |
+| 21 | gobierno | **contratacion** ✅ | 3 | 17 | PQRS |
 | 22 | otro | — | 0 | 11 | nada — es el caso "sin opinión" |
-| 23 | fitness-bienestar | **socios** ✅ | 4 | 17 | `marketing` |
+| 23 | fitness-bienestar | **socios** ✅ | 4 | 17 | control de acceso |
 
-**Once sectores no tienen subsectores:** energia, ecommerce, tecnologia,
-financiero, mineria, telecomunicaciones, seguridad, medios, ong, gobierno y
-otro. Cinco son grandes (financiero, minería, telecomunicaciones, seguridad,
-medios) y `otro` no debería tenerlos nunca.
+**Solo `otro` queda sin subsectores**, y por diseño: es el caso «sin
+opinión». Los otros diez sectores huérfanos (energia, ecommerce, tecnologia,
+financiero, mineria, telecomunicaciones, seguridad, medios, ong, gobierno)
+recibieron sus 33 subsectores en las migraciones 71-72, cada uno con delta
+de preset y matriz de roles.
 
 Verificado contra la base: los 23 sectores tienen preset en
-`public.sector_modules`, y los 12 que tienen subsectores los tienen sembrados
+`public.sector_modules`, y los 22 que tienen subsectores los tienen sembrados
 con sus deltas. `fitness-bienestar` incluido — sus cuatro (gimnasio, estudio,
 spa, centro) entraron en la migración 33. Lo que le falta a fitness no es
 catálogo: es el módulo con el que se opera un gimnasio.
@@ -129,9 +130,16 @@ Formato: preset actual → subsectores con su delta → qué falta.
 **Falta:** bitácora de obra, actas; `tiempos` para cuadrillas.
 
 ### 2. energia — Energía y renovables
-**Vertical:** ninguno. **Preset (22).** **Sin subsectores.**
-**Faltan subsectores:** solar, eólica, eficiencia energética, O&M.
-**Falta:** para O&M el `mantenimiento` con contratos de disponibilidad.
+**Vertical:** ninguno. **Preset (22).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| solar | `−catalogos` | — |
+| eolica | `−catalogos` | — |
+| eficiencia | `+trazabilidad` | — |
+| om | `+cartera` `−proyectos,obra` | contratos de disponibilidad en `mantenimiento` |
+
+**Hecho:** subsectores y deltas (migración 71). `obra` ya estaba (mig. 57).
 
 ### 3. manufactura — Manufactura y producción
 **Vertical:** ninguno propio; usa `produccion`. **Preset (19).**
@@ -161,10 +169,18 @@ Formato: preset actual → subsectores con su delta → qué falta.
 43-44) y son el mostrador del sector.
 
 ### 5. ecommerce — Ecommerce y venta en línea
-**Vertical:** `ecommerce` (en grupo Comercial). **Preset (16).** **Sin subsectores.**
-**Faltan subsectores:** marketplace, tienda propia, dropshipping, suscripción.
-**Hecho:** `marketing` e `integraciones` (transversales); cupones existen dentro
-de ecommerce. Falta la transportadora en integraciones. `notificaciones` ya está (mig. 50).
+**Vertical:** `ecommerce` (en grupo Comercial). **Preset (16).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| marketplace | `+notificaciones` `−tienda,ecommerce` | — |
+| tienda | `+notificaciones` | — |
+| dropshipping | `−inventario` | — |
+| suscripcion | `+suscripciones` | — |
+
+**Hecho:** subsectores y deltas (migración 71); `marketing` e
+`integraciones` (transversales); cupones existen dentro de ecommerce. Falta
+la transportadora en integraciones. `notificaciones` ya está (mig. 50).
 
 ### 6. servicios — Servicios profesionales
 **Vertical:** ninguno. **Preset (15).**
@@ -181,10 +197,16 @@ de ecommerce. Falta la transportadora en integraciones. `notificaciones` ya est�
 (migración 49) ya están en el preset con permisos en los roles operativos.
 
 ### 7. tecnologia — Tecnología y software
-**Vertical:** ninguno. **Preset (15).** **Sin subsectores.**
-**Faltan subsectores:** producto SaaS, software a la medida, integrador.
-**Falta:** subsectores. `tiempos` (migración 47) y `suscripciones` (migración
-48) ya están.
+**Vertical:** ninguno. **Preset (15).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| saas | `−tiempos` | — |
+| medida | `−suscripciones` | — |
+| integrador | `+inventario` `−suscripciones` | — |
+
+**Hecho:** subsectores y deltas (migración 71). `tiempos` (mig. 47) y
+`suscripciones` (mig. 48) ya estaban.
 
 ### 8. salud — Salud
 **Vertical:** `pacientes`. **Preset (17).**
@@ -282,44 +304,91 @@ ya están.
 `room_cleaning_tasks` existe desde la migración 23 con pantalla en Hotelería.
 
 ### 15. financiero — Financiero y seguros
-**Vertical:** ninguno. **Preset (20).** **Sin subsectores.**
-**Faltan subsectores:** cooperativa, corredora de seguros, fintech, cobranza.
-`creditos` (mig. 52) y `cartera` (mig. 49) ya hablan de dinero prestado y
-cobrado, con permisos en asesor/riesgos/cobranza.
+**Vertical:** ninguno. **Preset (20).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| cooperativa | `+caja` | — |
+| seguros | `−creditos` | — |
+| fintech | `−consultoria` | — |
+| cobranza | `−creditos` | — |
+
+**Hecho:** subsectores y deltas (migración 71). `creditos` (mig. 52) y
+`cartera` (mig. 49) ya hablaban de dinero prestado y cobrado, con permisos
+en asesor/riesgos/cobranza.
 
 ### 16. mineria — Minería y extractivas
-**Vertical:** ninguno. **Preset (20).** **Sin subsectores.**
-**Faltan subsectores:** cielo abierto, subterránea, materiales de construcción.
-**Falta:** producción por frente dentro de `produccion`, permisos y títulos
+**Vertical:** ninguno. **Preset (20).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| abierto | `+produccion` | producción por frente |
+| subterranea | `+produccion,capacitacion` | producción por frente |
+| agregados | `+produccion` `−proyectos,obra` | — |
+
+**Hecho:** subsectores y deltas (migración 71). **Falta:** permisos y títulos
 (hoy caben en `documentos`, pero sin vencimientos ni alertas). `obra` ya está
 en el preset (mig. 57).
 
 ### 17. telecomunicaciones — Telecomunicaciones
-**Vertical:** `suscriptores` (migración 54). **Preset (18).** **Sin subsectores.**
-**Faltan subsectores:** ISP, instalador, integrador de redes. Un ISP con dos
-mil clientes ya no los lleva en `clientes`.
+**Vertical:** `suscriptores` (migración 54). **Preset (18).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| isp | `+caja` | — |
+| instalador | `−suscriptores` | — |
+| integrador | `−suscriptores` | — |
+
+**Hecho:** subsectores y deltas (migración 71). Un ISP con dos mil clientes
+ya no los lleva en `clientes`.
 
 ### 18. seguridad — Seguridad y vigilancia
-**Vertical:** `puestos` (migración 55). **Preset (20).** **Sin subsectores.**
-**Faltan subsectores:** vigilancia física, monitoreo, escoltas.
-**Falta:** rondas, minuta y dotación. `asistencia` cubre la ausencia del
-empleado; `puestos` ya cubre el puesto que no puede quedar vacío.
+**Vertical:** `puestos` (migración 55). **Preset (20).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| vigilancia | `+cartera` | rondas, minuta, dotación |
+| monitoreo | `+catalogos` `−puestos` | — |
+| escoltas | `+flota` `−puestos,inventario` | — |
+
+**Hecho:** subsectores y deltas (migración 71). `asistencia` cubre la ausencia
+del empleado; `puestos` ya cubre el puesto que no puede quedar vacío.
 
 ### 19. medios — Medios y publicidad
-**Vertical:** ninguno. **Preset (15).** **Sin subsectores.**
-**Faltan subsectores:** agencia creativa, productora, medio.
-**Falta:** aprobación de piezas. `tiempos` ya está (mig. 47).
+**Vertical:** ninguno. **Preset (15).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| agencia | `−inventario` | aprobación de piezas |
+| productora | `+mantenimiento` | — |
+| medio | `+suscripciones` `−proyectos,tiempos` | — |
+
+**Hecho:** subsectores y deltas (migración 71). `tiempos` ya está (mig. 47).
 
 ### 20. ong — ONG y fundaciones
-**Vertical:** ninguno. **Preset (14).** **Sin subsectores.**
-**Faltan subsectores:** fundación, cooperación internacional, voluntariado.
-`donantes` (mig. 53) ya deja registrar donaciones y rendir cuentas.
+**Vertical:** ninguno. **Preset (14).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| fundacion | `+suscripciones` | — |
+| cooperacion | `+cartera` | — |
+| voluntariado | `−nomina` | — |
+
+**Hecho:** subsectores y deltas (migración 71). `donantes` (mig. 53) ya deja
+registrar donaciones y rendir cuentas.
 
 ### 21. gobierno — Sector público
-**Vertical:** `contratacion` (migración 60). **Preset (17).** **Sin subsectores.**
-**Faltan subsectores:** entidad, contratista del Estado, empresa de servicios públicos.
-**Falta:** PQRS — `tickets` se le parece y no es lo mismo: una PQRS tiene
-término legal.
+**Vertical:** `contratacion` (migración 60). **Preset (17).**
+
+| Subsector | Delta actual | Qué falta |
+|---|---|---|
+| entidad | `+desempeno` | PQRS |
+| contratista | `−contratacion` | — |
+| servicios | `+suscriptores,flota,mantenimiento` `−contratacion` | — |
+
+**Hecho:** subsectores y deltas (migración 71): la entidad licita y evalúa;
+el contratista ejecuta y no licita. **Falta:** PQRS — `tickets` se le parece
+y no es lo mismo: una PQRS tiene término legal.
 
 ### 22. otro — Otro
 **Preset (10).** No le falta nada: es el caso «sin opinión» y está bien así.
@@ -403,6 +472,10 @@ Por hueco más grande y por reutilización, no por tamaño del sector.
    `notificaciones` (migraciones 50-51).
 8. ~~**Pase de roles sugeridos**~~ ✅ — **hecho** (migración 61): los módulos
    47-60 entran a las matrices de los sectores que los prenden.
-9. **Subsectores de los once sectores que no tienen.**
-10. **Transversales restantes:** `portal`, `marketing`, `integraciones`,
-    `sucursales`.
+9. ~~**Subsectores de los once sectores que no tienen.**~~ ✅ — **hecho**
+   (migraciones 71-72): 33 subsectores con delta de preset y matriz de roles
+   en energia, ecommerce, tecnologia, financiero, mineria,
+   telecomunicaciones, seguridad, medios, ong y gobierno. `otro` queda sin
+   hijos por diseño.
+10. **Transversales restantes:** ~~`portal`, `marketing`, `integraciones`~~ ✅
+    hechos (migraciones 62-64). Queda `sucursales` (pantalla para `sites`).

@@ -1,7 +1,7 @@
 # Contexto de sesión — para retomar
 
 Fecha: 2026-08-14 (jornada 3). Rama: `feat/design-system-refresh` (local, sin push).
-Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · db-verify 70 migraciones limpias.
+Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · db-verify 72 migraciones limpias.
 
 ---
 
@@ -10,7 +10,7 @@ Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · 
 ### Infraestructura
 - Multiempresa: cuenta (`accounts`) → empresa (`organizations`, `org_id` = empresa) → `sites`.
   RLS con `app.orgs_with` / `app.apply_standard_rls` / `app.apply_child_rls` (congelados).
-- Catálogo sectorial: **23 sectores, 51 subsectores, 62 presets**, presets en
+- Catálogo sectorial: **23 sectores, 84 subsectores, 95 presets**, presets en
   `public.sector_modules` (delta add/remove) espejo de `COMPANY_TYPES` +
   `SUBSECTOR_PRESETS` en `src/lib/modules.ts`. Pins en ambas direcciones.
 - Roles sugeridos por subsector: `public.sector_roles` (migración 46) + pase 61.
@@ -47,6 +47,8 @@ Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · 
 | 68 | tarifas hotelería: temporadas + tarifa por tipo, RPC `hotel_rate_for` sugiere en reserva | e55c6ad |
 | 69 | agro: sanidad (aplicaciones con carencia) y riego por lote | 2f967e1 |
 | 70 | BOM producción: receta por producto, costo derivado de catálogo, sugiere en orden | f74f91e |
+| 71 | subsectores huérfanos: 33 en 10 sectores (energia, ecommerce, tecnologia, financiero, mineria, telecomunicaciones, seguridad, medios, ong, gobierno) + deltas en `sector_modules`. Regla: ningún delta vacío (un subsector que propone lo de su padre es una pregunta sin respuesta) | pendiente |
+| 72 | roles sugeridos para los 33 subsectores (INSERTs, formato 46; el test lee 46+61+72) | pendiente |
 
 Transversales van en SPINE (los 23 presets); portal/marketing/integraciones
 en plan growth; integraciones SIN filas de sector_modules (config técnica).
@@ -109,14 +111,12 @@ en plan growth; integraciones SIN filas de sector_modules (config técnica).
 
 ## 2. Pendiente (orden sugerido)
 
-1. **Subsectores de los 11 sectores que no tienen** (energia, ecommerce,
-   tecnologia, financiero, mineria, telecomunicaciones, seguridad, medios, ong,
-   gobierno, logistica): el catálogo los soporta como datos; falta la decisión
-   de producto. Propuesta preparada — pedir al usuario.
+1. ~~**Subsectores de los 11 sectores que no tienen**~~ ✅ — hecho
+   (migraciones 71-72): 33 subsectores en 10 sectores + `otro` sin hijos por
+   diseño, cada uno con delta y matriz de roles. Aprobado por el usuario.
 2. **CRM/ERP/POS:** `docs/PLAN_CRM_ERP_POS.md` cuando el usuario lo pida.
-3. **Docs:** `docs/CATALOGO_SECTORES_Y_MODULOS.md` tabla maestra (2.1-2.3) con
-   la columna de brechas parcialmente actualizada — repasar deltas en próximo
-   pase.
+3. **Push:** rama local con 13 commits sin subir (11 previos + 2 nuevos).
+4. **Docs:** repaso fino de deltas en tabla maestra 2.1-2.3 queda abierto.
 
 ---
 
