@@ -117,8 +117,10 @@ en plan growth; integraciones SIN filas de sector_modules (config técnica).
    aplicado a remota y pusheado.
 2. ~~**Plan CRM/ERP/POS**~~ ✅ — ejecutado 9/9 (migraciones 73-85): aging,
    barcode, recibo, leads, pipeline kanban, CxP, contabilidad, tickets de
-   cliente y pasarela QR (Enterprise, webhook firmado + venta pendiente).
-   Falta probar el loop QR en vivo con llaves de Wompi sandbox.
+   cliente y pasarela QR. **Pagos 100% simulados por decisión de producto**:
+   la intención es sintética y la simulación firma como el proveedor
+   (`/api/wompi/simulate`, mismo camino que el webhook real). Pasar a real:
+   `WOMPI_REAL=true` + llaves en Integraciones + `WOMPI_EVENTS_SECRET`.
 3. **Docs:** repaso fino de deltas en tabla maestra 2.1-2.3 queda abierto.
 
 ---
