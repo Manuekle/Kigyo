@@ -416,6 +416,15 @@ export async function setOrdenStatus(
   }
 }
 
+export interface SupplierPaymentRow {
+  id: string
+  amountCents: number
+  method: string
+  reference: string
+  paidOn: string | null
+  scheduledOn: string | null
+}
+
 export interface SupplierInvoiceRow {
   id: string
   code: string | null
@@ -423,6 +432,13 @@ export interface SupplierInvoiceRow {
   issuedOn: string
   status: string
   totalCents: number
+  /** Suma de pagos hechos. */
+  paidCents: number
+  /** Lo que falta por pagar. */
+  remainingCents: number
+  /** Próximo pago programado, si hay. */
+  nextScheduledOn: string | null
+  payments: SupplierPaymentRow[]
 }
 
 interface SupplierInvoiceRecord {
@@ -432,6 +448,14 @@ interface SupplierInvoiceRecord {
   issued_on: string
   status: string
   supplier_invoice_items: Array<{ subtotal_cents: number }> | null
+  supplier_payments: Array<{
+    id: string
+    amount_cents: number
+    method: string
+    reference: string
+    paid_on: string | null
+    scheduled_on: string | null
+  }> | null
 }
 
 const SUPPLIER_INVOICE_STATUSES = ['Pendiente', 'En revisión', 'Pagada', 'Anulada'] as const
@@ -454,13 +478,34 @@ const invoiceStatusSchema = z.object({
 })
 
 function toSupplierInvoice(row: SupplierInvoiceRecord): SupplierInvoiceRow {
+  const total = (row.supplier_invoice_items ?? []).reduce((s, i) => s + Number(i.subtotal_cents), 0)
+  const payments: SupplierPaymentRow[] = (row.supplier_payments ?? []).map((p) => ({
+    id: p.id,
+    amountCents: Number(p.amount_cents),
+    method: p.method,
+    reference: p.reference,
+    paidOn: p.paid_on,
+    scheduledOn: p.scheduled_on,
+  }))
+  const paid = payments
+    .filter((p) => p.paidOn !== null)
+    .reduce((s, p) => s + p.amountCents, 0)
+  const nextScheduled = payments
+    .filter((p) => p.scheduledOn !== null)
+    .map((p) => p.scheduledOn as string)
+    .sort()[0] ?? null
+
   return {
     id: row.id,
     code: row.code,
     supplier: row.supplier,
     issuedOn: row.issued_on,
     status: row.status,
-    totalCents: (row.supplier_invoice_items ?? []).reduce((s, i) => s + Number(i.subtotal_cents), 0),
+    totalCents: total,
+    paidCents: paid,
+    remainingCents: total - paid,
+    nextScheduledOn: nextScheduled,
+    payments,
   }
 }
 
@@ -470,7 +515,7 @@ async function listSupplierInvoices(
 ): Promise<SupplierInvoiceRow[]> {
   const { data, error } = await supabase
     .from('supplier_invoices')
-    .select('id, code, supplier, issued_on, status, supplier_invoice_items ( subtotal_cents )')
+    .select('id, code, supplier, issued_on, status, supplier_invoice_items ( subtotal_cents ), supplier_payments ( id, amount_cents, method, reference, paid_on, scheduled_on )')
     .eq('org_id', orgId)
     .is('deleted_at', null)
     .order('issued_on', { ascending: false })
@@ -583,6 +628,87 @@ export async function deleteSupplierInvoice(id: string): Promise<CompraResult<Su
     if (error) {
       console.error('[compras] deleteSupplierInvoice', error)
       return fail('No se pudo eliminar la factura.')
+    }
+
+    revalidatePath('/dashboard/compras')
+    return { ok: true, data: await listSupplierInvoices(supabase, member.orgId) }
+  } catch {
+    return fail('No tienes permiso para gestionar compras.')
+  }
+}
+
+const supplierPaymentSchema = z.object({
+  invoiceId: z.uuid(),
+  amountCents: z.number().int().min(1, 'El monto debe ser positivo.'),
+  method: z.string().trim().max(60).default('Transferencia'),
+  reference: z.string().trim().max(200).default(''),
+  paidOn: z.string().date().nullable().default(null),
+  scheduledOn: z.string().date().nullable().default(null),
+})
+
+/**
+ * Registra un pago hecho o programado contra una factura de proveedor.
+ *
+ * El trabajo lo hace `register_supplier_payment` (migración 77): valida el
+ * monto contra el saldo, inserta el pago y marca la factura Pagada cuando
+ * queda cubierta — todo en una transacción. Esta función traduce los errores.
+ */
+export async function registerSupplierPayment(
+  input: z.input<typeof supplierPaymentSchema>,
+): Promise<CompraResult<SupplierInvoiceRow[]>> {
+  try {
+    const member = await requirePermission('compras:write')
+    const parsed = supplierPaymentSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+    if ((parsed.data.paidOn === null) === (parsed.data.scheduledOn === null)) {
+      return fail('El pago es hecho o programado: elige una fecha u otra.')
+    }
+
+    const supabase = await createClient()
+    const { error } = await supabase.rpc('register_supplier_payment', {
+      p_invoice_id: parsed.data.invoiceId,
+      p_amount_cents: parsed.data.amountCents,
+      p_method: parsed.data.method,
+      p_reference: parsed.data.reference,
+      p_paid_on: parsed.data.paidOn,
+      p_scheduled_on: parsed.data.scheduledOn,
+    })
+
+    if (error) {
+      console.error('[compras] registerSupplierPayment', error)
+      if (error.code === 'KG105') return fail('El pago supera el saldo de la factura.')
+      if (error.code === 'KG104') return fail('Esta factura ya está cerrada.')
+      if (error.code === 'KG103') return fail('La factura no existe o no puedes verla.')
+      if (error.code === 'KG102') return fail('El pago es hecho o programado, no ambos.')
+      if (error.code === 'KG101') return fail('El monto debe ser positivo.')
+      return fail('No se pudo registrar el pago.')
+    }
+
+    revalidatePath('/dashboard/compras')
+    return { ok: true, data: await listSupplierInvoices(supabase, member.orgId) }
+  } catch {
+    return fail('No tienes permiso para gestionar compras.')
+  }
+}
+
+/** Cancela un pago programado (nunca uno hecho: el dinero ya salió). */
+export async function cancelSupplierPayment(id: string): Promise<CompraResult<SupplierInvoiceRow[]>> {
+  try {
+    const member = await requirePermission('compras:write')
+    if (!z.uuid().safeParse(id).success) return fail('Pago desconocido.')
+
+    const supabase = await createClient()
+    // Solo los programados: un pago hecho no se deshace desde aquí.
+    const { error } = await supabase
+      .from('supplier_payments')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+      .not('scheduled_on', 'is', null)
+
+    if (error) {
+      console.error('[compras] cancelSupplierPayment', error)
+      return fail('No se pudo cancelar el pago programado.')
     }
 
     revalidatePath('/dashboard/compras')

@@ -9090,6 +9090,60 @@ export interface Database {
           },
         ]
       }
+      supplier_payments: {
+        Row: {
+          id: string
+          org_id: string
+          supplier_invoice_id: string
+          amount_cents: number
+          method: string
+          reference: string
+          paid_on: string | null
+          scheduled_on: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          supplier_invoice_id: string
+          amount_cents: number
+          method?: string
+          reference?: string
+          paid_on?: string | null
+          scheduled_on?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          supplier_invoice_id?: string
+          amount_cents?: number
+          method?: string
+          reference?: string
+          paid_on?: string | null
+          scheduled_on?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_payments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_payments_supplier_invoice_id_fkey"
+            columns: ["supplier_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       surveys: {
         Row: {
           id: string
@@ -10138,6 +10192,17 @@ export interface Database {
       }
       reset_pipeline_stages: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      register_supplier_payment: {
+        Args: {
+          p_invoice_id: string
+          p_amount_cents: number
+          p_method?: string
+          p_reference?: string
+          p_paid_on?: string | null
+          p_scheduled_on?: string | null
+        }
         Returns: boolean
       }
     }

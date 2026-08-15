@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import {
   ShoppingCart, Clock, Check, FileCheck2, Plus, X, PenLine, Trash2, ChevronRight, FileSpreadsheet,
+  Wallet, Calendar,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import Badge from '@/components/ui/Badge'
@@ -24,9 +25,9 @@ import type { ComprasData, CompraRow } from '@/server/queries/compras'
 import { fetchMoreCompras } from '@/server/actions/compras'
 import type { PurchaseRequestEvent, SupplierInvoiceRow } from '@/server/mutations/compras'
 import {
-  createCompra, createSupplierInvoice, deleteCompra, deleteSupplierInvoice,
-  fetchRequestEvents, fetchSupplierInvoices, generateOrder, setCompraStatus,
-  setSupplierInvoiceStatus, updateCompra,
+  cancelSupplierPayment, createCompra, createSupplierInvoice, deleteCompra,
+  deleteSupplierInvoice, fetchRequestEvents, fetchSupplierInvoices, generateOrder,
+  registerSupplierPayment, setCompraStatus, setSupplierInvoiceStatus, updateCompra,
 } from '@/server/mutations/compras'
 
 const DAY = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -55,6 +56,12 @@ const EMPTY_INVOICE_FORM = {
   supplier: '', issuedOn: '', items: [{ ...EMPTY_INVOICE_ITEM }] as InvoiceDraftItem[],
 }
 type InvoiceFormState = typeof EMPTY_INVOICE_FORM
+
+const EMPTY_PAYMENT_FORM = {
+  invoiceId: '', mode: 'paid' as 'paid' | 'scheduled', amount: '', method: 'Transferencia',
+  reference: '', paidOn: '', scheduledOn: '',
+}
+type PaymentFormState = typeof EMPTY_PAYMENT_FORM
 
 const invoiceLineTotalCents = (i: InvoiceDraftItem) =>
   Number(i.quantity) * (Number(i.unitPriceCents) || 0)
@@ -100,6 +107,8 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
   const [invoiceLoading, setInvoiceLoading] = useState(false)
   const [invoiceOpen, setInvoiceOpen] = useState(false)
   const [invoiceForm, setInvoiceForm] = useState<InvoiceFormState>(EMPTY_INVOICE_FORM)
+  const [paymentOpen, setPaymentOpen] = useState(false)
+  const [paymentForm, setPaymentForm] = useState<PaymentFormState>(EMPTY_PAYMENT_FORM)
 
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
@@ -326,6 +335,45 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
     })
   }
 
+  function openPayment(inv: SupplierInvoiceRow, mode: 'paid' | 'scheduled') {
+    setPaymentForm({
+      ...EMPTY_PAYMENT_FORM,
+      invoiceId: inv.id,
+      mode,
+      amount: mode === 'paid' ? String(Math.max(inv.remainingCents, 0) / 100) : '',
+      paidOn: new Date().toISOString().slice(0, 10),
+    })
+    setPaymentOpen(true)
+  }
+
+  function submitPayment() {
+    const amount = Math.round((Number(paymentForm.amount.replace(/[^\d]/g, '')) || 0) * 100)
+    if (amount <= 0) { addToast('El monto debe ser mayor que cero', 'err'); return }
+    startTransition(async () => {
+      const result = await registerSupplierPayment({
+        invoiceId: paymentForm.invoiceId,
+        amountCents: amount,
+        method: paymentForm.method,
+        reference: paymentForm.reference.trim(),
+        paidOn: paymentForm.mode === 'paid' ? paymentForm.paidOn : null,
+        scheduledOn: paymentForm.mode === 'scheduled' ? paymentForm.scheduledOn : null,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setInvoices(result.data)
+      setPaymentOpen(false)
+      addToast(paymentForm.mode === 'paid' ? 'Pago registrado' : 'Pago programado', 'ok')
+    })
+  }
+
+  function cancelPayment(inv: SupplierInvoiceRow, paymentId: string) {
+    startTransition(async () => {
+      const result = await cancelSupplierPayment(paymentId)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setInvoices(result.data)
+      addToast(`Pago programado de ${inv.code ?? 'la factura'} cancelado`, 'info')
+    })
+  }
+
   function pickProduct(index: number, productId: string) {
     const product = state.productos.find((p) => p.id === productId)
     setForm((f) => ({
@@ -392,14 +440,27 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
               </div>
             ) : (
               <table className="tbl">
-                <thead><tr><th scope="col">Código</th><th scope="col">Proveedor</th><th scope="col">Emitida</th><th scope="col">Estado</th><th scope="col">Total</th><th scope="col"></th></tr></thead>
+                <thead><tr><th scope="col">Código</th><th scope="col">Proveedor</th><th scope="col">Emitida</th><th scope="col">Total</th><th scope="col">Pagado</th><th scope="col">Saldo</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
                 <tbody>
                   {invoices.map((inv) => (
                     <tr className="trow" key={inv.id}>
-                      <td><div className="cename">{inv.code ?? '—'}</div></td>
+                      <td>
+                        <div className="cename">{inv.code ?? '—'}</div>
+                        {inv.nextScheduledOn && (
+                          <div className="elsub" style={{ color: 'var(--vio)' }}>
+                            <Calendar size={11} /> programado {fmt(inv.nextScheduledOn)}
+                          </div>
+                        )}
+                      </td>
                       <td className="muted">{inv.supplier}</td>
                       <td className="muted">{fmt(inv.issuedOn)}</td>
-                      <td className="muted">{cop(inv.totalCents / 100)}</td>
+                      <td className="cename">{cop(inv.totalCents / 100)}</td>
+                      <td className="muted">{inv.paidCents > 0 ? cop(inv.paidCents / 100) : '—'}</td>
+                      <td className="muted">
+                        {inv.status === 'Pagada' || inv.status === 'Anulada'
+                          ? '—'
+                          : <span style={{ color: inv.remainingCents > 0 ? 'var(--ink)' : 'var(--grn)' }}>{cop(inv.remainingCents / 100)}</span>}
+                      </td>
                       <td>
                         {state.canWrite ? (
                           <Select
@@ -413,9 +474,30 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         {state.canWrite && (
-                          <button className="ibtn" style={{ color: 'var(--redd)' }} disabled={pending} onClick={() => removeInvoice(inv)} aria-label="Eliminar factura">
-                            <Trash2 size={16} />
-                          </button>
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center' }}>
+                            {inv.status !== 'Pagada' && inv.status !== 'Anulada' && (
+                              <>
+                                <button className="ibtn" title="Registrar pago" aria-label={`Registrar pago de ${inv.code ?? ''}`}
+                                  disabled={pending} onClick={() => openPayment(inv, 'paid')}>
+                                  <Wallet size={15} />
+                                </button>
+                                <button className="ibtn" title="Programar pago" aria-label={`Programar pago de ${inv.code ?? ''}`}
+                                  disabled={pending} onClick={() => openPayment(inv, 'scheduled')}>
+                                  <Calendar size={15} />
+                                </button>
+                              </>
+                            )}
+                            {inv.payments.filter((p) => p.scheduledOn !== null).map((p) => (
+                              <button key={p.id} className="ibtn" title={`Cancelar pago programado del ${fmt(p.scheduledOn)}`}
+                                aria-label={`Cancelar pago programado de ${p.scheduledOn}`}
+                                disabled={pending} onClick={() => cancelPayment(inv, p.id)}>
+                                <X size={14} />
+                              </button>
+                            ))}
+                            <button className="ibtn" style={{ color: 'var(--redd)' }} disabled={pending} onClick={() => removeInvoice(inv)} aria-label="Eliminar factura">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -768,6 +850,45 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
           <div className="eltxt">Total</div>
           <div className="eltxt" style={{ fontSize: 16 }}>{cop(invoiceDraftTotal / 100)}</div>
         </div>
+      </FormDrawer>
+
+      <FormDrawer
+        open={paymentOpen}
+        onClose={() => setPaymentOpen(false)}
+        title={paymentForm.mode === 'paid' ? 'Registrar pago a proveedor' : 'Programar pago a proveedor'}
+        footer={
+          <button className="btn dark" disabled={pending} onClick={submitPayment}>
+            <Check size={15} />{paymentForm.mode === 'paid' ? 'Registrar pago' : 'Programar pago'}
+          </button>
+        }
+      >
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="pay-amount">Monto (COP)</label>
+            <input id="pay-amount" className="field" inputMode="numeric" value={paymentForm.amount}
+              onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="pay-date">
+              {paymentForm.mode === 'paid' ? 'Fecha de pago' : 'Fecha programada'}
+            </label>
+            <input id="pay-date" className="field" type="date"
+              value={paymentForm.mode === 'paid' ? paymentForm.paidOn : paymentForm.scheduledOn}
+              onChange={(e) => setPaymentForm((p) => paymentForm.mode === 'paid'
+                ? { ...p, paidOn: e.target.value }
+                : { ...p, scheduledOn: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="flabel">Medio de pago</div>
+        <Select value={paymentForm.method}
+          onChange={(v) => setPaymentForm((p) => ({ ...p, method: v }))}
+          options={['Transferencia', 'Efectivo', 'Cheque', 'Tarjeta', 'Otro']} />
+
+        <label className="flabel" htmlFor="pay-ref">Referencia</label>
+        <input id="pay-ref" className="field" value={paymentForm.reference}
+          onChange={(e) => setPaymentForm((p) => ({ ...p, reference: e.target.value }))}
+          placeholder="Número de transferencia o comprobante" />
       </FormDrawer>
     </>
   )
