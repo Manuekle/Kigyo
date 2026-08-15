@@ -3477,6 +3477,82 @@ export interface Database {
           },
         ]
       }
+      hotel_season_rates: {
+        Row: {
+          id: string
+          season_id: string
+          kind: "Sencilla" | "Doble" | "Triple" | "Suite" | "Familiar"
+          rate_cents: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          season_id: string
+          kind: "Sencilla" | "Doble" | "Triple" | "Suite" | "Familiar"
+          rate_cents?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          season_id?: string
+          kind?: "Sencilla" | "Doble" | "Triple" | "Suite" | "Familiar"
+          rate_cents?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hotel_season_rates_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "hotel_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hotel_seasons: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          starts_on: string
+          ends_on: string
+          notes: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          starts_on: string
+          ends_on: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          starts_on?: string
+          ends_on?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hotel_seasons_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hseq_checklist_items: {
         Row: {
           id: string
@@ -9688,6 +9764,10 @@ export interface Database {
       integraciones_has_secret: {
         Args: { p_org_id: string; p_kind: string; p_field: string }
         Returns: boolean
+      }
+      hotel_rate_for: {
+        Args: { p_room_id: string; p_date: string }
+        Returns: number | null
       }
     }
     Enums: Record<never, never>

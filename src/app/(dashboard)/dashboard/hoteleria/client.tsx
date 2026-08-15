@@ -12,9 +12,10 @@ import { useApp } from '@/lib/context/AppContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { RESERVATION_STATUSES, ROOM_KINDS, ROOM_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { HoteleriaData, LimpiezaRow, RoomRow } from '@/server/queries/hoteleria'
+import type { HoteleriaData, LimpiezaRow, RoomRow, SeasonRow } from '@/server/queries/hoteleria'
 import {
-  createHabitacion, createReserva, createTareaLimpieza, deleteHabitacion, deleteTarea,
+  createHabitacion, createReserva, createSeason, createTareaLimpieza, deleteHabitacion,
+  deleteSeason, deleteTarea, getRateFor, saveSeasonRate,
   setHabitacionStatus, setReservaStatus, setTareaDone, setTareaFecha, updateHabitacion,
 } from '@/server/mutations/hoteleria'
 import { fetchMoreHabitaciones } from '@/server/actions/hoteleria'
@@ -52,6 +53,7 @@ const TASK_KINDS = ['Limpieza', 'Cambio de ropa', 'Revisión', 'Aseo profundo'] 
 const EMPTY_TAREA = {
   roomId: '', assignedId: '', kind: 'Limpieza', scheduledOn: '', notes: '',
 }
+const EMPTY_SEASON = { name: '', startsOn: '', endsOn: '', notes: '' }
 
 export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
   const { runExport, exporting } = useExport()
@@ -62,6 +64,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
   const [total, setTotal] = useState(data.habitacionesTotal)
   const [reservas, setReservas] = useState(data.reservas)
   const [limpieza, setLimpieza] = useState(data.limpieza ?? [])
+  const [seasons, setSeasons] = useState(data.seasons ?? [])
   const [occupancy, setOccupancy] = useState(data.occupancyPct)
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
@@ -75,12 +78,17 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
   const [editingRoom, setEditingRoom] = useState<RoomRow | null>(null)
   const [tareaOpen, setTareaOpen] = useState(false)
   const [tareaForm, setTareaForm] = useState(EMPTY_TAREA)
+  const [seasonOpen, setSeasonOpen] = useState(false)
+  const [seasonForm, setSeasonForm] = useState(EMPTY_SEASON)
+  const [ratesFor, setRatesFor] = useState<SeasonRow | null>(null)
+  const [ratesForm, setRatesForm] = useState<Record<string, string>>({})
 
   function apply(next: HoteleriaData) {
     setHabitaciones(next.habitaciones)
     setTotal(next.habitacionesTotal)
     setReservas(next.reservas)
     setLimpieza(next.limpieza)
+    setSeasons(next.seasons)
     setOccupancy(next.occupancyPct)
   }
 
@@ -234,8 +242,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
 
   function submitTarea() {
     startTransition(async () => {
-      const result = await createTareaLimpieza({
-        roomId: tareaForm.roomId,
+      const result = await createTareaLimpieza({        roomId: tareaForm.roomId,
         assignedId: tareaForm.assignedId || null,
         kind: tareaForm.kind as never,
         scheduledOn: tareaForm.scheduledOn || TODAY(),
@@ -246,6 +253,76 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
       setTareaForm(EMPTY_TAREA)
       setTareaOpen(false)
       addToast('Tarea creada', 'ok')
+    })
+  }
+
+  function submitSeason() {
+    startTransition(async () => {
+      const result = await createSeason({
+        name: seasonForm.name,
+        startsOn: seasonForm.startsOn,
+        endsOn: seasonForm.endsOn,
+        notes: seasonForm.notes,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      setSeasonForm(EMPTY_SEASON)
+      setSeasonOpen(false)
+      addToast('Temporada creada', 'ok')
+    })
+  }
+
+  function removeSeason(id: string) {
+    if (!window.confirm('¿Eliminar esta temporada y sus tarifas?')) return
+    startTransition(async () => {
+      const result = await deleteSeason(id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Temporada eliminada', 'ok')
+    })
+  }
+
+  function openRates(s: SeasonRow) {
+    const base = new Map(habitaciones.map((r) => [r.kind, r.rateCents]))
+    const form: Record<string, string> = {}
+    for (const kind of ROOM_KINDS) {
+      const existing = s.rates.find((r) => r.kind === kind)
+      const cents = existing?.rateCents ?? base.get(kind) ?? 0
+      form[kind] = String(Math.round(cents / 100))
+    }
+    setRatesForm(form)
+    setRatesFor(s)
+  }
+
+  function submitRate(kind: string) {
+    if (!ratesFor) return
+    startTransition(async () => {
+      const result = await saveSeasonRate({
+        seasonId: ratesFor.id,
+        kind: kind as 'Sencilla' | 'Doble' | 'Triple' | 'Suite' | 'Familiar',
+        rateCents: toCents(ratesForm[kind] ?? ''),
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Tarifa guardada', 'ok')
+    })
+  }
+
+  /**
+   * La tarifa de la noche viene de la temporada vigente. Se resuelve en el
+   * servidor — el mismo RPC que usa la pantalla de reservas — y se ofrece
+   * como sugerencia editable.
+   */
+  function resolveRate(roomId: string, checkinOn: string) {
+    if (!roomId || !checkinOn) return
+    startTransition(async () => {
+      const result = await getRateFor(roomId, checkinOn)
+      if (!result.ok) return
+      if (result.rateCents === null || result.rateCents <= 0) return
+      setReservationForm((f) => ({
+        ...f,
+        nightlyRate: String(Math.round(result.rateCents! / 100)),
+      }))
     })
   }
 
@@ -303,6 +380,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
             items={[
               { key: 'reservas', label: 'Reservas' },
               { key: 'habitaciones', label: 'Habitaciones' },
+              { key: 'temporadas', label: 'Temporadas' },
               { key: 'limpieza', label: 'Limpieza' },
             ]}
             value={tab}
@@ -318,6 +396,13 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                   setRoomOpen(true)
                 }}>
                   <Plus size={15} />Habitación
+                </button>
+              ) : tab === 'temporadas' ? (
+                <button className="btn dark" disabled={pending} onClick={() => {
+                  setSeasonForm(EMPTY_SEASON)
+                  setSeasonOpen(true)
+                }}>
+                  <Plus size={15} />Temporada
                 </button>
               ) : tab === 'limpieza' ? (
                 <button className="btn dark" disabled={pending || habitaciones.length === 0}
@@ -509,6 +594,63 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
           </>
         )}
 
+        {tab === 'temporadas' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Temporada</th>
+                  <th scope="col">Desde</th>
+                  <th scope="col">Hasta</th>
+                  <th scope="col">Tarifas</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col" aria-label="Acciones" />
+                </tr>
+              </thead>
+              <tbody>
+                {seasons.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Sin temporadas. Las reservas usan la tarifa base de cada habitación.
+                      </div>
+                    </td>
+                  </tr>
+                ) : seasons.map((s) => (
+                  <tr key={s.id}>
+                    <td><div className="cename">{s.name}</div></td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{formatDate(s.startsOn)}</td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{formatDate(s.endsOn)}</td>
+                    <td>
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {s.rates.length === 0
+                          ? 'Usa la base'
+                          : s.rates.map((r) => `${r.kind}: ${pesos(r.rateCents)}`).join(' · ')}
+                      </div>
+                    </td>
+                    <td>
+                      <Badge st={s.active ? 'Vigente' : 'Programada'} tone={s.active ? 'grn' : 'neu'} />
+                    </td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Editar tarifas"
+                        disabled={pending} onClick={() => openRates(s)}
+                        aria-label={`Editar tarifas de ${s.name}`}>
+                        <PenLine size={13} />
+                      </button>
+                      <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }}
+                        data-tip="Eliminar" disabled={pending}
+                        onClick={() => removeSeason(s.id)}
+                        aria-label={`Eliminar temporada ${s.name}`}>
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         {tab === 'limpieza' && (
           <>
             <div className="tblwrap">
@@ -650,6 +792,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                 ? String(Math.round(room.rateCents / 100))
                 : reservationForm.nightlyRate,
             })
+            resolveRate(v, reservationForm.checkinOn || TODAY())
           }}
           placeholder="Elige la habitación"
           options={habitaciones.map((r) => ({
@@ -682,7 +825,10 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
           <div>
             <label className="flabel" htmlFor="res-in">Entrada</label>
             <input id="res-in" className="field" type="date" value={reservationForm.checkinOn}
-              onChange={(e) => setReservationForm({ ...reservationForm, checkinOn: e.target.value })} />
+              onChange={(e) => {
+                setReservationForm({ ...reservationForm, checkinOn: e.target.value })
+                resolveRate(reservationForm.roomId, e.target.value)
+              }} />
           </div>
           <div>
             <label className="flabel" htmlFor="res-out">Salida</label>
@@ -766,6 +912,77 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
         <label className="flabel" htmlFor="tarea-notes">Notas</label>
         <textarea id="tarea-notes" className="field" rows={3} value={tareaForm.notes}
           onChange={(e) => setTareaForm({ ...tareaForm, notes: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={seasonOpen}
+        onClose={() => setSeasonOpen(false)}
+        title="Nueva temporada"
+        footer={
+          <button className="btn dark" disabled={pending || !seasonForm.name.trim() || !seasonForm.startsOn || !seasonForm.endsOn} onClick={submitSeason}>
+            <Check size={15} />Crear temporada
+          </button>
+        }
+      >
+        <label className="flabel" htmlFor="season-name">Nombre</label>
+        <input id="season-name" className="field" value={seasonForm.name}
+          placeholder="Ej: Semana Santa, Puente festivo, Temporada baja"
+          onChange={(e) => setSeasonForm({ ...seasonForm, name: e.target.value })} />
+        <div className="fg2">
+          <div>
+            <label className="flabel" htmlFor="season-from">Desde</label>
+            <input id="season-from" className="field" type="date" value={seasonForm.startsOn}
+              onChange={(e) => setSeasonForm({ ...seasonForm, startsOn: e.target.value })} />
+          </div>
+          <div>
+            <label className="flabel" htmlFor="season-to">Hasta</label>
+            <input id="season-to" className="field" type="date" value={seasonForm.endsOn}
+              onChange={(e) => setSeasonForm({ ...seasonForm, endsOn: e.target.value })} />
+          </div>
+        </div>
+        <label className="flabel" htmlFor="season-notes">Notas</label>
+        <textarea id="season-notes" className="field" rows={2} value={seasonForm.notes}
+          onChange={(e) => setSeasonForm({ ...seasonForm, notes: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={ratesFor !== null}
+        onClose={() => setRatesFor(null)}
+        title={ratesFor ? `Tarifas de ${ratesFor.name}` : 'Tarifas'}
+        footer={
+          <button className="btn dark" disabled={pending} onClick={() => setRatesFor(null)}>
+            <Check size={15} />Listo
+          </button>
+        }
+      >
+        {ratesFor && (
+          <>
+            <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
+              Cada tipo cae a la tarifa base de la habitación cuando no tiene valor propio.
+            </div>
+            {ROOM_KINDS.map((kind) => (
+              <div key={kind} className="fg2" style={{ alignItems: 'flex-end' }}>
+                <div>
+                  <label className="flabel" htmlFor={`rate-${kind}`}>{kind} (COP/noche)</label>
+                  <input
+                    id={`rate-${kind}`}
+                    className="field"
+                    inputMode="numeric"
+                    value={ratesForm[kind] ?? ''}
+                    onChange={(e) => setRatesForm({ ...ratesForm, [kind]: e.target.value })}
+                  />
+                </div>
+                <button
+                  className="btn"
+                  disabled={pending || !ratesForm[kind]}
+                  onClick={() => submitRate(kind)}
+                >
+                  Guardar
+                </button>
+              </div>
+            ))}
+          </>
+        )}
       </FormDrawer>
     </>
   )

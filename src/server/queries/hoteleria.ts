@@ -62,11 +62,24 @@ export interface LimpiezaRow {
   notes: string
 }
 
+export interface SeasonRow {
+  id: string
+  name: string
+  startsOn: string
+  endsOn: string
+  notes: string
+  /** Tarifas por tipo de habitación. Las que faltan caen a la base. */
+  rates: Array<{ kind: string; rateCents: number }>
+  /** Temporada vigente hoy o por venir. */
+  active: boolean
+}
+
 export interface HoteleriaData {
   habitaciones: RoomRow[]
   habitacionesTotal: number
   reservas: ReservationRow[]
   limpieza: LimpiezaRow[]
+  seasons: SeasonRow[]
   /** Rooms occupied tonight over rooms that can be sold, as a percentage. */
   occupancyPct: number | null
   canWrite: boolean
@@ -206,7 +219,10 @@ export async function getHoteleria(): Promise<HoteleriaData> {
 
   if (roomsResult.error) {
     console.error('[hoteleria] getHoteleria', roomsResult.error)
-    return { habitaciones: [], habitacionesTotal: 0, reservas: [], limpieza: [], occupancyPct: null, canWrite: false }
+    return {
+      habitaciones: [], habitacionesTotal: 0, reservas: [], limpieza: [],
+      seasons: [], occupancyPct: null, canWrite: false,
+    }
   }
   if (reservationsResult.error) console.error('[hoteleria] reservations', reservationsResult.error)
 
@@ -223,6 +239,42 @@ export async function getHoteleria(): Promise<HoteleriaData> {
     .order('done', { ascending: true })
 
   if (tasksError) console.error('[hoteleria] limpieza tasks', tasksError)
+
+  // Temporadas con sus tarifas, en dos consultas.
+  const [seasonsResult, ratesResult] = await Promise.all([
+    supabase
+      .from('hotel_seasons')
+      .select('id, name, starts_on, ends_on, notes')
+      .eq('org_id', member.orgId)
+      .order('starts_on', { ascending: false })
+      .limit(100),
+    supabase
+      .from('hotel_season_rates')
+      .select('season_id, kind, rate_cents')
+      .order('kind', { ascending: true })
+      .limit(500),
+  ])
+
+  const ratesBySeason = new Map<string, Array<{ kind: string; rateCents: number }>>()
+  for (const rate of (ratesResult.data ?? []) as unknown as Array<{
+    season_id: string; kind: string; rate_cents: number
+  }>) {
+    const list = ratesBySeason.get(rate.season_id)
+    if (list) list.push({ kind: rate.kind, rateCents: rate.rate_cents })
+    else ratesBySeason.set(rate.season_id, [{ kind: rate.kind, rateCents: rate.rate_cents }])
+  }
+
+  const seasons: SeasonRow[] = ((seasonsResult.data ?? []) as unknown as Array<{
+    id: string; name: string; starts_on: string; ends_on: string; notes: string
+  }>).map((row) => ({
+    id: row.id,
+    name: row.name,
+    startsOn: row.starts_on,
+    endsOn: row.ends_on,
+    notes: row.notes,
+    rates: ratesBySeason.get(row.id) ?? [],
+    active: row.starts_on <= today && row.ends_on >= today,
+  }))
 
   const tasks = (taskRows ?? []) as unknown as CleaningTaskRecord[]
   const assignedIds = [...new Set(
@@ -299,6 +351,7 @@ export async function getHoteleria(): Promise<HoteleriaData> {
     occupancyPct: sellable.length > 0
       ? Math.round((occupiedRooms.size / sellable.length) * 100)
       : null,
+    seasons,
     canWrite: can(member.permissions, 'hoteleria:write'),
   }
 }

@@ -554,3 +554,141 @@ export async function deleteTarea(id: string): Promise<HoteleriaResult<Hoteleria
     return fail('No tienes permiso para gestionar hotelería.')
   }
 }
+
+/* ─── Temporadas ─────────────────────────────────────────────────────────── */
+
+const addSeasonSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  notes: z.string().trim().max(300).default(''),
+})
+
+export async function createSeason(
+  input: z.input<typeof addSeasonSchema>,
+): Promise<HoteleriaResult<HoteleriaData>> {
+  try {
+    const member = await requirePermission('hoteleria:write')
+    const parsed = addSeasonSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+    if (parsed.data.endsOn < parsed.data.startsOn) return fail('El fin no puede ser antes del inicio.')
+
+    const supabase = await createClient()
+    const { error } = await supabase.from('hotel_seasons').insert({
+      org_id: member.orgId,
+      name: parsed.data.name,
+      starts_on: parsed.data.startsOn,
+      ends_on: parsed.data.endsOn,
+      notes: parsed.data.notes,
+    })
+
+    if (error) {
+      console.error('[hoteleria] createSeason', error)
+      return fail('No se pudo crear la temporada.')
+    }
+
+    revalidatePath('/dashboard/hoteleria')
+    return { ok: true, data: await getHoteleria() }
+  } catch {
+    return fail('No tienes permiso para gestionar hotelería.')
+  }
+}
+
+export async function deleteSeason(id: string): Promise<HoteleriaResult<HoteleriaData>> {
+  try {
+    const member = await requirePermission('hoteleria:write')
+    if (!z.uuid().safeParse(id).success) return fail('Temporada desconocida.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('hotel_seasons')
+      .delete()
+      .eq('id', id)
+      .eq('org_id', member.orgId)
+
+    if (error) {
+      console.error('[hoteleria] deleteSeason', error)
+      return fail('No se pudo eliminar la temporada.')
+    }
+
+    revalidatePath('/dashboard/hoteleria')
+    return { ok: true, data: await getHoteleria() }
+  } catch {
+    return fail('No tienes permiso para gestionar hotelería.')
+  }
+}
+
+const saveRateSchema = z.object({
+  seasonId: z.string().uuid(),
+  kind: z.enum(['Sencilla', 'Doble', 'Triple', 'Suite', 'Familiar']),
+  rateCents: z.coerce.number().int().min(0).max(999_999_999_999),
+})
+
+export async function saveSeasonRate(
+  input: z.input<typeof saveRateSchema>,
+): Promise<HoteleriaResult<HoteleriaData>> {
+  try {
+    const member = await requirePermission('hoteleria:write')
+    const parsed = saveRateSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { data: season } = await supabase
+      .from('hotel_seasons')
+      .select('id')
+      .eq('id', parsed.data.seasonId)
+      .eq('org_id', member.orgId)
+      .maybeSingle()
+
+    if (!season) return fail('Esa temporada no pertenece a tu organización.')
+
+    const { error } = await supabase.from('hotel_season_rates').upsert(
+      {
+        season_id: parsed.data.seasonId,
+        kind: parsed.data.kind,
+        rate_cents: parsed.data.rateCents,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'season_id,kind' },
+    )
+
+    if (error) {
+      console.error('[hoteleria] saveSeasonRate', error)
+      return fail('No se pudo guardar la tarifa.')
+    }
+
+    revalidatePath('/dashboard/hoteleria')
+    return { ok: true, data: await getHoteleria() }
+  } catch {
+    return fail('No tienes permiso para gestionar hotelería.')
+  }
+}
+
+/**
+ * La tarifa de una habitación para una noche: la temporada vigente manda
+ * sobre la base. La resolución es la del RPC `hotel_rate_for` — una sola
+ * aritmética para el formulario y para la reserva.
+ */
+export async function getRateFor(
+  roomId: string,
+  date: string,
+): Promise<{ ok: true; rateCents: number | null } | { ok: false; error: string }> {
+  try {
+    await requirePermission('hoteleria:read')
+    if (!z.uuid().safeParse(roomId).success) return { ok: false, error: 'Habitación inválida.' }
+
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('hotel_rate_for', {
+      p_room_id: roomId,
+      p_date: date,
+    })
+
+    if (error) {
+      console.error('[hoteleria] getRateFor', error)
+      return { ok: false, error: 'No se pudo resolver la tarifa.' }
+    }
+    return { ok: true, rateCents: (data as number | null) ?? null }
+  } catch {
+    return { ok: false, error: 'No tienes permiso para ver hotelería.' }
+  }
+}
