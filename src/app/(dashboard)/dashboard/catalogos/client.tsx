@@ -26,7 +26,7 @@ const margin = (priceCents: number, costCents: number) =>
   priceCents > 0 ? Math.round(((priceCents - costCents) / priceCents) * 100) : 0
 
 const EMPTY = {
-  sku: '', name: '', category: '', description: '', unit: 'UN',
+  sku: '', barcode: '', name: '', category: '', description: '', unit: 'UN',
   price: '', cost: '', stock: '', supplier: '', isActive: true, inStorefront: true,
 }
 
@@ -35,6 +35,7 @@ type FormState = typeof EMPTY
 function toForm(p: ProductoRow): FormState {
   return {
     sku: p.sku,
+    barcode: p.barcode ?? '',
     name: p.name,
     category: p.category,
     description: p.description,
@@ -106,6 +107,7 @@ export default function CatalogosPage({ data }: { data: ProductosData }) {
   function payload(f: FormState) {
     return {
       sku: f.sku.trim(),
+      barcode: f.barcode.trim(),
       name: f.name.trim(),
       category: f.category.trim() || 'Otro',
       description: f.description.trim(),
@@ -327,6 +329,9 @@ function ProductoModal({
               <Select options={UNIT_OPTIONS} value={form.unit} onChange={(v) => setForm((p) => ({ ...p, unit: v }))} />
             </div>
           </div>
+          <div className="flabel">Código de barras</div>
+          <input className="field" placeholder="EAN-13 o código interno (opcional)" value={form.barcode}
+            onChange={(e) => setForm((p) => ({ ...p, barcode: e.target.value }))} />
           <div className="flabel">Categoría</div>
           <input className="field" list="cat-options" placeholder="Ej. Paneles" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} />
           <datalist id="cat-options">

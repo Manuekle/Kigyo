@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
   Store, Check, Trash2, DollarSign, Search, XCircle,
@@ -61,13 +61,37 @@ export default function PosPage({ data }: { data: PosData }) {
   const [paymentMethod, setPaymentMethod] = useState('Efectivo')
   const [customerName, setCustomerName] = useState('')
   const [discount, setDiscount] = useState('')
+  const scanRef = useRef<HTMLInputElement>(null)
 
   const vendibles = useMemo(() => {
     const needle = fold(query.trim())
     return state.vendibles.filter(
-      (p) => !needle || fold(p.name).includes(needle) || fold(p.sku).includes(needle),
+      (p) => !needle
+        || fold(p.name).includes(needle)
+        || fold(p.sku).includes(needle)
+        || fold(p.barcode).includes(needle),
     )
   }, [state.vendibles, query])
+
+  /**
+   * Escaneo por teclado (keyboard wedge): el lector USB teclea el código y
+   * termina con Enter, como si lo hubiera escrito una persona. Si el código
+   * coincide exactamente con el de un producto, entra al carrito directo —
+   * un código es único por empresa, así que el empate exacto es el producto.
+   */
+  function onScanKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return
+    const needle = fold(query.trim())
+    if (!needle) return
+    const match = state.vendibles.find(
+      (p) => p.barcode && fold(p.barcode) === needle,
+    )
+    if (!match) return
+    e.preventDefault()
+    add(match)
+    setQuery('')
+    scanRef.current?.focus()
+  }
 
   const subtotalCents = cart.reduce((sum, l) => sum + l.unitPriceCents * l.quantity, 0)
   const discountCents = Math.min(toCents(discount), subtotalCents)
@@ -240,11 +264,13 @@ export default function PosPage({ data }: { data: PosData }) {
                 <div className="nav-find" style={{ margin: '0 0 12px' }}>
                   <Search size={14} />
                   <input
+                    ref={scanRef}
                     className="nav-find-input"
                     type="search"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Buscar por nombre o SKU"
+                    onKeyDown={onScanKeyDown}
+                    placeholder="Buscar por nombre o SKU · escanea y pulsa Enter"
                     aria-label="Buscar producto"
                   />
                 </div>

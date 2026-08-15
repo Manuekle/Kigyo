@@ -22,6 +22,7 @@ import { pageRange, scoped, totalOf, type Page } from './shared'
 export interface SellableRow {
   id: string
   sku: string
+  barcode: string
   name: string
   category: string
   priceCents: number
@@ -187,7 +188,7 @@ export async function getPos(): Promise<PosData> {
   const [productsResult, salesResult, sessionResult] = await Promise.all([
     wantsCatalogue
       ? scoped(supabase, member, 'products')
-          .select('id, sku, name, category, price_cents, stock, unit')
+          .select('id, sku, barcode, name, category, price_cents, stock, unit')
           .is('deleted_at', null)
           .eq('is_active', true)
           .order('name', { ascending: true })
@@ -209,11 +210,12 @@ export async function getPos(): Promise<PosData> {
   const items = await itemsFor(supabase, saleRows.map((r) => r.id))
 
   const vendibles: SellableRow[] = ((productsResult.data ?? []) as unknown as Array<{
-    id: string; sku: string; name: string; category: string
+    id: string; sku: string; barcode: string; name: string; category: string
     price_cents: number; stock: number; unit: string
   }>).map((row) => ({
     id: row.id,
     sku: row.sku,
+    barcode: row.barcode ?? '',
     name: row.name,
     category: row.category,
     priceCents: row.price_cents,

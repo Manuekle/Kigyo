@@ -25,6 +25,7 @@ import { pageRange, totalOf, type Page, type Supabase } from './shared'
 export interface ProductoRow {
   id: string
   sku: string
+  barcode: string
   name: string
   category: string
   description: string
@@ -49,6 +50,7 @@ export interface ProductosData {
 interface ProductRecord {
   id: string
   sku: string
+  barcode: string
   name: string
   category: string
   description: string
@@ -62,7 +64,7 @@ interface ProductRecord {
 }
 
 const BASE_COLUMNS =
-  'id, sku, name, category, description, unit, price_cents, stock, supplier, is_active, in_storefront'
+  'id, sku, barcode, name, category, description, unit, price_cents, stock, supplier, is_active, in_storefront'
 
 export type ProductScope = 'catalogos' | 'tienda'
 
@@ -70,6 +72,7 @@ function toProducto(row: ProductRecord): ProductoRow {
   return {
     id: row.id,
     sku: row.sku,
+    barcode: row.barcode,
     name: row.name,
     category: row.category,
     description: row.description,

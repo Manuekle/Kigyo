@@ -21,6 +21,7 @@ function fail(message: string): { ok: false; error: string } {
 
 const baseSchema = z.object({
   sku: z.string().trim().min(1, 'El SKU es obligatorio.').max(60),
+  barcode: z.string().trim().max(64).default(''),
   name: z.string().trim().min(2, 'El nombre es obligatorio.').max(200),
   category: z.string().trim().max(80).default('Otro'),
   description: z.string().trim().max(1000).default(''),
@@ -47,6 +48,7 @@ export async function createProducto(
     const { error } = await supabase.from('products').insert({
       org_id: member.orgId,
       sku: parsed.data.sku,
+      barcode: parsed.data.barcode,
       name: parsed.data.name,
       category: parsed.data.category,
       description: parsed.data.description,
@@ -61,8 +63,12 @@ export async function createProducto(
 
     if (error) {
       console.error('[productos] createProducto', error)
-      // 23505 = unique_violation on `(org_id, sku)`.
-      if (error.code === '23505') return fail('Ya existe un producto con ese SKU.')
+      // 23505 = unique_violation, on `(org_id, sku)` or `(org_id, barcode)`.
+      if (error.code === '23505') {
+        return fail(error.details?.includes('barcode')
+          ? 'Ya existe un producto con ese código de barras.'
+          : 'Ya existe un producto con ese SKU.')
+      }
       return fail('No se pudo crear el producto.')
     }
 
@@ -87,6 +93,7 @@ export async function updateProducto(
       .from('products')
       .update({
         sku: parsed.data.sku,
+        barcode: parsed.data.barcode,
         name: parsed.data.name,
         category: parsed.data.category,
         description: parsed.data.description,
@@ -103,7 +110,11 @@ export async function updateProducto(
 
     if (error) {
       console.error('[productos] updateProducto', error)
-      if (error.code === '23505') return fail('Ya existe un producto con ese SKU.')
+      if (error.code === '23505') {
+        return fail(error.details?.includes('barcode')
+          ? 'Ya existe un producto con ese código de barras.'
+          : 'Ya existe un producto con ese SKU.')
+      }
       return fail('No se pudo actualizar el producto.')
     }
 

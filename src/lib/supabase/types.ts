@@ -6679,6 +6679,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          barcode: string
         }
         Insert: {
           id?: string
@@ -6698,6 +6699,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          barcode?: string
         }
         Update: {
           id?: string
@@ -6717,6 +6719,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          barcode?: string
         }
         Relationships: [
           {
