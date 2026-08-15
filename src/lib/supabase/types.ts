@@ -7240,6 +7240,7 @@ export interface Database {
           updated_at: string
           deleted_at: string | null
           barcode: string
+          supplier_id: string | null
         }
         Insert: {
           id?: string
@@ -7260,6 +7261,7 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           barcode?: string
+          supplier_id?: string | null
         }
         Update: {
           id?: string
@@ -7280,6 +7282,7 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           barcode?: string
+          supplier_id?: string | null
         }
         Relationships: [
           {
@@ -7287,6 +7290,13 @@ export interface Database {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -9458,6 +9468,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          supplier_id: string | null
         }
         Insert: {
           id?: string
@@ -9469,6 +9480,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          supplier_id?: string | null
         }
         Update: {
           id?: string
@@ -9480,6 +9492,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          supplier_id?: string | null
         }
         Relationships: [
           {
@@ -9487,6 +9500,13 @@ export interface Database {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -9541,6 +9561,65 @@ export interface Database {
             columns: ["supplier_invoice_id"]
             isOneToOne: false
             referencedRelation: "supplier_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          tax_id: string
+          contact_name: string
+          email: string
+          phone: string
+          city: string
+          category: string
+          notes: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          tax_id?: string
+          contact_name?: string
+          email?: string
+          phone?: string
+          city?: string
+          category?: string
+          notes?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          tax_id?: string
+          contact_name?: string
+          email?: string
+          phone?: string
+          city?: string
+          category?: string
+          notes?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]

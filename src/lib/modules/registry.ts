@@ -378,6 +378,11 @@ export const REGISTRY: readonly ModuleEntry[] = [
         route: '/dashboard/ordenes-compra', title: 'Órdenes de Compra',
         subtitle: 'Órdenes de compra generadas desde requisiciones aprobadas.',
       },
+      {
+        key: 'proveedores', label: 'Proveedores', icon: 'Building2',
+        route: '/dashboard/proveedores', title: 'Proveedores',
+        subtitle: 'Directorio de proveedores, contacto y deuda pendiente.',
+      },
     ],
   },
   {

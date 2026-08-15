@@ -64,8 +64,9 @@ describe('navFor', () => {
   it('nests an alias under its module instead of beside it', () => {
     const items = NAV.flatMap((s) => s.items)
     expect(items.map((i) => i.key)).not.toContain('ordenes-compra')
+    expect(items.map((i) => i.key)).not.toContain('proveedores')
     expect(items.find((i) => i.key === 'compras')?.children?.map((c) => c.key))
-      .toEqual(['ordenes-compra'])
+      .toEqual(['ordenes-compra', 'proveedores'])
   })
 
   it('names the group for every sector that has a vertical', () => {
