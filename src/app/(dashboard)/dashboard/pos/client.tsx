@@ -4,18 +4,20 @@ import { useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
   Store, Check, Trash2, DollarSign, Search, XCircle,
-  FileSpreadsheet, Receipt, AlertTriangle,
+  FileSpreadsheet, Receipt, AlertTriangle, Printer, Settings,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
+import FormDrawer from '@/components/ui/FormDrawer'
+import Toggle from '@/components/ui/Toggle'
 import { useApp } from '@/lib/context/AppContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { PAYMENT_METHODS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { PosData, SellableRow } from '@/server/queries/pos'
-import { anularVenta, cobrarVenta } from '@/server/mutations/pos'
+import type { PosData, ReceiptPrefs, SaleRow, SellableRow } from '@/server/queries/pos'
+import { anularVenta, cobrarVenta, saveReceiptPrefs } from '@/server/mutations/pos'
 
 const DATETIME = new Intl.DateTimeFormat('es-CO', {
   day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -32,6 +34,94 @@ function toCents(value: string): number {
 
 function pesos(cents: number): string {
   return cop(Math.round(cents / 100))
+}
+
+/** El recibo es una vista: la fila de venta ya guarda todo lo que imprime. */
+function esc(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[c] ?? c)
+}
+
+const RECEIPT_DATE = new Intl.DateTimeFormat('es-CO', {
+  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+})
+
+/**
+ * Imprime un recibo de 80 o 58 mm.
+ *
+ * En un iframe oculto y no en `window.open`: la impresión ocurre después de
+ * un await (el cobro), donde ya no hay gesto de usuario y los bloqueadores
+ * de ventanas sí se niegan. El iframe imprime solo su documento, y se
+ * desmonta cuando el diálogo termina.
+ */
+function printReceipt(sale: SaleRow, prefs: ReceiptPrefs, orgName: string) {
+  const rows = sale.items.map((i) => `
+    <tr>
+      <td class="qty">${i.quantity}</td>
+      <td class="name">${esc(i.name)}</td>
+      <td class="amt">${pesos(i.totalCents)}</td>
+    </tr>`).join('')
+
+  const html = `<!doctype html><html><head><meta charset="utf-8">
+    <style>
+      @page { size: ${prefs.width}mm auto; margin: 3mm; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+             font-size: 11px; color: #000; }
+      .head { text-align: center; font-weight: 700; font-size: 13px;
+              margin-bottom: 4px; }
+      .meta { margin-bottom: 6px; }
+      .meta div { display: flex; justify-content: space-between; }
+      .items { width: 100%; border-top: 1px dashed #000;
+               border-bottom: 1px dashed #000; margin: 6px 0; }
+      .items td { padding: 2px 0; vertical-align: top; }
+      .qty { width: 18px; text-align: right; padding-right: 4px; }
+      .name { word-break: break-word; }
+      .amt { text-align: right; white-space: nowrap; }
+      .totals div { display: flex; justify-content: space-between; }
+      .totals .grand { font-size: 14px; font-weight: 700; margin-top: 2px; }
+      .foot { text-align: center; margin-top: 8px; }
+    </style></head><body>
+    ${prefs.showLogo && orgName ? `<div class="head">${esc(orgName)}</div>` : ''}
+    <div class="meta">
+      <div><span>Venta</span><span>${esc(sale.code ?? '')}</span></div>
+      <div><span>Fecha</span><span>${RECEIPT_DATE.format(new Date(sale.soldAt))}</span></div>
+      <div><span>Cliente</span><span>${esc(sale.customerName || 'Mostrador')}</span></div>
+    </div>
+    <table class="items">${rows}</table>
+    <div class="totals">
+      <div><span>Subtotal</span><span>${pesos(sale.subtotalCents)}</span></div>
+      ${sale.discountCents > 0
+        ? `<div><span>Descuento</span><span>-${pesos(sale.discountCents)}</span></div>`
+        : ''}
+      <div class="grand"><span>Total</span><span>${pesos(sale.totalCents)}</span></div>
+      <div><span>Pago</span><span>${esc(sale.paymentMethod)}</span></div>
+    </div>
+    <div class="foot">${esc(prefs.footer)}</div>
+    </body></html>`
+
+  const frame = document.createElement('iframe')
+  frame.setAttribute('aria-hidden', 'true')
+  frame.style.position = 'fixed'
+  frame.style.right = '100%'
+  frame.style.bottom = '100%'
+  frame.style.width = '1px'
+  frame.style.height = '1px'
+  document.body.appendChild(frame)
+
+  const doc = frame.contentDocument
+  if (!doc) { frame.remove(); return }
+  doc.open()
+  doc.write(html)
+  doc.close()
+
+  frame.contentWindow?.addEventListener('afterprint', () => frame.remove(), { once: true })
+  // Un tick para que el documento del iframe aplane estilos antes de medir.
+  setTimeout(() => {
+    frame.contentWindow?.focus()
+    frame.contentWindow?.print()
+  }, 120)
 }
 
 /** Igual que en el buscador del menú: nadie usa la tecla muerta al filtrar. */
@@ -61,6 +151,8 @@ export default function PosPage({ data }: { data: PosData }) {
   const [paymentMethod, setPaymentMethod] = useState('Efectivo')
   const [customerName, setCustomerName] = useState('')
   const [discount, setDiscount] = useState('')
+  const [prefsOpen, setPrefsOpen] = useState(false)
+  const [prefsForm, setPrefsForm] = useState({ width: '80', footer: '', showLogo: true })
   const scanRef = useRef<HTMLInputElement>(null)
 
   const vendibles = useMemo(() => {
@@ -166,6 +258,26 @@ export default function PosPage({ data }: { data: PosData }) {
         'ok',
       )
       clearCart()
+      // Mostrador: la venta termina con el recibo en la mano, no con un clic
+      // de más. La reimpresión sigue disponible en la pestaña Ventas.
+      const sale = result.data.saleCode
+        ? result.data.ventas.find((v) => v.code === result.data.saleCode)
+        : result.data.ventas[0]
+      if (sale) printReceipt(sale, result.data.receiptPrefs, result.data.orgName)
+    })
+  }
+
+  function submitPrefs() {
+    startTransition(async () => {
+      const result = await saveReceiptPrefs({
+        width: Number(prefsForm.width),
+        footer: prefsForm.footer.trim(),
+        showLogo: prefsForm.showLogo,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      setPrefsOpen(false)
+      addToast('Preferencias del recibo guardadas', 'ok')
     })
   }
 
@@ -243,6 +355,19 @@ export default function PosPage({ data }: { data: PosData }) {
             <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}>
               <FileSpreadsheet size={15} />Exportar
             </button>
+            {state.canWrite && (
+              <button className="btn" aria-label="Recibo" title="Preferencias del recibo"
+                onClick={() => {
+                  setPrefsForm({
+                    width: String(state.receiptPrefs.width),
+                    footer: state.receiptPrefs.footer,
+                    showLogo: state.receiptPrefs.showLogo,
+                  })
+                  setPrefsOpen(true)
+                }}>
+                <Settings size={15} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -416,7 +541,14 @@ export default function PosPage({ data }: { data: PosData }) {
                     </td>
                     {state.canWrite && (
                       <td>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
+                          {v.status !== 'Anulada' && (
+                            <button className="ibtn" aria-label={`Reimprimir recibo de ${v.code ?? ''}`}
+                              title="Reimprimir recibo"
+                              onClick={() => printReceipt(v, state.receiptPrefs, state.orgName)}>
+                              <Printer size={15} />
+                            </button>
+                          )}
                           {v.status === 'Anulada' ? (
                             <span className="elsub">—</span>
                           ) : (
@@ -436,6 +568,50 @@ export default function PosPage({ data }: { data: PosData }) {
           </div>
         )}
       </div>
+
+      <FormDrawer
+        open={prefsOpen}
+        onClose={() => setPrefsOpen(false)}
+        title="Recibo"
+        footer={
+          <div style={{ display: 'flex', gap: 9 }}>
+            <button className="btn" onClick={() => setPrefsOpen(false)} disabled={pending}>
+              Cancelar
+            </button>
+            <button className="btn dark" onClick={submitPrefs} disabled={pending} aria-busy={pending}>
+              <Check size={15} />Guardar
+            </button>
+          </div>
+        }
+      >
+        <div className="flabel" style={{ marginTop: 0 }}>Ancho del papel</div>
+        <Select
+          value={prefsForm.width}
+          onChange={(v) => setPrefsForm((p) => ({ ...p, width: v }))}
+          options={[
+            { value: '80', label: '80 mm — térmica estándar' },
+            { value: '58', label: '58 mm — portátil' },
+          ]}
+        />
+
+        <label className="flabel" htmlFor="prefs-footer">Texto del pie</label>
+        <input id="prefs-footer" className="field" maxLength={120}
+          value={prefsForm.footer}
+          onChange={(e) => setPrefsForm((p) => ({ ...p, footer: e.target.value }))}
+          placeholder="Gracias por su compra" />
+
+        <div className="card" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div className="cename">Encabezado con el nombre</div>
+            <div className="elsub">Muestra la empresa arriba del recibo</div>
+          </div>
+          <Toggle
+            on={prefsForm.showLogo}
+            ariaLabel="Mostrar nombre de la empresa"
+            onChange={(v) => setPrefsForm((p) => ({ ...p, showLogo: v }))}
+          />
+        </div>
+      </FormDrawer>
     </>
   )
 }

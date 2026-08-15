@@ -57,6 +57,15 @@ export interface SaleRow {
   sessionId: string | null
 }
 
+export interface ReceiptPrefs {
+  /** Ancho del papel: 80 (térmica estándar) u 58 (portátil). */
+  width: number
+  /** Texto del pie del recibo. */
+  footer: string
+  /** Encabezado con el nombre de la empresa. */
+  showLogo: boolean
+}
+
 export interface PosData {
   /** Lo que se puede vender hoy: activo, con existencias, del catálogo. */
   vendibles: SellableRow[]
@@ -69,6 +78,10 @@ export interface PosData {
   cajaAbierta: boolean
   /** La empresa usa el módulo de caja. Distinto de que haya un turno abierto. */
   hasCaja: boolean
+  /** El nombre de la empresa, para el encabezado del recibo. */
+  orgName: string
+  /** Preferencias del recibo, resueltas con los valores por defecto. */
+  receiptPrefs: ReceiptPrefs
   canWrite: boolean
 }
 
@@ -185,7 +198,7 @@ export async function getPos(): Promise<PosData> {
   const wantsCatalogue = member.modules.has('catalogos') && can(member.permissions, 'catalogos:read')
   const hasCaja = member.modules.has('caja') && can(member.permissions, 'caja:read')
 
-  const [productsResult, salesResult, sessionResult] = await Promise.all([
+  const [productsResult, salesResult, sessionResult, orgResult] = await Promise.all([
     wantsCatalogue
       ? scoped(supabase, member, 'products')
           .select('id, sku, barcode, name, category, price_cents, stock, unit')
@@ -204,6 +217,11 @@ export async function getPos(): Promise<PosData> {
           .eq('status', 'Abierta')
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase
+      .from('organizations')
+      .select('name, receipt_prefs')
+      .eq('id', member.orgId)
+      .single(),
   ])
 
   const saleRows = (salesResult.data ?? []) as SaleRecord[]
@@ -227,6 +245,12 @@ export async function getPos(): Promise<PosData> {
   const now = today()
   const hoy = ventas.filter((v) => v.status !== 'Anulada' && v.soldAt.slice(0, 10) === now)
 
+  const org = orgResult.data as { name: string; receipt_prefs: Record<string, unknown> | null } | null
+  const rawPrefs = org?.receipt_prefs ?? {}
+  const width = typeof rawPrefs.width === 'number' && [58, 80].includes(rawPrefs.width)
+    ? rawPrefs.width
+    : 80
+
   return {
     vendibles,
     ventas,
@@ -235,6 +259,14 @@ export async function getPos(): Promise<PosData> {
     ventasHoy: hoy.length,
     cajaAbierta: sessionResult.data !== null,
     hasCaja,
+    orgName: org?.name ?? '',
+    receiptPrefs: {
+      width,
+      footer: typeof rawPrefs.footer === 'string' && rawPrefs.footer.trim()
+        ? rawPrefs.footer.slice(0, 120)
+        : 'Gracias por su compra',
+      showLogo: typeof rawPrefs.showLogo === 'boolean' ? rawPrefs.showLogo : true,
+    },
     canWrite: can(member.permissions, 'pos:write'),
   }
 }

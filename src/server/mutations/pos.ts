@@ -117,3 +117,40 @@ export async function anularVenta(id: string): Promise<PosResult<PosData>> {
     return fail(DENIED)
   }
 }
+
+const receiptPrefsSchema = z.object({
+  width: z.number().int().refine((w) => w === 58 || w === 80, 'Ancho de papel desconocido.'),
+  footer: z.string().trim().max(120).default('Gracias por su compra'),
+  showLogo: z.boolean().default(true),
+})
+
+/**
+ * Guarda las preferencias del recibo.
+ *
+ * jsonb en `organizations`, no tabla aparte: son tres valores que viajan con
+ * la empresa, y la forma la valida el zod de aquí. `pos:write` basta — es
+ * configuración operativa del mostrador, no de la cuenta.
+ */
+export async function saveReceiptPrefs(
+  input: z.input<typeof receiptPrefsSchema>,
+): Promise<PosResult<PosData>> {
+  try {
+    const member = await requirePermission('pos:write')
+    const parsed = receiptPrefsSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    const { error } = await supabase
+      .from('organizations')
+      .update({ receipt_prefs: parsed.data })
+      .eq('id', member.orgId)
+
+    if (error) {
+      console.error('[pos] saveReceiptPrefs', error)
+      return fail('No se pudieron guardar las preferencias del recibo.')
+    }
+    return refreshed()
+  } catch {
+    return fail(DENIED)
+  }
+}

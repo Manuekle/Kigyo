@@ -5458,6 +5458,7 @@ export interface Database {
           branding: Json
           status: "active" | "suspended"
           setup_completed_at: string | null
+          receipt_prefs: Json
         }
         Insert: {
           id?: string
@@ -5478,6 +5479,7 @@ export interface Database {
           branding?: Json
           status?: "active" | "suspended"
           setup_completed_at?: string | null
+          receipt_prefs?: Json
         }
         Update: {
           id?: string
@@ -5498,6 +5500,7 @@ export interface Database {
           branding?: Json
           status?: "active" | "suspended"
           setup_completed_at?: string | null
+          receipt_prefs?: Json
         }
         Relationships: [
           {
