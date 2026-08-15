@@ -5711,6 +5711,104 @@ export interface Database {
         Relationships: [
         ]
       }
+      portal_links: {
+        Row: {
+          id: string
+          org_id: string
+          kind: "factura" | "cita" | "avance"
+          target_id: string
+          label: string
+          token: string
+          created_by: string | null
+          expires_at: string
+          max_views: number | null
+          view_count: number
+          last_viewed_at: string | null
+          revoked_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          kind: "factura" | "cita" | "avance"
+          target_id: string
+          label: string
+          token: string
+          created_by?: string | null
+          expires_at: string
+          max_views?: number | null
+          view_count?: number
+          last_viewed_at?: string | null
+          revoked_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          kind?: "factura" | "cita" | "avance"
+          target_id?: string
+          label?: string
+          token?: string
+          created_by?: string | null
+          expires_at?: string
+          max_views?: number | null
+          view_count?: number
+          last_viewed_at?: string | null
+          revoked_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_links_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_views: {
+        Row: {
+          id: string
+          org_id: string
+          link_id: string | null
+          viewed_at: string
+          ip: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          link_id?: string | null
+          viewed_at?: string
+          ip?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          link_id?: string | null
+          viewed_at?: string
+          ip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_views_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "portal_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_views_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pos_sale_items: {
         Row: {
           id: string
@@ -9046,6 +9144,25 @@ export interface Database {
       obra_resync_presupuesto: {
         Args: { p_presupuesto_id: string }
         Returns: undefined
+      }
+      portal_create: {
+        Args: {
+          p_kind: string
+          p_target_id: string
+          p_label: string
+          p_days?: number
+          p_max_views?: number | null
+        }
+        Returns: string
+      }
+      portal_view: {
+        Args: { p_token: string }
+        Returns: {
+          error?: string
+          kind?: string
+          org?: string | null
+          payload?: Record<string, unknown> | null
+        } | null
       }
     }
     Enums: Record<never, never>

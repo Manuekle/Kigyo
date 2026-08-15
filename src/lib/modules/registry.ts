@@ -752,6 +752,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     vertical: 'contratacion',
   },
   {
+    key: 'portal',
+    label: 'Portal',
+    description: 'Enlaces públicos firmados y con vencimiento para clientes sin cuenta.',
+    group: 'Comercial',
+    icon: 'Link2',
+    route: '/dashboard/portal',
+    actions: ['read', 'write'],
+    permissionNoun: 'enlaces públicos',
+    title: 'Portal',
+    subtitle: 'Enlaces firmados, con vencimiento y revocables, para compartir con quien no tiene cuenta.',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
