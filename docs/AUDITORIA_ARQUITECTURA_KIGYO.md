@@ -1,6 +1,6 @@
 # Auditoría y arquitectura objetivo — Kigyo
 
-**Alcance:** auditoría del repo en `feat/design-system-refresh`, validación y ampliación de `docs/PLAN_NUEVA_ARQUITECTURA_KIGYO.md`.
+**Alcance:** auditoría del repo en `feat/design-system-refresh`, validación y ampliación del plan original de arquitectura multiempresa (ejecutado y absorbido en este documento y en `AGENTS.md`).
 **Estado:** documento de análisis y decisión. **No se modificó ningún archivo de código.**
 **Fecha:** 2026-08-10
 

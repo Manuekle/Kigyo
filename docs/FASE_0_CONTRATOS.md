@@ -1,7 +1,7 @@
 # Fase 0 — Decisiones cerradas y contratos
 
 **Entregable de la Fase 0 del plan de arquitectura multiempresa.**
-Referencias: `docs/AUDITORIA_ARQUITECTURA_KIGYO.md` (auditoría), `docs/PLAN_NUEVA_ARQUITECTURA_KIGYO.md` (plan original).
+Referencias: `docs/AUDITORIA_ARQUITECTURA_KIGYO.md` (auditoría), `AGENTS.md` (reglas multiempresa vigentes). El plan original de arquitectura fue ejecutado y absorbido en los archivos anteriores.
 
 **Estado:** contratos cerrados. **No se ha escrito código.** La Fase 1 no empieza hasta que la sección 9 esté verificada.
 **Fecha:** 2026-08-10

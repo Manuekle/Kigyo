@@ -1,7 +1,7 @@
 # Plan — Cierre de brechas CRM / ERP / POS
 
 Estado: en ejecución. Fecha: 2026-08-14.
-Base: auditoría contra la matriz clásica CRM/ERP/POS (ver `REVISION_MULTIEMPRESA_2026-08.md` para el estado del multiempresa).
+Base: auditoría contra la matriz clásica CRM/ERP/POS (ver `AGENTS.md` para las reglas multiempresa y `docs/CONTEXTO_SESION.md` para el estado actual).
 
 ## Estado de ejecución
 
