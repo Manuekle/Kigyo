@@ -1,7 +1,25 @@
 # Plan — Cierre de brechas CRM / ERP / POS
 
-Estado: propuesta. Fecha: 2026-08-14.
+Estado: ejecutado (8/9 entregables). Fecha: 2026-08-14.
 Base: auditoría contra la matriz clásica CRM/ERP/POS (ver `REVISION_MULTIEMPRESA_2026-08.md` para el estado del multiempresa).
+
+## Estado de ejecución
+
+| # | Entregable | Estado |
+|---|---|---|
+| 1 | AR aging (2.2) | ✅ hecho — panel en Facturación, derivado de `invoices` |
+| 2 | Barcode (3.1) | ✅ hecho — `products.barcode` (mig. 73) + escáner por teclado en POS |
+| 3 | Recibo (3.2) | ✅ hecho — impresión 80/58mm + reimpresión + prefs por empresa (mig. 74) |
+| 4 | Leads (1.1) | ✅ hecho — módulo completo con conversión RPC (mig. 75) |
+| 5 | Etapas pipeline (1.2) | ✅ hecho — `pipeline_stages` + kanban en cotizaciones (mig. 76) |
+| 6 | CxP calendario (2.3) | ✅ hecho — `supplier_payments` + RPC con cierre automático (mig. 77, 81) |
+| 7 | Contabilidad (2.1+2.4) | ✅ hecho — PUC, asientos, mayor, P&G/Balance/Flujo, auto-asientos (mig. 79-82) |
+| 8 | Tickets cliente (1.3 p1) | ✅ hecho — `client_id` + `origin` + ficha enlazada (mig. 78) |
+| 9 | Pagos proveedor (3.3) | ◐ seam de datos listo (`pos_payments`, mig. 83); intent+webhook pendientes de la decisión de pricing ❓ (Enterprise vs add-on) — el plan la marca como prerequisito |
+
+Lo que queda: la decisión de pricing de 3.3, el portal público de tickets
+(1.3 p2, decisión separada de abuso/alcance) y la reevaluación de marketing
+automation con datos de uso de `leads` (fase 4).
 
 ---
 

@@ -1,7 +1,7 @@
 # Contexto de sesión — para retomar
 
-Fecha: 2026-08-14 (jornada 3). Rama: `feat/design-system-refresh` (pusheada a origin, 13 commits).
-Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · db-verify 72 migraciones limpias · remota con 71-72 aplicadas (84 subsectores, 270 filas en sector_roles).
+Fecha: 2026-08-14 (jornada 3). Rama: `feat/design-system-refresh` (pusheada a origin, 14 commits).
+Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · db-verify 83 migraciones limpias · remota con 71-83 aplicadas.
 
 ---
 
@@ -115,7 +115,10 @@ en plan growth; integraciones SIN filas de sector_modules (config técnica).
    (migraciones 71-72): 33 subsectores en 10 sectores + `otro` sin hijos por
    diseño, cada uno con delta y matriz de roles. Aprobado por el usuario,
    aplicado a remota y pusheado.
-2. **CRM/ERP/POS:** `docs/PLAN_CRM_ERP_POS.md` cuando el usuario lo pida.
+2. ~~**Plan CRM/ERP/POS**~~ ✅ — ejecutado 8/9 (migraciones 73-83): aging,
+   barcode, recibo, leads, pipeline kanban, CxP, contabilidad, tickets de
+   cliente. Queda 3.3 (intent+webhook de pasarela) bloqueado por la decisión
+   de pricing ❓ del plan: Enterprise vs add-on.
 3. **Docs:** repaso fino de deltas en tabla maestra 2.1-2.3 queda abierto.
 
 ---
