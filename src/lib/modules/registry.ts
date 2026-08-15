@@ -764,6 +764,18 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Campañas a clientes y programa de fidelización por puntos.',
   },
   {
+    key: 'integraciones',
+    label: 'Integraciones',
+    description: 'Pasarela de pagos y WhatsApp. Llaves en el vault, no en la tabla.',
+    group: 'Equipo',
+    icon: 'Zap',
+    route: '/dashboard/integraciones',
+    actions: ['read', 'write'],
+    permissionNoun: 'integraciones',
+    title: 'Integraciones',
+    subtitle: 'Pasarela de pagos y WhatsApp. Las llaves viven en el vault de Supabase.',
+  },
+  {
     key: 'portal',
     label: 'Portal',
     description: 'Enlaces públicos firmados y con vencimiento para clientes sin cuenta.',
@@ -894,6 +906,8 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'notificaciones', requires: 'facturacion', kind: 'soft' },
   { module: 'notificaciones', requires: 'calendario', kind: 'soft' },
   { module: 'marketing', requires: 'clientes', kind: 'soft' },
+  { module: 'integraciones', requires: 'marketing', kind: 'soft' },
+  { module: 'integraciones', requires: 'facturacion', kind: 'soft' },
 ]
 
 /** What a module needs, at the given strength. */

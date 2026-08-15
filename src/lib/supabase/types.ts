@@ -3639,6 +3639,44 @@ export interface Database {
           },
         ]
       }
+      integration_settings: {
+        Row: {
+          id: string
+          org_id: string
+          kind: "pagos" | "whatsapp"
+          provider: "wompi" | "payu" | "epayco" | "stripe" | "whatsapp" | "otro"
+          enabled: boolean
+          config: Json
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          kind: "pagos" | "whatsapp"
+          provider?: "wompi" | "payu" | "epayco" | "stripe" | "whatsapp" | "otro"
+          enabled?: boolean
+          config?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          kind?: "pagos" | "whatsapp"
+          provider?: "wompi" | "payu" | "epayco" | "stripe" | "whatsapp" | "otro"
+          enabled?: boolean
+          config?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_settings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_assets: {
         Row: {
           id: string
@@ -9306,6 +9344,18 @@ export interface Database {
           org?: string | null
           payload?: Record<string, unknown> | null
         } | null
+      }
+      integraciones_set_secret: {
+        Args: { p_name: string; p_value: string }
+        Returns: undefined
+      }
+      integraciones_get_secret: {
+        Args: { p_name: string }
+        Returns: string
+      }
+      integraciones_has_secret: {
+        Args: { p_org_id: string; p_kind: string; p_field: string }
+        Returns: boolean
       }
     }
     Enums: Record<never, never>
