@@ -328,6 +328,17 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Genera propuestas comerciales, seguimiento de clientes y pipeline.',
   },
   {
+    key: 'pedidos',
+    label: 'Pedidos',
+    description: 'Pedidos comerciales de clientes, con origen en cotización.',
+    group: 'Comercial',
+    icon: 'Truck',
+    route: '/dashboard/pedidos',
+    actions: ['read', 'write'],
+    title: 'Pedidos',
+    subtitle: 'Pedidos comerciales: del acuerdo al despacho, sin duplicar líneas.',
+  },
+  {
     key: 'leads',
     label: 'Leads',
     description: 'Prospectos antes de ser clientes: origen, etapa y seguimiento.',
@@ -882,6 +893,12 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'facturacion', requires: 'clientes', kind: 'soft' },
   { module: 'cotizaciones', requires: 'clientes', kind: 'soft' },
   { module: 'cotizaciones', requires: 'catalogos', kind: 'soft' },
+  // A B2B order is a quote that got accepted; shipping needs stock and the
+  // bill lands in facturacion. Soft: each can be handled outside the module.
+  { module: 'pedidos', requires: 'cotizaciones', kind: 'soft' },
+  { module: 'pedidos', requires: 'clientes', kind: 'soft' },
+  { module: 'pedidos', requires: 'inventario', kind: 'soft' },
+  { module: 'pedidos', requires: 'facturacion', kind: 'soft' },
   { module: 'contratos', requires: 'clientes', kind: 'soft' },
   { module: 'suscripciones', requires: 'clientes', kind: 'soft' },
   { module: 'cartera', requires: 'facturacion', kind: 'soft' },

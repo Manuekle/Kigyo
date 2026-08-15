@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, LayoutDashboard, Users, PenTool, Calendar, Clock, DollarSign, BookOpen, Package, FileText, MessageSquare, Ticket, ShieldAlert, Activity, Sparkles, Settings, ArrowRight, Wallet, Kanban, Receipt, ShoppingCart, FileCheck2, LayoutGrid, PenLine, Tag, ShieldCheck } from '@/lib/icons'
+import { Search, LayoutDashboard, Users, PenTool, Calendar, Clock, DollarSign, BookOpen, Package, FileText, MessageSquare, Ticket, ShieldAlert, Activity, Sparkles, Settings, ArrowRight, Wallet, Kanban, Receipt, ShoppingCart, FileCheck2, LayoutGrid, PenLine, Tag, ShieldCheck, Truck } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
 import { searchDirectory, type DirectoryHit } from '@/server/mutations/empleados'
 import { NAV, ROUTE_MAP } from '@/lib/data/nav'
@@ -37,6 +37,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   PenLine: <PenLine size={15} />,
   Tag: <Tag size={15} />,
   ShieldCheck: <ShieldCheck size={15} />,
+  Truck: <Truck size={15} />,
 }
 
 type Result =

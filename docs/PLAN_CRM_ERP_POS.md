@@ -456,8 +456,8 @@ Dentro de cada fase, orden por costo/beneficio:
 | 7 | Contabilidad (2.1 + 2.4) | L | el más grande; asientos automáticos detrás de flag |
 | 8 | Pagos proveedor (3.3) | L | proveedor externo, webhook, cifrado |
 | 9 | Tickets cliente (1.3 p1) | S | columna + vista en ficha |
-| 10 | Pedidos B2B (4.1) | M | tablas, conversión quote→order→invoice |
-| 11 | Directorio proveedores (4.2) | M | entidad + backfill revisable |
+| 10 | Pedidos B2B (4.1) | M | ✅ hecho — mig. 88 aplicada: `sales_orders` + `sales_order_items` con RLS `pedidos`, RPC `create_order_from_quote` (valida Aceptada, rechaza duplicados, copia líneas con `quote_item_id`), módulo `pedidos` en Comercial con página (estados, avance, cancelar, eliminar) |
+| 11 | Directorio proveedores (4.2) | M | ✅ hecho — mig. 87 aplicada: `suppliers` + guardia de org, RLS inventario, página con deuda pendiente |
 | 12 | Nómina legal (4.3) | L | reglas colombianas versionadas |
 | 13 | Portal tickets (6.2) | M | token, abuso, rate limit |
 | 14 | Marketing automation (6.1) | L | consentimiento, cola, proveedor externo |

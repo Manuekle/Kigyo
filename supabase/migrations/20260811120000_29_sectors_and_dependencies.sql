@@ -279,6 +279,12 @@ insert into public.module_dependencies (module_key, requires_key, kind) values
   ('facturacion',   'clientes',     'soft'),
   ('cotizaciones',  'clientes',     'soft'),
   ('cotizaciones',  'catalogos',    'soft'),
+  -- A B2B order is a quote that got accepted; shipping needs stock and the
+  -- bill lands in facturacion. Soft: each can be handled outside the module.
+  ('pedidos',       'cotizaciones', 'soft'),
+  ('pedidos',       'clientes',     'soft'),
+  ('pedidos',       'inventario',   'soft'),
+  ('pedidos',       'facturacion',  'soft'),
   ('contratos',     'clientes',     'soft'),
   -- People. Every one of these is a fact recorded *about an employee*.
   ('nomina',        'empleados',    'hard'),

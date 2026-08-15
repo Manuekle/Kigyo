@@ -8716,6 +8716,151 @@ export interface Database {
           },
         ]
       }
+      sales_order_items: {
+        Row: {
+          id: string
+          sales_order_id: string
+          product_id: string | null
+          quote_item_id: string | null
+          description: string
+          quantity: number
+          unit: string
+          unit_price_cents: number
+          subtotal_cents: number
+          position: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          sales_order_id: string
+          product_id?: string | null
+          quote_item_id?: string | null
+          description: string
+          quantity: number
+          unit?: string
+          unit_price_cents: number
+          subtotal_cents: number
+          position?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          sales_order_id?: string
+          product_id?: string | null
+          quote_item_id?: string | null
+          description?: string
+          quantity?: number
+          unit?: string
+          unit_price_cents?: number
+          subtotal_cents?: number
+          position?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_order_items_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_orders: {
+        Row: {
+          id: string
+          org_id: string
+          code: string | null
+          client_id: string | null
+          quote_id: string | null
+          status: "Borrador" | "Confirmado" | "En preparación" | "Despachado" | "Entregado" | "Cancelado"
+          issued_on: string
+          due_on: string | null
+          payment_terms: string
+          shipping_address: string
+          notes: string
+          subtotal_cents: number
+          discount_cents: number
+          tax_cents: number
+          total_cents: number
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+          client_name: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          code?: string | null
+          client_id?: string | null
+          quote_id?: string | null
+          status?: "Borrador" | "Confirmado" | "En preparación" | "Despachado" | "Entregado" | "Cancelado"
+          issued_on?: string
+          due_on?: string | null
+          payment_terms?: string
+          shipping_address?: string
+          notes?: string
+          subtotal_cents?: number
+          discount_cents?: number
+          tax_cents?: number
+          total_cents?: number
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+          client_name?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          code?: string | null
+          client_id?: string | null
+          quote_id?: string | null
+          status?: "Borrador" | "Confirmado" | "En preparación" | "Despachado" | "Entregado" | "Cancelado"
+          issued_on?: string
+          due_on?: string | null
+          payment_terms?: string
+          shipping_address?: string
+          notes?: string
+          subtotal_cents?: number
+          discount_cents?: number
+          tax_cents?: number
+          total_cents?: number
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+          client_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_orders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_orders_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_reports: {
         Row: {
           id: string
@@ -10716,6 +10861,17 @@ export interface Database {
           p_reference?: string
           p_paid_on?: string | null
           p_scheduled_on?: string | null
+        }
+        Returns: string
+      }
+      create_order_from_quote: {
+        Args: {
+          p_quote_id: string
+          p_issued_on?: string | null
+          p_due_on?: string | null
+          p_payment_terms?: string
+          p_shipping_address?: string
+          p_notes?: string
         }
         Returns: string
       }
