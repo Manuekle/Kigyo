@@ -70,6 +70,34 @@ export interface ClientRef {
   name: string
 }
 
+/**
+ * One client's unpaid invoices, bucketed by how long they have been past due.
+ *
+ * «Corriente» means either not yet due or issued without a due date — the two
+ * are the same thing to whoever is waiting to be paid. The buckets count
+ * calendar days past `due_on`, the same clock the list uses for «Vencida».
+ */
+export interface AgingRow {
+  clientId: string | null
+  clientName: string
+  invoices: number
+  current: number
+  d1to30: number
+  d31to60: number
+  d61to90: number
+  over90: number
+  total: number
+}
+
+export interface AgingBucketTotals {
+  current: number
+  d1to30: number
+  d31to60: number
+  d61to90: number
+  over90: number
+  total: number
+}
+
 export interface ProductRef {
   id: string
   sku: string
@@ -84,6 +112,7 @@ export interface FacturacionData {
   pagos: PaymentRow[]
   clientes: ClientRef[]
   productos: ProductRef[]
+  aging: AgingRow[]
   canWrite: boolean
 }
 
@@ -235,11 +264,66 @@ export async function getFacturasPage(offset = 0): Promise<Page<InvoiceRow>> {
   }
 }
 
+function bucketOf(dueOn: string | null): keyof Omit<AgingRow, 'clientId' | 'clientName' | 'invoices' | 'total'> | null {
+  const days = daysPast(dueOn)
+  if (days === null) return 'current'
+  if (days <= 30) return 'd1to30'
+  if (days <= 60) return 'd31to60'
+  if (days <= 90) return 'd61to90'
+  return 'over90'
+}
+
+/**
+ * Antigüedad de cartera, derivada: no hay tabla nueva, no hay columna nueva,
+ * no hay nada que se pueda desincronizar. Las mismas facturas que la lista
+ * marca vencidas son las que entran a los buckets.
+ */
+export async function getAging(member: Member, supabase: Supabase): Promise<AgingRow[]> {
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('id, client_id, client_name, status, due_on, total_cents, paid_cents')
+    .eq('org_id', member.orgId)
+    .is('deleted_at', null)
+    .in('status', ['Emitida', 'Vencida'])
+    .limit(5000)
+
+  if (error) {
+    console.error('[facturacion] getAging', error)
+    return []
+  }
+
+  const byClient = new Map<string, AgingRow>()
+  for (const row of (data ?? []) as unknown as {
+    client_id: string | null
+    client_name: string
+    due_on: string | null
+    total_cents: number
+    paid_cents: number
+  }[]) {
+    const balance = row.total_cents - row.paid_cents
+    if (balance <= 0) continue
+    const key = row.client_id ?? `walkin:${row.client_name}`
+    const entry = byClient.get(key) ?? {
+      clientId: row.client_id,
+      clientName: row.client_name,
+      invoices: 0,
+      current: 0, d1to30: 0, d31to60: 0, d61to90: 0, over90: 0,
+      total: 0,
+    }
+    entry.invoices += 1
+    entry[bucketOf(row.due_on) ?? 'current'] += balance
+    entry.total += balance
+    byClient.set(key, entry)
+  }
+
+  return [...byClient.values()].sort((a, b) => b.total - a.total)
+}
+
 export async function getFacturacion(): Promise<FacturacionData> {
   const member = await requirePermission('facturacion:read')
   const supabase = await createClient()
 
-  const [invoicesResult, clientes, productos] = await Promise.all([
+  const [invoicesResult, clientes, productos, aging] = await Promise.all([
     supabase
       .from('invoices')
       .select(COLUMNS, { count: 'exact' })
@@ -249,13 +333,14 @@ export async function getFacturacion(): Promise<FacturacionData> {
       .range(...pageRange(0)),
     clientsFor(supabase, member),
     productsFor(supabase, member),
+    getAging(member, supabase),
   ])
 
   if (invoicesResult.error) {
     console.error('[facturacion] getFacturacion', invoicesResult.error)
     return {
       facturas: [], facturasTotal: 0, items: [], pagos: [],
-      clientes: [], productos: [], canWrite: false,
+      clientes: [], productos: [], aging: [], canWrite: false,
     }
   }
 
@@ -309,6 +394,7 @@ export async function getFacturacion(): Promise<FacturacionData> {
     })),
     clientes,
     productos,
+    aging,
     canWrite: can(member.permissions, 'facturacion:write'),
   }
 }

@@ -132,6 +132,36 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
     return f.status === statusFilter
   })
 
+  const agingTotals = useMemo(() => {
+    const zero = { current: 0, d1to30: 0, d31to60: 0, d61to90: 0, over90: 0, total: 0 }
+    for (const row of data.aging) {
+      zero.current += row.current
+      zero.d1to30 += row.d1to30
+      zero.d31to60 += row.d31to60
+      zero.d61to90 += row.d61to90
+      zero.over90 += row.over90
+      zero.total += row.total
+    }
+    return zero
+  }, [data.aging])
+
+  const exportAging = () => {
+    void runExport(
+      data.aging.map((r) => ({
+        Cliente: r.clientName,
+        Facturas: r.invoices,
+        Corriente: pesos(r.current),
+        '1-30 días': pesos(r.d1to30),
+        '31-60 días': pesos(r.d31to60),
+        '61-90 días': pesos(r.d61to90),
+        '+90 días': pesos(r.over90),
+        Total: pesos(r.total),
+      })),
+      'cartera-antiguedad',
+      'facturacion',
+    )
+  }
+
   const preview = previewTotals(draftItems)
 
   const exportRows = () => {
@@ -428,6 +458,67 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
           noun="facturas"
         />
       </div>
+
+      {data.aging.length > 0 && (
+        <div className="card rise d3">
+          <div className="chead">
+            <div>
+              <div className="ctitle">Antigüedad de cartera</div>
+              <div className="elsub" style={{ marginTop: 2 }}>
+                Saldos por cobrar según días vencidos.
+              </div>
+            </div>
+            <button className="btn" disabled={exporting} aria-busy={exporting} onClick={exportAging}>
+              <FileSpreadsheet size={15} />Exportar
+            </button>
+          </div>
+
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Cliente</th>
+                  <th scope="col" style={{ textAlign: 'right' }}>Corriente</th>
+                  <th scope="col" style={{ textAlign: 'right' }}>1-30</th>
+                  <th scope="col" style={{ textAlign: 'right' }}>31-60</th>
+                  <th scope="col" style={{ textAlign: 'right' }}>61-90</th>
+                  <th scope="col" style={{ textAlign: 'right' }}>+90</th>
+                  <th scope="col" style={{ textAlign: 'right' }}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.aging.map((r) => (
+                  <tr key={r.clientId ?? r.clientName}>
+                    <td>
+                      <div className="cename">{r.clientName || '—'}</div>
+                      <div className="elsub">{r.invoices} {r.invoices === 1 ? 'factura' : 'facturas'}</div>
+                    </td>
+                    <td style={{ textAlign: 'right' }} className="mono">{r.current > 0 ? pesos(r.current) : '—'}</td>
+                    <td style={{ textAlign: 'right' }} className="mono">{r.d1to30 > 0 ? pesos(r.d1to30) : '—'}</td>
+                    <td style={{ textAlign: 'right' }} className="mono">{r.d31to60 > 0 ? pesos(r.d31to60) : '—'}</td>
+                    <td style={{ textAlign: 'right' }} className="mono">{r.d61to90 > 0 ? pesos(r.d61to90) : '—'}</td>
+                    <td className="mono" style={r.over90 > 0
+                      ? { textAlign: 'right', color: 'var(--red)' }
+                      : { textAlign: 'right' }}>
+                      {r.over90 > 0 ? pesos(r.over90) : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }} className="mono cename">{pesos(r.total)}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td className="cename">Total</td>
+                  <td style={{ textAlign: 'right' }} className="mono">{pesos(agingTotals.current)}</td>
+                  <td style={{ textAlign: 'right' }} className="mono">{pesos(agingTotals.d1to30)}</td>
+                  <td style={{ textAlign: 'right' }} className="mono">{pesos(agingTotals.d31to60)}</td>
+                  <td style={{ textAlign: 'right' }} className="mono">{pesos(agingTotals.d61to90)}</td>
+                  <td style={{ textAlign: 'right' }} className="mono">{pesos(agingTotals.over90)}</td>
+                  <td style={{ textAlign: 'right' }} className="mono cename">{pesos(agingTotals.total)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <FormDrawer
         open={invoiceOpen}
