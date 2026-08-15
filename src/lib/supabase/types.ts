@@ -9849,6 +9849,69 @@ export interface Database {
           },
         ]
       }
+      ticket_portal_tokens: {
+        Row: {
+          id: string
+          org_id: string
+          client_id: string
+          token_hash: string
+          expires_on: string
+          revoked_at: string | null
+          created_by: string | null
+          created_at: string
+          last_used_at: string | null
+          read_bucket_min: number
+          read_bucket_count: number
+          write_bucket_min: number
+          write_bucket_count: number
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          client_id: string
+          token_hash: string
+          expires_on: string
+          revoked_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          last_used_at?: string | null
+          read_bucket_min?: number
+          read_bucket_count?: number
+          write_bucket_min?: number
+          write_bucket_count?: number
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          client_id?: string
+          token_hash?: string
+          expires_on?: string
+          revoked_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          last_used_at?: string | null
+          read_bucket_min?: number
+          read_bucket_count?: number
+          write_bucket_min?: number
+          write_bucket_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_portal_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_portal_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
           id: string
@@ -10828,6 +10891,40 @@ export interface Database {
           org?: string | null
           payload?: Record<string, unknown> | null
         } | null
+      }
+      create_ticket_portal_token: {
+        Args: { p_client_id: string; p_days?: number }
+        Returns: string
+      }
+      revoke_ticket_portal_tokens: {
+        Args: { p_client_id: string }
+        Returns: number
+      }
+      portal_tickets: {
+        Args: { p_token: string }
+        Returns: {
+          code?: string
+          subject?: string
+          status?: string
+          created_at?: string
+          body?: string
+        }[]
+      }
+      portal_ticket_comments: {
+        Args: { p_token: string; p_code: string }
+        Returns: {
+          author?: string
+          body?: string
+          created_at?: string
+        }[]
+      }
+      portal_open_ticket: {
+        Args: { p_token: string; p_subject: string; p_body: string }
+        Returns: string
+      }
+      portal_reply_ticket: {
+        Args: { p_token: string; p_code: string; p_body: string }
+        Returns: undefined
       }
       integraciones_set_secret: {
         Args: { p_name: string; p_value: string }

@@ -14,6 +14,51 @@ function fail(message: string): { ok: false; error: string } {
 
 const DENIED = 'No tienes permiso para gestionar enlaces públicos.'
 
+/** Genera el token del portal de tickets y devuelve el enlace completo. */
+export async function createTicketPortalToken(clientId: string): Promise<
+  { ok: true; token: string; url: string } | { ok: false; error: string }
+> {
+  try {
+    const member = await requirePermission('clientes:write')
+    if (!member) return fail('No tienes permiso para gestionar clientes.')
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('create_ticket_portal_token', {
+      p_client_id: clientId,
+    })
+    if (error || !data) {
+      console.error('[portal] createTicketPortalToken', error)
+      return fail(error?.message ?? 'No se pudo generar el enlace.')
+    }
+    const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+    return { ok: true, token: data as string, url: `${origin}/soporte/${data}` }
+  } catch (err) {
+    console.error('[portal] createTicketPortalToken', err)
+    return fail('No se pudo generar el enlace.')
+  }
+}
+
+/** Revoca todos los tokens activos de un cliente. */
+export async function revokeTicketPortalTokens(clientId: string): Promise<
+  { ok: true; revoked: number } | { ok: false; error: string }
+> {
+  try {
+    const member = await requirePermission('clientes:write')
+    if (!member) return fail('No tienes permiso para gestionar clientes.')
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('revoke_ticket_portal_tokens', {
+      p_client_id: clientId,
+    })
+    if (error) {
+      console.error('[portal] revokeTicketPortalTokens', error)
+      return fail(error?.message ?? 'No se pudo revocar el enlace.')
+    }
+    return { ok: true, revoked: (data as number) ?? 0 }
+  } catch (err) {
+    console.error('[portal] revokeTicketPortalTokens', err)
+    return fail('No se pudo revocar el enlace.')
+  }
+}
+
 async function refreshed(): Promise<PortalResult<PortalData>> {
   revalidatePath('/dashboard/portal')
   return { ok: true, data: await getPortal() }

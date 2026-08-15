@@ -19,6 +19,7 @@ import {
   addContacto, createCliente, deleteCliente, deleteContacto,
   logInteraccion, setClienteStatus, updateCliente,
 } from '@/server/mutations/clientes'
+import { createTicketPortalToken, revokeTicketPortalTokens } from '@/server/mutations/portal'
 import { fetchMoreClientes } from '@/server/actions/clientes'
 
 const DATE = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -84,12 +85,31 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
   const [clientForm, setClientForm] = useState(EMPTY_CLIENT)
   const [contactForm, setContactForm] = useState(EMPTY_CONTACT)
   const [interactionForm, setInteractionForm] = useState(EMPTY_INTERACTION)
+  const [portalUrl, setPortalUrl] = useState<string | null>(null)
+  const [portalFor, setPortalFor] = useState<string | null>(null)
 
   function apply(next: ClientesData) {
     setClientes(next.clientes)
     setTotal(next.clientesTotal)
     setContactos(next.contactos)
     setInteracciones(next.interacciones)
+  }
+
+  function openPortal(c: ClientRow) {
+    startTransition(async () => {
+      const result = await createTicketPortalToken(c.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setPortalUrl(result.url)
+      setPortalFor(c.name)
+    })
+  }
+
+  function revokePortal(c: ClientRow) {
+    startTransition(async () => {
+      const result = await revokeTicketPortalTokens(c.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      addToast(`Enlaces de ${c.name} revocados`, 'ok')
+    })
   }
 
   function loadMore() {
@@ -425,6 +445,16 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
                                     ))}
                                   </div>
                                 )}
+                                {data.canWrite && (
+                                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                                    <button className="btn sm" onClick={() => openPortal(c)} disabled={pending}>
+                                      <MessageSquare size={13} />Portal de soporte
+                                    </button>
+                                    <button className="btn sm" onClick={() => revokePortal(c)} disabled={pending}>
+                                      Revocar enlaces
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </td>
@@ -667,6 +697,30 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
         <label className="flabel" htmlFor="in-detail">Detalle</label>
         <textarea id="in-detail" className="field" rows={4} value={interactionForm.detail}
           onChange={(e) => setInteractionForm({ ...interactionForm, detail: e.target.value })} />
+      </FormDrawer>
+
+      <FormDrawer
+        open={portalUrl !== null}
+        onClose={() => setPortalUrl(null)}
+        title={`Portal de soporte — ${portalFor ?? ''}`}
+        footer={
+          <button className="btn dark" disabled={pending} onClick={() => { setPortalUrl(null) }}>
+            <Check size={15} />Listo
+          </button>
+        }
+      >
+        <p style={{ color: 'var(--mut)', marginBottom: 10 }}>
+          Envía este enlace al cliente. Abre sus tickets y le deja escribirte sin cuenta.
+        </p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input className="finput" readOnly value={portalUrl ?? ''} onFocus={(e) => e.target.select()} />
+          <button className="btn" onClick={() => navigator.clipboard?.writeText(portalUrl ?? '')}>
+            Copiar
+          </button>
+        </div>
+        <p style={{ color: 'var(--mut)', fontSize: 13, marginTop: 10 }}>
+          El enlace vence a los 30 días y puedes revocarlo cuando quieras.
+        </p>
       </FormDrawer>
     </>
   )

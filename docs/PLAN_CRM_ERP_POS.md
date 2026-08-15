@@ -459,7 +459,7 @@ Dentro de cada fase, orden por costo/beneficio:
 | 10 | Pedidos B2B (4.1) | M | ✅ hecho — mig. 88 aplicada: `sales_orders` + `sales_order_items` con RLS `pedidos`, RPC `create_order_from_quote` (valida Aceptada, rechaza duplicados, copia líneas con `quote_item_id`), módulo `pedidos` en Comercial con página (estados, avance, cancelar, eliminar) |
 | 11 | Directorio proveedores (4.2) | M | ✅ hecho — mig. 87 aplicada: `suppliers` + guardia de org, RLS inventario, página con deuda pendiente |
 | 12 | Nómina legal (4.3) | L | reglas colombianas versionadas |
-| 13 | Portal tickets (6.2) | M | token, abuso, rate limit |
+| 13 | Portal tickets (6.2) | M | ✅ hecho — mig. 89 aplicada: tokens por cliente (hash sha256, vence, revocable), rate limit 2s/120 lecturas/10 escrituras por hora, RPCs públicos anónimos (`/soporte/[token]`), botón en ficha de cliente. Sin captcha aún — decisión de activación pendiente |
 | 14 | Marketing automation (6.1) | L | consentimiento, cola, proveedor externo |
 | 15 | DIAN (6.3) | XL | proveedor fiscal y contingencia |
 | 16 | Sites + POS offline (6.4) | XL | sincronización, conflictos, inventario |
