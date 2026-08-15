@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
+import { maybePostAutoEntry } from '@/server/contabilidad-auto'
 import {
   PURCHASE_CATEGORIES, PURCHASE_ORDER_STATUSES, PURCHASE_REQUEST_STATUSES, PURCHASE_URGENCIES,
 } from '@/lib/domain'
@@ -665,7 +666,7 @@ export async function registerSupplierPayment(
     }
 
     const supabase = await createClient()
-    const { error } = await supabase.rpc('register_supplier_payment', {
+    const { data: paymentId, error } = await supabase.rpc('register_supplier_payment', {
       p_invoice_id: parsed.data.invoiceId,
       p_amount_cents: parsed.data.amountCents,
       p_method: parsed.data.method,
@@ -684,7 +685,18 @@ export async function registerSupplierPayment(
       return fail('No se pudo registrar el pago.')
     }
 
+    // Un pago HECHO (no programado) es un hecho contable: sale caja, baja la
+    // cuenta por pagar. Idempotente por (Pago, payment_id).
+    if (parsed.data.paidOn && paymentId) {
+      await maybePostAutoEntry(
+        member, 'pago_proveedor', 'Pago', paymentId as string,
+        `Pago a proveedor`,
+        parsed.data.paidOn, parsed.data.amountCents,
+      )
+    }
+
     revalidatePath('/dashboard/compras')
+    revalidatePath('/dashboard/contabilidad')
     return { ok: true, data: await listSupplierInvoices(supabase, member.orgId) }
   } catch {
     return fail('No tienes permiso para gestionar compras.')

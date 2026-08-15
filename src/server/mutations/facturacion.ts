@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
+import { maybePostAutoEntry } from '@/server/contabilidad-auto'
 import { INVOICE_STATUSES, PAYMENT_METHODS } from '@/lib/domain'
 import { getFacturacion, type FacturacionData } from '@/server/queries/facturacion'
 
@@ -157,6 +158,16 @@ export async function createFactura(
       // since PostgREST has no transaction across two calls.
       await supabase.from('invoices').delete().eq('id', invoice.id).eq('org_id', member.orgId)
       return fail('No se pudieron guardar las líneas de la factura.')
+    }
+
+    // Venta a crédito: nace una cuenta por cobrar. El asiento es derivado del
+    // hecho, y post_auto_entry es idempotente por (source, source_id).
+    if (parsed.data.dueOn) {
+      await maybePostAutoEntry(
+        member, 'venta_credito', 'Venta', invoice.id,
+        `Factura ${parsed.data.clientName}`,
+        parsed.data.issuedOn, total,
+      )
     }
 
     revalidatePath('/dashboard/facturacion')
@@ -344,7 +355,7 @@ export async function registrarPago(
     const supabase = await createClient()
     const { data: invoice } = await supabase
       .from('invoices')
-      .select('id, total_cents, paid_cents, status')
+      .select('id, code, total_cents, paid_cents, status')
       .eq('id', parsed.data.invoiceId)
       .eq('org_id', member.orgId)
       .is('deleted_at', null)
@@ -361,15 +372,15 @@ export async function registrarPago(
       )
     }
 
-    const { error } = await supabase.from('invoice_payments').insert({
+    const { data: payment, error } = await supabase.from('invoice_payments').insert({
       invoice_id: parsed.data.invoiceId,
       amount_cents: parsed.data.amountCents,
       method: parsed.data.method,
       reference: parsed.data.reference,
       paid_on: parsed.data.paidOn,
-    })
+    }).select('id').single()
 
-    if (error) {
+    if (error || !payment) {
       console.error('[facturacion] registrarPago', error)
       return fail('No se pudo registrar el pago.')
     }
@@ -388,7 +399,16 @@ export async function registrarPago(
       return fail('El pago se guardó pero no se pudo actualizar el saldo. Revisa la factura.')
     }
 
+    // El cobro también es un hecho contable: entra caja, sale la cuenta por
+    // cobrar. Idempotente por (Cobro, payment_id).
+    await maybePostAutoEntry(
+      member, 'cobro', 'Cobro', payment.id,
+      `Cobro ${invoice.code ?? 'factura'}`,
+      parsed.data.paidOn, parsed.data.amountCents,
+    )
+
     revalidatePath('/dashboard/facturacion')
+    revalidatePath('/dashboard/contabilidad')
     return { ok: true, data: await getFacturacion() }
   } catch {
     return fail('No tienes permiso para gestionar facturación.')

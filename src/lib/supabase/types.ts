@@ -3373,6 +3373,41 @@ export interface Database {
           },
         ]
       }
+      gl_accounts: {
+        Row: {
+          code: string
+          name: string
+          nature: "Débito" | "Crédito"
+          kind: "Activo" | "Pasivo" | "Patrimonio" | "Ingresos" | "Gastos" | "Costos"
+          parent_code: string | null
+          is_active: boolean
+        }
+        Insert: {
+          code: string
+          name: string
+          nature: "Débito" | "Crédito"
+          kind: "Activo" | "Pasivo" | "Patrimonio" | "Ingresos" | "Gastos" | "Costos"
+          parent_code?: string | null
+          is_active?: boolean
+        }
+        Update: {
+          code?: string
+          name?: string
+          nature?: "Débito" | "Crédito"
+          kind?: "Activo" | "Pasivo" | "Patrimonio" | "Ingresos" | "Gastos" | "Costos"
+          parent_code?: string | null
+          is_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gl_accounts_parent_code_fkey"
+            columns: ["parent_code"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       guard_posts: {
         Row: {
           id: string
@@ -4294,6 +4329,108 @@ export interface Database {
           },
           {
             foreignKeyName: "job_openings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_entries: {
+        Row: {
+          id: string
+          org_id: string
+          entry_date: string
+          memo: string
+          source: "Manual" | "Venta" | "Cobro" | "Compra" | "Pago" | "Caja"
+          source_id: string | null
+          status: "Borrador" | "Publicado"
+          posted_at: string | null
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          entry_date?: string
+          memo: string
+          source?: "Manual" | "Venta" | "Cobro" | "Compra" | "Pago" | "Caja"
+          source_id?: string | null
+          status?: "Borrador" | "Publicado"
+          posted_at?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          entry_date?: string
+          memo?: string
+          source?: "Manual" | "Venta" | "Cobro" | "Compra" | "Pago" | "Caja"
+          source_id?: string | null
+          status?: "Borrador" | "Publicado"
+          posted_at?: string | null
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_entries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_lines: {
+        Row: {
+          id: string
+          org_id: string
+          entry_id: string
+          account_id: string
+          description: string
+          debit_cents: number
+          credit_cents: number
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          entry_id: string
+          account_id: string
+          description?: string
+          debit_cents?: number
+          credit_cents?: number
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          entry_id?: string
+          account_id?: string
+          description?: string
+          debit_cents?: number
+          credit_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_lines_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "journal_lines_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_lines_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -5549,6 +5686,42 @@ export interface Database {
           },
           {
             foreignKeyName: "online_orders_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_account_mappings: {
+        Row: {
+          org_id: string
+          concepto: "venta_credito" | "cobro" | "compra" | "pago_proveedor" | "caja_diferencia"
+          account_id: string
+          auto: boolean
+        }
+        Insert: {
+          org_id: string
+          concepto: "venta_credito" | "cobro" | "compra" | "pago_proveedor" | "caja_diferencia"
+          account_id: string
+          auto?: boolean
+        }
+        Update: {
+          org_id?: string
+          concepto?: "venta_credito" | "cobro" | "compra" | "pago_proveedor" | "caja_diferencia"
+          account_id?: string
+          auto?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_account_mappings_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "gl_accounts"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "org_account_mappings_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -10216,7 +10389,19 @@ export interface Database {
           p_paid_on?: string | null
           p_scheduled_on?: string | null
         }
-        Returns: boolean
+        Returns: string
+      }
+      post_auto_entry: {
+        Args: {
+          p_org_id: string
+          p_concepto: string
+          p_source: string
+          p_source_id: string
+          p_memo: string
+          p_entry_date: string
+          p_amount_cents: number
+        }
+        Returns: string
       }
     }
     Enums: Record<never, never>

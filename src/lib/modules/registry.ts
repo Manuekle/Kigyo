@@ -339,6 +339,17 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Prospectos y su camino hasta convertirse en clientes.',
   },
   {
+    key: 'contabilidad',
+    label: 'Contabilidad',
+    description: 'Partida doble sobre PUC: asientos, mayor y reportes.',
+    group: 'Comercial',
+    icon: 'BookOpen',
+    route: '/dashboard/contabilidad',
+    actions: ['read', 'write'],
+    title: 'Contabilidad',
+    subtitle: 'Asientos de partida doble, mayor por cuenta y reportes financieros.',
+  },
+  {
     key: 'facturacion',
     label: 'Facturación',
     description: 'Facturas, pagos recibidos y cartera vencida.',
@@ -922,6 +933,11 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'marketing', requires: 'clientes', kind: 'soft' },
   { module: 'integraciones', requires: 'marketing', kind: 'soft' },
   { module: 'integraciones', requires: 'facturacion', kind: 'soft' },
+  // Contabilidad registra lo que esos módulos hacen; sin ellos funciona pero
+  // contabiliza menos.
+  { module: 'contabilidad', requires: 'facturacion', kind: 'soft' },
+  { module: 'contabilidad', requires: 'compras', kind: 'soft' },
+  { module: 'contabilidad', requires: 'nomina', kind: 'soft' },
 ]
 
 /** What a module needs, at the given strength. */

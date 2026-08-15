@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
+import { maybePostAutoEntry } from '@/server/contabilidad-auto'
 import { CASH_MOVEMENT_KINDS, PAYMENT_METHODS } from '@/lib/domain'
 import { expectedFor, getCaja, type CajaData } from '@/server/queries/caja'
 
@@ -170,6 +171,18 @@ export async function cerrarCaja(
       console.error('[caja] cerrarCaja', error)
       return fail('No se pudo cerrar la caja.')
     }
+
+    // La diferencia del arqueo es un hecho contable: faltante = gasto diverso,
+    // sobrante = ingreso diverso. Cero = caja cuadrada, y el gancho no anota
+    // nada (post_auto_entry devuelve null sin error).
+    await maybePostAutoEntry(
+      member, 'caja_diferencia', 'Caja', session.id,
+      `Diferencia de caja`,
+      new Date().toISOString().slice(0, 10),
+      parsed.data.countedCents - Math.max(expected, 0),
+    )
+
+    revalidatePath('/dashboard/contabilidad')
     return refreshed()
   } catch {
     return fail(DENIED)
