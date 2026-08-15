@@ -159,6 +159,7 @@ export default function PosPage({ data }: { data: PosData }) {
   const [qrState, setQrState] = useState<{
     saleId: string; saleCode: string; amountCents: number
     qrUrl: string | null; redirectUrl: string | null
+    simulated: boolean; transactionId: string
   } | null>(null)
   const scanRef = useRef<HTMLInputElement>(null)
 
@@ -322,6 +323,25 @@ export default function PosPage({ data }: { data: PosData }) {
           addToast('El pago no se confirmó; la venta quedó pendiente para anular', 'info')
         }
       }, 3000)
+    })
+  }
+
+  /** La simulación firma como el proveedor: el único camino a «Pagada». */
+  function simulatePayment(status: 'APPROVED' | 'DECLINED') {
+    if (!qrState) return
+    startTransition(async () => {
+      try {
+        await fetch('/api/wompi/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transactionId: qrState.transactionId, status }),
+        })
+      } catch {
+        addToast('No se pudo simular el pago', 'err')
+        return
+      }
+      const fresh = await fetchPos()
+      if (fresh) setState(fresh)
     })
   }
 
@@ -686,28 +706,48 @@ export default function PosPage({ data }: { data: PosData }) {
         )}
       >
         {qrState ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', textAlign: 'center' }}>
-            {qrState.qrUrl ? (
-              // El QR viene de Wompi como URL; se muestra tal cual. Sin la
-              // URL (método no QR), el cliente paga por el enlace.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={qrState.qrUrl} alt="QR de pago Wompi" width={220} height={220} />
-            ) : (
-              <a className="btn dark" href={qrState.redirectUrl ?? undefined} target="_blank" rel="noreferrer">
-                Abrir pago en Wompi
-              </a>
-            )}
-            <div className="cename" style={{ fontSize: 17 }}>{pesos(qrState.amountCents)}</div>
-            <div className="elsub">
-              Escanea con la app de tu banco. La venta se confirma sola cuando el pago llega;
-              no cobres en efectivo mientras tanto.
+          qrState.simulated ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center' }}>
+              <Badge st="Pago simulado" tone="amb" />
+              <div className="cename" style={{ fontSize: 17 }}>{pesos(qrState.amountCents)}</div>
+              <div className="elsub">
+                Modo simulado: no hay dinero real moviéndose. La confirmación sigue el
+                mismo camino que el webhook de Wompi — la simulación ocupa el lugar del
+                proveedor.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn dark" disabled={pending} onClick={() => simulatePayment('APPROVED')}>
+                  <Check size={15} />Simular pago aprobado
+                </button>
+                <button className="btn" disabled={pending} onClick={() => simulatePayment('DECLINED')}>
+                  Simular rechazo
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', textAlign: 'center' }}>
+              {qrState.qrUrl ? (
+                // El QR viene de Wompi como URL; se muestra tal cual. Sin la
+                // URL (método no QR), el cliente paga por el enlace.
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={qrState.qrUrl} alt="QR de pago Wompi" width={220} height={220} />
+              ) : (
+                <a className="btn dark" href={qrState.redirectUrl ?? undefined} target="_blank" rel="noreferrer">
+                  Abrir pago en Wompi
+                </a>
+              )}
+              <div className="cename" style={{ fontSize: 17 }}>{pesos(qrState.amountCents)}</div>
+              <div className="elsub">
+                Escanea con la app de tu banco. La venta se confirma sola cuando el pago llega;
+                no cobres en efectivo mientras tanto.
+              </div>
+            </div>
+          )
         ) : (
           <>
             <div className="elsub" style={{ marginBottom: 12 }}>
-              La venta se registra como pendiente, Wompi genera el QR y la confirmación
-              llega sola cuando el cliente paga.
+              La venta se registra como pendiente y la confirmación llega sola cuando el
+              pago se aprueba — por ahora en modo simulado: sin dinero real.
             </div>
             <label className="flabel" htmlFor="qr-email">Correo del cliente</label>
             <input id="qr-email" className="field" type="email" value={qrEmail}

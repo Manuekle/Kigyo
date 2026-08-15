@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
+import { paymentsSimulated } from '@/lib/wompi'
 import { pageRange, scoped, totalOf, type Page } from './shared'
 
 /**
@@ -200,19 +201,23 @@ export async function getPos(): Promise<PosData> {
   const supabase = await createClient()
 
   // El flag del QR es una decisión de plan + configuración, no de permiso:
-  // se resuelve con el cliente admin y no expone nada del vault.
+  // se resuelve con el cliente admin y no expone nada del vault. En modo
+  // SIMULADO no hay pasarela que configurar — el loop entero es sintético y
+  // basta el plan Enterprise.
   const qrEnabled = member.plan === 'enterprise'
-    ? await (async () => {
-        const admin = createAdminClient()
-        const { data } = await admin
-          .from('integration_settings')
-          .select('enabled, config')
-          .eq('org_id', member.orgId)
-          .eq('kind', 'pagos')
-          .maybeSingle()
-        const publicKey = (data?.config as Record<string, unknown> | undefined)?.public_key
-        return Boolean(data?.enabled && typeof publicKey === 'string' && publicKey)
-      })()
+    ? paymentsSimulated()
+      ? true
+      : await (async () => {
+          const admin = createAdminClient()
+          const { data } = await admin
+            .from('integration_settings')
+            .select('enabled, config')
+            .eq('org_id', member.orgId)
+            .eq('kind', 'pagos')
+            .maybeSingle()
+          const publicKey = (data?.config as Record<string, unknown> | undefined)?.public_key
+          return Boolean(data?.enabled && typeof publicKey === 'string' && publicKey)
+        })()
     : false
 
   // El catálogo se lee solo si esta persona puede verlo. Sin el permiso la

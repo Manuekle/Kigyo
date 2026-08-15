@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermission } from '@/lib/auth/session'
 import { PAYMENT_METHODS } from '@/lib/domain'
-import { wompiCreatePaymentIntent } from '@/lib/wompi'
+import { paymentsSimulated, wompiCreatePaymentIntent } from '@/lib/wompi'
 import { getPos, type PosData } from '@/server/queries/pos'
 
 export type PosResult<T> = { ok: true; data: T } | { ok: false; error: string }
@@ -140,6 +140,10 @@ export interface QrSaleData extends PosData {
     amountCents: number
     qrUrl: string | null
     redirectUrl: string | null
+    /** Transacción sintética: la confirma la simulación, no Wompi. */
+    simulated: boolean
+    /** El external_id: id de la transacción (real o sintética). */
+    transactionId: string
   }
 }
 
@@ -166,30 +170,42 @@ export async function cobrarConQr(
       return fail('Los pagos con QR están disponibles en el plan Enterprise.')
     }
 
-    // La configuración de la pasarela y el secreto del vault se leen con el
-    // cliente admin: el cajero no tiene (ni necesita) integraciones:read.
+    const simulated = paymentsSimulated()
+
+    // En modo simulado no hay Wompi ni vault: el loop completo (venta
+    // pendiente → intención sintética → simulación firma como el proveedor →
+    // webhook-path confirma) corre sin dinero real ni llaves. En modo real
+    // la configuración y el secreto se leen con el cliente admin: el cajero
+    // no tiene (ni necesita) integraciones:read.
     const admin = createAdminClient()
-    const { data: gateway } = await admin
-      .from('integration_settings')
-      .select('provider, enabled, config')
-      .eq('org_id', member.orgId)
-      .eq('kind', 'pagos')
-      .maybeSingle()
+    let privateKey = ''
+    let publicKey = ''
 
-    const publicKey = (gateway?.config as Record<string, unknown> | undefined)?.public_key
-    if (!gateway?.enabled || typeof publicKey !== 'string' || !publicKey) {
-      return fail('Configura la pasarela de pagos en Integraciones antes de cobrar con QR.')
-    }
-    if (gateway.provider !== 'wompi') {
-      return fail('El pago con QR está disponible con Wompi por ahora.')
-    }
+    if (!simulated) {
+      const { data: gateway } = await admin
+        .from('integration_settings')
+        .select('provider, enabled, config')
+        .eq('org_id', member.orgId)
+        .eq('kind', 'pagos')
+        .maybeSingle()
 
-    const { data: privateKey, error: secretError } = await admin.rpc('integraciones_get_secret', {
-      p_name: `integraciones.${member.orgId}.pagos.private_key`,
-    })
-    if (secretError || typeof privateKey !== 'string' || !privateKey) {
-      console.error('[pos] cobrarConQr secret', secretError)
-      return fail('La llave privada de la pasarela no está disponible.')
+      const key = (gateway?.config as Record<string, unknown> | undefined)?.public_key
+      if (!gateway?.enabled || typeof key !== 'string' || !key) {
+        return fail('Configura la pasarela de pagos en Integraciones antes de cobrar con QR.')
+      }
+      if (gateway.provider !== 'wompi') {
+        return fail('El pago con QR está disponible con Wompi por ahora.')
+      }
+      publicKey = key
+
+      const { data: secret, error: secretError } = await admin.rpc('integraciones_get_secret', {
+        p_name: `integraciones.${member.orgId}.pagos.private_key`,
+      })
+      if (secretError || typeof secret !== 'string' || !secret) {
+        console.error('[pos] cobrarConQr secret', secretError)
+        return fail('La llave privada de la pasarela no está disponible.')
+      }
+      privateKey = secret
     }
 
     const supabase = await createClient()
@@ -220,7 +236,7 @@ export async function cobrarConQr(
     try {
       intent = await wompiCreatePaymentIntent({
         privateKey,
-        publicKey: publicKey as string,
+        publicKey,
         amountCents: row.sale_total_cents,
         reference: row.sale_code,
         customerEmail: parsed.data.customerEmail,
@@ -237,7 +253,7 @@ export async function cobrarConQr(
       .insert({
         org_id: member.orgId,
         sale_id: row.sale_id,
-        provider: gateway.provider,
+        provider: 'wompi',
         status: 'Pendiente',
         amount_cents: row.sale_total_cents,
         reference: row.sale_code,
@@ -262,6 +278,8 @@ export async function cobrarConQr(
           amountCents: row.sale_total_cents,
           qrUrl: intent.qrUrl,
           redirectUrl: intent.redirectUrl,
+          simulated: intent.simulated,
+          transactionId: intent.id,
         },
       },
     }

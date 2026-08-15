@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 
 /**
  * Cliente mínimo de Wompi: intención de pago y verificación de eventos.
@@ -7,12 +7,27 @@ import { createHash } from 'node:crypto'
  * quien puede leer la llave privada del vault); la verificación la usa el
  * webhook, que es el único camino por el que una venta pasa a Pagada.
  *
+ * ─── Modo simulado ─────────────────────────────────────────────────────────
+ *
+ * Por decisión de producto, TODO lo que toca dinero (pasarelas, pagos,
+ * transferencias) está simulado por ahora: no se llama a Wompi, no hay dinero
+ * real moviéndose. La intención es una transacción sintética y la
+ * confirmación la dispara la ruta de simulación, que ocupa el lugar del
+ * proveedor (el único que en la vida real firmaría el evento). Pasar a real
+ * es WOMPI_REAL=true + llaves en el vault; el código de confirmación no
+ * cambia, solo quién firma.
+ *
  * Firma de eventos (docs de Wompi): el evento trae `signature.properties`,
  * una lista de rutas en orden; el checksum es el SHA-256 de la concatenación
  * de los VALORES de esas rutas (en ese orden), luego el secreto de eventos y
  * por último el `timestamp` del evento. Si cualquiera de las propiedades no
  * existe, el evento no es válido.
  */
+
+/** Simulado por defecto: el dinero real se enciende con WOMPI_REAL=true. */
+export function paymentsSimulated(): boolean {
+  return process.env.WOMPI_REAL !== 'true'
+}
 
 export interface WompiIntent {
   /** id de la transacción en Wompi: el external_id que el webhook devuelve. */
@@ -21,6 +36,8 @@ export interface WompiIntent {
   qrUrl: string | null
   /** URL de redirección al checkout de Wompi. */
   redirectUrl: string | null
+  /** Transacción sintética: no existe en Wompi, la confirma la simulación. */
+  simulated: boolean
 }
 
 function wompiBase(): string {
@@ -60,6 +77,17 @@ export async function wompiCreatePaymentIntent(input: {
   reference: string
   customerEmail: string
 }): Promise<WompiIntent> {
+  // Simulación: no se llama a Wompi. La transacción es sintética y el QR no
+  // existe — la pantalla muestra el botón de simular en su lugar.
+  if (paymentsSimulated()) {
+    return {
+      id: `sim-${randomUUID()}`,
+      qrUrl: null,
+      redirectUrl: null,
+      simulated: true,
+    }
+  }
+
   const token = await acceptanceToken(input.privateKey, input.publicKey)
 
   const res = await fetch(`${wompiBase()}/v1/transactions`, {
@@ -100,6 +128,7 @@ export async function wompiCreatePaymentIntent(input: {
     id,
     qrUrl: data.payment_method?.extra?.qr_url ?? null,
     redirectUrl: data.redirect_url ?? null,
+    simulated: false,
   }
 }
 
