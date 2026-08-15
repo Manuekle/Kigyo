@@ -255,6 +255,18 @@ export default function Client({
           next,
         )
         return
+      // "Configurar manualmente" means exactly that: the manual start set is
+      // already applied, so the wizard has nothing left to propose — it goes
+      // straight to a working dashboard and the rest is set up from
+      // Configuración. Walking the remaining steps would be asking for answers
+      // the customer already declined to give.
+      case 'sector':
+        if (chosenSector === null) {
+          done()
+          return
+        }
+        next()
+        return
       case 'equipo':
         done()
         return

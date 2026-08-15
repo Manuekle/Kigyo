@@ -113,10 +113,16 @@ export async function getDashboard(): Promise<DashboardData> {
     proyectos: allows(member, 'proyectos:read'),
     documentos: allows(member, 'documentos:read'),
     trazabilidad: allows(member, 'trazabilidad:read'),
+    ventas: allows(member, 'pos:read'),
+    clientes: allows(member, 'clientes:read'),
+    leads: allows(member, 'leads:read'),
+    cotizaciones: allows(member, 'cotizaciones:read'),
+    inventario: allows(member, 'inventario:read'),
   }
 
   const [
     empleados, firmasPend, firmasHist, riesgos, tickets, proyectos, documentos, audit,
+    ventasHoy, clientesAct, leadsAct, cotizAbiertas, prodActivos,
   ] = await Promise.all([
     wants.empleados
       ? supabase.from('employees').select('id', { count: 'exact', head: true })
@@ -157,6 +163,28 @@ export async function getDashboard(): Promise<DashboardData> {
           .eq('org_id', member.orgId)
           .order('occurred_at', { ascending: false }).limit(8)
       : Promise.resolve({ data: [] }),
+    wants.ventas
+      ? supabase.from('pos_sales').select('total_cents')
+          .eq('org_id', member.orgId).eq('status', 'Pagada').gte('sold_at', today)
+      : Promise.resolve({ data: [] }),
+    wants.clientes
+      ? supabase.from('clients').select('id', { count: 'exact', head: true })
+          .eq('org_id', member.orgId).is('deleted_at', null).eq('status', 'Activo')
+      : Promise.resolve({ count: null }),
+    wants.leads
+      ? supabase.from('leads').select('id', { count: 'exact', head: true })
+          .eq('org_id', member.orgId).is('deleted_at', null)
+          .in('stage', ['Nuevo', 'Contactado', 'Calificado'])
+      : Promise.resolve({ count: null }),
+    wants.cotizaciones
+      ? supabase.from('quotes').select('id', { count: 'exact', head: true })
+          .eq('org_id', member.orgId).is('deleted_at', null)
+          .in('status', ['Borrador', 'Enviada'])
+      : Promise.resolve({ count: null }),
+    wants.inventario
+      ? supabase.from('products').select('id', { count: 'exact', head: true })
+          .eq('org_id', member.orgId).is('deleted_at', null).eq('is_active', true)
+      : Promise.resolve({ count: null }),
   ])
 
   const kpis: DashboardKpi[] = []
@@ -204,6 +232,54 @@ export async function getDashboard(): Promise<DashboardData> {
     kpis.push({
       key: 'proyectos', label: 'Proyectos activos', tone: 'grn',
       value: String(proyectoCount), sub: 'en ejecución',
+    })
+  }
+
+  // ── Sector-driven KPIs. Each one is gated on its own module, so a POS
+  // company sees sales and stock, a CRM company sees pipeline, and a company
+  // that never switched `pos` on sees none of the POS counters. The sector
+  // decides the modules in onboarding; the dashboard then follows the modules.
+  const ventasHoyRows = ((ventasHoy as { data: Array<{ total_cents: number }> | null }).data ?? [])
+  if (wants.ventas) {
+    const hoy = ventasHoyRows.reduce((sum, s) => sum + s.total_cents, 0)
+    kpis.push({
+      key: 'ventas', label: 'Ventas de hoy', tone: 'grn',
+      value: new Intl.NumberFormat('es-CO', {
+        style: 'currency', currency: 'COP', maximumFractionDigits: 0,
+      }).format(hoy),
+      sub: ventasHoyRows.length === 0 ? 'aún sin ventas' : `${ventasHoyRows.length} ${ventasHoyRows.length === 1 ? 'venta' : 'ventas'}`,
+    })
+  }
+
+  const clienteCount = (clientesAct as { count: number | null }).count
+  if (clienteCount !== null) {
+    kpis.push({
+      key: 'clientes', label: 'Clientes activos', tone: 'blu',
+      value: String(clienteCount), sub: 'en el directorio',
+    })
+  }
+
+  const leadCount = (leadsAct as { count: number | null }).count
+  if (leadCount !== null) {
+    kpis.push({
+      key: 'leads', label: 'Leads en embudo', tone: 'vio',
+      value: String(leadCount), sub: 'sin convertir',
+    })
+  }
+
+  const cotizCount = (cotizAbiertas as { count: number | null }).count
+  if (cotizCount !== null) {
+    kpis.push({
+      key: 'cotizaciones', label: 'Cotizaciones abiertas', tone: 'amb',
+      value: String(cotizCount), sub: 'borrador o enviada',
+    })
+  }
+
+  const prodCount = (prodActivos as { count: number | null }).count
+  if (prodCount !== null) {
+    kpis.push({
+      key: 'inventario', label: 'Productos activos', tone: 'neu',
+      value: String(prodCount), sub: 'en catálogo',
     })
   }
 
