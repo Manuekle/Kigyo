@@ -1,5 +1,15 @@
 # Plan: profundidad sectorial, sidebar y el lío cuenta/empresa
 
+> **Estado hoy (2026-08-14):** este documento es el plan histórico. Gran parte
+> de lo que aquí decía «no existe» ya se construyó: verticales para los quince
+> sectores (migraciones 42, 52-60), transversales (`tiempos`, `suscripciones`,
+> `cartera`, `notificaciones`, `reportes`; migraciones 47-51), caja/pos
+> transversales (43-44), odontología (45), roles sugeridos (46 + pase 61),
+> sidebar con vertical arriba, grupos por sector y colapso persistido, y la
+> separación cuenta→empresa (26-28, 31, 36-41). El inventario vivo está en
+> `docs/SECTORES_SUBSECTORES_MODULOS.md`; este archivo conserva el diagnóstico
+> original para no falsificar el registro.
+
 Estado del código al escribir esto: rama `feat/design-system-refresh`, 40 migraciones,
 37 entradas en `src/lib/modules/registry.ts`, 22 sectores y 45 subsectores en
 `supabase/migrations/*_29_sectors_and_dependencies.sql`.
@@ -177,7 +187,8 @@ Sirven a muchos sectores; por eso son módulos y no subrutas.
 
 ### Fase 5 — Los quince sectores sin vertical
 
-Orden propuesto por hueco más grande primero:
+✅ **Hecho** (migraciones 42, 52-60). Orden propuesto era por hueco más grande
+primero, y así se ejecutó:
 
 1. `fitness-bienestar` → módulo `socios`: membresías, clases, check-in, planes.
    Es el sector más vacío del producto.
