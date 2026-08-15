@@ -155,7 +155,7 @@ export const SECTOR_NAV: Record<string, SectorNav> = {
   telecomunicaciones: { navLabel: 'Redes', groupOrder: OPS_FIRST },
   logistica:          { groupOrder: OPS_FIRST },
   tecnologia:         { groupOrder: OPS_FIRST },
-  gobierno:           { groupOrder: OPS_FIRST },
+  gobierno:           { navLabel: 'Contratación', groupOrder: OPS_FIRST },
   seguridad:          { navLabel: 'Puestos',     groupOrder: OPS_FIRST },
 
   comercio:           { groupOrder: SALES_FIRST },
@@ -362,7 +362,8 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'gobierno',
     label: 'Sector público',
     description: 'Entidades y contratistas del Estado. Trazabilidad obligatoria.',
-    modules: [...PEOPLE, 'proyectos', 'contratos', 'compras', 'firmas', 'hseq', 'riesgos', 'trazabilidad', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'proyectos', 'contratacion', 'contratos', 'compras', 'firmas', 'hseq', 'riesgos', 'trazabilidad', 'tickets', ...SPINE],
+    vertical: 'contratacion',
   },
   {
     key: 'otro',

@@ -1396,6 +1396,158 @@ export interface Database {
           },
         ]
       }
+      contratacion_oferentes: {
+        Row: {
+          id: string
+          org_id: string
+          proceso_id: string
+          name: string
+          contacto: string | null
+          estado: "invitado" | "presentado" | "habilitado" | "adjudicado" | "rechazado"
+          valor_oferta: number
+          notas: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          proceso_id: string
+          name: string
+          contacto?: string | null
+          estado?: "invitado" | "presentado" | "habilitado" | "adjudicado" | "rechazado"
+          valor_oferta?: number
+          notas?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          proceso_id?: string
+          name?: string
+          contacto?: string | null
+          estado?: "invitado" | "presentado" | "habilitado" | "adjudicado" | "rechazado"
+          valor_oferta?: number
+          notas?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratacion_oferentes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratacion_oferentes_proceso_id_fkey"
+            columns: ["proceso_id"]
+            isOneToOne: false
+            referencedRelation: "contratacion_procesos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contratacion_pliegos: {
+        Row: {
+          id: string
+          org_id: string
+          proceso_id: string
+          name: string
+          description: string
+          obligatorio: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          proceso_id: string
+          name: string
+          description: string
+          obligatorio?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          proceso_id?: string
+          name?: string
+          description?: string
+          obligatorio?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratacion_pliegos_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratacion_pliegos_proceso_id_fkey"
+            columns: ["proceso_id"]
+            isOneToOne: false
+            referencedRelation: "contratacion_procesos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contratacion_procesos: {
+        Row: {
+          id: string
+          org_id: string
+          numero: string
+          objeto: string
+          modalidad: "licitacion" | "seleccion_abreviada" | "minima_cuantia" | "contratacion_directa"
+          estado: "borrador" | "publicado" | "en_evaluacion" | "adjudicado" | "cancelado"
+          valor: number
+          publicado_on: string | null
+          cierre_on: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          numero: string
+          objeto: string
+          modalidad?: "licitacion" | "seleccion_abreviada" | "minima_cuantia" | "contratacion_directa"
+          estado?: "borrador" | "publicado" | "en_evaluacion" | "adjudicado" | "cancelado"
+          valor?: number
+          publicado_on?: string | null
+          cierre_on?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          numero?: string
+          objeto?: string
+          modalidad?: "licitacion" | "seleccion_abreviada" | "minima_cuantia" | "contratacion_directa"
+          estado?: "borrador" | "publicado" | "en_evaluacion" | "adjudicado" | "cancelado"
+          valor?: number
+          publicado_on?: string | null
+          cierre_on?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratacion_procesos_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_enrollments: {
         Row: {
           id: string
