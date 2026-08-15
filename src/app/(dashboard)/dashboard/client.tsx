@@ -194,6 +194,16 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
       )}
 
       <div className="g2" style={{ marginTop: 16 }}>
+        {/*
+          "Salud organizacional · 82 / 100 pts" used to sit here, over six
+          factors — Clima laboral (eNPS) 75, Desempeño 79, Retención 83 —
+          weighted [.2 .2 .2 .15 .15 .1] into a single score. There is no
+          survey, no performance cycle and no attrition model behind any of
+          those numbers; they were typed in, and the weighting made them look
+          computed. It was replaced with panels that only render when their
+          module is on: the document chart, pending signatures, activity feed.
+        */}
+        {data.show.documental && (
         <div className="card rise d3">
           <div className="chead">
             <div className="ctitle">Actividad documental</div>
@@ -242,16 +252,9 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
             )}
           </div>
         </div>
+        )}
 
-        {/*
-          "Salud organizacional · 82 / 100 pts" used to sit here, over six
-          factors — Clima laboral (eNPS) 75, Desempeño 79, Retención 83 —
-          weighted [.2 .2 .2 .15 .15 .1] into a single score. There is no
-          survey, no performance cycle and no attrition model behind any of
-          those numbers; they were typed in, and the weighting made them look
-          computed. Pending signatures take the slot: real, actionable, and
-          the thing somebody opening this screen can actually do something about.
-        */}
+        {data.show.firmas && (
         <div className="card rise d4">
           <div className="chead">
             <div className="ctitle">Firmas pendientes</div>
@@ -279,6 +282,7 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
             </div>
           )}
         </div>
+        )}
       </div>
 
       <div className="g2b" style={{ marginTop: 16 }}>
@@ -322,6 +326,7 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
           </div>
         </div>
 
+        {data.show.trazabilidad && (
         <div className="card rise d6">
           <div className="chead">
             <div className="ctitle">Trazabilidad reciente</div>
@@ -350,6 +355,7 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* The "Recomendaciones" card sat here with three fixed entries whose

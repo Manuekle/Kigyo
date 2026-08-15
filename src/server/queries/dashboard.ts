@@ -50,6 +50,18 @@ export interface DashboardData {
   serie: ActividadPoint[]
   orgName: string
   /**
+   * Which panels to render. Same gates that decide the KPIs, so a company
+   * that never switched `firmas` on gets neither the six-month chart nor the
+   * pending-signatures card, and one without `trazabilidad` gets no activity
+   * feed — a panel explaining "there is nothing to show" is noise when the
+   * module is not even part of the plan.
+   */
+  show: {
+    documental: boolean
+    firmas: boolean
+    trazabilidad: boolean
+  }
+  /**
    * Nothing has been entered yet — every counter the caller can see is zero
    * and nothing has happened.
    *
@@ -310,15 +322,17 @@ export async function getDashboard(): Promise<DashboardData> {
 
   return {
     kpis,
-    pendientes: pendientes.map((f) => ({
-      id: f.id,
-      title: f.title,
-      detail: [
-        f.employees?.full_name,
-        f.due_on && f.due_on < today ? 'vencido' : null,
-      ].filter(Boolean).join(' · ') || 'Sin firmante asignado',
-      href: '/dashboard/firmas',
-    })),
+    pendientes: wants.firmas
+      ? pendientes.map((f) => ({
+          id: f.id,
+          title: f.title,
+          detail: [
+            f.employees?.full_name,
+            f.due_on && f.due_on < today ? 'vencido' : null,
+          ].filter(Boolean).join(' · ') || 'Sin firmante asignado',
+          href: '/dashboard/firmas',
+        }))
+      : [],
     actividad: ((audit as { data: Array<{
       id: number; action: string; table_name: string; record_code: string | null
       occurred_at: string; actor_email: string | null
@@ -331,6 +345,11 @@ export async function getDashboard(): Promise<DashboardData> {
     })),
     serie: [...buckets.values()],
     orgName: member.orgName,
+    show: {
+      documental: wants.firmas || wants.documentos,
+      firmas: wants.firmas,
+      trazabilidad: wants.trazabilidad,
+    },
     // Counted off the KPI values themselves, so this cannot disagree with the
     // zeros on screen — the two would drift the moment a KPI changed shape.
     isEmpty:

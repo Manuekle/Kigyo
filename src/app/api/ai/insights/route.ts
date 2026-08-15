@@ -5,6 +5,8 @@ import { RATE_LIMITS } from '@/lib/api/rate-limit'
 import { createClient } from '@/lib/supabase/server'
 import { modelEnv } from '@/lib/env'
 import { chatModel } from '@/lib/ai/model'
+import { can, type Permission } from '@/lib/auth/permissions'
+import type { Member } from '@/lib/auth/session'
 
 /**
  * Dashboard insights and recommendations.
@@ -36,7 +38,7 @@ const insightsSchema = z.object({
     .array(
       z.object({
         prioridad: z.enum(['Urgente', 'Importante', 'Pronto']),
-        cat: z.enum(['Retención', 'Cumplimiento', 'Desarrollo', 'Operación', 'Finanzas']),
+        cat: z.enum(['Personas', 'Cumplimiento', 'Desarrollo', 'Operación', 'Finanzas']),
         titulo: z.string().max(60).describe('Máximo 6 palabras.'),
         razon: z.string().max(110),
         tone: z.enum(TONES),
@@ -48,17 +50,11 @@ const insightsSchema = z.object({
 export type Insights = z.infer<typeof insightsSchema>
 
 /** Real aggregates, so the model summarizes facts instead of inventing them. */
-async function gatherSnapshot() {
+async function gatherSnapshot(member: Member) {
   const supabase = await createClient()
 
-  const [employees, signatures, tickets, risks, documents, assets] = await Promise.all([
-    supabase.from('employees').select('status', { count: 'exact', head: false }).is('deleted_at', null),
-    supabase.from('signature_requests').select('status, due_on').is('deleted_at', null),
-    supabase.from('tickets').select('status, priority, area').is('deleted_at', null),
-    supabase.from('risks').select('severity, category, status').is('deleted_at', null),
-    supabase.from('documents').select('status, expires_on').is('deleted_at', null),
-    supabase.from('inventory_assets').select('status').is('deleted_at', null),
-  ])
+  const allowed = (permission: Permission) =>
+    member.modules.has(permission.split(':')[0]) && can(member.permissions, permission)
 
   const tally = <T extends Record<string, unknown>>(rows: T[] | null, key: keyof T) =>
     (rows ?? []).reduce<Record<string, number>>((acc, row) => {
@@ -69,37 +65,93 @@ async function gatherSnapshot() {
 
   const today = new Date().toISOString().slice(0, 10)
 
-  return {
-    empleados: { total: employees.data?.length ?? 0, porEstado: tally(employees.data, 'status') },
-    firmas: {
-      total: signatures.data?.length ?? 0,
-      porEstado: tally(signatures.data, 'status'),
-      vencidas: (signatures.data ?? []).filter(
+  // One section per module this member can actually open. A company whose
+  // plan has no `firmas` must not get a summary that starts from "0 firmas
+  // pendientes" — the section simply is not in the snapshot, and the model
+  // cannot report on numbers it was not given.
+  const snapshot: Record<string, unknown> = {}
+
+  if (allowed('empleados:read')) {
+    const { data } = await supabase.from('employees').select('status').is('deleted_at', null)
+    snapshot.empleados = { total: data?.length ?? 0, porEstado: tally(data, 'status') }
+  }
+
+  if (allowed('firmas:read')) {
+    const { data } = await supabase
+      .from('signature_requests').select('status, due_on').is('deleted_at', null)
+    snapshot.firmas = {
+      total: data?.length ?? 0,
+      porEstado: tally(data, 'status'),
+      vencidas: (data ?? []).filter(
         (row) => row.status === 'Pendiente' && row.due_on !== null && row.due_on < today,
       ).length,
-    },
-    tickets: {
-      total: tickets.data?.length ?? 0,
-      porEstado: tally(tickets.data, 'status'),
-      porPrioridad: tally(tickets.data, 'priority'),
-      porArea: tally(tickets.data, 'area'),
-    },
-    riesgos: {
-      abiertos: (risks.data ?? []).filter((row) => row.status === 'Abierto').length,
-      porSeveridad: tally(
-        (risks.data ?? []).filter((row) => row.status === 'Abierto'),
-        'severity',
-      ),
-    },
-    documentos: {
-      total: documents.data?.length ?? 0,
-      porEstado: tally(documents.data, 'status'),
-      porVencer: (documents.data ?? []).filter(
+    }
+  }
+
+  if (allowed('tickets:read')) {
+    const { data } = await supabase.from('tickets').select('status, priority, area').is('deleted_at', null)
+    snapshot.tickets = {
+      total: data?.length ?? 0,
+      porEstado: tally(data, 'status'),
+      porPrioridad: tally(data, 'priority'),
+      porArea: tally(data, 'area'),
+    }
+  }
+
+  if (allowed('riesgos:read')) {
+    const { data } = await supabase.from('risks').select('severity, category, status').is('deleted_at', null)
+    snapshot.riesgos = {
+      abiertos: (data ?? []).filter((row) => row.status === 'Abierto').length,
+      porSeveridad: tally((data ?? []).filter((row) => row.status === 'Abierto'), 'severity'),
+    }
+  }
+
+  if (allowed('documentos:read')) {
+    const { data } = await supabase.from('documents').select('status, expires_on').is('deleted_at', null)
+    snapshot.documentos = {
+      total: data?.length ?? 0,
+      porEstado: tally(data, 'status'),
+      porVencer: (data ?? []).filter(
         (row) => row.expires_on !== null && row.expires_on >= today,
       ).length,
-    },
-    inventario: { total: assets.data?.length ?? 0, porEstado: tally(assets.data, 'status') },
+    }
   }
+
+  if (allowed('inventario:read')) {
+    const { data } = await supabase.from('inventory_assets').select('status').is('deleted_at', null)
+    snapshot.inventario = { total: data?.length ?? 0, porEstado: tally(data, 'status') }
+  }
+
+  // ── Sector-driven sections, same gates as the dashboard KPIs. A POS
+  // company's summary is about sales, a CRM's about pipeline; neither hears
+  // about the other's empty tables.
+  if (allowed('pos:read')) {
+    const { data } = await supabase
+      .from('pos_sales').select('total_cents, status').eq('org_id', member.orgId)
+    const pagadas = (data ?? []).filter((row) => row.status === 'Pagada')
+    snapshot.ventas = {
+      total: data?.length ?? 0,
+      pagadas: pagadas.length,
+      totalCobradoCents: pagadas.reduce((sum, row) => sum + (row.total_cents ?? 0), 0),
+    }
+  }
+
+  if (allowed('clientes:read')) {
+    const { data } = await supabase.from('clients').select('status').is('deleted_at', null)
+    snapshot.clientes = { total: data?.length ?? 0, porEstado: tally(data, 'status') }
+  }
+
+  if (allowed('leads:read')) {
+    const { data } = await supabase.from('leads').select('stage').is('deleted_at', null)
+    snapshot.leads = { total: data?.length ?? 0, porEtapa: tally(data, 'stage') }
+  }
+
+  if (allowed('cotizaciones:read')) {
+    const { data } = await supabase.from('quotes').select('status').is('deleted_at', null)
+    snapshot.cotizaciones = { total: data?.length ?? 0, porEstado: tally(data, 'status') }
+  }
+
+  return snapshot
 }
 
 export const POST = route({
@@ -128,7 +180,7 @@ export const POST = route({
       return { unavailable: true as const, reason: 'El modelo de Microsoft Foundry no está configurado.' }
     }
 
-    const snapshot = await gatherSnapshot()
+    const snapshot = await gatherSnapshot(member)
 
     const { object } = await generateObject({
       model: chatModel(),
