@@ -15,11 +15,12 @@ Base: auditoría contra la matriz clásica CRM/ERP/POS (ver `REVISION_MULTIEMPRE
 | 6 | CxP calendario (2.3) | ✅ hecho — `supplier_payments` + RPC con cierre automático (mig. 77, 81) |
 | 7 | Contabilidad (2.1+2.4) | ✅ hecho — PUC, asientos, mayor, P&G/Balance/Flujo, auto-asientos (mig. 79-82) |
 | 8 | Tickets cliente (1.3 p1) | ✅ hecho — `client_id` + `origin` + ficha enlazada (mig. 78) |
-| 9 | Pagos proveedor (3.3) | ◐ seam de datos listo (`pos_payments`, mig. 83); intent+webhook pendientes de la decisión de pricing ❓ (Enterprise vs add-on) — el plan la marca como prerequisito |
+| 9 | Pagos proveedor (3.3) | ✅ hecho — decisión de pricing: **Enterprise** (capability). Venta Pendiente + intent Wompi QR + webhook firmado idempotente (mig. 83-85). Falta probar en vivo con llaves de Wompi |
 
-Lo que queda: la decisión de pricing de 3.3, el portal público de tickets
-(1.3 p2, decisión separada de abuso/alcance) y la reevaluación de marketing
-automation con datos de uso de `leads` (fase 4).
+Lo que queda: probar el loop de 3.3 con llaves reales de Wompi (sandbox
+primero), el portal público de tickets (1.3 p2, decisión separada de
+abuso/alcance) y la reevaluación de marketing automation con datos de uso de
+`leads` (fase 4).
 
 ---
 

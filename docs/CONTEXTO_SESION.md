@@ -1,7 +1,7 @@
 # Contexto de sesión — para retomar
 
-Fecha: 2026-08-14 (jornada 3). Rama: `feat/design-system-refresh` (pusheada a origin, 14 commits).
-Working tree limpio. Suite verde: vitest 248/248 · tsc 0 errores · e2e 1/1 · db-verify 83 migraciones limpias · remota con 71-83 aplicadas.
+Fecha: 2026-08-14 (jornada 3). Rama: `feat/design-system-refresh` (pusheada a origin).
+Working tree limpio. Suite verde: vitest 253/253 · tsc 0 errores · e2e 1/1 · db-verify 85 migraciones limpias · remota con 71-85 aplicadas.
 
 ---
 
@@ -115,10 +115,10 @@ en plan growth; integraciones SIN filas de sector_modules (config técnica).
    (migraciones 71-72): 33 subsectores en 10 sectores + `otro` sin hijos por
    diseño, cada uno con delta y matriz de roles. Aprobado por el usuario,
    aplicado a remota y pusheado.
-2. ~~**Plan CRM/ERP/POS**~~ ✅ — ejecutado 8/9 (migraciones 73-83): aging,
+2. ~~**Plan CRM/ERP/POS**~~ ✅ — ejecutado 9/9 (migraciones 73-85): aging,
    barcode, recibo, leads, pipeline kanban, CxP, contabilidad, tickets de
-   cliente. Queda 3.3 (intent+webhook de pasarela) bloqueado por la decisión
-   de pricing ❓ del plan: Enterprise vs add-on.
+   cliente y pasarela QR (Enterprise, webhook firmado + venta pendiente).
+   Falta probar el loop QR en vivo con llaves de Wompi sandbox.
 3. **Docs:** repaso fino de deltas en tabla maestra 2.1-2.3 queda abierto.
 
 ---
