@@ -6559,6 +6559,66 @@ export interface Database {
           },
         ]
       }
+      pos_payments: {
+        Row: {
+          id: string
+          org_id: string
+          sale_id: string
+          provider: "wompi" | "payu" | "epayco" | "stripe" | "otro"
+          status: "Pendiente" | "Confirmado" | "Rechazado"
+          amount_cents: number
+          reference: string
+          external_id: string | null
+          event_id: string | null
+          confirmed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          sale_id: string
+          provider?: "wompi" | "payu" | "epayco" | "stripe" | "otro"
+          status?: "Pendiente" | "Confirmado" | "Rechazado"
+          amount_cents: number
+          reference?: string
+          external_id?: string | null
+          event_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          sale_id?: string
+          provider?: "wompi" | "payu" | "epayco" | "stripe" | "otro"
+          status?: "Pendiente" | "Confirmado" | "Rechazado"
+          amount_cents?: number
+          reference?: string
+          external_id?: string | null
+          event_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_payments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_payments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pos_sale_items: {
         Row: {
           id: string
