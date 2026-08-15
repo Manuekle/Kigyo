@@ -7173,6 +7173,7 @@ export interface Database {
           notes: string
           created_at: string
           updated_at: string
+          client_uuid: string | null
         }
         Insert: {
           id?: string
@@ -7192,6 +7193,7 @@ export interface Database {
           notes?: string
           created_at?: string
           updated_at?: string
+          client_uuid?: string | null
         }
         Update: {
           id?: string
@@ -7211,6 +7213,7 @@ export interface Database {
           notes?: string
           created_at?: string
           updated_at?: string
+          client_uuid?: string | null
         }
         Relationships: [
           {

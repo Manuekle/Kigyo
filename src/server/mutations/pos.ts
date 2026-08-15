@@ -100,6 +100,70 @@ export async function cobrarVenta(
 }
 
 /**
+ * Reintento idempotente de una venta POS offline.
+ *
+ * El cliente encola ventas en IndexedDB cuando no hay red, con un UUID
+ * generado en el navegador; cuando la red vuelve, recorre la cola y llama
+ * esta función por venta. El UUID viaja como `p_client_uuid` al RPC, donde
+ * un índice unique parcial y un early return hacen que un segundo intento
+ * devuelva la venta ya registrada sin tocar existencias de nuevo.
+ *
+ * Sin `clientUuid` rechazamos: no es una llamada normal (es `cobrarVenta`),
+ * es específica de replay. La firma del payload es igual a `saleSchema`.
+ */
+const replaySchema = saleSchema.extend({
+  clientUuid: z.uuid(),
+})
+
+export async function replayPosSale(
+  input: z.input<typeof replaySchema>,
+): Promise<PosResult<PosData & { saleCode: string | null; clientUuid: string }>> {
+  try {
+    const member = await requirePermission('pos:write')
+    const parsed = replaySchema.safeParse(input)
+    if (!parsed.success) {
+      return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+    }
+
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('register_pos_sale', {
+      p_org_id: member.orgId,
+      p_items: parsed.data.items.map((i) => ({
+        product_id: i.productId,
+        quantity: i.quantity,
+      })),
+      p_payment_method: parsed.data.paymentMethod,
+      p_customer_name: parsed.data.customerName,
+      p_discount_cents: parsed.data.discountCents,
+      p_notes: parsed.data.notes,
+      p_client_uuid: parsed.data.clientUuid,
+    })
+
+    if (error) {
+      console.error('[pos] replayPosSale', error)
+      if (error.code === 'KG103' || error.code === 'KG102') return fail(error.message)
+      if (error.code === 'KG101') return fail(DENIED)
+      return fail('No se pudo registrar la venta diferida.')
+    }
+
+    const row = Array.isArray(data) ? data[0] : null
+    const refresh = await refreshed()
+    if (!refresh.ok) return refresh
+
+    return {
+      ok: true,
+      data: {
+        ...refresh.data,
+        saleCode: row?.sale_code ?? null,
+        clientUuid: parsed.data.clientUuid,
+      },
+    }
+  } catch {
+    return fail(DENIED)
+  }
+}
+
+/**
  * Anula una venta y devuelve las existencias.
  *
  * También en la base, y por lo mismo: reponer existencias desde aquí exigiría

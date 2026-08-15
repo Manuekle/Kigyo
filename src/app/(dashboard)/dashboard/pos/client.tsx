@@ -1,12 +1,14 @@
 'use client'
 
-import { useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
   Store, Check, Trash2, DollarSign, Search, XCircle,
   FileSpreadsheet, Receipt, AlertTriangle, Printer, Settings,
+  RotateCcw,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import Modal from '@/components/ui/Modal'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -17,8 +19,12 @@ import { useExport } from '@/lib/hooks/use-export'
 import { PAYMENT_METHODS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { PosData, ReceiptPrefs, SaleRow, SellableRow } from '@/server/queries/pos'
-import { anularVenta, cobrarPago, saveReceiptPrefs } from '@/server/mutations/pos'
+import { anularVenta, cobrarPago, replayPosSale, saveReceiptPrefs } from '@/server/mutations/pos'
 import { fetchPos } from '@/server/actions/pos'
+import {
+  clearPosSale, countPendingPosSales, enqueuePosSale, listPendingPosSales,
+  markPosSaleError, offlineQueueAvailable, type PosOutboxEntry,
+} from '@/lib/pos/offline-queue'
 
 const DATETIME = new Intl.DateTimeFormat('es-CO', {
   day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -192,7 +198,40 @@ export default function PosPage({ data }: { data: PosData }) {
     qrUrl: string | null; redirectUrl: string | null
     simulated: boolean; transactionId: string; paymentMethod: string
   } | null>(null)
+  // Cola offline: el navegador pierde red → encolamos en IndexedDB y
+  // reproducimos cuando vuelve. `outboxCount` para el badge; `outboxOpen`
+  // abre el modal con la lista; `outboxRunning` evita replays concurrentes.
+  const [online, setOnline] = useState(true)
+  const [outboxCount, setOutboxCount] = useState(0)
+  const [outboxOpen, setOutboxOpen] = useState(false)
+  const [outboxEntries, setOutboxEntries] = useState<PosOutboxEntry[]>([])
+  const [outboxRunning, setOutboxRunning] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
+
+  // Listeners de red — navigator.onLine + eventos `online`/`offline`.
+  // Si el navegador miente (online sin red real), el `cobrarPago` falla y
+  // el catch lo manda a la cola también.
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') setOnline(navigator.onLine)
+    const goOnline = () => setOnline(true)
+    const goOffline = () => setOnline(false)
+    window.addEventListener('online', goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online', goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [])
+
+  // Refresca el contador de pendientes al montar y cuando vuelve la red.
+  const refreshOutboxCount = useRef(async () => {
+    if (!offlineQueueAvailable()) { setOutboxCount(0); return }
+    try { setOutboxCount(await countPendingPosSales()) } catch { /* ignore */ }
+  })
+  useEffect(() => { void refreshOutboxCount.current() }, [])
+  useEffect(() => {
+    if (online) void refreshOutboxCount.current()
+  }, [online])
 
   const vendibles = useMemo(() => {
     const needle = fold(query.trim())
@@ -305,7 +344,36 @@ export default function PosPage({ data }: { data: PosData }) {
   function charge() {
     if (cart.length === 0) return
     if (paymentMethod === 'QR Wompi') {
+      // El QR requiere envío online al proveedor: offline no tiene sentido
+      // y se niega explícito en vez de encolar y romper el webhook.
+      if (!online) {
+        addToast('El pago por QR Wompi necesita conexión. Usa Efectivo/Tarjeta para encolar.', 'err')
+        return
+      }
       setQrOpen(true)
+      return
+    }
+    // Sin red o sin IndexedDB: el flujo online directo falla por timeout,
+    // el usuario decide manualmente encolar o esperar.
+    if (!online && offlineQueueAvailable()) {
+      startTransition(async () => {
+        try {
+          await enqueuePosSale({
+            items: cart.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+            paymentMethod,
+            customerName,
+            discountCents,
+            notes: '',
+          })
+        } catch (e) {
+          console.error('[pos] enqueuePosSale', e)
+          addToast('No se pudo encolar la venta (almacenamiento no disponible).', 'err')
+          return
+        }
+        await refreshOutboxCount.current()
+        addToast('Venta encolada para enviar cuando regrese la conexión', 'info')
+        clearCart()
+      })
       return
     }
     startTransition(async () => {
@@ -424,6 +492,60 @@ export default function PosPage({ data }: { data: PosData }) {
     })), 'ventas-mostrador', 'pos')
   }
 
+  async function openOutbox() {
+    setOutboxOpen(true)
+    try {
+      setOutboxEntries(await listPendingPosSales())
+    } catch (e) {
+      console.error('[pos] openOutbox', e)
+      addToast('No se pudo leer la cola', 'err')
+    }
+  }
+
+  /**
+   * Reproduce la cola de ventas pendientes. Llama `replayPosSale` por cada
+   * una; va limpiando las exitosas y marcando error las que fallan. El
+   * reintento manual y el auto-play (cuando regresa la red) llaman aquí.
+   */
+  async function replayOutbox() {
+    if (outboxRunning) return
+    setOutboxRunning(true)
+    try {
+      const pendientes = await listPendingPosSales()
+      for (const p of pendientes) {
+        const r = await replayPosSale({
+          clientUuid: p.clientUuid,
+          items: p.payload.items,
+          paymentMethod: p.payload.paymentMethod as (typeof PAYMENT_METHODS)[number],
+          customerName: p.payload.customerName,
+          discountCents: p.payload.discountCents,
+          notes: p.payload.notes,
+        })
+        if (r.ok) {
+          await clearPosSale(p.clientUuid)
+        } else {
+          await markPosSaleError(p.clientUuid, r.error)
+        }
+      }
+      // Refresca el estado tras el replay (la cola se vació o algo quedó).
+      const fresh = await fetchPos()
+      if (fresh) setState(fresh)
+      setOutboxEntries(await listPendingPosSales())
+      await refreshOutboxCount.current()
+    } finally {
+      setOutboxRunning(false)
+    }
+  }
+
+  // Auto-replay cuando regresa la red: no requiere clic del usuario.
+  useEffect(() => {
+    if (!online) return
+    if (outboxCount === 0) return
+    if (outboxRunning) return
+    void replayOutbox()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online])
+
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
@@ -460,6 +582,36 @@ export default function PosPage({ data }: { data: PosData }) {
         <div className="pos-warn rise d2" role="note">
           No hay turno de caja abierto. Puedes cobrar igual, pero estas ventas no
           entrarán en ningún arqueo. <Link href="/dashboard/caja">Abrir turno</Link>
+        </div>
+      )}
+
+      {/* Indicador offline + botón de cola. Sin conex == la venta actual se
+          encola; con cola pendiente el botón abre el modal. El auto-replay
+          del useEffect dispara solo cuando `online` pasa a true. */}
+      {state.canWrite && (!online || outboxCount > 0) && (
+        <div className="pos-warn rise d2" role="status" aria-live="polite">
+          {!online ? (
+            <>
+              <AlertTriangle size={14} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--ambd)' }} />
+              Sin conexión. Las ventas se encolan en este navegador y se envían cuando regrese la red.
+            </>
+          ) : (
+            <>
+              <Check size={14} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--grnd)' }} />
+              Conexión restablecida. {outboxCount > 0 ? `${outboxCount} venta(s) en cola.` : 'Cola vacía.'}
+            </>
+          )}
+          {outboxCount > 0 && (
+            <button
+              className="btn ghost"
+              style={{ marginLeft: 12 }}
+              disabled={outboxRunning || !online}
+              onClick={openOutbox}
+              aria-busy={outboxRunning}
+            >
+              <RotateCcw size={14} />Ver cola ({outboxCount})
+            </button>
+          )}
         </div>
       )}
 
@@ -789,6 +941,90 @@ export default function PosPage({ data }: { data: PosData }) {
           </>
         )}
       </FormDrawer>
+
+      <Modal
+        open={outboxOpen}
+        onClose={() => setOutboxOpen(false)}
+        title={`Cola offline (${outboxEntries.length})`}
+        wide
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <span className="muted" style={{ fontSize: 12.5 }}>
+              {outboxEntries.length === 0
+                ? 'Cola vacía.'
+                : `${outboxEntries.length} venta(s) pendiente(s) para enviar.`}
+            </span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn ghost" onClick={() => { setOutboxOpen(false) }}>Cerrar</button>
+              {outboxEntries.length > 0 && (
+                <button
+                  className="btn dark"
+                  disabled={outboxRunning || !online}
+                  aria-busy={outboxRunning}
+                  onClick={replayOutbox}
+                >
+                  <RotateCcw size={14} />{outboxRunning ? 'Enviando…' : 'Reenviar todo'}
+                </button>
+              )}
+            </div>
+          </div>
+        }
+      >
+        {outboxEntries.length === 0 ? (
+          <div className="dempty" style={{ padding: '28px 0', textAlign: 'center' }}>
+            No hay ventas encoladas.
+          </div>
+        ) : (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Encolada</th>
+                  <th scope="col">Cliente</th>
+                  <th scope="col">Líneas</th>
+                  <th scope="col">Medio</th>
+                  <th scope="col">Total</th>
+                  <th scope="col">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {outboxEntries.map((e) => {
+                  // El precio se desconoce offline (no se confía en el
+                  // navegador con él); mostramos conteo + líneas.
+                  const lines = e.payload.items.length
+                  return (
+                    <tr key={e.clientUuid}>
+                      <td className="muted mono" style={{ fontSize: 12 }}>
+                        {formatWhen(e.createdAt)}
+                      </td>
+                      <td>{e.payload.customerName || '—'}</td>
+                      <td className="mono">{lines}</td>
+                      <td>{e.payload.paymentMethod}</td>
+                      <td className="muted">—</td>
+                      <td>
+                        <Badge
+                          st={e.status === 'error' ? 'Error' : 'Pendiente'}
+                          tone={e.status === 'error' ? 'red' : 'amb'}
+                        />
+                        {e.status === 'error' && (
+                          <div className="muted" style={{ fontSize: 11, marginTop: 4, maxWidth: 280 }}>
+                            {e.lastError}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="muted" style={{ marginTop: 12, fontSize: 12.5 }}>
+          El UUID de cada venta viaja con el envío: un reintento duplicado no
+          rebaja existencias dos veces. El total se muestra «—» porque el
+          precio se decide en el servidor al ejecutar el registro.
+        </div>
+      </Modal>
     </>
   )
 }
