@@ -722,6 +722,9 @@ export type DentalLabStatus = (typeof DENTAL_LAB_STATUSES)[number]
 /** El subsector cuyo `pacientes` muestra las pantallas dentales. */
 export const DENTAL_SUBSECTOR = 'salud-odontologia'
 
+/** El subsector cuyo `pacientes` muestra las pantallas veterinarias. */
+export const VET_SUBSECTOR = 'salud-veterinaria'
+
 /**
  * Cómo se nombra una pieza y su cara en una línea de texto.
  *

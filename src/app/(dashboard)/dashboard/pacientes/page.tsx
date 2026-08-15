@@ -2,9 +2,10 @@ import RequirePermission from '@/components/layout/RequirePermission'
 import { requirePermission } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import { can } from '@/lib/auth/permissions'
-import { DENTAL_SUBSECTOR } from '@/lib/domain'
+import { DENTAL_SUBSECTOR, VET_SUBSECTOR } from '@/lib/domain'
 import { getPacientes } from '@/server/queries/pacientes'
 import { getOdontologia } from '@/server/queries/odontologia'
+import { getVeterinaria } from '@/server/queries/veterinaria'
 import Client from './client'
 
 /**
@@ -24,6 +25,7 @@ export default function Page() {
 async function Loader() {
   const member = await requirePermission('pacientes:read')
   const dental = member.subsector === DENTAL_SUBSECTOR
+  const vet = member.subsector === VET_SUBSECTOR
 
   /**
    * Lo dental solo se lee para una clínica dental.
@@ -35,15 +37,16 @@ async function Loader() {
    * Es presentación, no acceso: quien tenga `pacientes:read` puede leer estas
    * tablas por RLS igual, y así debe ser el día que la clínica se reclasifique.
    */
-  const [data, odonto, catalogo] = await Promise.all([
+  const [data, odonto, vetData, catalogo] = await Promise.all([
     getPacientes(),
     dental ? getOdontologia() : Promise.resolve(null),
+    vet ? getVeterinaria() : Promise.resolve(null),
     dental && member.modules.has('catalogos') && can(member.permissions, 'catalogos:read')
       ? catalogoDental(member.orgId)
       : Promise.resolve([]),
   ])
 
-  return <Client data={data} odonto={odonto} catalogo={catalogo} />
+  return <Client data={data} odonto={odonto} vet={vetData} catalogo={catalogo} />
 }
 
 /**

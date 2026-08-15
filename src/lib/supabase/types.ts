@@ -9084,6 +9084,221 @@ export interface Database {
           },
         ]
       }
+      vet_hospitalization_notes: {
+        Row: {
+          id: string
+          hospitalization_id: string
+          note: string
+          noted_at: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          hospitalization_id: string
+          note: string
+          noted_at?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          hospitalization_id?: string
+          note?: string
+          noted_at?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vet_hospitalization_notes_hospitalization_id_fkey"
+            columns: ["hospitalization_id"]
+            isOneToOne: false
+            referencedRelation: "vet_hospitalizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vet_hospitalizations: {
+        Row: {
+          id: string
+          org_id: string
+          pet_id: string
+          admission_on: string
+          discharge_on: string | null
+          reason: string
+          status: "Hospitalizado" | "Alta" | "Fallecido"
+          kennel: string
+          notes: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          pet_id: string
+          admission_on?: string
+          discharge_on?: string | null
+          reason: string
+          status?: "Hospitalizado" | "Alta" | "Fallecido"
+          kennel?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          pet_id?: string
+          admission_on?: string
+          discharge_on?: string | null
+          reason?: string
+          status?: "Hospitalizado" | "Alta" | "Fallecido"
+          kennel?: string
+          notes?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vet_hospitalizations_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vet_hospitalizations_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "vet_pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vet_pets: {
+        Row: {
+          id: string
+          org_id: string
+          patient_id: string
+          name: string
+          species: "Perro" | "Gato" | "Ave" | "Equino" | "Bovino" | "Exótico" | "Otro"
+          breed: string
+          sex: "Macho" | "Hembra" | "Desconocido"
+          birth_date: string | null
+          weight_kg: number | null
+          color: string
+          microchip: string
+          status: "Activo" | "Fallecido" | "Adoptado" | "Perdido"
+          notes: string
+          created_at: string
+          updated_at: string
+          deleted_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          patient_id: string
+          name: string
+          species?: "Perro" | "Gato" | "Ave" | "Equino" | "Bovino" | "Exótico" | "Otro"
+          breed?: string
+          sex?: "Macho" | "Hembra" | "Desconocido"
+          birth_date?: string | null
+          weight_kg?: number | null
+          color?: string
+          microchip?: string
+          status?: "Activo" | "Fallecido" | "Adoptado" | "Perdido"
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          patient_id?: string
+          name?: string
+          species?: "Perro" | "Gato" | "Ave" | "Equino" | "Bovino" | "Exótico" | "Otro"
+          breed?: string
+          sex?: "Macho" | "Hembra" | "Desconocido"
+          birth_date?: string | null
+          weight_kg?: number | null
+          color?: string
+          microchip?: string
+          status?: "Activo" | "Fallecido" | "Adoptado" | "Perdido"
+          notes?: string
+          created_at?: string
+          updated_at?: string
+          deleted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vet_pets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vet_pets_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vet_vaccines: {
+        Row: {
+          id: string
+          pet_id: string
+          vaccine: string
+          administered_on: string
+          next_due_on: string | null
+          batch: string
+          professional_id: string | null
+          notes: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          pet_id: string
+          vaccine: string
+          administered_on?: string
+          next_due_on?: string | null
+          batch?: string
+          professional_id?: string | null
+          notes?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          pet_id?: string
+          vaccine?: string
+          administered_on?: string
+          next_due_on?: string | null
+          batch?: string
+          professional_id?: string | null
+          notes?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vet_vaccines_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "vet_pets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vet_vaccines_professional_id_fkey"
+            columns: ["professional_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_order_tasks: {
         Row: {
           id: string

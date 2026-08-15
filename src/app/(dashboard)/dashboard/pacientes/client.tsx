@@ -20,7 +20,9 @@ import {
 } from '@/server/mutations/pacientes'
 import { fetchMorePacientes } from '@/server/actions/pacientes'
 import type { OdontologiaData } from '@/server/queries/odontologia'
+import type { VeterinariaData } from '@/server/queries/veterinaria'
 import Odontologia from './Odontologia'
+import Veterinaria from './Veterinaria'
 
 const DATE = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 
@@ -97,11 +99,19 @@ interface Props {
    * legibles por RLS — una clínica que se reclasifica ve sus datos intactos.
    */
   odonto: OdontologiaData | null
+  /**
+   * Lo veterinario, o null cuando esta clínica no es veterinaria.
+   *
+   * Igual que `odonto`: es presentación, el permiso sigue siendo
+   * `pacientes:read`.
+   */
+  vet: VeterinariaData | null
   catalogo: Array<{ id: string; name: string; priceCents: number }>
 }
 
-export default function PacientesPage({ data, odonto: odontoInitial, catalogo }: Props) {
+export default function PacientesPage({ data, odonto: odontoInitial, vet: vetInitial, catalogo }: Props) {
   const [odonto, setOdonto] = useState<OdontologiaData | null>(odontoInitial)
+  const [vet, setVet] = useState<VeterinariaData | null>(vetInitial)
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
 
@@ -419,6 +429,12 @@ items={[
                   { key: 'odontograma', label: 'Odontograma' },
                   { key: 'tratamientos', label: 'Tratamientos' },
                   { key: 'labdental', label: 'Lab. dental' },
+                ] : []),
+                // Solo para veterinaria. Mismo criterio que odonto.
+                ...(vet ? [
+                  { key: 'mascotas', label: 'Mascotas' },
+                  { key: 'vacunas', label: 'Vacunas' },
+                  { key: 'hospitalizacion', label: 'Hospitalización' },
                 ] : []),
               ]}
               value={tab}
@@ -826,6 +842,17 @@ items={[
             pacientes={pacientes.map((p) => ({ id: p.id, fullName: p.fullName }))}
             roster={data.roster}
             catalogo={catalogo}
+          />
+        )}
+
+        {/* Lo veterinario, bajo el mismo permiso y dentro de la misma tarjeta.
+            Ver la migración 65. */}
+        {vet && (tab === 'mascotas' || tab === 'vacunas' || tab === 'hospitalizacion') && (
+          <Veterinaria
+            section={tab}
+            data={vet}
+            onData={setVet}
+            pacientes={pacientes.map((p) => ({ id: p.id, fullName: p.fullName }))}
           />
         )}
       </div>
