@@ -17,7 +17,8 @@ import { useExport } from '@/lib/hooks/use-export'
 import { PAYMENT_METHODS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { PosData, ReceiptPrefs, SaleRow, SellableRow } from '@/server/queries/pos'
-import { anularVenta, cobrarVenta, saveReceiptPrefs } from '@/server/mutations/pos'
+import { anularVenta, cobrarConQr, cobrarVenta, saveReceiptPrefs } from '@/server/mutations/pos'
+import { fetchPos } from '@/server/actions/pos'
 
 const DATETIME = new Intl.DateTimeFormat('es-CO', {
   day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -153,6 +154,12 @@ export default function PosPage({ data }: { data: PosData }) {
   const [discount, setDiscount] = useState('')
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [prefsForm, setPrefsForm] = useState({ width: '80', footer: '', showLogo: true })
+  const [qrEmail, setQrEmail] = useState('')
+  const [qrOpen, setQrOpen] = useState(false)
+  const [qrState, setQrState] = useState<{
+    saleId: string; saleCode: string; amountCents: number
+    qrUrl: string | null; redirectUrl: string | null
+  } | null>(null)
   const scanRef = useRef<HTMLInputElement>(null)
 
   const vendibles = useMemo(() => {
@@ -238,8 +245,14 @@ export default function PosPage({ data }: { data: PosData }) {
     setCustomerName('')
   }
 
+  const paymentMethods = [...PAYMENT_METHODS, ...(state.qrEnabled ? ['QR Wompi' as const] : [])]
+
   function charge() {
     if (cart.length === 0) return
+    if (paymentMethod === 'QR Wompi') {
+      setQrOpen(true)
+      return
+    }
     startTransition(async () => {
       const result = await cobrarVenta({
         items: cart.map((l) => ({ productId: l.productId, quantity: l.quantity })),
@@ -264,6 +277,51 @@ export default function PosPage({ data }: { data: PosData }) {
         ? result.data.ventas.find((v) => v.code === result.data.saleCode)
         : result.data.ventas[0]
       if (sale) printReceipt(sale, result.data.receiptPrefs, result.data.orgName)
+    })
+  }
+
+  /** Genera la intención de pago: la venta nace Pendiente y el QR se muestra. */
+  function submitQr() {
+    if (!qrEmail.trim() || !/\S+@\S+\.\S+/.test(qrEmail.trim())) {
+      addToast('Escribe el correo del cliente para el recibo', 'err')
+      return
+    }
+    startTransition(async () => {
+      const result = await cobrarConQr({
+        items: cart.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+        customerName,
+        customerEmail: qrEmail.trim(),
+        discountCents,
+      })
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      setQrState(result.data.qr)
+      addToast(`Venta ${result.data.qr.saleCode} pendiente de pago`, 'info')
+      clearCart()
+
+      // Sondeo de SOLO LECTURA para cerrar el modal cuando el webhook
+      // confirma. La venta la paga el webhook, nunca este reloj.
+      const saleId = result.data.qr.saleId
+      let tries = 0
+      const timer = setInterval(async () => {
+        tries += 1
+        const fresh = await fetchPos()
+        if (!fresh) return
+        setState(fresh)
+        const sale = fresh.ventas.find((v) => v.id === saleId)
+        if (!sale) return
+        if (sale.status === 'Pagada') {
+          clearInterval(timer)
+          setQrOpen(false)
+          setQrState(null)
+          addToast(`Venta ${result.data.qr.saleCode} cobrada`, 'ok')
+        } else if (sale.status === 'Anulada' || tries >= 40) {
+          clearInterval(timer)
+          setQrOpen(false)
+          setQrState(null)
+          addToast('El pago no se confirmó; la venta quedó pendiente para anular', 'info')
+        }
+      }, 3000)
     })
   }
 
@@ -474,7 +532,7 @@ export default function PosPage({ data }: { data: PosData }) {
 
                 <label className="flabel" htmlFor="pv-method">Medio de pago</label>
                 <Select value={paymentMethod} onChange={setPaymentMethod}
-                  options={[...PAYMENT_METHODS]} />
+                  options={[...paymentMethods]} />
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                   <button className="btn" disabled={pending || cart.length === 0} onClick={clearCart}>
@@ -611,6 +669,52 @@ export default function PosPage({ data }: { data: PosData }) {
             onChange={(v) => setPrefsForm((p) => ({ ...p, showLogo: v }))}
           />
         </div>
+      </FormDrawer>
+
+      <FormDrawer
+        open={qrOpen}
+        onClose={() => setQrOpen(false)}
+        title={qrState ? `Pago pendiente · ${qrState.saleCode}` : 'Cobrar con QR'}
+        footer={qrState ? (
+          <button className="btn" onClick={() => { setQrOpen(false); setQrState(null) }}>
+            Cerrar (la venta queda pendiente)
+          </button>
+        ) : (
+          <button className="btn dark" disabled={pending} onClick={submitQr}>
+            <Check size={15} />Generar QR
+          </button>
+        )}
+      >
+        {qrState ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, alignItems: 'center', textAlign: 'center' }}>
+            {qrState.qrUrl ? (
+              // El QR viene de Wompi como URL; se muestra tal cual. Sin la
+              // URL (método no QR), el cliente paga por el enlace.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={qrState.qrUrl} alt="QR de pago Wompi" width={220} height={220} />
+            ) : (
+              <a className="btn dark" href={qrState.redirectUrl ?? undefined} target="_blank" rel="noreferrer">
+                Abrir pago en Wompi
+              </a>
+            )}
+            <div className="cename" style={{ fontSize: 17 }}>{pesos(qrState.amountCents)}</div>
+            <div className="elsub">
+              Escanea con la app de tu banco. La venta se confirma sola cuando el pago llega;
+              no cobres en efectivo mientras tanto.
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="elsub" style={{ marginBottom: 12 }}>
+              La venta se registra como pendiente, Wompi genera el QR y la confirmación
+              llega sola cuando el cliente paga.
+            </div>
+            <label className="flabel" htmlFor="qr-email">Correo del cliente</label>
+            <input id="qr-email" className="field" type="email" value={qrEmail}
+              placeholder="cliente@correo.com"
+              onChange={(e) => setQrEmail(e.target.value)} />
+          </>
+        )}
       </FormDrawer>
     </>
   )

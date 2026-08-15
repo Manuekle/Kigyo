@@ -83,7 +83,7 @@ interface EntryRecord {
   created_at: string
   journal_lines: Array<{
     id: string
-    account_id: string
+    account_code: string
     description: string
     debit_cents: number
     credit_cents: number
@@ -92,13 +92,13 @@ interface EntryRecord {
 }
 
 const ENTRY_COLUMNS = `id, entry_date, memo, source, status, posted_at, created_at,
-   journal_lines ( id, account_id, description, debit_cents, credit_cents, gl_accounts ( name ) )`
+   journal_lines ( id, account_code, description, debit_cents, credit_cents, gl_accounts ( name ) )`
 
 function toEntry(row: EntryRecord): JournalEntryRow {
   const lines: JournalLineRow[] = (row.journal_lines ?? []).map((l) => ({
     id: l.id,
-    accountId: l.account_id,
-    accountName: l.gl_accounts?.name ?? l.account_id,
+    accountId: l.account_code,
+    accountName: l.gl_accounts?.name ?? l.account_code,
     description: l.description,
     debitCents: Number(l.debit_cents),
     creditCents: Number(l.credit_cents),
@@ -152,7 +152,7 @@ export async function getContabilidad(): Promise<ContabilidadData> {
       .order('code', { ascending: true }),
     supabase
       .from('journal_lines')
-      .select('account_id, debit_cents, credit_cents, journal_entries!inner ( entry_date, memo, status, deleted_at )')
+      .select('account_code, debit_cents, credit_cents, journal_entries!inner ( entry_date, memo, status, deleted_at )')
       .eq('org_id', member.orgId)
       .limit(50_000),
   ])
@@ -162,7 +162,7 @@ export async function getContabilidad(): Promise<ContabilidadData> {
   }>
 
   const movements = (linesResult.data ?? []) as unknown as Array<{
-    account_id: string
+    account_code: string
     debit_cents: number
     credit_cents: number
     journal_entries: { entry_date: string; memo: string; status: string; deleted_at: string | null }
@@ -175,13 +175,13 @@ export async function getContabilidad(): Promise<ContabilidadData> {
   // Mayor: saldo por cuenta = débitos − créditos (publicados).
   const byAccount = new Map<string, { code: string; name: string; kind: string; balance: number }>()
   for (const m of posted) {
-    const a = accounts.find((x) => x.code === m.account_id)
+    const a = accounts.find((x) => x.code === m.account_code)
     if (!a) continue
-    const entry = byAccount.get(m.account_id) ?? {
+    const entry = byAccount.get(m.account_code) ?? {
       code: a.code, name: a.name, kind: a.kind, balance: 0,
     }
     entry.balance += Number(m.debit_cents) - Number(m.credit_cents)
-    byAccount.set(m.account_id, entry)
+    byAccount.set(m.account_code, entry)
   }
 
   const mayor: AccountBalance[] = [...byAccount.values()]
@@ -196,7 +196,7 @@ export async function getContabilidad(): Promise<ContabilidadData> {
   // P&G: ingresos − costos − gastos por mes.
   const months = new Map<string, ProfitLossRow>()
   for (const m of posted) {
-    const a = accounts.find((x) => x.code === m.account_id)
+    const a = accounts.find((x) => x.code === m.account_code)
     if (!a) continue
     const month = m.journal_entries.entry_date.slice(0, 7)
     const row = months.get(month) ?? { month, ingresos: 0, costos: 0, gastos: 0, utilidad: 0 }
@@ -221,7 +221,7 @@ export async function getContabilidad(): Promise<ContabilidadData> {
 
   // Flujo de caja: movimientos de las cuentas de caja y bancos.
   const flujo = posted
-    .filter((m) => m.account_id === '1105' || m.account_id === '1110')
+    .filter((m) => m.account_code === '1105' || m.account_code === '1110')
     .map((m) => ({
       date: m.journal_entries.entry_date,
       memo: m.journal_entries.memo,

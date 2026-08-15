@@ -187,4 +187,14 @@ export function billingWebhookSecret(): string | null {
   return typeof value === 'string' && value.trim().length >= 16 ? value : null
 }
 
+/**
+ * El secreto de eventos de Wompi, con el que se verifica la firma de los
+ * webhooks de pago del POS. Opcional como el de billing: sin él, el webhook
+ * responde 503 y nunca se confirma un pago.
+ */
+export function wompiEventsSecret(): string | null {
+  const value = process.env.WOMPI_EVENTS_SECRET
+  return typeof value === 'string' && value.trim().length >= 16 ? value : null
+}
+
 export const isProduction = process.env.NODE_ENV === 'production'

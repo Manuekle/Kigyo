@@ -4391,7 +4391,7 @@ export interface Database {
           id: string
           org_id: string
           entry_id: string
-          account_id: string
+          account_code: string
           description: string
           debit_cents: number
           credit_cents: number
@@ -4400,7 +4400,7 @@ export interface Database {
           id?: string
           org_id: string
           entry_id: string
-          account_id: string
+          account_code: string
           description?: string
           debit_cents?: number
           credit_cents?: number
@@ -4409,7 +4409,7 @@ export interface Database {
           id?: string
           org_id?: string
           entry_id?: string
-          account_id?: string
+          account_code?: string
           description?: string
           debit_cents?: number
           credit_cents?: number
@@ -4417,7 +4417,7 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "journal_lines_account_id_fkey"
-            columns: ["account_id"]
+            columns: ["account_code"]
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["code"]
@@ -5697,25 +5697,25 @@ export interface Database {
         Row: {
           org_id: string
           concepto: "venta_credito" | "cobro" | "compra" | "pago_proveedor" | "caja_diferencia"
-          account_id: string
+          account_code: string
           auto: boolean
         }
         Insert: {
           org_id: string
           concepto: "venta_credito" | "cobro" | "compra" | "pago_proveedor" | "caja_diferencia"
-          account_id: string
+          account_code: string
           auto?: boolean
         }
         Update: {
           org_id?: string
           concepto?: "venta_credito" | "cobro" | "compra" | "pago_proveedor" | "caja_diferencia"
-          account_id?: string
+          account_code?: string
           auto?: boolean
         }
         Relationships: [
           {
             foreignKeyName: "org_account_mappings_account_id_fkey"
-            columns: ["account_id"]
+            columns: ["account_code"]
             isOneToOne: false
             referencedRelation: "gl_accounts"
             referencedColumns: ["code"]
@@ -6679,8 +6679,8 @@ export interface Database {
           discount_cents: number
           tax_cents: number
           total_cents: number
-          payment_method: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
-          status: "Pagada" | "Anulada"
+          payment_method: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "QR Wompi" | "Otro"
+          status: "Pagada" | "Pendiente" | "Anulada"
           sold_by: string | null
           sold_at: string
           notes: string
@@ -6698,8 +6698,8 @@ export interface Database {
           discount_cents?: number
           tax_cents?: number
           total_cents?: number
-          payment_method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
-          status?: "Pagada" | "Anulada"
+          payment_method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "QR Wompi" | "Otro"
+          status?: "Pagada" | "Pendiente" | "Anulada"
           sold_by?: string | null
           sold_at?: string
           notes?: string
@@ -6717,8 +6717,8 @@ export interface Database {
           discount_cents?: number
           tax_cents?: number
           total_cents?: number
-          payment_method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "Otro"
-          status?: "Pagada" | "Anulada"
+          payment_method?: "Transferencia" | "Efectivo" | "Tarjeta" | "Cheque" | "QR Wompi" | "Otro"
+          status?: "Pagada" | "Pendiente" | "Anulada"
           sold_by?: string | null
           sold_at?: string
           notes?: string
@@ -10360,6 +10360,7 @@ export interface Database {
           p_customer_name?: string
           p_discount_cents?: number
           p_notes?: string
+          p_pending?: boolean
         }
         Returns: { sale_id: string; sale_code: string; sale_total_cents: number }[]
       }
@@ -10462,6 +10463,14 @@ export interface Database {
           p_amount_cents: number
         }
         Returns: string
+      }
+      confirm_pos_payment: {
+        Args: { p_event_id: string }
+        Returns: boolean
+      }
+      reject_pos_payment: {
+        Args: { p_event_id: string }
+        Returns: boolean
       }
     }
     Enums: Record<never, never>

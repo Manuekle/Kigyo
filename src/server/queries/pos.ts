@@ -1,5 +1,6 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { pageRange, scoped, totalOf, type Page } from './shared'
@@ -82,6 +83,12 @@ export interface PosData {
   orgName: string
   /** Preferencias del recibo, resueltas con los valores por defecto. */
   receiptPrefs: ReceiptPrefs
+  /**
+   * Cobro con QR disponible: plan Enterprise + pasarela configurada y
+   * habilitada en Integraciones. El cajero no necesita integraciones:read —
+   * el flag se resuelve con el cliente admin, y solo dice sí/no.
+   */
+  qrEnabled: boolean
   canWrite: boolean
 }
 
@@ -192,6 +199,22 @@ export async function getPos(): Promise<PosData> {
   const member = await requirePermission('pos:read')
   const supabase = await createClient()
 
+  // El flag del QR es una decisión de plan + configuración, no de permiso:
+  // se resuelve con el cliente admin y no expone nada del vault.
+  const qrEnabled = member.plan === 'enterprise'
+    ? await (async () => {
+        const admin = createAdminClient()
+        const { data } = await admin
+          .from('integration_settings')
+          .select('enabled, config')
+          .eq('org_id', member.orgId)
+          .eq('kind', 'pagos')
+          .maybeSingle()
+        const publicKey = (data?.config as Record<string, unknown> | undefined)?.public_key
+        return Boolean(data?.enabled && typeof publicKey === 'string' && publicKey)
+      })()
+    : false
+
   // El catálogo se lee solo si esta persona puede verlo. Sin el permiso la
   // pantalla queda sin qué vender, y decirlo es mejor que mostrar una rejilla
   // vacía que parece un catálogo sin productos.
@@ -260,6 +283,7 @@ export async function getPos(): Promise<PosData> {
     cajaAbierta: sessionResult.data !== null,
     hasCaja,
     orgName: org?.name ?? '',
+    qrEnabled,
     receiptPrefs: {
       width,
       footer: typeof rawPrefs.footer === 'string' && rawPrefs.footer.trim()

@@ -77,7 +77,7 @@ export async function createEntry(
       parsed.data.lines.map((l) => ({
         org_id: member.orgId,
         entry_id: entry.id,
-        account_id: l.accountId,
+        account_code: l.accountId,
         description: l.description,
         debit_cents: l.debitCents,
         credit_cents: l.creditCents,
@@ -179,7 +179,7 @@ export async function setAccountMapping(
       .upsert({
         org_id: member.orgId,
         concepto: parsed.data.concepto,
-        account_id: parsed.data.accountId,
+        account_code: parsed.data.accountId,
         auto: true,
       }, { onConflict: 'org_id,concepto' })
 

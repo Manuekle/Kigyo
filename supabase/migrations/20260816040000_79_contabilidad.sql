@@ -129,7 +129,7 @@ create table public.journal_lines (
   id          uuid primary key default gen_random_uuid(),
   org_id      uuid not null references public.organizations (id) on delete cascade,
   entry_id    uuid not null references public.journal_entries (id) on delete cascade,
-  account_id  text not null references public.gl_accounts (code),
+  account_code text not null references public.gl_accounts (code),
   description text not null default '',
   debit_cents  bigint not null default 0 check (debit_cents >= 0),
   credit_cents bigint not null default 0 check (credit_cents >= 0),
@@ -137,7 +137,7 @@ create table public.journal_lines (
 );
 
 create index journal_lines_entry_idx on public.journal_lines (entry_id);
-create index journal_lines_account_idx on public.journal_lines (org_id, account_id);
+create index journal_lines_account_idx on public.journal_lines (org_id, account_code);
 
 comment on table public.journal_lines is
   'Líneas de un asiento. Una línea es débito o crédito, nunca ambos.';
@@ -230,8 +230,8 @@ create table public.org_account_mappings (
   org_id     uuid not null references public.organizations (id) on delete cascade,
   concepto   text not null check (concepto in
                ('venta_credito', 'cobro', 'compra', 'pago_proveedor', 'caja_diferencia')),
-  account_id text not null references public.gl_accounts (code),
-  auto       boolean not null default true,
+  account_code text not null references public.gl_accounts (code),
+  auto         boolean not null default true,
   primary key (org_id, concepto)
 );
 
