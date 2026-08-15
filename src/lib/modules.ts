@@ -156,6 +156,7 @@ export const SECTOR_NAV: Record<string, SectorNav> = {
   logistica:          { groupOrder: OPS_FIRST },
   tecnologia:         { groupOrder: OPS_FIRST },
   gobierno:           { groupOrder: OPS_FIRST },
+  seguridad:          { navLabel: 'Puestos',     groupOrder: OPS_FIRST },
 
   comercio:           { groupOrder: SALES_FIRST },
   servicios:          { groupOrder: SALES_FIRST },
@@ -181,8 +182,7 @@ export const SECTOR_NAV: Record<string, SectorNav> = {
   // An NGO reports before it sells; it usually is not selling at all.
   ong:                { groupOrder: ['Operación', 'Equipo', 'Personas', 'Comercial'] },
 
-  // `seguridad` and `otro` are deliberately absent: a guarding company really
-  // is people-first, and "Otro" has no opinion to express.
+  // `otro` is deliberately absent: "Otro" has no opinion to express.
 }
 
 /** The nav shape for a sector, or the default one. */
@@ -342,7 +342,8 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'seguridad',
     label: 'Seguridad y vigilancia',
     description: 'Empresas de vigilancia y control. Turnos, puestos y dotación.',
-    modules: [...PEOPLE, 'riesgos', 'hseq', 'inventario', 'contratos', ...COMMERCIAL, 'firmas', 'capacitacion', 'tickets', 'trazabilidad', ...SPINE],
+    modules: [...PEOPLE, 'puestos', 'riesgos', 'hseq', 'inventario', 'contratos', ...COMMERCIAL, 'firmas', 'capacitacion', 'tickets', 'trazabilidad', ...SPINE],
+    vertical: 'puestos',
   },
   {
     key: 'medios',

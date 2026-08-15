@@ -3164,6 +3164,57 @@ export interface Database {
           },
         ]
       }
+      guard_posts: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          client_id: string | null
+          address: string | null
+          notes: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          client_id?: string | null
+          address?: string | null
+          notes?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          client_id?: string | null
+          address?: string | null
+          notes?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guard_posts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guard_posts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       harvests: {
         Row: {
           id: string
@@ -5234,6 +5285,67 @@ export interface Database {
             columns: ["sold_by"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_shifts: {
+        Row: {
+          id: string
+          org_id: string
+          post_id: string
+          employee_id: string | null
+          starts_at: string
+          ends_at: string
+          status: "programado" | "en_curso" | "completado" | "cancelado"
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          post_id: string
+          employee_id?: string | null
+          starts_at: string
+          ends_at: string
+          status?: "programado" | "en_curso" | "completado" | "cancelado"
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          post_id?: string
+          employee_id?: string | null
+          starts_at?: string
+          ends_at?: string
+          status?: "programado" | "en_curso" | "completado" | "cancelado"
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_shifts_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_shifts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_shifts_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "guard_posts"
             referencedColumns: ["id"]
           },
         ]
