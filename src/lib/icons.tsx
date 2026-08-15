@@ -129,6 +129,7 @@ import {
   UserSearch01Icon,
   CashierIcon,
   Store01Icon,
+  ConstructionIcon,
 } from '@hugeicons/core-free-icons'
 
 export interface IconProps {
@@ -274,3 +275,4 @@ export const Handshake = make(Agreement01Icon)
 export const UserSearch = make(UserSearch01Icon)
 export const Cashier = make(CashierIcon)
 export const Store = make(Store01Icon)
+export const Construction = make(ConstructionIcon)

@@ -710,6 +710,19 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Controles de calidad, lotes y no conformidades.',
   },
   {
+    key: 'obra',
+    label: 'Obra',
+    description: 'Presupuestos, APU y avance por capítulo de la obra.',
+    group: 'Sectoriales',
+    icon: 'Construction',
+    route: '/dashboard/obra',
+    actions: ['read', 'write'],
+    permissionNoun: 'presupuestos de obra',
+    title: 'Obra',
+    subtitle: 'Presupuestos por capítulo, análisis de precios unitarios y avance.',
+    vertical: 'obra',
+  },
+  {
     key: 'configuracion',
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
@@ -805,6 +818,8 @@ export const MODULE_DEPENDENCIES: readonly ModuleDependency[] = [
   { module: 'estudiantes', requires: 'calendario', kind: 'soft' },
   { module: 'puestos', requires: 'empleados', kind: 'soft' },
   { module: 'puestos', requires: 'clientes', kind: 'soft' },
+  { module: 'obra', requires: 'proyectos', kind: 'soft' },
+  { module: 'obra', requires: 'clientes', kind: 'soft' },
 
   // A till with nothing to sell is an empty drawer, so the catalogue is hard.
   // Selling *without* opening a till is legitimate — a spa that charges by

@@ -4546,6 +4546,218 @@ export interface Database {
           },
         ]
       }
+      obra_apu: {
+        Row: {
+          id: string
+          org_id: string
+          capitulo_id: string
+          name: string
+          unidad: string
+          cantidad: number
+          materiales: number
+          mano_obra: number
+          equipo: number
+          transporte: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          capitulo_id: string
+          name: string
+          unidad?: string
+          cantidad?: number
+          materiales?: number
+          mano_obra?: number
+          equipo?: number
+          transporte?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          capitulo_id?: string
+          name?: string
+          unidad?: string
+          cantidad?: number
+          materiales?: number
+          mano_obra?: number
+          equipo?: number
+          transporte?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_apu_capitulo_id_fkey"
+            columns: ["capitulo_id"]
+            isOneToOne: false
+            referencedRelation: "obra_capitulos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obra_apu_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obra_avances: {
+        Row: {
+          id: string
+          org_id: string
+          capitulo_id: string
+          fecha: string
+          avance: number
+          valor: number
+          notas: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          capitulo_id: string
+          fecha?: string
+          avance: number
+          valor?: number
+          notas?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          capitulo_id?: string
+          fecha?: string
+          avance?: number
+          valor?: number
+          notas?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_avances_capitulo_id_fkey"
+            columns: ["capitulo_id"]
+            isOneToOne: false
+            referencedRelation: "obra_capitulos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obra_avances_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obra_capitulos: {
+        Row: {
+          id: string
+          org_id: string
+          presupuesto_id: string
+          name: string
+          orden: number
+          valor_presupuestado: number
+          valor_ejecutado: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          presupuesto_id: string
+          name: string
+          orden?: number
+          valor_presupuestado?: number
+          valor_ejecutado?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          presupuesto_id?: string
+          name?: string
+          orden?: number
+          valor_presupuestado?: number
+          valor_ejecutado?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_capitulos_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "obra_capitulos_presupuesto_id_fkey"
+            columns: ["presupuesto_id"]
+            isOneToOne: false
+            referencedRelation: "obra_presupuestos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obra_presupuestos: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          client: string | null
+          estado: "borrador" | "aprobado" | "en_ejecucion" | "cerrado"
+          valor_presupuestado: number
+          valor_ejecutado: number
+          fecha_inicio: string | null
+          fecha_fin: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          client?: string | null
+          estado?: "borrador" | "aprobado" | "en_ejecucion" | "cerrado"
+          valor_presupuestado?: number
+          valor_ejecutado?: number
+          fecha_inicio?: string | null
+          fecha_fin?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          client?: string | null
+          estado?: "borrador" | "aprobado" | "en_ejecucion" | "cerrado"
+          valor_presupuestado?: number
+          valor_ejecutado?: number
+          fecha_inicio?: string | null
+          fecha_fin?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obra_presupuestos_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       online_order_items: {
         Row: {
           id: string
@@ -8526,6 +8738,24 @@ export interface Database {
       seed_suggested_roles: {
         Args: { p_org_id: string }
         Returns: boolean
+      }
+      obra_register_avance: {
+        Args: {
+          p_capitulo_id: string
+          p_fecha: string
+          p_avance: number
+          p_valor: number
+          p_notas: string | null
+        }
+        Returns: string
+      }
+      obra_delete_avance: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      obra_resync_presupuesto: {
+        Args: { p_presupuesto_id: string }
+        Returns: undefined
       }
     }
     Enums: Record<never, never>

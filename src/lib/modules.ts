@@ -148,10 +148,10 @@ const OPS_FIRST = ['Operación', 'Comercial', 'Personas', 'Equipo'] as const
 const SALES_FIRST = ['Comercial', 'Operación', 'Personas', 'Equipo'] as const
 
 export const SECTOR_NAV: Record<string, SectorNav> = {
-  construccion:       { groupOrder: OPS_FIRST },
-  energia:            { groupOrder: OPS_FIRST },
+  construccion:       { navLabel: 'Obra',        groupOrder: OPS_FIRST },
+  energia:            { navLabel: 'Obra',        groupOrder: OPS_FIRST },
+  mineria:            { navLabel: 'Obra',        groupOrder: OPS_FIRST },
   manufactura:        { groupOrder: OPS_FIRST },
-  mineria:            { groupOrder: OPS_FIRST },
   telecomunicaciones: { navLabel: 'Redes', groupOrder: OPS_FIRST },
   logistica:          { groupOrder: OPS_FIRST },
   tecnologia:         { groupOrder: OPS_FIRST },
@@ -223,13 +223,14 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'construccion',
     label: 'Construcción e infraestructura',
     description: 'Obra civil, montajes, instalaciones. Trabajo por proyecto en sitio.',
-    modules: [...PEOPLE, 'riesgos', 'proyectos', 'hseq', 'inventario', 'mantenimiento', ...COMMERCIAL, 'compras', 'contratos', 'firmas', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'riesgos', 'proyectos', 'obra', 'hseq', 'inventario', 'mantenimiento', ...COMMERCIAL, 'compras', 'contratos', 'firmas', 'tickets', ...SPINE],
+    vertical: 'obra',
   },
   {
     key: 'energia',
     label: 'Energía y renovables',
     description: 'Solar, eólica, eficiencia energética. Instalación y mantenimiento.',
-    modules: [...PEOPLE, 'riesgos', 'proyectos', 'hseq', 'inventario', 'mantenimiento', ...COMMERCIAL, 'compras', 'catalogos', 'contratos', 'firmas', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'riesgos', 'proyectos', 'obra', 'hseq', 'inventario', 'mantenimiento', ...COMMERCIAL, 'compras', 'catalogos', 'contratos', 'firmas', 'tickets', ...SPINE],
   },
   {
     key: 'manufactura',
@@ -329,7 +330,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     key: 'mineria',
     label: 'Minería y extractivas',
     description: 'Operación en frente de trabajo, equipo pesado, alto riesgo.',
-    modules: [...PEOPLE, 'riesgos', 'hseq', 'proyectos', 'inventario', 'mantenimiento', 'flota', 'compras', 'contratos', 'firmas', 'trazabilidad', 'tickets', ...SPINE],
+    modules: [...PEOPLE, 'riesgos', 'hseq', 'proyectos', 'obra', 'inventario', 'mantenimiento', 'flota', 'compras', 'contratos', 'firmas', 'trazabilidad', 'tickets', ...SPINE],
   },
   {
     key: 'telecomunicaciones',
