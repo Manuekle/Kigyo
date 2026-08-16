@@ -1,6 +1,9 @@
 import 'server-only'
 
 import { createHash } from 'node:crypto'
+import { extractText, getDocumentProxy } from 'unpdf'
+import mammoth from 'mammoth'
+import * as XLSX from 'xlsx'
 import { embed, embedMany } from 'ai'
 import type { RetrievalResult, KnowledgeReference } from './foundry-iq'
 import { embeddingModel } from './model'
@@ -87,18 +90,65 @@ export function chunkDocumentText(value: string): RagChunk[] {
   return chunks
 }
 
+/**
+ * Text extraction for the formats the bucket accepts and a document can
+ * actually be read from: plain text reads directly, office formats go through
+ * an extractor. PDFs, Word documents and spreadsheets are the bulk of what a
+ * company archives, and skipping them meant the assistant could only answer
+ * from .txt files.
+ */
+async function extractDocumentText(
+  blob: Blob,
+  mimeType: string,
+): Promise<string | null> {
+  switch (mimeType) {
+    case 'text/plain':
+    case 'text/csv':
+    case 'text/markdown':
+    case 'application/json':
+      return normalizeDocumentText(await blob.text())
+
+    case 'application/pdf': {
+      const bytes = new Uint8Array(await blob.arrayBuffer())
+      const pdf = await getDocumentProxy(bytes)
+      const { text } = await extractText(pdf, { mergePages: true })
+      return normalizeDocumentText(text)
+    }
+
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': {
+      const { value } = await mammoth.extractRawText({ buffer: Buffer.from(await blob.arrayBuffer()) })
+      return normalizeDocumentText(value)
+    }
+
+    case 'application/vnd.ms-excel':
+    case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+      const workbook = XLSX.read(new Uint8Array(await blob.arrayBuffer()), { type: 'array' })
+      const parts: string[] = []
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName]
+        parts.push(`[${sheetName}]`)
+        parts.push(XLSX.utils.sheet_to_csv(sheet))
+      }
+      return normalizeDocumentText(parts.join('\n'))
+    }
+
+    default:
+      // Binary Word (.doc) and images have no cheap extractor here; a document
+      // that cannot be read simply is not indexed, it is not rejected.
+      return null
+  }
+}
+
 export async function readRagText(
   supabase: Awaited<ReturnType<typeof createClient>>,
   storagePath: string | null,
   mimeType: string | null,
 ): Promise<string | null> {
-  const readable = new Set(['text/plain', 'text/csv', 'text/markdown', 'application/json'])
-  if (!storagePath || !mimeType || !readable.has(mimeType)) return null
+  if (!storagePath || !mimeType) return null
 
   const { data, error } = await supabase.storage.from('documents').download(storagePath)
   if (error || !data) return null
-  const text = normalizeDocumentText(await data.text())
-  return text || null
+  return extractDocumentText(data, mimeType)
 }
 
 function vectorLiteral(values: number[]): string {
