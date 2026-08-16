@@ -1,14 +1,14 @@
 # Contexto de sesión — para retomar
 
-Fecha: 2026-08-15. Rama: `feat/design-system-refresh` (~14 commits ahead de origin).
-Working tree: **NO limpio** — 5 archivos sin commit (pendiente 1): 4 specs e2e nuevos + 2 fixes producto + playwright.config (workers=1). Plan CRM/ERP/POS completo (18/18 filas). E2e smoke de los 4 módulos nuevos **TERMINADO — suite 5/5 verde**.
+Fecha: 2026-08-15. Rama: `feat/design-system-refresh` (19 commits ahead de origin).
+Working tree: **limpio** — todo commiteado. Plan CRM/ERP/POS completo (18/18 filas) + Fase 7 RAG (híbrido) + sites en POS hechos. E2e smoke suite 5/5 verde. Push pendiente (decisión usuario).
 
 ---
 
 ## Estado
 
-Suite e2e completa **5/5 verde** (secuencial): company-switch + dian + marketing + nomina + pos (~1.7m). vitest 256/256 · tsc 0 · build verde. db-verify local NO válido: mig 86 (`vector` extension) no instalada en homebrew PG; migs 87–93 validan por apply remota + psql policy check directo.
-Remota: migraciones 1–93 aplicadas. Tipos regenerados (201 tablas) tras mig 93; `pos_sales.client_uuid` añadido por generador; RPC `lock_payroll_period`/`export_payroll_pila` añadidas a mano al bloque `Functions` (mig 90). `register_pos_sale` firma nueva (8 params) ruteada por `.rpc('name', {...})` sin tipar firma — sin toque manual.
+Suite e2e completa **5/5 verde** (secuencial): company-switch + dian + marketing + nomina + pos (~1.7m). vitest 256/256 · tsc 0 · build verde. db-verify local NO válido: mig 86 (`vector` extension) no instalada en homebrew PG; migs 87–95 validan por apply remota + psql policy check directo.
+Remota: migraciones 1–95 aplicadas. Tipos regenerados (201 tablas) tras mig 94; `pos_sales.client_uuid` y `site_id` por generador; RPC `lock_payroll_period`/`export_payroll_pila` añadidas a mano al bloque `Functions` (mig 90). `register_pos_sale` firma nueva (9 params, con `p_site_id`) ruteada por `.rpc('name', {...})` sin tipar firma — sin toque manual. RPC híbrida `match_document_chunks_hybrid` (mig 94) también a mano en `Functions`.
 **Playwright `workers: 1` obligatorio** — todos los specs comparten usuario demo + DB demo + org activa; paralelo revienta fixtures ajenos (teardown de un spec quita `enabled_modules` que otro está usando; signIn puede aterrizar en org equivocada por last_active_at). `fullyParallel: false` NO basta (workers>1 corre files en paralelo igual).
 Residuos DB manualmente limpiados post-suite: 5 periodos nómina 2035+ cerrados + 5 empleados `E2E Nomina QA` (disable trigger temporal + delete + re-enable, verificado) y fila residual `integration_settings kind='dian'` de Kigyo Demo Dos (residuo de una corrida paralela rota, ver gotchas e2e).
 Branch ahead ~14 commits orig no pusheados (usuario decide cuándo push).
@@ -26,20 +26,9 @@ Branch ahead ~14 commits orig no pusheados (usuario decide cuándo push).
 | `c921da7` | feat(marketing): plantillas reusables y segmentación de destinatarios (mig 91 marketing_templates; queries/mutations addTemplate/deleteTemplate; generateRecipients firma nueva con filters {status,kind,city,hasEmail}; client.tsx con sección Plantillas + panel inline de filtros por campaña borrador) |
 | `27e52e3` | feat(dian): facturación electrónica DIAN en modo demo (mig 92 dian_documents 1:1 invoices + dian_events append-only; integration_settings kind='dian' + provider 'dian_demo'; RPCs del vault reescritas para aceptar namespace dian; lib/dian/ubl.ts genera XML UBL 2.1 + simula CUFE SHA-256 — NO válido ante la DIAN; sendInvoiceToDian genera/inserta/actualiza doc + eventos envío/aceptación/rechazo; ruta nueva /dashboard/dian con panel + picker facturas Emitidas sin doc + modal detalle (XML + bitácora); sección DIAN en integraciones client; ROUTE_MAP register dian; actions/dian.ts envoltura para getDianDetalle y no romper build con next/headers). **Modo demo, sin firma digital ni envío real — prod DEFERIDO** (proveedor homologado + certificado + revisor fiscal). |
 | `400919e` | feat(pos): cola offline con idempotencia por client_uuid (mig 93 pos_sales.client_uuid + index unique parcial; register_pos_sale p_client_uuid early-return idempotente; lib/pos/offline-queue.ts IndexedDB sin Dexie; mutations/pos.ts replayPosSale sobre RPC; pos/client.tsx listeners online/offline + auto-replay + modal cola con badge; banner 'Sin conexión · N en cola'). Defer: resolver conflictos timestamp + límite inventario offline (valida servidor al ejecutar, KG103 rechaza). |
-| `6822a70` | docs(contexto): POS offline hecho, plan completo; próximos pasos decisión-abierta |
-
-## Commit pendiente (sin stage)
-
-| Archivo | Qué |
-|---|---|
-| `e2e/dian.spec.ts` | nuevo — smoke DIAN: seed factura Emitida → habilitar integración → enviar → CUFE + bitácora + XML + empty-state |
-| `e2e/nomina.spec.ts` | nuevo — smoke nómina: empleado + periodo 2035 libre → concepto → línea → editar monto → cerrar → read-only → PILA (waitForResponse) |
-| `e2e/marketing.spec.ts` | nuevo — smoke marketing: 3 clientes → plantilla → aplicar → campaña → filtros → audienceCount=1 → enviada |
-| `e2e/pos.spec.ts` | nuevo — smoke POS offline: producto → setOffline → cobrar Efectivo → cola IndexedDB → auto-replay → Ventas Pagada → stock 4 UN |
-| `playwright.config.ts` | workers: 1 (secuencial obligatorio, ver Estado) + comentario |
-| `src/app/(dashboard)/dashboard/nomina/client.tsx` | 2 fixes producto: (1) PILA export usa módulo `'nomina'` no `'pila'` (ROUTE_PERMISSIONS no tiene clave `'pila'` → 403); (2) LineAmount onBlur re-sync optimista `setValue(String(n/100))` tras commit |
-
-Sugerencia de mensaje: `feat(e2e): smoke DIAN, nómina, marketing y POS offline; fixes PILA y LineAmount`.
+| `454ad30` | feat(e2e): smoke DIAN, nómina, marketing y POS offline; fixes PILA y LineAmount (4 specs + playwright.config workers=1 + nomina/client.tsx) |
+| `6cd2f71` | feat(rag): búsqueda híbrida lexical+vectorial y cache de embeddings por content_hash (mig 94 content_tsv + GIN + RPC match_document_chunks_hybrid; rag.ts reusa embeddings por content_hash; documentos.ts stale solo si cambia name) |
+| `e5d597b` | feat(pos): multi-sucursal — pos_sales.site_id con herencia del turno (mig 95 add_site_scope pos_sales; register_pos_sale 9 params con p_site_id; PosData.sites + SaleRow.siteId/siteName; picker Sucursal solo si >1; outbox payload siteId; invoices SIN site_id por contrato FASE_0 §3.8) |
 
 ## Hecho antes (condensado — jornadas 1–3)
 
@@ -62,9 +51,8 @@ Poda de `.md` revisada al cierre de jornada: **nada que eliminar** — los 8 arc
 
 ## Pendiente (orden sugerido)
 
-### 1. Commit de la tanda e2e — SIN HACER (usuario decide si commitear y/o push)
-- 4 specs nuevos + playwright.config (workers=1) + 2 fixes producto en nomina/client.tsx. Todo verificado: suite 5/5 verde, vitest 256/256, tsc 0.
-- Push sigue siendo decisión del usuario (~14 commits ahead origin).
+### 1. Push remoto — decisión usuario (19 commits ahead origin)
+- Todo commiteado y verificado (suite 5/5, vitest 256, tsc 0, build). Push solo si el usuario lo pide.
 
 ### 2. Nómina legal — commiteado (DONE); queda validación contador
 - Mig 90 aplicada a remota. Vitest 256, build 0.
@@ -91,19 +79,35 @@ Poda de `.md` revisada al cierre de jornada: **nada que eliminar** — los 8 arc
 - `lib/pos/offline-queue.ts` IndexedDB crudo (sin Dexie). `mutations/pos.ts replayPosSale`. UI: listeners online/offline, auto-replay con `outboxRunning` ref guard, banner `aria-live`, modal cola (total "—" porque precio decide server).
 - **DEFERIDO**: resolución de conflictos por timestamp (FIFO simple; KG103 rechaza y marca error), límite de inventario offline (server valida al ejecutar), PWA service worker (no hay SW que cache catálogo).
 
-### 6. Fase 7 RAG documental nativo (post-plan — decisión abierta)
-- RAG sobre `documents` como fuente principal, Foundry IQ como fallback. Pipeline: ingestión + chunking + embeddings en `vault` (no columnas públicas). XL nuevo. Detalle en prompt para retomar (opción b).
+### 6. Fase 7 RAG documental nativo — commiteado (DONE, refinamientos i)
+- Mig 94 aplicada: `documents.content_tsv` (generated) + índice GIN + RPC `match_document_chunks_hybrid(query_embedding vector(1536), query_text text, p_org_id uuid, match_threshold real default 0.68, match_count integer default 8)` — mezcla coseno + ts_rank.
+- `rag.ts indexDocument`: reusa embeddings por `content_hash` (nunca cobra dos veces el mismo chunk; presupuesto solo chunks nuevos). `searchDocumentChunks` → RPC híbrida.
+- `mutations/documentos.ts`: marca chunks `stale` SOLO si cambia `name` (status/folder/expiry no invalidan embeddings).
+- **Siguiente (si se retoma RAG)**: chat/IA aún usa `searchDocumentChunks` con fallback Foundry IQ — ya híbrido. Probar calidad con docs reales; umbral 0.68 ajustable.
 
-### 7. Sites como contexto operativo (post-plan — decisión abierta)
-- `sites` ya existe (mig 31), `site_id` no propagado a `pos_sales`/`invoices`. Pre-requisito para cierres por sucursal oficiales. `app.may_access_site` ya existe. Detalle en prompt (opción c).
+### 7. Sites como contexto operativo — commiteado (DONE, pos_sales; invoices EXCLUIDAS por contrato)
+- Mig 95 aplicada: `add_site_scope('pos_sales')` — columna + índice + política RESTRICTIVE con `app.may_access_site(site_id)` (verificado psql: col/idx/policy presentes).
+- `register_pos_sale` 9 params con `p_site_id uuid default null`: valida site de la org (KG102) + `may_access_site` (KG101); si hay turno abierto (`cash_sessions.status='Abierta'`), la venta hereda el site del turno; si no, `p_site_id`.
+- UI POS: `PosData.sites` (activas), picker «Sucursal» solo si >1 (label «Automática (turno abierto)»), `siteId` en cobro/QR/outbox; replay de cola lleva siteId. Ventas muestran siteName.
+- **`invoices` NO lleva site_id — decisión deliberada**: FASE_0_CONTRATOS.md §3.8 (línea 346) lista las 7 tablas con sucursal como hecho del negocio y "Nunca a las 66"; mig 31 comenta "not a property of an invoice". La opción heredada (c) decía pos_sales + invoices; el contrato mandó. El filtro de facturas por sucursal se haría por `pos_sales.site_id` (origen), no por columna en invoice.
+- **Siguiente si se retoma sites**: picker de sucursal en Caja/cash_sessions y módulos con site_id (employees, inventory, restaurant) — mismo patrón `PosData.sites`; cierres por sucursal sobre pos_sales ya posibles.
 
-## Siguiente (post-plan CRM/ERP/POS — decisión)
+## Siguiente (post-plan CRM/ERP/POS + RAG + sites — decisión)
 
-- **Plan CRM/ERP/POS fila 1–18 completo**. Fases 5 y 6 cerradas. E2e smoke de los 4 módulos nuevos cerrado (deuda #1 saldada).
-- Opciones abiertas: (a) commit de la tanda e2e (usuario decide), (b) Fase 7 RAG documental nativo, (c) propagar `site_id` a pos_sales/invoices, (d) push remoto ~14 commits.
+- **Plan CRM/ERP/POS fila 1–18 completo. Fases 5 y 6 cerradas. E2e smoke 4 módulos cerrado. Fase 7 RAG (refinamientos i) cerrado. Sites → pos_sales cerrado.**
+- Opciones abiertas: (a) push remoto ~19 commits (usuario decide), (b) retomar RAG: calidad/umbral o pipeline de ingestión de archivos nuevos, (c) sites: picker en Caja/inventario/restaurant + cierres por sucursal, (d) módulos verticales: cobertura de los 6 pendientes en PLAN.
 - **Módulos verticales**: 10 verticales con crumbs; sin cobertura adicional 6 pendiente en PLAN.
 
 ## Gotchas nuevos de esta jornada (e2e smoke)
+
+### RAG híbrido y sites (migs 94/95)
+
+- **`ts_rank` no mezcla igual que coseno** — el blend de `match_document_chunks_hybrid` usa `0.4 * ts_rank + 0.6 * cosine`; si un corpus corto no deja ver diferencia, ajustar umbral 0.68 antes de tocar pesos.
+- **Chunks stale SOLO por `name`** — status/folder/expiry no invalidan embeddings; de invalidar por cualquier update re-embebías en cada toque de carpeta.
+- **`add_site_scope` sobre tabla con RPC que inserta** — `register_pos_sale` debe validar `may_access_site` explícito (KG101) además de la política RLS: el RPC corre como definer y la política no aplica dentro de la función.
+- **Venta en turno hereda site del turno** (`cash_sessions.status='Abierta'`) — el picker de sucursal es solo override; si el cajero elige otra sucursal distinta a la del turno, gana el turno (documentado en código).
+- **Test `account-scope.test.ts` pinea la lista de tablas con sucursal** — añadir `add_site_scope` requiere actualizar ese expect (se rompe a propósito).
+- **El picker «Sucursal» solo aparece con >1 site activa** — org de e2e (sin sites) no lo muestra; el spec POS verde no cubre el picker (cubrir con seed de sites si se quiere).
 
 ### E2e — infraestructura
 
@@ -194,35 +198,23 @@ Copia este bloque como primer mensaje del próximo chat para arrancar con contex
 ```
 Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (actualizado 2026-08-15): estado, commits de la jornada, pendientes ordenados y gotchas.
 
-Nómina legal, marketing automation, DIAN demo y POS offline (filas 12/14/15/16 del plan) commiteados. Plan CRM/ERP/POS completo (18/18). E2e smoke de los 4 módulos nuevos TERMINADO: suite 5/5 verde (company-switch + dian + marketing + nomina + pos), vitest 256/256, tsc 0. Playwright workers=1 (specs comparten estado demo). Residuos E2E limpiados de remota.
+Plan CRM/ERP/POS completo (18/18) + Fase 7 RAG (híbrido) + sites en POS, todo commiteado y verificado: e2e suite 5/5 verde (workers=1), vitest 256/256, tsc 0, build verde. Remota: migraciones 1–95 aplicadas. Working tree LIMPIO. Branch ahead origin 19 commits (push = decisión usuario).
 
-Working tree NO limpio — pendiente 1: commitear 4 specs e2e + playwright.config (workers=1) + 2 fixes producto en nomina/client.tsx (PILA module 'nomina', LineAmount optimista). Branch ahead origin ~14 commits (no push).
+RAG (i): mig 94 content_tsv + GIN + RPC match_document_chunks_hybrid; rag.ts cache embeddings por content_hash; chunks stale solo si cambia name.
+Sites (c): mig 95 pos_sales.site_id con add_site_scope + política restrictive; register_pos_sale 9 params (p_site_id, hereda del turno abierto); PosData.sites + picker Sucursal en POS (solo si >1); outbox replay lleva siteId. invoices SIN site_id — contrato FASE_0 §3.8 (la factura no es propiedad de la sucursal); filtro por sucursal vía pos_sales.site_id.
 
 Próximo paso: decisión abierta. Opciones:
-  (a) Commit de la tanda e2e (y/o push remoto de los ~14 commits) — usuario decide.
-  (b) Fase 7 RAG documental nativo (PLAN_CRM_ERP_POS.md 7.1): RAG sobre `documents` como fuente principal, Foundry IQ como fallback. Pipeline: ingestión + chunking + embeddings en vault.
-  (c) Propagar `site_id` a `pos_sales`/`invoices` (mig 31 ya tiene `sites`, falta propagar) — pre-requisito para cierres por sucursal.
+  (a) Push remoto de los 19 commits — usuario decide.
+  (b) Retomar RAG: probar calidad híbrida con docs reales, ajustar umbral 0.68, o pipeline de ingestión de archivos nuevos.
+  (c) Sites: picker de sucursal en Caja/inventario/restaurant (mismo patrón PosData.sites) y/o cierres por sucursal sobre pos_sales.
   (d) Módulos verticales: cobertura de los 6 verticales pendientes en PLAN.
-
-Pasos sugeridos, en orden si opción elegida = (b) Fase 7 RAG:
-1. Mig [nueva]: `documents.chunks` (parent doc FK, chunk_index, content, content_hash, token_count) + `documents.embeddings` (chunk_id FK, vector stored en vault no columna por seguridad).
-2. Pipeline ingestión server action: extract texto → normalizar → chunk 800 tokens overlap 120 → guardar.
-3. Server action retrieve (Foundry IQ fallback) con `documents:read` gate.
-4. UI IA consume chunks (rag tool ya existe).
-Si opción = (c) sites propagation:
-1. Mig 94: `pos_sales.site_id` + `invoices.site_id` (`employees.site_id` ya existe).
-2. RLS chain via `app.may_access_site` ya existe (mig 31).
-3. UI: site picker en POS / Facturación; por defecto "todas" para admin.
-Si opción = (a) commit:
-1. `git add e2e/*.spec.ts playwright.config.ts "src/app/(dashboard)/dashboard/nomina/client.tsx"` → commit tipo `feat(e2e): smoke ...`.
-2. Push solo si usuario lo pide.
 
 Reglas vinculantes (AGENTS.md):
 - org_id = empresa, nunca company_id. Sin public.companies ni CompanyId.
 - app.apply_standard_rls/apply_child_rls/orgs_with congelados.
 - Supabase MCP apunta a otro proyecto — TODO vía psql con SUPABASE_DB_URL de .env.local.
 - Mutations: 'use server', no 'server-only'.
-- Migraciones ya aplicadas a remota: cambios → SQL manual a remota + editar archivo local para bases frescas (patrón 57/58/90/91/92/93).
+- Migraciones ya aplicadas a remota: cambios → SQL manual a remota + editar archivo local para bases frescas (patrón 57/58/90/91/92/93/94/95).
 - Tipos RPC a mano en Functions; tablas + check-constraints por generador. Firmas RPC cambiantes no se tipan a mano si el proyecto rutea via `.rpc('name', {...})`.
 - db-verify local falla en mig 86 (vector extension) — validar migs nuevas aplicando remota + psql policy check.
 - Nómina 4.3: validación contador laboral OBLIGATORIA antes de producción. Valores por defecto a 0; NO inventar cifras regulatorias.
