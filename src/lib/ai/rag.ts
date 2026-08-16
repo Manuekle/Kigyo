@@ -315,7 +315,7 @@ export async function searchDocumentChunks(
     query_embedding: vectorLiteral(embedding),
     query_text: question,
     p_org_id: orgId,
-    match_threshold: Number(process.env.AI_RAG_MATCH_THRESHOLD ?? 0.68),
+    match_threshold: Number(process.env.AI_RAG_MATCH_THRESHOLD ?? 0.6),
     match_count: 8,
   })
   if (error) throw error
