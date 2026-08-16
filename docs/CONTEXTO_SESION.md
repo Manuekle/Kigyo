@@ -29,6 +29,7 @@ Branch ahead ~14 commits orig no pusheados (usuario decide cuándo push).
 | `454ad30` | feat(e2e): smoke DIAN, nómina, marketing y POS offline; fixes PILA y LineAmount (4 specs + playwright.config workers=1 + nomina/client.tsx) |
 | `6cd2f71` | feat(rag): búsqueda híbrida lexical+vectorial y cache de embeddings por content_hash (mig 94 content_tsv + GIN + RPC match_document_chunks_hybrid; rag.ts reusa embeddings por content_hash; documentos.ts stale solo si cambia name) |
 | `e5d597b` | feat(pos): multi-sucursal — pos_sales.site_id con herencia del turno (mig 95 add_site_scope pos_sales; register_pos_sale 9 params con p_site_id; PosData.sites + SaleRow.siteId/siteName; picker Sucursal solo si >1; outbox payload siteId; invoices SIN site_id por contrato FASE_0 §3.8) |
+| `80a8406` | feat(caja): turno con sucursal (abrirCaja siteId validado contra sites de la empresa; CajaData.sites scoped; SessionRow.siteId/siteName; picker en Abrir turno solo si >1; sitio en historial; smoke DB: venta POS hereda site del turno — venta.site = turno.site verificado end-to-end) |
 
 ## Hecho antes (condensado — jornadas 1–3)
 
@@ -51,8 +52,8 @@ Poda de `.md` revisada al cierre de jornada: **nada que eliminar** — los 8 arc
 
 ## Pendiente (orden sugerido)
 
-### 1. Push remoto — decisión usuario (19 commits ahead origin)
-- Todo commiteado y verificado (suite 5/5, vitest 256, tsc 0, build). Push solo si el usuario lo pide.
+### 1. Push remoto — HECHO (21 commits en origin feat/design-system-refresh)
+- Todo commiteado y verificado (suite 5/5, vitest 256, tsc 0, build). **Push realizado por decisión delegada** (`git push origin feat/design-system-refresh`).
 
 ### 2. Nómina legal — commiteado (DONE); queda validación contador
 - Mig 90 aplicada a remota. Vitest 256, build 0.
@@ -85,17 +86,17 @@ Poda de `.md` revisada al cierre de jornada: **nada que eliminar** — los 8 arc
 - `mutations/documentos.ts`: marca chunks `stale` SOLO si cambia `name` (status/folder/expiry no invalidan embeddings).
 - **Siguiente (si se retoma RAG)**: chat/IA aún usa `searchDocumentChunks` con fallback Foundry IQ — ya híbrido. Probar calidad con docs reales; umbral 0.68 ajustable.
 
-### 7. Sites como contexto operativo — commiteado (DONE, pos_sales; invoices EXCLUIDAS por contrato)
+### 7. Sites como contexto operativo — commiteado (DONE, pos_sales + caja; invoices EXCLUIDAS por contrato)
 - Mig 95 aplicada: `add_site_scope('pos_sales')` — columna + índice + política RESTRICTIVE con `app.may_access_site(site_id)` (verificado psql: col/idx/policy presentes).
 - `register_pos_sale` 9 params con `p_site_id uuid default null`: valida site de la org (KG102) + `may_access_site` (KG101); si hay turno abierto (`cash_sessions.status='Abierta'`), la venta hereda el site del turno; si no, `p_site_id`.
 - UI POS: `PosData.sites` (activas), picker «Sucursal» solo si >1 (label «Automática (turno abierto)»), `siteId` en cobro/QR/outbox; replay de cola lleva siteId. Ventas muestran siteName.
 - **`invoices` NO lleva site_id — decisión deliberada**: FASE_0_CONTRATOS.md §3.8 (línea 346) lista las 7 tablas con sucursal como hecho del negocio y "Nunca a las 66"; mig 31 comenta "not a property of an invoice". La opción heredada (c) decía pos_sales + invoices; el contrato mandó. El filtro de facturas por sucursal se haría por `pos_sales.site_id` (origen), no por columna en invoice.
-- **Siguiente si se retoma sites**: picker de sucursal en Caja/cash_sessions y módulos con site_id (employees, inventory, restaurant) — mismo patrón `PosData.sites`; cierres por sucursal sobre pos_sales ya posibles.
+- **Siguiente si se retoma sites**: picker de sucursal en inventario/restaurant (Caja ya hecho — mismo patrón); cierres por sucursal sobre pos_sales ya posibles (turno lleva site, venta lo hereda, verificado por smoke DB).
 
 ## Siguiente (post-plan CRM/ERP/POS + RAG + sites — decisión)
 
-- **Plan CRM/ERP/POS fila 1–18 completo. Fases 5 y 6 cerradas. E2e smoke 4 módulos cerrado. Fase 7 RAG (refinamientos i) cerrado. Sites → pos_sales cerrado.**
-- Opciones abiertas: (a) push remoto ~19 commits (usuario decide), (b) retomar RAG: calidad/umbral o pipeline de ingestión de archivos nuevos, (c) sites: picker en Caja/inventario/restaurant + cierres por sucursal, (d) módulos verticales: cobertura de los 6 pendientes en PLAN.
+- **Plan CRM/ERP/POS fila 1–18 completo. Fases 5 y 6 cerradas. E2e smoke 4 módulos cerrado. Fase 7 RAG (refinamientos i) cerrado. Sites → pos_sales + caja cerrado. Push hecho (21 commits).**
+- Opciones abiertas: (a) sites: picker en inventario/restaurant + cierres por sucursal, (b) retomar RAG: calidad/umbral o pipeline de ingestión, (c) módulos verticales: cobertura de los 6 pendientes en PLAN, (d) deuda DIAN/marketing/nómina a prod (requiere proveedores reales).
 - **Módulos verticales**: 10 verticales con crumbs; sin cobertura adicional 6 pendiente en PLAN.
 
 ## Gotchas nuevos de esta jornada (e2e smoke)
@@ -108,6 +109,8 @@ Poda de `.md` revisada al cierre de jornada: **nada que eliminar** — los 8 arc
 - **Venta en turno hereda site del turno** (`cash_sessions.status='Abierta'`) — el picker de sucursal es solo override; si el cajero elige otra sucursal distinta a la del turno, gana el turno (documentado en código).
 - **Test `account-scope.test.ts` pinea la lista de tablas con sucursal** — añadir `add_site_scope` requiere actualizar ese expect (se rompe a propósito).
 - **El picker «Sucursal» solo aparece con >1 site activa** — org de e2e (sin sites) no lo muestra; el spec POS verde no cubre el picker (cubrir con seed de sites si se quiere).
+- **`auth.uid()` NO lee `request.jwt.claims` plural en psql** — `set_config('request.jwt.claims', ...)` no alcanza para RPCs `security definer` que validan con `auth.uid()` (register_pos_sale → KG101 falso). Usar `request.jwt.claim.sub` + `request.jwt.claim.role` DENTRO de `begin; ... commit;` (autocommit descarta settings por statement). Seeds RLS sí funcionan con claims plural porque postgres bypass RLS.
+- **Data-modifying CTE: un RAISE en una CTE revierte todo el statement** — el insert de site/turno que precedía al RPC fallido se perdió completo; no asumir inserts parciales.
 
 ### E2e — infraestructura
 
@@ -198,16 +201,16 @@ Copia este bloque como primer mensaje del próximo chat para arrancar con contex
 ```
 Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (actualizado 2026-08-15): estado, commits de la jornada, pendientes ordenados y gotchas.
 
-Plan CRM/ERP/POS completo (18/18) + Fase 7 RAG (híbrido) + sites en POS, todo commiteado y verificado: e2e suite 5/5 verde (workers=1), vitest 256/256, tsc 0, build verde. Remota: migraciones 1–95 aplicadas. Working tree LIMPIO. Branch ahead origin 19 commits (push = decisión usuario).
+Plan CRM/ERP/POS completo (18/18) + Fase 7 RAG (híbrido) + sites (pos_sales + caja), todo commiteado y verificado: e2e suite 5/5 verde (workers=1), vitest 256/256, tsc 0, build verde. Remota: migraciones 1–95 aplicadas. Working tree LIMPIO. Branch PUSHEADA a origin (21 commits, feat/design-system-refresh).
 
 RAG (i): mig 94 content_tsv + GIN + RPC match_document_chunks_hybrid; rag.ts cache embeddings por content_hash; chunks stale solo si cambia name.
-Sites (c): mig 95 pos_sales.site_id con add_site_scope + política restrictive; register_pos_sale 9 params (p_site_id, hereda del turno abierto); PosData.sites + picker Sucursal en POS (solo si >1); outbox replay lleva siteId. invoices SIN site_id — contrato FASE_0 §3.8 (la factura no es propiedad de la sucursal); filtro por sucursal vía pos_sales.site_id.
+Sites (c): mig 95 pos_sales.site_id con add_site_scope + política restrictive; register_pos_sale 9 params (p_site_id, hereda del turno abierto); PosData.sites + picker Sucursal en POS (solo si >1); outbox replay lleva siteId; Caja: abrirCaja siteId + picker + siteName en historial (smoke DB: venta hereda site del turno). invoices SIN site_id — contrato FASE_0 §3.8 (la factura no es propiedad de la sucursal); filtro por sucursal vía pos_sales.site_id.
 
 Próximo paso: decisión abierta. Opciones:
-  (a) Push remoto de los 19 commits — usuario decide.
+  (a) Sites: picker de sucursal en inventario/restaurant (patrón Caja/POS) y/o cierres por sucursal sobre pos_sales.
   (b) Retomar RAG: probar calidad híbrida con docs reales, ajustar umbral 0.68, o pipeline de ingestión de archivos nuevos.
-  (c) Sites: picker de sucursal en Caja/inventario/restaurant (mismo patrón PosData.sites) y/o cierres por sucursal sobre pos_sales.
-  (d) Módulos verticales: cobertura de los 6 verticales pendientes en PLAN.
+  (c) Módulos verticales: cobertura de los 6 verticales pendientes en PLAN.
+  (d) Deuda a producción: DIAN (proveedor homologado + certificado + revisor), marketing conversión (proveedor real), nómina validación contador.
 
 Reglas vinculantes (AGENTS.md):
 - org_id = empresa, nunca company_id. Sin public.companies ni CompanyId.
