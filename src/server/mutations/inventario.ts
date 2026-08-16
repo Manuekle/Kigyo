@@ -22,6 +22,8 @@ const assetSchema = z.object({
   serial: z.string().trim().max(120).default(''),
   employeeId: z.uuid().nullable().default(null),
   acquiredOn: z.string().date().nullable().default(null),
+  /** Sucursal donde está físicamente el activo. Null = sin sucursal. */
+  siteId: z.string().uuid().nullable().default(null),
 })
 
 const updateAssetSchema = assetSchema.extend({
@@ -41,6 +43,9 @@ export async function createActivo(
     if (!(await belongsToOrg(supabase, 'employees', parsed.data.employeeId, member.orgId))) {
       return fail('Esa persona no está en el equipo de tu organización.')
     }
+    if (!(await belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId))) {
+      return fail('Esa sucursal no existe en esta empresa.')
+    }
 
     const { error } = await supabase.from('inventory_assets').insert({
       org_id: member.orgId,
@@ -50,6 +55,7 @@ export async function createActivo(
       employee_id: parsed.data.employeeId,
       status: assetStatusFor(parsed.data.employeeId),
       acquired_on: parsed.data.acquiredOn,
+      site_id: parsed.data.siteId,
     })
 
     if (error) {
@@ -76,6 +82,9 @@ export async function updateActivo(
     if (!(await belongsToOrg(supabase, 'employees', parsed.data.employeeId, member.orgId))) {
       return fail('Esa persona no está en el equipo de tu organización.')
     }
+    if (!(await belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId))) {
+      return fail('Esa sucursal no existe en esta empresa.')
+    }
 
     const { error } = await supabase
       .from('inventory_assets')
@@ -86,6 +95,7 @@ export async function updateActivo(
         employee_id: parsed.data.employeeId,
         status: assetStatusFor(parsed.data.employeeId, parsed.data.status),
         acquired_on: parsed.data.acquiredOn,
+        site_id: parsed.data.siteId,
       })
       .eq('id', parsed.data.id)
       .eq('org_id', member.orgId)

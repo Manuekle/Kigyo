@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
-import { pageRange, rosterFor, totalOf, type Page, type RosterEntry } from './shared'
+import { pageRange, rosterFor, scoped, totalOf, type Page, type RosterEntry } from './shared'
 
 /**
  * Assets and stock orders, read through RLS.
@@ -26,6 +26,8 @@ export interface ActivoRow {
   serial: string
   status: string
   acquiredOn: string | null
+  siteId: string | null
+  siteName: string | null
 }
 
 export interface PedidoRow {
@@ -50,6 +52,8 @@ export interface InventarioData {
   pedidosTotal: number
   roster: RosterEntry[]
   canWrite: boolean
+  /** Active branches, for the site picker on the asset form. */
+  sites: Array<{ id: string; name: string }>
 }
 
 interface AssetRecord {
@@ -62,6 +66,8 @@ interface AssetRecord {
   status: string
   acquired_on: string | null
   employees: { full_name: string } | null
+  site_id: string | null
+  sites: { name: string } | null
 }
 
 interface OrderRecord {
@@ -78,7 +84,7 @@ interface OrderRecord {
 }
 
 const ASSET_COLUMNS =
-  'id, code, name, category, employee_id, serial, status, acquired_on, employees ( full_name )'
+  'id, code, name, category, employee_id, serial, status, acquired_on, site_id, employees ( full_name ), sites ( name )'
 
 const ORDER_COLUMNS =
   'id, code, item, supplier, quantity, est_price_cents, requested_by_id, status, ordered_on, employees ( full_name )'
@@ -94,6 +100,8 @@ function toActivo(row: AssetRecord): ActivoRow {
     serial: row.serial,
     status: row.status,
     acquiredOn: row.acquired_on,
+    siteId: row.site_id,
+    siteName: row.sites?.name ?? null,
   }
 }
 
@@ -171,7 +179,7 @@ export async function getInventario(): Promise<InventarioData> {
   const member = await requirePermission('inventario:read')
   const supabase = await createClient()
 
-  const [assetsResult, ordersResult, roster] = await Promise.all([
+  const [assetsResult, ordersResult, roster, sitesResult] = await Promise.all([
     supabase
       .from('inventory_assets')
       .select(ASSET_COLUMNS, { count: 'exact' })
@@ -187,15 +195,23 @@ export async function getInventario(): Promise<InventarioData> {
       .order('ordered_on', { ascending: false })
       .range(...pageRange(0)),
     rosterFor(supabase, member),
+    scoped(supabase, member, 'sites')
+      .select('id, name')
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
   ])
 
   if (assetsResult.error) {
     console.error('[inventario] getInventario', assetsResult.error)
-    return { activos: [], activosTotal: 0, pedidos: [], pedidosTotal: 0, roster: [], canWrite: false }
+    return {
+      activos: [], activosTotal: 0, pedidos: [], pedidosTotal: 0,
+      roster: [], canWrite: false, sites: [],
+    }
   }
 
   const activos = (assetsResult.data as unknown as AssetRecord[]).map(toActivo)
   const pedidos = ((ordersResult.data ?? []) as unknown as OrderRecord[]).map(toPedido)
+  const sites = ((sitesResult.data ?? []) as Array<{ id: string; name: string }>)
 
   return {
     activos,
@@ -204,5 +220,6 @@ export async function getInventario(): Promise<InventarioData> {
     pedidosTotal: totalOf(ordersResult.count, pedidos.length),
     roster,
     canWrite: can(member.permissions, 'inventario:write'),
+    sites,
   }
 }

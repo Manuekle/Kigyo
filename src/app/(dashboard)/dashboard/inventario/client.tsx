@@ -25,7 +25,7 @@ const DAY = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', y
 const fmt = (iso: string | null) => (iso ? DAY.format(new Date(`${iso}T00:00:00`)) : '—')
 
 const EMPTY_ASSET = {
-  name: '', category: 'Cómputo', serial: '', employeeId: '', acquiredOn: '',
+  name: '', category: 'Cómputo', serial: '', employeeId: '', acquiredOn: '', siteId: '',
   status: 'Disponible' as (typeof ASSET_STATUSES)[number],
 }
 const EMPTY_ORDER = { item: '', supplier: '', quantity: '1', price: '' }
@@ -105,6 +105,7 @@ export default function InventarioPage({ data }: { data: InventarioData }) {
         serial: assetForm.serial.trim(),
         employeeId: assetForm.employeeId || null,
         acquiredOn: assetForm.acquiredOn || null,
+        siteId: assetForm.siteId || null,
       }
       const result = editing
         ? await updateActivo({ ...payload, id: editing.id, status: assetForm.status })
@@ -238,7 +239,9 @@ export default function InventarioPage({ data }: { data: InventarioData }) {
                         <span className="muted">{a.employeeName ?? 'Sin asignar'}</span>
                       )}
                     </td>
-                    <td className="muted mono" style={{ fontSize: 12 }}>{a.serial || '—'}</td>
+                    <td className="muted mono" style={{ fontSize: 12 }}>{a.serial || '—'}
+                      {a.siteName ? <span className="elsub" style={{ display: 'block', fontSize: 11 }}>{a.siteName}</span> : null}
+                    </td>
                     <td><Badge st={a.status} /></td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {state.canWrite && (
@@ -252,6 +255,7 @@ export default function InventarioPage({ data }: { data: InventarioData }) {
                                 serial: a.serial,
                                 employeeId: a.employeeId ?? '',
                                 acquiredOn: a.acquiredOn ?? '',
+                                siteId: a.siteId ?? '',
                                 status: a.status as (typeof ASSET_STATUSES)[number],
                               })
                               setEditing(a)
@@ -366,6 +370,20 @@ export default function InventarioPage({ data }: { data: InventarioData }) {
                     value={assetForm.status}
                     onChange={(v) => setAssetForm((f) => ({ ...f, status: v as (typeof ASSET_STATUSES)[number] }))}
                     options={ASSET_STATUSES.filter((s) => s !== 'Asignado')}
+                  />
+                </>
+              )}
+              {state.sites.length > 1 && (
+                <>
+                  <div className="flabel">Sucursal</div>
+                  <Select
+                    value={assetForm.siteId}
+                    onChange={(v) => setAssetForm((f) => ({ ...f, siteId: v }))}
+                    placeholder="Sin sucursal"
+                    options={[
+                      { value: '', label: 'Sin sucursal' },
+                      ...state.sites.map((s) => ({ value: s.id, label: s.name })),
+                    ]}
                   />
                 </>
               )}

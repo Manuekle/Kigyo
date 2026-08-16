@@ -232,7 +232,8 @@ export async function belongsToOrg(
    */
   table:
     | 'employees' | 'projects' | 'products' | 'documents'
-    | 'dining_tables' | 'menu_items' | 'restaurant_orders' | 'clients',
+    | 'dining_tables' | 'menu_items' | 'restaurant_orders' | 'clients'
+    | 'sites',
   id: string | null,
   orgId: string,
 ): Promise<boolean> {
