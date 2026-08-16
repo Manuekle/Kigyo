@@ -42,6 +42,8 @@ async function currentEmployee(
 const openSchema = z.object({
   openingFloatCents: z.coerce.number().int().min(0).max(1_000_000_00).default(0),
   notes: z.string().trim().max(1000).default(''),
+  /** Sucursal del turno. Null = sin sucursal (la venta POS decide por turno). */
+  siteId: z.string().uuid().nullable().default(null),
 })
 
 /**
@@ -63,12 +65,27 @@ export async function abrirCaja(
     const supabase = await createClient()
     const employeeId = await currentEmployee(supabase, member.orgId, member.userId)
 
+    // La política restrictive de `cash_sessions` ya rechaza un site ajeno, pero
+    // un 42501 dice «política violada» y no «sucursal equivocada»; se pregunta
+    // primero para dar la frase que corresponde. La consulta va por `scoped`,
+    // así que un site de otra empresa no aparece y el fallo es honesto.
+    if (parsed.data.siteId) {
+      const { data: site } = await supabase
+        .from('sites')
+        .select('id')
+        .eq('id', parsed.data.siteId)
+        .is('deleted_at', null)
+        .maybeSingle()
+      if (!site) return fail('Esa sucursal no existe en esta empresa.')
+    }
+
     const { error } = await supabase.from('cash_sessions').insert({
       org_id: member.orgId,
       opened_by: employeeId,
       opening_float_cents: parsed.data.openingFloatCents,
       notes: parsed.data.notes,
       status: 'Abierta',
+      site_id: parsed.data.siteId,
     })
 
     if (error) {

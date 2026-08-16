@@ -64,7 +64,7 @@ export default function CajaPage({ data }: { data: CajaData }) {
   const [tab, setTab] = useState('turno')
 
   const [openOpen, setOpenOpen] = useState(false)
-  const [openForm, setOpenForm] = useState({ float: '', notes: '' })
+  const [openForm, setOpenForm] = useState({ float: '', notes: '', siteId: '' })
 
   const [closeOpen, setCloseOpen] = useState(false)
   const [closeForm, setCloseForm] = useState({ counted: '', notes: '' })
@@ -183,7 +183,7 @@ export default function CajaPage({ data }: { data: CajaData }) {
                 </>
               ) : (
                 <button className="btn dark" disabled={pending} onClick={() => {
-                  setOpenForm({ float: '', notes: '' }); setOpenOpen(true)
+                  setOpenForm({ float: '', notes: '', siteId: '' }); setOpenOpen(true)
                 }}>
                   <Plus size={15} />Abrir turno
                 </button>
@@ -324,7 +324,10 @@ export default function CajaPage({ data }: { data: CajaData }) {
                     <tr key={s.id}>
                       <td>
                         <div className="cename mono">{s.code ?? '—'}</div>
-                        <div className="elsub">base {pesos(s.openingFloatCents)}</div>
+                        <div className="elsub">
+                          base {pesos(s.openingFloatCents)}
+                          {s.siteName ? ` · ${s.siteName}` : ''}
+                        </div>
                       </td>
                       <td>
                         {formatWhen(s.openedAt)}
@@ -354,7 +357,11 @@ export default function CajaPage({ data }: { data: CajaData }) {
         title="Abrir turno de caja"
         footer={
           <button className="btn dark" disabled={pending} onClick={() => run(
-            () => abrirCaja({ openingFloatCents: toCents(openForm.float), notes: openForm.notes }),
+            () => abrirCaja({
+              openingFloatCents: toCents(openForm.float),
+              notes: openForm.notes,
+              siteId: openForm.siteId || null,
+            }),
             'Turno abierto',
             () => setOpenOpen(false),
           )}>
@@ -362,6 +369,24 @@ export default function CajaPage({ data }: { data: CajaData }) {
           </button>
         }
       >
+        {state.sites.length > 1 && (
+          <>
+            <label className="flabel" htmlFor="ca-site">Sucursal</label>
+            <Select
+              value={openForm.siteId}
+              onChange={(v) => setOpenForm({ ...openForm, siteId: v })}
+              options={[
+                { value: '', label: 'Sin sucursal' },
+                ...state.sites.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+            />
+            <p className="psub" style={{ fontSize: 12.5 }}>
+              La venta de mostrador toma la sucursal del turno abierto. Si la
+              empresa tiene varias, elige la de este cajón.
+            </p>
+          </>
+        )}
+
         <label className="flabel" htmlFor="ca-float">Base inicial</label>
         <input id="ca-float" className="field" inputMode="numeric" value={openForm.float}
           placeholder="50000"

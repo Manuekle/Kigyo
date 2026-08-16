@@ -65,6 +65,8 @@ export interface SessionRow {
   notes: string
   /** `countedCents - expectedCents`. Null mientras no se haya contado. */
   differenceCents: number | null
+  siteId: string | null
+  siteName: string | null
 }
 
 export interface CajaData {
@@ -89,6 +91,8 @@ export interface CajaData {
   canWrite: boolean
   /** Si esta empresa también vende de mostrador, para enlazar las dos pantallas. */
   hasPos: boolean
+  /** Sucursales activas, para elegir al abrir el turno. */
+  sites: Array<{ id: string; name: string }>
 }
 
 interface SessionRecord {
@@ -103,10 +107,11 @@ interface SessionRecord {
   expected_cents: number | null
   status: string
   notes: string
+  site_id: string | null
 }
 
 const SESSION_COLUMNS = `id, code, opened_by, opened_at, opening_float_cents,
-   closed_at, closed_by, counted_cents, expected_cents, status, notes`
+   closed_at, closed_by, counted_cents, expected_cents, status, notes, site_id`
 
 /** Solo el efectivo llega al cajón. Ver la nota de arriba. */
 export function isCash(method: string): boolean {
@@ -224,6 +229,7 @@ export async function salesForSession(
 function toSession(
   row: SessionRecord,
   names: Map<string, string>,
+  siteNames: Map<string, string>,
   liveExpected: number | null,
 ): SessionRow {
   const expected = row.expected_cents ?? liveExpected
@@ -241,6 +247,8 @@ function toSession(
     notes: row.notes,
     differenceCents:
       row.counted_cents !== null && expected !== null ? row.counted_cents - expected : null,
+    siteId: row.site_id,
+    siteName: row.site_id ? siteNames.get(row.site_id) ?? null : null,
   }
 }
 
@@ -248,7 +256,7 @@ export async function getCaja(): Promise<CajaData> {
   const member = await requirePermission('caja:read')
   const supabase = await createClient()
 
-  const [openResult, historyResult, roster] = await Promise.all([
+  const [openResult, historyResult, roster, sitesResult] = await Promise.all([
     scoped(supabase, member, 'cash_sessions')
       .select(SESSION_COLUMNS)
       .eq('status', 'Abierta')
@@ -259,9 +267,15 @@ export async function getCaja(): Promise<CajaData> {
       .order('closed_at', { ascending: false })
       .limit(60),
     rosterFor(supabase, member),
+    scoped(supabase, member, 'sites')
+      .select('id, name')
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
   ])
 
   const names = new Map(roster.map((r) => [r.employeeId, r.fullName]))
+  const sites = ((sitesResult.data ?? []) as Array<{ id: string; name: string }>)
+  const siteNames = new Map(sites.map((s) => [s.id, s.name]))
   const open = (openResult.data ?? null) as SessionRecord | null
   const historyRows = (historyResult.data ?? []) as SessionRecord[]
 
@@ -334,10 +348,10 @@ export async function getCaja(): Promise<CajaData> {
   const vivas = sales.filter((v) => v.status !== 'Anulada')
 
   return {
-    abierta: open ? toSession(open, names, liveExpected) : null,
+    abierta: open ? toSession(open, names, siteNames, liveExpected) : null,
     movimientos,
     ventas,
-    historial: historyRows.map((row) => toSession(row, names, null)),
+    historial: historyRows.map((row) => toSession(row, names, siteNames, null)),
     resumen: {
       baseCents: open?.opening_float_cents ?? 0,
       ventasEfectivoCents: vivas.filter((v) => isCash(v.paymentMethod))
@@ -353,5 +367,6 @@ export async function getCaja(): Promise<CajaData> {
     roster,
     canWrite: can(member.permissions, 'caja:write'),
     hasPos: member.modules.has('pos') && can(member.permissions, 'pos:read'),
+    sites,
   }
 }
