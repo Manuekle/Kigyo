@@ -35,7 +35,8 @@ Branch ahead ~14 commits orig no pusheados (usuario decide cuándo push).
 | `0b46c79` | feat(sites): sucursal en hotel_rooms y work_orders (picker + validación + sitio en listas; smoke RLS: joins sites funcionan como autenticado) — cierra las 8 tablas del contrato de sites: pos_sales, cash_sessions, inventory_assets, restaurant_orders, dining_tables, employees, hotel_rooms, work_orders |
 | `bb22556` | feat(empleados): sucursal asignable al empleado (picker en alta y edición, validación belongsToOrg sites, sitio bajo código en el directorio) |
 | `34b7411` | feat(rag): ingestión de PDF/docx/xlsx (readRagText → extractDocumentText con unpdf/mammoth/xlsx; antes solo texto plano — los PDFs corporativos no se indexaban; smoke e2e REAL: PDF subido → /api/ai/ingest → chunk con embedding Azure → match_document_chunks_hybrid devuelve doc; también validado extractor contra PDF real del org IPS Bogota, 2 págs/3190 chars) |
-| `PENDIENTE` | feat(rag): umbral RAG 0.68 → 0.60 con evidencia de benchmark (3 docs reales indexados + 3 queries Azure: qvac 0.85 vs 0.59 distractor; qprod 0.74 vs 0.42; qgen 0.65/0.58 — con 0.68 la pregunta genérica devolvía VACÍO; 0.60 captura top-1 sin ruido) |
+| `955901b` | fix(pacientes): auditoría vertical — 5 mutaciones (setTurnoStatus, deleteTurno, deleteReceta, setExamenResultado, deleteExamen) sin `await` (error siempre undefined, fallos silenciosos) y sin `.eq('org_id')` explícito (RLS ya aislaba; hardening de patrón). Auditoría 6 verticales (obra, ecommerce, pacientes, estudiantes, suscriptores, puestos): resto limpio — columnas verificadas contra DB, enums contra constraints, FKs validados, sin datos inventados |
+| `30e742b` | feat(rag): umbral de recuperación 0.68 → 0.60, calibrado con benchmark real (3 docs indexados + 3 queries Azure: específicas 0.85/0.73 vs distractores 0.59/0.42; genérica 0.65 quedaba vacía con 0.68) |
 
 ## Hecho antes (condensado — jornadas 1–3)
 
@@ -102,8 +103,8 @@ Poda de `.md` revisada al cierre de jornada: **nada que eliminar** — los 8 arc
 ## Siguiente (post-plan CRM/ERP/POS + RAG + sites — decisión)
 
 - **Plan CRM/ERP/POS fila 1–18 completo. Fases 5 y 6 cerradas. E2e smoke 4 módulos cerrado. Fase 7 RAG (refinamientos i) cerrado. Sites → pos_sales + caja + inventario + restaurante cerrado. Push hecho.**
-- Opciones abiertas: (a) sites: cierres por sucursal sobre pos_sales, picker employees, hotel/work_orders, (b) retomar RAG: calidad/umbral o pipeline de ingestión, (c) módulos verticales: cobertura de los 6 pendientes en PLAN, (d) deuda DIAN/marketing/nómina a prod (requiere proveedores reales).
-- **Módulos verticales**: 10 verticales con crumbs; sin cobertura adicional 6 pendiente en PLAN.
+- Opciones abiertas: (a) sites: cierres por sucursal sobre pos_sales (reporte cierre Z), (b) CERRADO — RAG ingestión PDF/docx/xlsx + umbral 0.60 calibrado, (c) CERRADO — auditoría 6 verticales hecha (fix pacientes commit 955901b; resto limpio), (d) deuda DIAN/marketing/nómina a prod (requiere proveedores reales).
+- **Módulos verticales**: 10 verticales con crumbs; auditoría de los 6 no tocados por el plan HECHA (2026-08-16): obra/ecommerce/estudiantes/suscriptores/puestos limpios; pacientes tenía 5 mutaciones sin await + sin filtro org_id — corregido.
 
 ## Gotchas nuevos de esta jornada (e2e smoke)
 
@@ -117,6 +118,7 @@ Poda de `.md` revisada al cierre de jornada: **nada que eliminar** — los 8 arc
 - **El picker «Sucursal» solo aparece con >1 site activa** — org de e2e (sin sites) no lo muestra; el spec POS verde no cubre el picker (cubrir con seed de sites si se quiere).
 - **`auth.uid()` NO lee `request.jwt.claims` plural en psql** — `set_config('request.jwt.claims', ...)` no alcanza para RPCs `security definer` que validan con `auth.uid()` (register_pos_sale → KG101 falso). Usar `request.jwt.claim.sub` + `request.jwt.claim.role` DENTRO de `begin; ... commit;` (autocommit descarta settings por statement). Seeds RLS sí funcionan con claims plural porque postgres bypass RLS.
 - **Data-modifying CTE: un RAISE en una CTE revierte todo el statement** — el insert de site/turno que precedía al RPC fallido se perdió completo; no asumir inserts parciales.
+- **`const { error } = builder` sin `await` compila con client loose-typed (rawClient cast)** — en runtime `error` es siempre `undefined`: los fallos se tragan silenciosamente. El cast `as unknown as SupabaseClient` esconde lo que tsc pillaría con el client tipado. grep periódico: `grep -n "= rawClient" src/server/mutations/*.ts | grep -v await`.
 
 ### E2e — infraestructura
 
