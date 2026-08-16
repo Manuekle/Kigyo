@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { cashDifferenceCents } from '@/lib/domain'
-import { pageRange, rosterFor, totalOf, type Page, type RosterEntry } from './shared'
+import { pageRange, rosterFor, scoped, totalOf, type Page, type RosterEntry } from './shared'
 
 /**
  * The menu, the room, and what is being served right now.
@@ -34,6 +34,8 @@ export interface TableRow {
   zone: string
   seats: number
   status: string
+  siteId: string | null
+  siteName: string | null
 }
 
 export interface OrderRow {
@@ -51,6 +53,8 @@ export interface OrderRow {
   closedAt: string | null
   notes: string
   items: number
+  siteId: string | null
+  siteName: string | null
 }
 
 export interface OrderItemRow {
@@ -139,6 +143,8 @@ export interface RestauranteData {
   domicilios: DeliveryRow[]
   roster: RosterEntry[]
   canWrite: boolean
+  /** Active branches, for the table form's site picker. */
+  sites: Array<{ id: string; name: string }>
 }
 
 interface MenuRecord {
@@ -159,6 +165,8 @@ interface TableRecord {
   zone: string
   seats: number
   status: string
+  site_id: string | null
+  sites: { name: string } | null
 }
 
 interface OrderRecord {
@@ -174,6 +182,8 @@ interface OrderRecord {
   opened_at: string
   closed_at: string | null
   notes: string
+  site_id: string | null
+  sites: { name: string } | null
 }
 
 interface ItemRecord {
@@ -188,7 +198,7 @@ interface ItemRecord {
 }
 
 const ORDER_COLUMNS = `id, code, table_id, waiter_id, status, guests, subtotal_cents,
-   tip_cents, total_cents, opened_at, closed_at, notes`
+   tip_cents, total_cents, opened_at, closed_at, notes, site_id, sites ( name )`
 
 function toOrder(
   row: OrderRecord,
@@ -210,6 +220,8 @@ function toOrder(
     closedAt: row.closed_at,
     notes: row.notes,
     items: items.get(row.id) ?? 0,
+    siteId: row.site_id,
+    siteName: row.sites?.name ?? null,
   }
 }
 
@@ -261,7 +273,7 @@ export async function getRestaurante(): Promise<RestauranteData> {
   const supabase = await createClient()
 
   const [
-    ordersResult, menuResult, tablesResult, roster,
+    ordersResult, menuResult, tablesResult, roster, sitesResult,
     reservationsResult, cashResult, deliveriesResult,
   ] = await Promise.all([
     supabase
@@ -280,12 +292,16 @@ export async function getRestaurante(): Promise<RestauranteData> {
       .limit(400),
     supabase
       .from('dining_tables')
-      .select('id, label, zone, seats, status')
+      .select('id, label, zone, seats, status, site_id, sites ( name )')
       .eq('org_id', member.orgId)
       .is('deleted_at', null)
       .order('label', { ascending: true })
       .limit(200),
     rosterFor(supabase, member),
+    scoped(supabase, member, 'sites')
+      .select('id, name')
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
     supabase
       .from('restaurant_reservations')
       .select('id, code, table_id, guest_name, guest_phone, party_size, reserved_at, status, order_id, notes')
@@ -318,7 +334,7 @@ export async function getRestaurante(): Promise<RestauranteData> {
     return {
       pedidos: [], pedidosTotal: 0, items: [], menu: [], mesas: [],
       reservas: [], insumos: [], cajas: [], domicilios: [],
-      roster: [], canWrite: false,
+      roster: [], canWrite: false, sites: [],
     }
   }
   if (menuResult.error) console.error('[restaurante] menu', menuResult.error)
@@ -327,6 +343,8 @@ export async function getRestaurante(): Promise<RestauranteData> {
   const rows = ordersResult.data as unknown as OrderRecord[]
   const tableRows = (tablesResult.data ?? []) as unknown as TableRecord[]
   const labels = new Map(tableRows.map((t) => [t.id, t.label]))
+  const sites = ((sitesResult.data ?? []) as Array<{ id: string; name: string }>)
+  const siteNames = new Map(sites.map((s) => [s.id, s.name]))
 
   const { data: itemData, error: itemError } = await supabase
     .from('restaurant_order_items')
@@ -419,6 +437,8 @@ export async function getRestaurante(): Promise<RestauranteData> {
       zone: row.zone,
       seats: row.seats,
       status: row.status,
+      siteId: row.site_id,
+      siteName: row.site_id ? siteNames.get(row.site_id) ?? null : null,
     })),
     reservas: ((reservationsResult.data ?? []) as unknown as Array<{
       id: string; code: string | null; table_id: string | null
@@ -490,5 +510,6 @@ export async function getRestaurante(): Promise<RestauranteData> {
     })),
     roster,
     canWrite: can(member.permissions, 'restaurante:write'),
+    sites,
   }
 }

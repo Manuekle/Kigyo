@@ -147,6 +147,8 @@ const tableSchema = z.object({
   label: z.string().trim().min(1, 'Ponle nombre a la mesa.').max(40),
   zone: z.string().trim().max(80).default(''),
   seats: z.coerce.number().int().min(1).max(100).default(2),
+  /** Sucursal donde está la mesa. Null = sin sucursal. */
+  siteId: z.string().uuid().nullable().default(null),
 })
 
 export async function createMesa(
@@ -158,11 +160,16 @@ export async function createMesa(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId))) {
+      return fail('Esa sucursal no existe en esta empresa.')
+    }
+
     const { error } = await supabase.from('dining_tables').insert({
       org_id: member.orgId,
       label: parsed.data.label,
       zone: parsed.data.zone,
       seats: parsed.data.seats,
+      site_id: parsed.data.siteId,
     })
 
     if (error) {
@@ -189,12 +196,17 @@ export async function updateMesa(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId))) {
+      return fail('Esa sucursal no existe en esta empresa.')
+    }
+
     const { error } = await supabase
       .from('dining_tables')
       .update({
         label: parsed.data.label,
         zone: parsed.data.zone,
         seats: parsed.data.seats,
+        site_id: parsed.data.siteId,
       })
       .eq('id', parsed.data.id)
       .eq('org_id', member.orgId)
@@ -269,15 +281,19 @@ export async function abrirComanda(
 
     const supabase = await createClient()
 
+    // La comanda hereda la sucursal de su mesa: quien abre en la sede norte no
+    // puede servir en nombre del sur. Sin mesa (mostrador), queda sin sucursal.
+    let tableSiteId: string | null = null
     if (parsed.data.tableId) {
       const { data: table } = await supabase
         .from('dining_tables')
-        .select('id')
+        .select('id, site_id')
         .eq('id', parsed.data.tableId)
         .eq('org_id', member.orgId)
         .is('deleted_at', null)
         .maybeSingle()
       if (!table) return fail('Esa mesa no existe en tu organización.')
+      tableSiteId = table.site_id
     }
 
     if (!(await belongsToOrg(supabase, 'employees', parsed.data.waiterId, member.orgId))) {
@@ -299,6 +315,7 @@ export async function abrirComanda(
         subtotal_cents: subtotal,
         total_cents: subtotal,
         notes: parsed.data.notes,
+        site_id: tableSiteId,
       })
       .select('id')
       .single()

@@ -61,7 +61,7 @@ const EMPTY_DISH = {
   name: '', category: 'Plato fuerte', description: '', price: '', cost: '',
   prepMinutes: '', allergens: '',
 }
-const EMPTY_TABLE = { label: '', zone: '', seats: '2' }
+const EMPTY_TABLE = { label: '', zone: '', seats: '2', siteId: '' }
 const EMPTY_RESERVA = {
   guestName: '', guestPhone: '', partySize: '2', reservedAt: '', tableId: '', notes: '',
 }
@@ -443,6 +443,7 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
         label: tableForm.label,
         zone: tableForm.zone,
         seats: tableForm.seats || 2,
+        siteId: tableForm.siteId || null,
       })
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
@@ -573,7 +574,10 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                           <div className="cename mono">{p.code}</div>
                           <div className="elsub">{p.items} {p.items === 1 ? 'plato' : 'platos'}</div>
                         </td>
-                        <td>{p.tableLabel || '—'}</td>
+                        <td>
+                          {p.tableLabel || '—'}
+                          {p.siteName && <div className="elsub">{p.siteName}</div>}
+                        </td>
                         <td>{waiterName(p.waiterId)}</td>
                         <td>{p.guests}</td>
                         <td>
@@ -723,7 +727,10 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                   </tr>
                 ) : mesas.map((m) => (
                   <tr key={m.id}>
-                    <td><div className="cename">{m.label}</div></td>
+                    <td>
+                      <div className="cename">{m.label}</div>
+                      {m.siteName ? <div className="elsub">{m.siteName}</div> : null}
+                    </td>
                     <td>{m.zone || '—'}</td>
                     <td>{m.seats}</td>
                     <td>
@@ -1175,6 +1182,23 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
               onChange={(e) => setTableForm({ ...tableForm, seats: e.target.value })} />
           </div>
         </div>
+
+        {data.sites.length > 1 && (
+          <>
+            <label className="flabel" htmlFor="tbl-site">Sucursal</label>
+            <Select
+              value={tableForm.siteId}
+              onChange={(v) => setTableForm({ ...tableForm, siteId: v })}
+              options={[
+                { value: '', label: 'Sin sucursal' },
+                ...data.sites.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+            />
+            <p className="psub" style={{ fontSize: 12.5 }}>
+              La comanda que se abra en esta mesa lleva la sucursal de la mesa.
+            </p>
+          </>
+        )}
       </FormDrawer>
 
       <FormDrawer
