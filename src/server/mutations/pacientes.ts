@@ -316,6 +316,7 @@ export async function setTurnoStatus(
       .from('patient_appointments')
       .update({ status: parsed.data.status })
       .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
 
     if (error) {
       console.error('[pacientes] setTurnoStatus', error)
@@ -339,6 +340,7 @@ export async function deleteTurno(id: string): Promise<PacientesResult<Pacientes
       .from('patient_appointments')
       .delete()
       .eq('id', id)
+      .eq('org_id', member.orgId)
 
     if (error) {
       console.error('[pacientes] deleteTurno', error)
@@ -476,6 +478,7 @@ export async function deleteReceta(id: string): Promise<PacientesResult<Paciente
       .from('patient_prescriptions')
       .delete()
       .eq('id', id)
+      .eq('org_id', member.orgId)
 
     if (error) {
       console.error('[pacientes] deleteReceta', error)
@@ -561,6 +564,7 @@ export async function setExamenResultado(
             : parsed.data.resultOn,
       })
       .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
 
     if (error) {
       console.error('[pacientes] setExamenResultado', error)
@@ -584,6 +588,7 @@ export async function deleteExamen(id: string): Promise<PacientesResult<Paciente
       .from('patient_lab_results')
       .delete()
       .eq('id', id)
+      .eq('org_id', member.orgId)
 
     if (error) {
       console.error('[pacientes] deleteExamen', error)
