@@ -304,7 +304,8 @@ describe('branch scope stays additive', () => {
   })
 
   /**
-   * Seven tables, chosen because a branch is a fact of the business there.
+   * Branch scope tables, chosen because a branch is a fact of the business
+   * there (plan 6.4: caja, POS, inventario, ventas).
    *
    * Pinned so the list grows deliberately. A branch is where a person works and
    * where stock sits; it is not a property of an invoice or a contract, and
@@ -317,7 +318,7 @@ describe('branch scope stays additive', () => {
 
     expect([...scoped].sort()).toEqual([
       'cash_sessions', 'dining_tables', 'employees', 'hotel_rooms',
-      'inventory_assets', 'restaurant_orders', 'work_orders',
+      'inventory_assets', 'pos_sales', 'restaurant_orders', 'work_orders',
     ])
   })
 

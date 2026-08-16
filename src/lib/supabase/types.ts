@@ -7175,6 +7175,7 @@ export interface Database {
           created_at: string
           updated_at: string
           client_uuid: string | null
+          site_id: string | null
         }
         Insert: {
           id?: string
@@ -7195,6 +7196,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           client_uuid?: string | null
+          site_id?: string | null
         }
         Update: {
           id?: string
@@ -7215,6 +7217,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           client_uuid?: string | null
+          site_id?: string | null
         }
         Relationships: [
           {
@@ -7236,6 +7239,13 @@ export interface Database {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "cash_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sales_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
           {

@@ -189,6 +189,10 @@ export default function PosPage({ data }: { data: PosData }) {
   const [paymentMethod, setPaymentMethod] = useState('Efectivo')
   const [customerName, setCustomerName] = useState('')
   const [discount, setDiscount] = useState('')
+  // Sucursal elegida para la venta. '' = ninguna (la hereda el turno abierto,
+  // o queda sin sucursal). El selector solo aparece si la empresa tiene más
+  // de una sucursal activa.
+  const [siteId, setSiteId] = useState('')
   const [prefsOpen, setPrefsOpen] = useState(false)
   const [prefsForm, setPrefsForm] = useState({ width: '80', footer: '', showLogo: true })
   const [qrEmail, setQrEmail] = useState('')
@@ -364,6 +368,7 @@ export default function PosPage({ data }: { data: PosData }) {
             customerName,
             discountCents,
             notes: '',
+            siteId: siteId || null,
           })
         } catch (e) {
           console.error('[pos] enqueuePosSale', e)
@@ -383,6 +388,7 @@ export default function PosPage({ data }: { data: PosData }) {
         customerName,
         discountCents,
         notes: '',
+        siteId: siteId || null,
       })
       if (!result.ok) {
         addToast(result.error, 'err')
@@ -423,6 +429,7 @@ export default function PosPage({ data }: { data: PosData }) {
         customerName,
         customerEmail: qrEmail.trim(),
         discountCents,
+        siteId: siteId || null,
       })
       if (!result.ok) { addToast(result.error, 'err'); return }
       setState(result.data)
@@ -520,6 +527,7 @@ export default function PosPage({ data }: { data: PosData }) {
           customerName: p.payload.customerName,
           discountCents: p.payload.discountCents,
           notes: p.payload.notes,
+          siteId: p.payload.siteId ?? null,
         })
         if (r.ok) {
           await clearPosSale(p.clientUuid)
@@ -749,6 +757,20 @@ export default function PosPage({ data }: { data: PosData }) {
                 <label className="flabel" htmlFor="pv-method">Medio de pago</label>
                 <Select value={paymentMethod} onChange={setPaymentMethod}
                   options={[...paymentMethods]} />
+
+                {state.sites.length > 1 && (
+                  <>
+                    <label className="flabel" htmlFor="pv-site">Sucursal</label>
+                    <Select
+                      value={siteId}
+                      onChange={setSiteId}
+                      options={[
+                        { value: '', label: 'Automática (turno abierto)' },
+                        ...state.sites.map((s) => ({ value: s.id, label: s.name })),
+                      ]}
+                    />
+                  </>
+                )}
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                   <button className="btn" disabled={pending || cart.length === 0} onClick={clearCart}>

@@ -57,6 +57,9 @@ export interface SaleRow {
   items: SaleItemRow[]
   /** Si quedó atada a un turno de caja. Null cuando no había ninguno abierto. */
   sessionId: string | null
+  /** Sucursal donde se vendió. Null = empresa sin sucursal o venta sin turno. */
+  siteId: string | null
+  siteName: string | null
 }
 
 export interface ReceiptPrefs {
@@ -91,6 +94,8 @@ export interface PosData {
    */
   qrEnabled: boolean
   canWrite: boolean
+  /** Sucursales activas de la empresa, para el selector de mostrador. */
+  sites: { id: string; name: string }[]
 }
 
 interface SaleRecord {
@@ -106,10 +111,11 @@ interface SaleRecord {
   sold_by: string | null
   notes: string
   session_id: string | null
+  site_id: string | null
 }
 
 const SALE_COLUMNS = `id, code, customer_name, subtotal_cents, discount_cents,
-   total_cents, payment_method, status, sold_at, sold_by, notes, session_id`
+   total_cents, payment_method, status, sold_at, sold_by, notes, session_id, site_id`
 
 /** Hoy en ISO local, para el corte del día que muestra la pantalla. */
 function today(): string {
@@ -169,6 +175,8 @@ function toSale(row: SaleRecord, items: SaleItemRow[], names: Map<string, string
     notes: row.notes,
     items,
     sessionId: row.session_id,
+    siteId: row.site_id,
+    siteName: null,
   }
 }
 
@@ -226,7 +234,7 @@ export async function getPos(): Promise<PosData> {
   const wantsCatalogue = member.modules.has('catalogos') && can(member.permissions, 'catalogos:read')
   const hasCaja = member.modules.has('caja') && can(member.permissions, 'caja:read')
 
-  const [productsResult, salesResult, sessionResult, orgResult] = await Promise.all([
+  const [productsResult, salesResult, sessionResult, orgResult, sitesResult] = await Promise.all([
     wantsCatalogue
       ? scoped(supabase, member, 'products')
           .select('id, sku, barcode, name, category, price_cents, stock, unit')
@@ -250,10 +258,19 @@ export async function getPos(): Promise<PosData> {
       .select('name, receipt_prefs')
       .eq('id', member.orgId)
       .single(),
+    scoped(supabase, member, 'sites')
+      .select('id, name')
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
   ])
 
   const saleRows = (salesResult.data ?? []) as SaleRecord[]
   const items = await itemsFor(supabase, saleRows.map((r) => r.id))
+  const sites = ((sitesResult.data ?? []) as Array<{ id: string; name: string }>).map((s) => ({
+    id: s.id,
+    name: s.name,
+  }))
+  const siteNameById = new Map(sites.map((s) => [s.id, s.name]))
 
   const vendibles: SellableRow[] = ((productsResult.data ?? []) as unknown as Array<{
     id: string; sku: string; barcode: string; name: string; category: string
@@ -269,7 +286,11 @@ export async function getPos(): Promise<PosData> {
     unit: row.unit,
   }))
 
-  const ventas = saleRows.map((row) => toSale(row, items.get(row.id) ?? [], new Map()))
+  const ventas = saleRows.map((row) => {
+    const sale = toSale(row, items.get(row.id) ?? [], new Map())
+    sale.siteName = row.site_id ? siteNameById.get(row.site_id) ?? null : null
+    return sale
+  })
   const now = today()
   const hoy = ventas.filter((v) => v.status !== 'Anulada' && v.soldAt.slice(0, 10) === now)
 
@@ -297,5 +318,6 @@ export async function getPos(): Promise<PosData> {
       showLogo: typeof rawPrefs.showLogo === 'boolean' ? rawPrefs.showLogo : true,
     },
     canWrite: can(member.permissions, 'pos:write'),
+    sites,
   }
 }

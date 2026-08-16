@@ -43,6 +43,8 @@ const saleSchema = z.object({
   customerName: z.string().trim().max(160).default(''),
   discountCents: z.coerce.number().int().min(0).max(1_000_000_00).default(0),
   notes: z.string().trim().max(1000).default(''),
+  /** Sucursal. Null = la hereda del turno abierto, o queda sin sucursal. */
+  siteId: z.uuid().nullable().default(null),
 })
 
 /**
@@ -78,6 +80,7 @@ export async function cobrarVenta(
       p_customer_name: parsed.data.customerName,
       p_discount_cents: parsed.data.discountCents,
       p_notes: parsed.data.notes,
+      p_site_id: parsed.data.siteId,
     })
 
     if (error) {
@@ -137,6 +140,7 @@ export async function replayPosSale(
       p_discount_cents: parsed.data.discountCents,
       p_notes: parsed.data.notes,
       p_client_uuid: parsed.data.clientUuid,
+      p_site_id: parsed.data.siteId,
     })
 
     if (error) {
@@ -201,6 +205,7 @@ const qrSchema = z.object({
   customerName: z.string().trim().max(160).default(''),
   customerEmail: z.string().trim().email('El correo del cliente no es válido.').max(200),
   discountCents: z.coerce.number().int().min(0).max(1_000_000_00).default(0),
+  siteId: z.uuid().nullable().default(null),
 })
 
 export interface QrSaleData extends PosData {
@@ -296,6 +301,7 @@ export async function cobrarConQr(
       p_discount_cents: parsed.data.discountCents,
       p_notes: '',
       p_pending: true,
+      p_site_id: parsed.data.siteId,
     })
 
     if (error) {
@@ -375,6 +381,7 @@ const simulatedSaleSchema = z.object({
   paymentMethod: z.enum(PAYMENT_METHODS),
   customerName: z.string().trim().max(160).default(''),
   discountCents: z.coerce.number().int().min(0).max(1_000_000_00).default(0),
+  siteId: z.uuid().nullable().default(null),
 })
 
 export async function prepararPagoSimulado(
@@ -399,6 +406,7 @@ export async function prepararPagoSimulado(
       p_discount_cents: parsed.data.discountCents,
       p_notes: '',
       p_pending: true,
+      p_site_id: parsed.data.siteId,
     })
 
     if (error) {
@@ -462,6 +470,7 @@ const paymentInputSchema = z.object({
   customerEmail: z.string().trim().email().max(200).optional(),
   discountCents: z.coerce.number().int().min(0).max(1_000_000_00).default(0),
   notes: z.string().trim().max(1000).default(''),
+  siteId: z.uuid().nullable().default(null),
 })
 
 type PaymentResultData = PosData & {
@@ -481,6 +490,7 @@ export async function cobrarPago(
       customerName: parsed.data.customerName,
       customerEmail: parsed.data.customerEmail ?? 'simulado@kigyo.local',
       discountCents: parsed.data.discountCents,
+      siteId: parsed.data.siteId,
     })
     if (!result.ok) return result
     return { ok: true, data: { ...result.data, saleCode: null } }
@@ -492,6 +502,7 @@ export async function cobrarPago(
       paymentMethod: parsed.data.paymentMethod as (typeof PAYMENT_METHODS)[number],
       customerName: parsed.data.customerName,
       discountCents: parsed.data.discountCents,
+      siteId: parsed.data.siteId,
     }
     const result = await prepararPagoSimulado(normalInput)
     if (!result.ok) return result
@@ -504,6 +515,7 @@ export async function cobrarPago(
     customerName: parsed.data.customerName,
     discountCents: parsed.data.discountCents,
     notes: parsed.data.notes,
+    siteId: parsed.data.siteId,
   })
 }
 

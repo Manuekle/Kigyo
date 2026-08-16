@@ -40,6 +40,8 @@ export interface PosOutboxPayload {
   customerName: string
   discountCents: number
   notes: string
+  /** Sucursal elegida al encolar. Null = hereda turno o queda sin sucursal. */
+  siteId: string | null
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null
