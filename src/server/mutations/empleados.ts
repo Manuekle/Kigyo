@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { DEFAULT_ROLE } from '@/lib/auth/permissions'
 import { getEmpleados, type EmpleadoRow, type EmpleadosData } from '@/server/queries/empleados'
+import { belongsToOrg } from '@/server/queries/shared'
 
 /**
  * Server Functions for the empleados screen.
@@ -47,6 +48,7 @@ const baseSchema = z.object({
   intendedRole: z.string().trim().min(2).max(40).default(DEFAULT_ROLE),
   managerId: z.uuid().nullable().default(null),
   hiredOn: z.string().date().nullable().default(null),
+  siteId: z.string().uuid().nullable().default(null),
 })
 
 const createSchema = baseSchema
@@ -117,6 +119,9 @@ export async function createEmpleado(
     if (!(await validRole(supabase, member.orgId, parsed.data.intendedRole))) {
       return fail('Ese rol ya no existe en la organización.')
     }
+    if (!(await belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId))) {
+      return fail('Esa sucursal no pertenece a la organización.')
+    }
 
     const { error } = await supabase.from('employees').insert({
       org_id: member.orgId,
@@ -130,6 +135,7 @@ export async function createEmpleado(
       intended_role: parsed.data.intendedRole,
       manager_id: parsed.data.managerId,
       hired_on: parsed.data.hiredOn,
+      site_id: parsed.data.siteId,
     })
 
     if (error) {
@@ -169,6 +175,9 @@ export async function updateEmpleado(
     if (!(await validRole(supabase, member.orgId, parsed.data.intendedRole))) {
       return fail('Ese rol ya no existe en la organización.')
     }
+    if (!(await belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId))) {
+      return fail('Esa sucursal no pertenece a la organización.')
+    }
 
     // Longer cycles (A reports to B reports to A) are the same hazard one step
     // removed, so the chain is walked before the write rather than left for the
@@ -206,6 +215,7 @@ export async function updateEmpleado(
         intended_role: parsed.data.intendedRole,
         manager_id: parsed.data.managerId,
         hired_on: parsed.data.hiredOn,
+        site_id: parsed.data.siteId,
       })
       .eq('id', parsed.data.id)
       .eq('org_id', member.orgId)

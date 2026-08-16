@@ -28,6 +28,8 @@ export interface NuevoEmpleadoData {
   /** Employee id (uuid) of the manager, or null for a top-level report. */
   managerId: string | null
   email: string | null
+  /** Sucursal where this person works, or null for the whole company. */
+  siteId: string | null
 }
 
 interface Props {
@@ -45,12 +47,14 @@ interface Props {
    * that created eight — and the server would reject the other five.
    */
   roles: RoleRow[]
+  /** The company's sucursales; hidden when there is at most one. */
+  sites: Array<{ id: string; name: string }>
   onClose: () => void
   onCreate: (data: NuevoEmpleadoData) => void
 }
 
 export default function NuevoEmpleadoModal({
-  open, busy = false, managers, departments, locations, roles, onClose, onCreate,
+  open, busy = false, managers, departments, locations, roles, sites, onClose, onCreate,
 }: Props) {
   const deptOptions = departments.length > 0 ? departments : DEPT_FALLBACK
   const locOptions = locations.length > 0 ? locations : LOC_FALLBACK
@@ -67,6 +71,7 @@ export default function NuevoEmpleadoModal({
   const [perm, setPerm] = useState<RoleKey>(defaultRole)
   const [managerId, setManagerId] = useState('')
   const [email, setEmail] = useState('')
+  const [siteId, setSiteId] = useState('')
 
   // Destructured rather than kept as objects: the React Compiler treats a value
   // holding a ref as a ref itself, and reading through it in render is an error.
@@ -85,7 +90,7 @@ export default function NuevoEmpleadoModal({
 
   function reset() {
     setName(''); setRole(''); setDept(deptOptions[0]); setLoc(locOptions[0])
-    setPerm(defaultRole); setManagerId(''); setEmail('')
+    setPerm(defaultRole); setManagerId(''); setEmail(''); setSiteId('')
     clearNameErr(); clearRoleErr(); clearMailErr()
   }
 
@@ -112,6 +117,7 @@ export default function NuevoEmpleadoModal({
       intendedRole: perm,
       managerId: managerId || null,
       email: email.trim() ? email.trim().toLowerCase() : null,
+      siteId: siteId || null,
     })
     reset()
   }
@@ -203,20 +209,52 @@ export default function NuevoEmpleadoModal({
           </div>
         </div>
 
-        <div className={`t-input-wrap${mailBad ? ' is-error' : ''}`}>
-          <div className="flabel">Correo corporativo</div>
-          <input
-            className={`field t-input${mailBad ? ' is-error' : ''}`}
-            type="email"
-            placeholder="nombre@empresa.co"
-            value={email}
-            ref={mailRef}
-            disabled={busy}
-            onChange={(e) => { setEmail(e.target.value); clearMailErr() }}
-            aria-invalid={mailBad}
-          />
-          <p className="fielderr t-error-msg" role="alert">{mailMsg}</p>
-        </div>
+        {sites.length > 1 && (
+          <div className="fg2">
+            <div>
+              <div className="flabel">Sucursal</div>
+              <Select
+                value={siteId}
+                onChange={setSiteId}
+                placeholder="Sin sucursal"
+                options={[
+                  { value: '', label: 'Sin sucursal' },
+                  ...sites.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+            </div>
+            <div className={`t-input-wrap${mailBad ? ' is-error' : ''}`}>
+              <div className="flabel">Correo corporativo</div>
+              <input
+                className={`field t-input${mailBad ? ' is-error' : ''}`}
+                type="email"
+                placeholder="nombre@empresa.co"
+                value={email}
+                ref={mailRef}
+                disabled={busy}
+                onChange={(e) => { setEmail(e.target.value); clearMailErr() }}
+                aria-invalid={mailBad}
+              />
+              <p className="fielderr t-error-msg" role="alert">{mailMsg}</p>
+            </div>
+          </div>
+        )}
+        {sites.length <= 1 && (
+          <div className={`t-input-wrap${mailBad ? ' is-error' : ''}`}>
+            <div className="flabel">Correo corporativo</div>
+            <input
+              className={`field t-input${mailBad ? ' is-error' : ''}`}
+              type="email"
+              placeholder="nombre@empresa.co"
+              value={email}
+              ref={mailRef}
+              disabled={busy}
+              onChange={(e) => { setEmail(e.target.value); clearMailErr() }}
+              aria-invalid={mailBad}
+            />
+            <p className="fielderr t-error-msg" role="alert">{mailMsg}</p>
+          </div>
+        )}
       </div>
     </FormDrawer>
   )

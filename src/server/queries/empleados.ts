@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can, type RoleKey } from '@/lib/auth/permissions'
 import { getRoles, type RoleRow } from './roles'
-import { pageRange, totalOf, type Page } from './shared'
+import { pageRange, totalOf, scoped, type Page } from './shared'
 
 /**
  * The employee directory, read through RLS.
@@ -31,6 +31,9 @@ export interface EmpleadoRow {
   hiredOn: string | null
   /** True for the row belonging to the signed-in user, if they have one. */
   isSelf: boolean
+  /** Sucursal where this person works, if one is assigned. */
+  siteId: string | null
+  siteName: string | null
 }
 
 export interface EmpleadosData {
@@ -49,11 +52,13 @@ export interface EmpleadosData {
    * an organization that defined eight and reject the other five at the write.
    */
   roles: RoleRow[]
+  /** The company's sucursales, for the site picker on the forms. */
+  sites: Array<{ id: string; name: string }>
 }
 
 /** Columns shared by the list and the detail read, so the two cannot drift. */
 export const EMPLOYEE_COLUMNS =
-  'id, code, full_name, email, position, department, location, status, employment_type, intended_role, manager_id, hired_on, user_id'
+  'id, code, full_name, email, position, department, location, status, employment_type, intended_role, manager_id, hired_on, user_id, site_id, sites ( name )'
 
 interface EmployeeRecord {
   id: string
@@ -69,6 +74,8 @@ interface EmployeeRecord {
   manager_id: string | null
   hired_on: string | null
   user_id: string | null
+  site_id: string | null
+  sites: { name: string } | null
 }
 
 function toRow(row: EmployeeRecord, userId: string): EmpleadoRow {
@@ -91,6 +98,8 @@ function toRow(row: EmployeeRecord, userId: string): EmpleadoRow {
     managerId: row.manager_id,
     hiredOn: row.hired_on,
     isSelf: row.user_id !== null && row.user_id === userId,
+    siteId: row.site_id,
+    siteName: row.sites?.name ?? null,
   }
 }
 
@@ -123,7 +132,7 @@ export async function getEmpleados(): Promise<EmpleadosData> {
   const member = await requirePermission('empleados:read')
   const supabase = await createClient()
 
-  const [pageResult, facetsResult, roles] = await Promise.all([
+  const [pageResult, facetsResult, roles, sitesResult] = await Promise.all([
     supabase
       .from('employees')
       .select(EMPLOYEE_COLUMNS, { count: 'exact' })
@@ -140,18 +149,23 @@ export async function getEmpleados(): Promise<EmpleadosData> {
       .eq('org_id', member.orgId)
       .is('deleted_at', null),
     getRoles(member.orgId),
+    scoped(supabase, member, 'sites')
+      .select('id, name')
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
   ])
 
   if (pageResult.error) {
     console.error('[empleados] getEmpleados', pageResult.error)
     return {
       empleados: [], empleadosTotal: 0, canWrite: false,
-      departments: [], locations: [], roles,
+      departments: [], locations: [], roles, sites: [],
     }
   }
 
   const empleados = (pageResult.data as EmployeeRecord[]).map((row) => toRow(row, member.userId))
   const facets = (facetsResult.data ?? []) as Array<{ department: string; location: string }>
+  const sites = ((sitesResult.data ?? []) as Array<{ id: string; name: string }>)
 
   return {
     empleados,
@@ -160,6 +174,7 @@ export async function getEmpleados(): Promise<EmpleadosData> {
     departments: [...new Set(facets.map((e) => e.department).filter(Boolean))].sort(),
     locations: [...new Set(facets.map((e) => e.location).filter(Boolean))].sort(),
     roles,
+    sites,
   }
 }
 

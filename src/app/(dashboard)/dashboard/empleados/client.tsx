@@ -59,6 +59,7 @@ type UpdateInput = {
   intendedRole: RoleKey
   managerId: string | null
   hiredOn: string | null
+  siteId: string | null
 }
 
 interface EmpleadoEditorProps {
@@ -67,6 +68,7 @@ interface EmpleadoEditorProps {
   departments: string[]
   locations: string[]
   roles: RoleRow[]
+  sites: Array<{ id: string; name: string }>
   busy: boolean
   onClose: () => void
   onSave: (input: UpdateInput) => void
@@ -80,7 +82,7 @@ interface EmpleadoEditorProps {
  * Remounting this per row (`key={emp.id}`) is what keeps the prefill honest —
  * the state below starts from the row, not from whatever was edited last.
  */
-function EmpleadoEditor({ emp, managers, departments, locations, roles, busy, onClose, onSave }: EmpleadoEditorProps) {
+function EmpleadoEditor({ emp, managers, departments, locations, roles, sites, busy, onClose, onSave }: EmpleadoEditorProps) {
   const { addToast } = useApp()
   // The row's own value is unioned in so a department the organization no
   // longer uses still renders instead of falling back to the placeholder.
@@ -101,6 +103,7 @@ function EmpleadoEditor({ emp, managers, departments, locations, roles, busy, on
   const [perm, setPerm] = useState<RoleKey>(emp.intendedRole)
   const [managerId, setManagerId] = useState(emp.managerId ?? '')
   const [email, setEmail] = useState(emp.email ?? '')
+  const [siteId, setSiteId] = useState(emp.siteId ?? '')
 
   function submit() {
     if (busy) return
@@ -123,6 +126,7 @@ function EmpleadoEditor({ emp, managers, departments, locations, roles, busy, on
       intendedRole: perm,
       managerId: managerId || null,
       hiredOn: emp.hiredOn,
+      siteId: siteId || null,
     })
   }
 
@@ -185,10 +189,31 @@ function EmpleadoEditor({ emp, managers, departments, locations, roles, busy, on
           </div>
         </div>
 
-        <div>
-          <div className="flabel">Correo corporativo</div>
-          <input className="field" type="email" placeholder="nombre@empresa.co" value={email} disabled={busy} onChange={(e) => setEmail(e.target.value)} />
-        </div>
+        {sites.length > 1 ? (
+          <div className="fg2">
+            <div>
+              <div className="flabel">Sucursal</div>
+              <Select
+                value={siteId}
+                onChange={setSiteId}
+                placeholder="Sin sucursal"
+                options={[
+                  { value: '', label: 'Sin sucursal' },
+                  ...sites.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+            </div>
+            <div>
+              <div className="flabel">Correo corporativo</div>
+              <input className="field" type="email" placeholder="nombre@empresa.co" value={email} disabled={busy} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="flabel">Correo corporativo</div>
+            <input className="field" type="email" placeholder="nombre@empresa.co" value={email} disabled={busy} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        )}
       </div>
     </FormDrawer>
   )
@@ -409,7 +434,7 @@ export default function EmpleadosPage({ data }: { data: EmpleadosData }) {
                   <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No se encontraron empleados para &quot;{q}&quot;.</div></td></tr>
                 ) : rows.map((e) => (
                   <tr className="trow" key={e.id} style={{ cursor: 'pointer' }} {...activatable(() => openEmpleado(e), `Ver perfil de ${e.fullName}`)}>
-                    <td><div className="cemp"><Avatar name={e.fullName} /><div><div className="cename">{e.fullName}</div><div className="ceid mono">{e.code ?? '—'}</div></div></div></td>
+                    <td><div className="cemp"><Avatar name={e.fullName} /><div><div className="cename">{e.fullName}</div><div className="ceid mono">{e.code ?? '—'}{e.siteName ? <span className="fg3"> · {e.siteName}</span> : null}</div></div></div></td>
                     <td className="muted">{e.position || '—'}</td>
                     <td className="muted">{e.department || '—'}</td>
                     <td className="muted">{e.location || '—'}</td>
@@ -487,6 +512,7 @@ export default function EmpleadosPage({ data }: { data: EmpleadosData }) {
           departments={data.departments}
           locations={data.locations}
           roles={data.roles}
+          sites={data.sites}
           onClose={() => setAddOpen(false)}
           onCreate={(form) =>
             startCreating(async () => {
@@ -511,6 +537,7 @@ export default function EmpleadosPage({ data }: { data: EmpleadosData }) {
           departments={data.departments}
           locations={data.locations}
           roles={data.roles}
+          sites={data.sites}
           busy={mutating}
           onClose={() => setEditing(null)}
           onSave={saveEdit}
