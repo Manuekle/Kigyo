@@ -16,6 +16,10 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   fullyParallel: false,
+  // Todos los specs comparten el usuario demo, la empresa activa y la base
+  // demo (seeds y teardowns por psql): correrlos en paralelo hace que el
+  // teardown de uno reviente el fixture de otro. Secuencial, siempre.
+  workers: 1,
   retries: process.env.CI ? 2 : 0,
   reporter: [['list']],
   use: {

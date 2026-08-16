@@ -58,7 +58,10 @@ function LineAmount({ line, locked, onSave }: {
       onBlur={() => {
         const n = Math.round((Number(value) || 0) * 100)
         if (n !== line.amountCents) onSave(line.id, n)
-        setValue(String(line.amountCents / 100))
+        // Muestra lo commitido, no la prop vieja: el refresh del server action
+        // llega con la línea nueva, pero el useState ya re-syncó contra la
+        // antigua y el input quedaría mostrando el valor anterior.
+        setValue(String(n / 100))
       }}
       aria-label="Valor del concepto"
       style={{ width: 120, textAlign: 'right' }}
@@ -159,7 +162,9 @@ export default function NominaPage({ data }: { data: NominaData }) {
           'Total aportes': r.total_aportes_cents / 100,
         })),
         `pila-${current?.period ?? 'periodo'}`,
-        'pila',
+        // 'nomina' (no 'pila'): el export route resuelve el permiso via
+        // ROUTE_PERMISSIONS y 'pila' no es clave — con 'pila' siempre 403.
+        'nomina',
       )
     })
   }
