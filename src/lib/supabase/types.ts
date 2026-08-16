@@ -2478,6 +2478,7 @@ export interface Database {
           metadata: Json
           created_at: string
           updated_at: string
+          content_tsv: unknown | null
         }
         Insert: {
           id?: string

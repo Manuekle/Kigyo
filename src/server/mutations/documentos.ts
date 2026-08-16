@@ -137,6 +137,18 @@ export async function updateDocumento(
       return fail('No se pudo actualizar el documento.')
     }
 
+    // A name change alters the indexed snapshot (`metadata.title`), so mark
+    // chunks stale until the next index run (plan 7.6). Status/folder/expiry
+    // do not touch the indexed content and must not invalidate it.
+    if (parsed.data.name !== undefined) {
+      await supabase
+        .from('document_chunks')
+        .update({ status: 'stale' })
+        .eq('document_id', parsed.data.id)
+        .eq('org_id', member.orgId)
+        .neq('status', 'stale')
+    }
+
     revalidatePath('/dashboard/documentos')
     return { ok: true, data: await getDocumentos() }
   } catch {

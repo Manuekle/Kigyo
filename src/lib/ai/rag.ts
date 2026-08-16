@@ -27,6 +27,7 @@ export interface IndexDocumentInput {
 
 interface RagQuery extends PromiseLike<{ data: unknown; error: unknown }> {
   insert(values: unknown): RagQuery
+  select(columns: string): RagQuery
   delete(): RagQuery
   eq(column: string, value: unknown): RagQuery
 }
@@ -178,28 +179,59 @@ export async function indexDocument(
   if (!text) return { chunks: 0, tokens: 0 }
 
   const chunks = chunkDocumentText(text)
-  const tokens = chunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0)
-  await reserveAiBudget(supabase, input.orgId, costCents(tokens, 'AI_EMBEDDING_COST_CENTS_PER_1K', 1))
 
-  const { embeddings, usage } = await embedMany({
-    model: embeddingModel(),
-    values: chunks.map((chunk) => chunk.content),
-  })
+  // Reuse embeddings whose content_hash already exists for this document:
+  // re-indexing an unchanged file must not charge the embedding provider
+  // twice for the same chunk (plan 7.5).
+  const { data: existing } = await ragClient(supabase)
+    .from('document_chunks')
+    .select('content_hash, embedding')
+    .eq('org_id', input.orgId)
+    .eq('document_id', input.id)
+  const cached = new Map(
+    ((existing ?? []) as Array<{ content_hash: string; embedding: string | null }>).map(
+      (row) => [row.content_hash, row.embedding],
+    ),
+  )
+  const fresh = chunks.filter((chunk) => !cached.has(chunk.contentHash))
 
+  let embeddings = new Map<string, number[]>()
+  let freshTokens = 0
+  if (fresh.length > 0) {
+    freshTokens = fresh.reduce((sum, chunk) => sum + chunk.tokenCount, 0)
+    await reserveAiBudget(supabase, input.orgId, costCents(freshTokens, 'AI_EMBEDDING_COST_CENTS_PER_1K', 1))
+
+    const { embeddings: values, usage } = await embedMany({
+      model: embeddingModel(),
+      values: fresh.map((chunk) => chunk.content),
+    })
+    fresh.forEach((chunk, index) => embeddings.set(chunk.contentHash, values[index] ?? []))
+    await recordAiUsage(supabase, {
+      orgId: input.orgId,
+      documentId: input.id,
+      operation: 'embedding',
+      model: process.env.AZURE_FOUNDRY_EMBEDDING_DEPLOYMENT ?? 'unknown',
+      embeddingTokens: Number((usage as { tokens?: number } | undefined)?.tokens ?? freshTokens),
+      estimatedCostCents: costCents(freshTokens, 'AI_EMBEDDING_COST_CENTS_PER_1K', 1),
+      metadata: { chunks: fresh.length, cachedChunks: chunks.length - fresh.length },
+    })
+  }
+
+  // Drop chunks that no longer exist in the file, keep the rest.
   await ragClient(supabase)
     .from('document_chunks')
     .delete()
     .eq('org_id', input.orgId)
     .eq('document_id', input.id)
 
-  const rows = chunks.map((chunk, index) => ({
+  const rows = chunks.map((chunk) => ({
     org_id: input.orgId,
     document_id: input.id,
     chunk_index: chunk.index,
     content: chunk.content,
     content_hash: chunk.contentHash,
     token_count: chunk.tokenCount,
-    embedding: vectorLiteral(embeddings[index] ?? []),
+    embedding: embeddings.get(chunk.contentHash) ?? cached.get(chunk.contentHash) ?? null,
     embedding_model: process.env.AZURE_FOUNDRY_EMBEDDING_DEPLOYMENT ?? 'unknown',
     status: 'ready',
     metadata: { title: input.name, mimeType: input.mimeType },
@@ -208,17 +240,7 @@ export async function indexDocument(
   const { error } = await ragClient(supabase).from('document_chunks').insert(rows)
   if (error) throw error
 
-  await recordAiUsage(supabase, {
-    orgId: input.orgId,
-    documentId: input.id,
-    operation: 'embedding',
-    model: process.env.AZURE_FOUNDRY_EMBEDDING_DEPLOYMENT ?? 'unknown',
-    embeddingTokens: Number((usage as { tokens?: number } | undefined)?.tokens ?? tokens),
-    estimatedCostCents: costCents(tokens, 'AI_EMBEDDING_COST_CENTS_PER_1K', 1),
-    metadata: { chunks: chunks.length },
-  })
-
-  return { chunks: chunks.length, tokens }
+  return { chunks: chunks.length, tokens: chunks.reduce((sum, chunk) => sum + chunk.tokenCount, 0) }
 }
 
 export async function searchDocumentChunks(
@@ -239,8 +261,9 @@ export async function searchDocumentChunks(
     estimatedCostCents: costCents(embeddingTokens, 'AI_EMBEDDING_COST_CENTS_PER_1K', 1),
   })
 
-  const { data, error } = await ragClient(supabase).rpc('match_document_chunks', {
+  const { data, error } = await ragClient(supabase).rpc('match_document_chunks_hybrid', {
     query_embedding: vectorLiteral(embedding),
+    query_text: question,
     p_org_id: orgId,
     match_threshold: Number(process.env.AI_RAG_MATCH_THRESHOLD ?? 0.68),
     match_count: 8,
