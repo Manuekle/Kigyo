@@ -34,7 +34,7 @@ Branch ahead ~14 commits orig no pusheados (usuario decide cuándo push).
 | `c2c9fe6` | feat(restaurante): mesas con sucursal y comanda que hereda el sitio (tableSchema + siteId; abrirComanda lee site de la mesa; TableRow/OrderRow siteId/siteName; RestauranteData.sites; picker en Nueva mesa, sitio en mesas y comandas; smoke RLS: joins sites funcionan como autenticado) |
 | `0b46c79` | feat(sites): sucursal en hotel_rooms y work_orders (picker + validación + sitio en listas; smoke RLS: joins sites funcionan como autenticado) — cierra las 8 tablas del contrato de sites: pos_sales, cash_sessions, inventory_assets, restaurant_orders, dining_tables, employees, hotel_rooms, work_orders |
 | `bb22556` | feat(empleados): sucursal asignable al empleado (picker en alta y edición, validación belongsToOrg sites, sitio bajo código en el directorio) |
-| `PENDIENTE` | feat(rag): ingestión de PDF/docx/xlsx (readRagText → extractDocumentText con unpdf/mammoth/xlsx; antes solo texto plano — los PDFs corporativos no se indexaban; smoke: PDF real del org demo extraído 2 págs/3190 chars) |
+| `34b7411` | feat(rag): ingestión de PDF/docx/xlsx (readRagText → extractDocumentText con unpdf/mammoth/xlsx; antes solo texto plano — los PDFs corporativos no se indexaban; smoke e2e REAL: PDF subido → /api/ai/ingest → chunk con embedding Azure → match_document_chunks_hybrid devuelve doc; también validado extractor contra PDF real del org IPS Bogota, 2 págs/3190 chars) |
 
 ## Hecho antes (condensado — jornadas 1–3)
 
@@ -213,7 +213,7 @@ Sites (c): mig 95 pos_sales.site_id con add_site_scope + política restrictive; 
 
 Próximo paso: decisión abierta. Opciones:
   (a) Sites: cierres por sucursal sobre pos_sales (reporte cierre Z por site) — el resto de (a) CERRADO.
-  (b) Retomar RAG: probar calidad híbrida con docs reales, ajustar umbral 0.68, o pipeline de ingestión de archivos nuevos. → Pipeline de ingestión HECHO (PDF/docx/xlsx vía unpdf/mammoth/xlsx en extractDocumentText; smoke con PDF real OK). Falta: re-indexar los documentos existentes y calibrar umbral con resultados reales.
+  (b) Retomar RAG: probar calidad híbrida con docs reales, ajustar umbral 0.68, o pipeline de ingestión de archivos nuevos. → Pipeline de ingestión HECHO (PDF/docx/xlsx vía unpdf/mammoth/xlsx en extractDocumentText; smoke e2e completo: subida → ingest → embedding → recuperación híbrida OK). Falta: re-indexar documentos existentes desde la UI y calibrar umbral 0.68 con resultados reales (AI_RAG_MATCH_THRESHOLD env).
   (c) Módulos verticales: cobertura de los 6 verticales pendientes en PLAN.
   (d) Deuda a producción: DIAN (proveedor homologado + certificado + revisor), marketing conversión (proveedor real), nómina validación contador.
 
