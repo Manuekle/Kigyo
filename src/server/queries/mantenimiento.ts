@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import {
-  allows, pageRange, rosterFor, totalOf,
+  allows, pageRange, rosterFor, scoped, totalOf,
   type Page, type RosterEntry, type Supabase,
 } from './shared'
 import type { Member } from '@/lib/auth/session'
@@ -35,6 +35,9 @@ export interface WorkOrderRow {
   laborCostCents: number
   partsCostCents: number
   recurrenceDays: number | null
+  /** Sucursal where the equipment is, if one is assigned. */
+  siteId: string | null
+  siteName: string | null
 }
 
 export interface AssetRef {
@@ -49,6 +52,8 @@ export interface MantenimientoData {
   assets: AssetRef[]
   roster: RosterEntry[]
   canWrite: boolean
+  /** The company's sucursales, for the order form's site picker. */
+  sites: Array<{ id: string; name: string }>
 }
 
 interface WorkOrderRecord {
@@ -69,11 +74,13 @@ interface WorkOrderRecord {
   labor_cost_cents: number
   parts_cost_cents: number
   recurrence_days: number | null
+  site_id: string | null
+  sites: { name: string } | null
 }
 
 const COLUMNS = `id, code, title, kind, status, priority, asset_id, asset_label, assignee_id,
    location, detail, scheduled_on, completed_at, downtime_hours, labor_cost_cents,
-   parts_cost_cents, recurrence_days`
+   parts_cost_cents, recurrence_days, site_id, sites ( name )`
 
 function toRow(row: WorkOrderRecord): WorkOrderRow {
   return {
@@ -94,6 +101,8 @@ function toRow(row: WorkOrderRecord): WorkOrderRow {
     laborCostCents: row.labor_cost_cents,
     partsCostCents: row.parts_cost_cents,
     recurrenceDays: row.recurrence_days,
+    siteId: row.site_id,
+    siteName: row.sites?.name ?? null,
   }
 }
 
@@ -147,7 +156,7 @@ export async function getMantenimiento(): Promise<MantenimientoData> {
   const member = await requirePermission('mantenimiento:read')
   const supabase = await createClient()
 
-  const [ordersResult, assets, roster] = await Promise.all([
+  const [ordersResult, assets, roster, sitesResult] = await Promise.all([
     supabase
       .from('work_orders')
       .select(COLUMNS, { count: 'exact' })
@@ -157,11 +166,15 @@ export async function getMantenimiento(): Promise<MantenimientoData> {
       .range(...pageRange(0)),
     assetsFor(supabase, member),
     rosterFor(supabase, member),
+    scoped(supabase, member, 'sites')
+      .select('id, name')
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
   ])
 
   if (ordersResult.error) {
     console.error('[mantenimiento] getMantenimiento', ordersResult.error)
-    return { ordenes: [], ordenesTotal: 0, assets: [], roster: [], canWrite: false }
+    return { ordenes: [], ordenesTotal: 0, assets: [], roster: [], canWrite: false, sites: [] }
   }
 
   const rows = ordersResult.data as unknown as WorkOrderRecord[]
@@ -172,5 +185,6 @@ export async function getMantenimiento(): Promise<MantenimientoData> {
     assets,
     roster,
     canWrite: can(member.permissions, 'mantenimiento:write'),
+    sites: ((sitesResult.data ?? []) as Array<{ id: string; name: string }>),
   }
 }

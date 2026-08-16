@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { RESERVATION_STATUSES, ROOM_KINDS, ROOM_STATUSES } from '@/lib/domain'
 import { getHoteleria, nightsBetween, type HoteleriaData } from '@/server/queries/hoteleria'
+import { belongsToOrg } from '@/server/queries/shared'
 
 export type HoteleriaResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -23,6 +24,7 @@ const roomSchema = z.object({
   rateCents: z.coerce.number().int().min(0).default(0),
   amenities: z.string().trim().max(500).default(''),
   notes: z.string().trim().max(1000).default(''),
+  siteId: z.string().uuid().nullable().default(null),
 })
 
 export async function createHabitacion(
@@ -34,6 +36,9 @@ export async function createHabitacion(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId))) {
+      return fail('Esa sucursal no pertenece a la organización.')
+    }
     const { error } = await supabase.from('hotel_rooms').insert({
       org_id: member.orgId,
       number: parsed.data.number,
@@ -43,6 +48,7 @@ export async function createHabitacion(
       rate_cents: parsed.data.rateCents,
       amenities: parsed.data.amenities,
       notes: parsed.data.notes,
+      site_id: parsed.data.siteId,
     })
 
     if (error) {
@@ -69,6 +75,9 @@ export async function updateHabitacion(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId))) {
+      return fail('Esa sucursal no pertenece a la organización.')
+    }
     const { error } = await supabase
       .from('hotel_rooms')
       .update({
@@ -79,6 +88,7 @@ export async function updateHabitacion(
         rate_cents: parsed.data.rateCents,
         amenities: parsed.data.amenities,
         notes: parsed.data.notes,
+        site_id: parsed.data.siteId,
       })
       .eq('id', parsed.data.id)
       .eq('org_id', member.orgId)

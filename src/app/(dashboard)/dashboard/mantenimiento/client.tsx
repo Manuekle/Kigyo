@@ -39,7 +39,7 @@ function orNull(value: string): string | null {
 const EMPTY = {
   title: '', kind: 'Correctivo', priority: 'Media', assetId: '', assetLabel: '',
   assigneeId: '', location: '', detail: '', scheduledOn: '',
-  laborCost: '', partsCost: '', recurrenceDays: '',
+  laborCost: '', partsCost: '', recurrenceDays: '', siteId: '',
 }
 
 /** Open work is everything that has not reached a terminal state. */
@@ -197,6 +197,7 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
       laborCost: String(orden.laborCostCents / 100),
       partsCost: String(orden.partsCostCents / 100),
       recurrenceDays: orden.recurrenceDays ? String(orden.recurrenceDays) : '',
+      siteId: orden.siteId ?? '',
     })
     setEditingId(orden.id)
     setOpen(true)
@@ -217,6 +218,7 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
         laborCostCents: toCents(form.laborCost),
         partsCostCents: toCents(form.partsCost),
         recurrenceDays: orNull(form.recurrenceDays),
+        siteId: form.siteId || null,
       }
       const result = editingId
         ? await updateOrden({ ...input, id: editingId })
@@ -323,6 +325,7 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
                   <td>
                     {o.assetLabel || '—'}
                     {o.location && <div className="elsub">{o.location}</div>}
+                    {o.siteName && <div className="elsub">{o.siteName}</div>}
                   </td>
                   <td>{assigneeName(o.assigneeId)}</td>
                   <td>{formatDate(o.scheduledOn)}</td>
@@ -477,10 +480,28 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
           onChange={(e) => setForm({ ...form, assetLabel: e.target.value })}
           placeholder="Generador Cummins 60 kVA" />
 
-        <div className="flabel">Responsable</div>
-        <Select value={form.assigneeId} onChange={(v) => setForm({ ...form, assigneeId: v })}
-          placeholder="Sin asignar"
-          options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))} />
+        <div className="fg2">
+          <div>
+            <div className="flabel">Responsable</div>
+            <Select value={form.assigneeId} onChange={(v) => setForm({ ...form, assigneeId: v })}
+              placeholder="Sin asignar"
+              options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))} />
+          </div>
+          {data.sites.length > 1 && (
+            <div>
+              <div className="flabel">Sucursal</div>
+              <Select
+                value={form.siteId}
+                onChange={(v) => setForm({ ...form, siteId: v })}
+                placeholder="Sin sucursal"
+                options={[
+                  { value: '', label: 'Sin sucursal' },
+                  ...data.sites.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+            </div>
+          )}
+        </div>
 
         <div className="fg2">
           <div>

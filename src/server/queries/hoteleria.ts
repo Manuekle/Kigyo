@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
-import { pageRange, totalOf, type Page } from './shared'
+import { pageRange, totalOf, scoped, type Page } from './shared'
 
 /**
  * Rooms and the reservations against them.
@@ -24,6 +24,9 @@ export interface RoomRow {
   notes: string
   /** Reservations on this room that have not been cancelled or checked out. */
   upcoming: number
+  /** Sucursal where the room is, if one is assigned. */
+  siteId: string | null
+  siteName: string | null
 }
 
 export interface ReservationRow {
@@ -83,6 +86,8 @@ export interface HoteleriaData {
   /** Rooms occupied tonight over rooms that can be sold, as a percentage. */
   occupancyPct: number | null
   canWrite: boolean
+  /** The company's sucursales, for the room form's site picker. */
+  sites: Array<{ id: string; name: string }>
 }
 
 interface RoomRecord {
@@ -95,6 +100,8 @@ interface RoomRecord {
   rate_cents: number
   amenities: string
   notes: string
+  site_id: string | null
+  sites: { name: string } | null
 }
 
 interface ReservationRecord {
@@ -127,7 +134,7 @@ interface CleaningTaskRecord {
   notes: string
 }
 
-const ROOM_COLUMNS = 'id, number, kind, status, floor, capacity, rate_cents, amenities, notes'
+const ROOM_COLUMNS = 'id, number, kind, status, floor, capacity, rate_cents, amenities, notes, site_id, sites ( name )'
 const RESERVATION_COLUMNS = `id, code, room_id, guest_name, guest_document, guest_email,
    guest_phone, status, guests, checkin_on, checkout_on, nightly_rate_cents, total_cents,
    paid_cents, channel, notes`
@@ -191,6 +198,8 @@ export async function getHabitacionesPage(offset = 0): Promise<Page<RoomRow>> {
       amenities: row.amenities,
       notes: row.notes,
       upcoming: upcoming.get(row.id) ?? 0,
+      siteId: row.site_id,
+      siteName: row.sites?.name ?? null,
     })),
     total: totalOf(count, rows.length, from),
   }
@@ -200,7 +209,7 @@ export async function getHoteleria(): Promise<HoteleriaData> {
   const member = await requirePermission('hoteleria:read')
   const supabase = await createClient()
 
-  const [roomsResult, reservationsResult] = await Promise.all([
+  const [roomsResult, reservationsResult, sitesResult] = await Promise.all([
     supabase
       .from('hotel_rooms')
       .select(ROOM_COLUMNS, { count: 'exact' })
@@ -215,13 +224,17 @@ export async function getHoteleria(): Promise<HoteleriaData> {
       .is('deleted_at', null)
       .order('checkin_on', { ascending: false })
       .limit(500),
+    scoped(supabase, member, 'sites')
+      .select('id, name')
+      .is('deleted_at', null)
+      .order('name', { ascending: true }),
   ])
 
   if (roomsResult.error) {
     console.error('[hoteleria] getHoteleria', roomsResult.error)
     return {
       habitaciones: [], habitacionesTotal: 0, reservas: [], limpieza: [],
-      seasons: [], occupancyPct: null, canWrite: false,
+      seasons: [], occupancyPct: null, canWrite: false, sites: [],
     }
   }
   if (reservationsResult.error) console.error('[hoteleria] reservations', reservationsResult.error)
@@ -313,6 +326,8 @@ export async function getHoteleria(): Promise<HoteleriaData> {
       amenities: row.amenities,
       notes: row.notes,
       upcoming: upcoming.get(row.id) ?? 0,
+      siteId: row.site_id,
+      siteName: row.sites?.name ?? null,
     })),
     habitacionesTotal: totalOf(roomsResult.count, roomRows.length),
     reservas: reservationRows.map((row) => ({
@@ -353,5 +368,6 @@ export async function getHoteleria(): Promise<HoteleriaData> {
       : null,
     seasons,
     canWrite: can(member.permissions, 'hoteleria:write'),
+    sites: ((sitesResult.data ?? []) as Array<{ id: string; name: string }>),
   }
 }

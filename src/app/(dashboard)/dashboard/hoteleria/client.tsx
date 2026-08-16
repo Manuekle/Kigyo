@@ -43,7 +43,7 @@ const TODAY = () => new Date().toISOString().slice(0, 10)
 const TOMORROW = () => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
 
 const EMPTY_ROOM = {
-  number: '', kind: 'Sencilla', floor: '', capacity: '2', rate: '', amenities: '', notes: '',
+  number: '', kind: 'Sencilla', floor: '', capacity: '2', rate: '', amenities: '', notes: '', siteId: '',
 }
 const EMPTY_RESERVATION = {
   roomId: '', guestName: '', guestDocument: '', guestEmail: '', guestPhone: '',
@@ -180,6 +180,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
       rate: r.rateCents > 0 ? String(Math.round(r.rateCents / 100)) : '',
       amenities: r.amenities,
       notes: r.notes,
+      siteId: r.siteId ?? '',
     })
     setEditingRoom(r)
     setRoomOpen(true)
@@ -197,6 +198,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
             rateCents: toCents(roomForm.rate),
             amenities: roomForm.amenities,
             notes: roomForm.notes,
+            siteId: roomForm.siteId || null,
           })
         : await createHabitacion({
             number: roomForm.number,
@@ -206,6 +208,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
             rateCents: toCents(roomForm.rate),
             amenities: roomForm.amenities,
             notes: roomForm.notes,
+            siteId: roomForm.siteId || null,
           })
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
@@ -544,6 +547,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                       <td>
                         <div className="cename mono">{r.number}</div>
                         {r.floor !== null && <div className="elsub">Piso {r.floor}</div>}
+                        {r.siteName && <div className="elsub">{r.siteName}</div>}
                       </td>
                       <td>
                         {r.kind}
@@ -757,9 +761,33 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
           </div>
         </div>
 
-        <label className="flabel" htmlFor="hab-rate">Tarifa por noche (COP)</label>
-        <input id="hab-rate" className="field" inputMode="numeric" value={roomForm.rate}
-          onChange={(e) => setRoomForm({ ...roomForm, rate: e.target.value })} />
+        {data.sites.length > 1 ? (
+          <div className="fg2">
+            <div>
+              <div className="flabel">Sucursal</div>
+              <Select
+                value={roomForm.siteId}
+                onChange={(v) => setRoomForm({ ...roomForm, siteId: v })}
+                placeholder="Sin sucursal"
+                options={[
+                  { value: '', label: 'Sin sucursal' },
+                  ...data.sites.map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+            </div>
+            <div>
+              <label className="flabel" htmlFor="hab-rate">Tarifa por noche (COP)</label>
+              <input id="hab-rate" className="field" inputMode="numeric" value={roomForm.rate}
+                onChange={(e) => setRoomForm({ ...roomForm, rate: e.target.value })} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <label className="flabel" htmlFor="hab-rate">Tarifa por noche (COP)</label>
+            <input id="hab-rate" className="field" inputMode="numeric" value={roomForm.rate}
+              onChange={(e) => setRoomForm({ ...roomForm, rate: e.target.value })} />
+          </>
+        )}
 
         <label className="flabel" htmlFor="hab-am">Amenidades</label>
         <input id="hab-am" className="field" value={roomForm.amenities}

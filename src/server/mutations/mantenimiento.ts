@@ -46,6 +46,7 @@ const baseSchema = z.object({
   laborCostCents: z.coerce.number().int().min(0).default(0),
   partsCostCents: z.coerce.number().int().min(0).default(0),
   recurrenceDays: z.coerce.number().int().min(1).max(3650).nullable().default(null),
+  siteId: z.string().uuid().nullable().default(null),
 })
 
 const updateSchema = baseSchema.extend({ id: z.uuid() })
@@ -59,13 +60,15 @@ export async function createOrden(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
-    const [assetOk, assigneeOk] = await Promise.all([
+    const [assetOk, assigneeOk, siteOk] = await Promise.all([
       assetBelongs(supabase, parsed.data.assetId, member.orgId),
       belongsToOrg(supabase, 'employees', parsed.data.assigneeId, member.orgId),
+      belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId),
     ])
 
     if (!assetOk) return fail('Ese activo no existe en tu organización.')
     if (!assigneeOk) return fail('Esa persona no está en el equipo de tu organización.')
+    if (!siteOk) return fail('Esa sucursal no pertenece a la organización.')
 
     const { error } = await supabase.from('work_orders').insert({
       org_id: member.orgId,
@@ -84,6 +87,7 @@ export async function createOrden(
       labor_cost_cents: parsed.data.laborCostCents,
       parts_cost_cents: parsed.data.partsCostCents,
       recurrence_days: parsed.data.recurrenceDays,
+      site_id: parsed.data.siteId,
     })
 
     if (error) {
@@ -107,13 +111,15 @@ export async function updateOrden(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
-    const [assetOk, assigneeOk] = await Promise.all([
+    const [assetOk, assigneeOk, siteOk] = await Promise.all([
       assetBelongs(supabase, parsed.data.assetId, member.orgId),
       belongsToOrg(supabase, 'employees', parsed.data.assigneeId, member.orgId),
+      belongsToOrg(supabase, 'sites', parsed.data.siteId, member.orgId),
     ])
 
     if (!assetOk) return fail('Ese activo no existe en tu organización.')
     if (!assigneeOk) return fail('Esa persona no está en el equipo de tu organización.')
+    if (!siteOk) return fail('Esa sucursal no pertenece a la organización.')
 
     const { error } = await supabase
       .from('work_orders')
@@ -131,6 +137,7 @@ export async function updateOrden(
         labor_cost_cents: parsed.data.laborCostCents,
         parts_cost_cents: parsed.data.partsCostCents,
         recurrence_days: parsed.data.recurrenceDays,
+        site_id: parsed.data.siteId,
       })
       .eq('id', parsed.data.id)
       .eq('org_id', member.orgId)
