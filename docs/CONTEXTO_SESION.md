@@ -32,6 +32,8 @@ Branch ahead ~14 commits orig no pusheados (usuario decide cuándo push).
 | `80a8406` | feat(caja): turno con sucursal (abrirCaja siteId validado contra sites de la empresa; CajaData.sites scoped; SessionRow.siteId/siteName; picker en Abrir turno solo si >1; sitio en historial; smoke DB: venta POS hereda site del turno — venta.site = turno.site verificado end-to-end) |
 | `d3198ac` | feat(inventario): activos con sucursal (assetSchema + siteId validado via belongsToOrg 'sites'; ActivoRow.siteId/siteName via join; InventarioData.sites scoped; picker Sucursal solo si >1, prefill en edición, sitio bajo serial) |
 | `c2c9fe6` | feat(restaurante): mesas con sucursal y comanda que hereda el sitio (tableSchema + siteId; abrirComanda lee site de la mesa; TableRow/OrderRow siteId/siteName; RestauranteData.sites; picker en Nueva mesa, sitio en mesas y comandas; smoke RLS: joins sites funcionan como autenticado) |
+| `0b46c79` | feat(sites): sucursal en hotel_rooms y work_orders (picker + validación + sitio en listas; smoke RLS: joins sites funcionan como autenticado) — cierra las 8 tablas del contrato de sites: pos_sales, cash_sessions, inventory_assets, restaurant_orders, dining_tables, employees, hotel_rooms, work_orders |
+| `bb22556` | feat(empleados): sucursal asignable al empleado (picker en alta y edición, validación belongsToOrg sites, sitio bajo código en el directorio) |
 
 ## Hecho antes (condensado — jornadas 1–3)
 
@@ -93,7 +95,7 @@ Poda de `.md` revisada al cierre de jornada: **nada que eliminar** — los 8 arc
 - `register_pos_sale` 9 params con `p_site_id uuid default null`: valida site de la org (KG102) + `may_access_site` (KG101); si hay turno abierto (`cash_sessions.status='Abierta'`), la venta hereda el site del turno; si no, `p_site_id`.
 - UI POS: `PosData.sites` (activas), picker «Sucursal» solo si >1 (label «Automática (turno abierto)»), `siteId` en cobro/QR/outbox; replay de cola lleva siteId. Ventas muestran siteName.
 - **`invoices` NO lleva site_id — decisión deliberada**: FASE_0_CONTRATOS.md §3.8 (línea 346) lista las 7 tablas con sucursal como hecho del negocio y "Nunca a las 66"; mig 31 comenta "not a property of an invoice". La opción heredada (c) decía pos_sales + invoices; el contrato mandó. El filtro de facturas por sucursal se haría por `pos_sales.site_id` (origen), no por columna en invoice.
-- **Siguiente si se retoma sites**: cierres por sucursal sobre pos_sales ya posibles (turno lleva site, venta lo hereda, verificado por smoke DB); pendiente solo hotel_rooms y work_orders (sin UI de sites aún) y picker en employees (assignActivo/alta de empleado).
+- **Siguiente si se retoma sites**: solo cierres por sucursal sobre pos_sales (reporte de cierre Z filtrado por site; datos ya fluyen: turno lleva site, venta lo hereda, verificado por smoke DB).
 
 ## Siguiente (post-plan CRM/ERP/POS + RAG + sites — decisión)
 
@@ -206,10 +208,10 @@ Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (actualizado 2026-08-15): estado, comm
 Plan CRM/ERP/POS completo (18/18) + Fase 7 RAG (híbrido) + sites (pos_sales, caja, inventario, restaurante), todo commiteado y verificado: e2e suite 5/5 verde (workers=1), vitest 256/256, tsc 0, build verde. Remota: migraciones 1–95 aplicadas. Working tree LIMPIO. Branch PUSHEADA a origin (feat/design-system-refresh).
 
 RAG (i): mig 94 content_tsv + GIN + RPC match_document_chunks_hybrid; rag.ts cache embeddings por content_hash; chunks stale solo si cambia name.
-Sites (c): mig 95 pos_sales.site_id con add_site_scope + política restrictive; register_pos_sale 9 params (p_site_id, hereda del turno abierto); PosData.sites + picker Sucursal en POS (solo si >1); outbox replay lleva siteId; Caja: abrirCaja siteId + picker + siteName en historial (smoke DB: venta hereda site del turno); Inventario: activos con site (picker + join); Restaurante: mesas con site y comanda que lo hereda (joins verificados bajo RLS). invoices SIN site_id — contrato FASE_0 §3.8 (la factura no es propiedad de la sucursal); filtro por sucursal vía pos_sales.site_id.
+Sites (c): mig 95 pos_sales.site_id con add_site_scope + política restrictive; register_pos_sale 9 params (p_site_id, hereda del turno abierto); PosData.sites + picker Sucursal en POS (solo si >1); outbox replay lleva siteId; Caja: abrirCaja siteId + picker + siteName en historial (smoke DB: venta hereda site del turno); Inventario: activos con site (picker + join); Restaurante: mesas con site y comanda que lo hereda (joins verificados bajo RLS); Empleados: picker en alta/edición; Hotel: habitaciones con site; Mantenimiento: órdenes con site. CERRADO — 8/8 tablas del contrato con site_id (pos_sales, cash_sessions, inventory_assets, restaurant_orders, dining_tables, employees, hotel_rooms, work_orders). invoices SIN site_id — contrato FASE_0 §3.8 (la factura no es propiedad de la sucursal); filtro por sucursal vía pos_sales.site_id.
 
 Próximo paso: decisión abierta. Opciones:
-  (a) Sites: cierres por sucursal sobre pos_sales, picker en employees, hotel/work_orders (verticales).
+  (a) Sites: cierres por sucursal sobre pos_sales (reporte cierre Z por site) — el resto de (a) CERRADO.
   (b) Retomar RAG: probar calidad híbrida con docs reales, ajustar umbral 0.68, o pipeline de ingestión de archivos nuevos.
   (c) Módulos verticales: cobertura de los 6 verticales pendientes en PLAN.
   (d) Deuda a producción: DIAN (proveedor homologado + certificado + revisor), marketing conversión (proveedor real), nómina validación contador.
