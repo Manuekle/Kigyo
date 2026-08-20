@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useRef, useState, useTransition } from 'react'
 import { Stethoscope, Check, Plus, PenLine, Trash2, Calendar, AlertTriangle, Users, FileText, Activity } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import DatePicker from '@/components/ui/DatePicker'
@@ -10,6 +10,7 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { BLOOD_TYPES, PATIENT_STATUSES, VISIT_KINDS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { PacientesData, PatientRow, TurnoRow, RecetaRow, LaboratorioRow } from '@/server/queries/pacientes'
@@ -24,7 +25,7 @@ import type { OdontologiaData } from '@/server/queries/odontologia'
 import type { VeterinariaData } from '@/server/queries/veterinaria'
 import type { RadiografiasData } from '@/server/queries/radiografias'
 import Odontologia from './Odontologia'
-import Veterinaria from './Veterinaria'
+import Veterinaria, { type VeterinariaHandle, type VeterinariaSection } from './Veterinaria'
 import ImagenesPaciente from './ImagenesPaciente'
 
 const DATE = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -119,6 +120,7 @@ export default function PacientesPage({ data, odonto: odontoInitial, vet: vetIni
   const [vet, setVet] = useState<VeterinariaData | null>(vetInitial)
   const [imagenes, setImagenes] = useState<RadiografiasData>(imagenesInitial)
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [pacientes, setPacientes] = useState<PatientRow[]>(data.pacientes)
@@ -146,6 +148,7 @@ export default function PacientesPage({ data, odonto: odontoInitial, vet: vetIni
   const [examenForm, setExamenForm] = useState(EMPTY_EXAMEN)
   const [labResultFor, setLabResultFor] = useState<string | null>(null)
   const [labResultText, setLabResultText] = useState('')
+  const vetRef = useRef<VeterinariaHandle>(null)
 
   function apply(next: PacientesData) {
     setPacientes(next.pacientes)
@@ -203,8 +206,8 @@ export default function PacientesPage({ data, odonto: odontoInitial, vet: vetIni
     })
   }
 
-  function remove(p: PatientRow) {
-    if (!window.confirm(`¿Eliminar la historia de ${p.fullName}? Se eliminan también sus consultas.`)) return
+  async function remove(p: PatientRow) {
+    if (!(await confirm({ title: `¿Eliminar la historia de ${p.fullName}?`, description: 'Se eliminan también sus consultas.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePaciente(p.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -278,8 +281,8 @@ export default function PacientesPage({ data, odonto: odontoInitial, vet: vetIni
     })
   }
 
-  function atender(t: TurnoRow) {
-    if (!window.confirm(`¿Registrar la consulta de ${t.patientName} y marcar el turno como atendido?`)) return
+  async function atender(t: TurnoRow) {
+    if (!(await confirm({ title: `¿Registrar la consulta de ${t.patientName} y marcar el turno como atendido?` }))) return
     startTransition(async () => {
       const result = await atenderTurno(t.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -288,8 +291,8 @@ export default function PacientesPage({ data, odonto: odontoInitial, vet: vetIni
     })
   }
 
-  function removeTurno(t: TurnoRow) {
-    if (!window.confirm(`¿Eliminar el turno de ${t.patientName}?`)) return
+  async function removeTurno(t: TurnoRow) {
+    if (!(await confirm({ title: `¿Eliminar el turno de ${t.patientName}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteTurno(t.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -317,8 +320,8 @@ export default function PacientesPage({ data, odonto: odontoInitial, vet: vetIni
     })
   }
 
-  function removeReceta(r: RecetaRow) {
-    if (!window.confirm(`¿Eliminar la receta de ${r.medication}?`)) return
+  async function removeReceta(r: RecetaRow) {
+    if (!(await confirm({ title: `¿Eliminar la receta de ${r.medication}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteReceta(r.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -346,8 +349,8 @@ export default function PacientesPage({ data, odonto: odontoInitial, vet: vetIni
     })
   }
 
-  function removeExamen(e: LaboratorioRow) {
-    if (!window.confirm(`¿Eliminar el examen ${e.testName}?`)) return
+  async function removeExamen(e: LaboratorioRow) {
+    if (!(await confirm({ title: `¿Eliminar el examen ${e.testName}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteExamen(e.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -486,6 +489,12 @@ items={[
                     setExamenOpen(true)
                   }}>
                     <Activity size={15} />Solicitar examen
+                  </button>
+                )}
+                {vet && (tab === 'mascotas' || tab === 'vacunas' || tab === 'hospitalizacion') && (
+                  <button className="btn dark" disabled={pending || (tab === 'mascotas' ? pacientes.length === 0 : vet.pets.length === 0)}
+                    onClick={() => vetRef.current?.open(tab as VeterinariaSection)}>
+                    <Plus size={15} />{tab === 'mascotas' ? 'Nueva mascota' : tab === 'vacunas' ? 'Registrar vacuna' : 'Nuevo ingreso'}
                   </button>
                 )}
               </div>
@@ -861,6 +870,7 @@ items={[
             data={vet}
             onData={setVet}
             pacientes={pacientes.map((p) => ({ id: p.id, fullName: p.fullName }))}
+            ref={vetRef}
           />
         )}
 

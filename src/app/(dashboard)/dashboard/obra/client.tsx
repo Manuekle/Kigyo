@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import DatePicker from '@/components/ui/DatePicker'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { ObraData } from '@/server/queries/obra'
@@ -74,6 +75,7 @@ const EMPTY_AV: AvForm = { fecha: '', avance: '', valor: '', notas: '' }
 
 export default function ObraPage({ data }: { data: ObraData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -160,8 +162,8 @@ export default function ObraPage({ data }: { data: ObraData }) {
     })
   }
 
-  function removePres(id: string) {
-    if (!window.confirm('¿Eliminar este presupuesto y todo lo que contiene?')) return
+  async function removePres(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este presupuesto y todo lo que contiene?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePresupuesto(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -170,8 +172,8 @@ export default function ObraPage({ data }: { data: ObraData }) {
     })
   }
 
-  function removeCap(id: string) {
-    if (!window.confirm('¿Eliminar este capítulo con sus partidas y avances?')) return
+  async function removeCap(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este capítulo con sus partidas y avances?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCapitulo(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -181,8 +183,8 @@ export default function ObraPage({ data }: { data: ObraData }) {
     })
   }
 
-  function removeApu(id: string) {
-    if (!window.confirm('¿Eliminar esta partida?')) return
+  async function removeApu(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta partida?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteApu(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -191,8 +193,8 @@ export default function ObraPage({ data }: { data: ObraData }) {
     })
   }
 
-  function removeAv(id: string) {
-    if (!window.confirm('¿Eliminar este avance? El capítulo vuelve a su corte anterior.')) return
+  async function removeAv(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este avance?', description: 'El capítulo vuelve a su corte anterior.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteAvance(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

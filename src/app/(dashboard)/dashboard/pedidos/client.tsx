@@ -8,6 +8,7 @@ import Stat from '@/components/ui/Stat'
 import Select from '@/components/ui/Select'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { PedidosData, SalesOrderRow, OrderStatus } from '@/server/queries/pedidos'
@@ -36,6 +37,7 @@ function pesos(cents: number): string {
 
 export default function PedidosPage({ data }: { data: PedidosData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [pedidos, setPedidos] = useState<SalesOrderRow[]>(data.pedidos)
@@ -95,8 +97,8 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
     })
   }
 
-  function cancel(p: SalesOrderRow) {
-    if (!window.confirm(`¿Cancelar el pedido ${p.code ?? ''}?`)) return
+  async function cancel(p: SalesOrderRow) {
+    if (!(await confirm({ title: `¿Cancelar el pedido ${p.code ?? ''}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await updateOrderStatus(p.id, 'Cancelado')
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -105,8 +107,8 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
     })
   }
 
-  function remove(p: SalesOrderRow) {
-    if (!window.confirm(`¿Eliminar el pedido ${p.code ?? ''}?`)) return
+  async function remove(p: SalesOrderRow) {
+    if (!(await confirm({ title: `¿Eliminar el pedido ${p.code ?? ''}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePedido(p.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

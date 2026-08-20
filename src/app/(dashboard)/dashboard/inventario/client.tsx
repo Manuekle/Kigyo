@@ -11,6 +11,7 @@ import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import TabBar from '@/components/ui/TabBar'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import { useExport } from '@/lib/hooks/use-export'
 import { ASSET_CATEGORIES, ASSET_STATUSES, INVENTORY_ORDER_STATUSES } from '@/lib/domain'
@@ -32,6 +33,7 @@ const EMPTY_ORDER = { item: '', supplier: '', quantity: '1', price: '' }
 
 export default function InventarioPage({ data }: { data: InventarioData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
@@ -126,8 +128,8 @@ export default function InventarioPage({ data }: { data: InventarioData }) {
     })
   }
 
-  function removeAsset(a: ActivoRow) {
-    if (!window.confirm(`¿Dar de baja "${a.name}"? Queda registrado como Baja, no se borra.`)) return
+  async function removeAsset(a: ActivoRow) {
+    if (!(await confirm({ title: `¿Dar de baja "${a.name}"?`, description: 'Queda registrado como Baja, no se borra.' }))) return
     startTransition(async () => {
       const result = await deleteActivo(a.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

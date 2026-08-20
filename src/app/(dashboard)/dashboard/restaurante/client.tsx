@@ -11,6 +11,7 @@ import Toggle from '@/components/ui/Toggle'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import {
   DELIVERY_STATUSES, INGREDIENT_UNITS, MENU_CATEGORIES, PAYMENT_METHODS,
@@ -91,6 +92,7 @@ function isOpen(status: string): boolean {
 
 export default function RestaurantePage({ data }: { data: RestauranteData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
@@ -209,8 +211,8 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
     })
   }
 
-  function removeReserva(r: { id: string; guestName: string }) {
-    if (!window.confirm(`¿Eliminar la reserva de ${r.guestName}?`)) return
+  async function removeReserva(r: { id: string; guestName: string }) {
+    if (!(await confirm({ title: `¿Eliminar la reserva de ${r.guestName}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await eliminarReserva(r.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

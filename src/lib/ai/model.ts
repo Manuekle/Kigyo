@@ -57,6 +57,15 @@ function provider() {
   return cached
 }
 
+/**
+ * Modelo de chat del despliegue configurado.
+ *
+ * Ninguna llamada le pasa `temperature`, y no es un olvido: los despliegues de
+ * razonamiento —gpt-5.4-mini es el que corre hoy— rechazan el parámetro y el
+ * SDK lo reporta como «The feature "temperature" is not supported» en cada
+ * petición. Un mando que el modelo ignora no es un mando: el tono se dirige
+ * desde el prompt, que es donde estos modelos sí escuchan.
+ */
 export function chatModel() {
   return provider()(modelEnvOrThrow().AZURE_FOUNDRY_DEPLOYMENT)
 }

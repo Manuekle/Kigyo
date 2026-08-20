@@ -1,3 +1,5 @@
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
 import type { StatusTone } from './types'
 
 export function initials(name: string): string {
@@ -92,11 +94,19 @@ export async function exportExcel(
   URL.revokeObjectURL(url)
 }
 
-export function clsx(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(' ')
+/**
+ * Une clases y resuelve los choques de Tailwind.
+ *
+ * Antes era un `filter(Boolean).join(' ')`. Eso alcanza mientras las clases no
+ * compitan, pero en cuanto un componente escribe
+ * `cn('text-muted-foreground', activo && 'text-foreground')` las dos llegan
+ * juntas al DOM y gana la que Tailwind haya emitido más abajo en la hoja, no
+ * la que el componente quería. `twMerge` descarta la perdedora por grupo de
+ * utilidad, que es lo que hace que el estado condicional se vea.
+ */
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs))
 }
-
-export { clsx as cn }
 
 const COLORS: Record<string, string> = {
   'Recursos Humanos': 'rgba(255,255,255,.72)',

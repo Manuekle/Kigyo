@@ -7,6 +7,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { CarteraData } from '@/server/queries/cartera'
@@ -35,6 +36,7 @@ const EMPTY_DEUDA = {
 
 export default function CarteraPage({ data }: { data: CarteraData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -74,8 +76,8 @@ export default function CarteraPage({ data }: { data: CarteraData }) {
     })
   }
 
-  function removeDeuda(id: string) {
-    if (!window.confirm('¿Eliminar esta cuenta por cobrar?')) return
+  async function removeDeuda(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta cuenta por cobrar?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteDeuda(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

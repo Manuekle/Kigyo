@@ -9,6 +9,7 @@ import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import {
   WORK_ORDER_KINDS, WORK_ORDER_PRIORITIES, WORK_ORDER_STATUSES,
 } from '@/lib/domain'
@@ -50,6 +51,7 @@ function isOpen(status: string): boolean {
 
 export default function MantenimientoPage({ data }: { data: MantenimientoData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [ordenes, setOrdenes] = useState<WorkOrderRow[]>(data.ordenes)
@@ -130,8 +132,8 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
     })
   }
 
-  function removeTask(orderId: string, taskId: string) {
-    if (!window.confirm('¿Eliminar esta tarea de la lista?')) return
+  async function removeTask(orderId: string, taskId: string) {
+    if (!(await confirm({ title: '¿Eliminar esta tarea de la lista?', tone: 'danger' }))) return
     startTaskBusy(async () => {
       const result = await deleteWorkOrderTask(taskId)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -174,8 +176,8 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
     })
   }
 
-  function remove(orden: WorkOrderRow) {
-    if (!window.confirm('¿Eliminar esta orden? Úsalo solo si se creó por error; para cerrarla, complétala.')) return
+  async function remove(orden: WorkOrderRow) {
+    if (!(await confirm({ title: '¿Eliminar esta orden?', description: 'Úsalo solo si se creó por error; para cerrarla, complétala.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteOrden(orden.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

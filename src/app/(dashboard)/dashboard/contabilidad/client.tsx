@@ -12,6 +12,7 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { ContabilidadData } from '@/server/queries/contabilidad'
 import {
@@ -53,6 +54,7 @@ const toCents = (v: string) => Math.round((Number(v.replace(/[^\d]/g, '')) || 0)
 
 export default function ContabilidadPage({ data }: { data: ContabilidadData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<ContabilidadData>(data)
@@ -135,8 +137,8 @@ export default function ContabilidadPage({ data }: { data: ContabilidadData }) {
     })
   }
 
-  function remove(a: ContabilidadData['asientos'][number]) {
-    if (!window.confirm(`¿Eliminar el asiento «${a.memo}»? Solo los borradores se pueden eliminar.`)) return
+  async function remove(a: ContabilidadData['asientos'][number]) {
+    if (!(await confirm({ title: `¿Eliminar el asiento «${a.memo}»?`, description: 'Solo los borradores se pueden eliminar.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteEntry(a.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

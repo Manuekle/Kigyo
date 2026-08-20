@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition, useEffect } from 'react'
 import { Trash2, Plus, Check, X, Eraser, AlertCircle, FileSpreadsheet } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
@@ -88,6 +89,7 @@ function SignPad({ onInk }: { onInk: (hasInk: boolean) => void }) {
 export default function FirmasPage({ data }: { data: FirmasData }) {
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<FirmasData>(data)
@@ -153,8 +155,8 @@ export default function FirmasPage({ data }: { data: FirmasData }) {
     })
   }
 
-  function cancel(f: FirmaRow) {
-    if (!window.confirm(`¿Cancelar la solicitud "${f.title}"? Queda registrada como cancelada.`)) return
+  async function cancel(f: FirmaRow) {
+    if (!(await confirm({ title: `¿Cancelar la solicitud "${f.title}"?`, description: 'Queda registrada como cancelada.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await cancelFirma(f.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

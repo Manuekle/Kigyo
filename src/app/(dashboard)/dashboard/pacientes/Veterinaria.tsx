@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { forwardRef, useImperativeHandle, useState, useTransition } from 'react'
 import { Check, Heart, Plus, Trash2 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import type { StatusTone } from '@/lib/types'
 import type { VeterinariaData } from '@/server/queries/veterinaria'
 import {
@@ -61,16 +62,23 @@ const EMPTY_VACCINE = {
 
 const EMPTY_HOSP = { petId: '', reason: '', kennel: '', notes: '' }
 
+export type VeterinariaSection = 'mascotas' | 'vacunas' | 'hospitalizacion'
+
 interface Props {
-  section: 'mascotas' | 'vacunas' | 'hospitalizacion'
+  section: VeterinariaSection
   data: VeterinariaData
   onData: (next: VeterinariaData) => void
   /** El directorio de pacientes (propietarios) de la pantalla padre. */
   pacientes: Array<{ id: string; fullName: string }>
 }
 
-export default function Veterinaria({ section, data, onData, pacientes }: Props) {
+export interface VeterinariaHandle {
+  open: (section: VeterinariaSection) => void
+}
+
+const Veterinaria = forwardRef<VeterinariaHandle, Props>(function Veterinaria({ section, data, onData, pacientes }, ref) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [petOpen, setPetOpen] = useState(false)
@@ -81,6 +89,14 @@ export default function Veterinaria({ section, data, onData, pacientes }: Props)
   const [hospForm, setHospForm] = useState(EMPTY_HOSP)
   const [noteFor, setNoteFor] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
+
+  useImperativeHandle(ref, () => ({
+    open: (next) => {
+      if (next === 'mascotas') setPetOpen(true)
+      if (next === 'vacunas') setVaccineOpen(true)
+      if (next === 'hospitalizacion') setHospOpen(true)
+    },
+  }), [])
 
   const ownerOpts = pacientes.map((p) => ({ value: p.id, label: p.fullName }))
   const petOpts = data.pets.map((p) => ({ value: p.id, label: p.name }))
@@ -127,8 +143,8 @@ export default function Veterinaria({ section, data, onData, pacientes }: Props)
     })
   }
 
-  function removePet(id: string) {
-    if (!window.confirm('¿Eliminar esta mascota con sus vacunas e historial de hospitalización?')) return
+  async function removePet(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta mascota con sus vacunas e historial de hospitalización?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePet(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -146,8 +162,8 @@ export default function Veterinaria({ section, data, onData, pacientes }: Props)
     })
   }
 
-  function discharge(id: string, status: 'Alta' | 'Fallecido') {
-    if (!window.confirm(status === 'Alta' ? '¿Dar de alta a esta mascota?' : '¿Registrar el fallecimiento?')) return
+  async function discharge(id: string, status: 'Alta' | 'Fallecido') {
+    if (!(await confirm({ title: status === 'Alta' ? '¿Dar de alta a esta mascota?' : '¿Registrar el fallecimiento?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await dischargeHospitalization(id, status)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -252,13 +268,6 @@ export default function Veterinaria({ section, data, onData, pacientes }: Props)
               ))}
             </tbody>
           </table>
-          {data.canWrite && (
-            <div style={{ padding: '12px 16px' }}>
-              <button className="btn dark" disabled={pending || pacientes.length === 0} onClick={() => setPetOpen(true)}>
-                <Plus size={14} />Nueva mascota
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -313,13 +322,6 @@ export default function Veterinaria({ section, data, onData, pacientes }: Props)
               ))}
             </tbody>
           </table>
-          {data.canWrite && (
-            <div style={{ padding: '12px 16px' }}>
-              <button className="btn dark" disabled={pending || data.pets.length === 0} onClick={() => setVaccineOpen(true)}>
-                <Plus size={14} />Registrar vacuna
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -387,13 +389,6 @@ export default function Veterinaria({ section, data, onData, pacientes }: Props)
               ))}
             </tbody>
           </table>
-          {data.canWrite && (
-            <div style={{ padding: '12px 16px' }}>
-              <button className="btn dark" disabled={pending || data.pets.length === 0} onClick={() => setHospOpen(true)}>
-                <Plus size={14} />Nuevo ingreso
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -538,4 +533,6 @@ export default function Veterinaria({ section, data, onData, pacientes }: Props)
       </FormDrawer>
     </>
   )
-}
+})
+
+export default Veterinaria

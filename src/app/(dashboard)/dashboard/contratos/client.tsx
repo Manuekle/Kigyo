@@ -13,6 +13,7 @@ import Toggle from '@/components/ui/Toggle'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { CONTRACT_KINDS, CONTRACT_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { ContractRow, ContratosData } from '@/server/queries/contratos'
@@ -50,6 +51,7 @@ const EMPTY_MILESTONE = { contractId: '', title: '', dueOn: '', amount: '', posi
 
 export default function ContratosPage({ data }: { data: ContratosData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
@@ -145,8 +147,8 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
     })
   }
 
-  function remove(c: ContractRow) {
-    if (!window.confirm(`¿Eliminar ${c.title}? Se eliminan también sus hitos.`)) return
+  async function remove(c: ContractRow) {
+    if (!(await confirm({ title: `¿Eliminar ${c.title}?`, description: 'Se eliminan también sus hitos.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteContrato(c.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

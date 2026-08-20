@@ -35,6 +35,11 @@ export interface DocumentoRow {
   department: string
   ownerId: string | null
   ownerName: string | null
+  /** Quién transfirió el archivo, que no siempre es el responsable. */
+  uploadedBy: string | null
+  uploaderName: string | null
+  /** «Privada» solo la ve su dueño y con quien la comparta. */
+  visibility: 'Privada' | 'Pública'
   status: string
   tags: string[]
   storagePath: string | null
@@ -78,12 +83,19 @@ interface DocumentRecord {
   ai_checked_at: string | null
   expires_on: string | null
   created_at: string
+  uploaded_by: string | null
+  visibility: 'Privada' | 'Pública'
   employees: { full_name: string } | null
+  profiles: { full_name: string; email: string } | null
 }
 
+// `profiles` entra por su clave foránea explícita: la tabla llega dos veces
+// —el responsable vía `employees`, quien subió vía `profiles`— y sin nombrar
+// la relación PostgREST no sabe cuál de las dos se pide.
 const DOCUMENT_COLUMNS = `id, code, folder_id, name, kind, department, owner_id, status, tags,
    storage_path, mime_type, size_bytes, ai_status, ai_verdict, ai_checked_at,
-   expires_on, created_at, employees ( full_name )`
+   expires_on, created_at, uploaded_by, visibility, employees ( full_name ),
+   profiles!documents_uploaded_by_fkey ( full_name, email )`
 
 function toDocumento(row: DocumentRecord): DocumentoRow {
   return {
@@ -95,6 +107,10 @@ function toDocumento(row: DocumentRecord): DocumentoRow {
     department: row.department,
     ownerId: row.owner_id,
     ownerName: row.employees?.full_name ?? null,
+    uploadedBy: row.uploaded_by,
+    // El correo cubre a quien todavía no tiene el nombre puesto en su perfil.
+    uploaderName: row.profiles?.full_name?.trim() || row.profiles?.email || null,
+    visibility: row.visibility,
     status: row.status,
     tags: row.tags ?? [],
     storagePath: row.storage_path,

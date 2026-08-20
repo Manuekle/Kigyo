@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { ProveedorRow, ProveedoresData } from '@/server/queries/proveedores'
 import {
@@ -22,6 +23,7 @@ const EMPTY_FORM = {
 
 export default function ProveedoresPage({ data }: { data: ProveedoresData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [proveedores, setProveedores] = useState<ProveedorRow[]>(data.proveedores)
@@ -83,8 +85,8 @@ export default function ProveedoresPage({ data }: { data: ProveedoresData }) {
     })
   }
 
-  function remove(p: ProveedorRow) {
-    if (!window.confirm(`¿Eliminar a ${p.name}? Las facturas y productos conservan el nombre.`)) return
+  async function remove(p: ProveedorRow) {
+    if (!(await confirm({ title: `¿Eliminar a ${p.name}?`, description: 'Las facturas y productos conservan el nombre.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteProveedor(p.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

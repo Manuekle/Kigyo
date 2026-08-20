@@ -10,6 +10,7 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { CROP_CYCLE_STATUSES, LOT_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import { useExport } from '@/lib/hooks/use-export'
@@ -81,6 +82,7 @@ const EMPTY_IRRIGATION = {
 
 export default function AgroPage({ data }: { data: AgroData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
@@ -195,8 +197,8 @@ export default function AgroPage({ data }: { data: AgroData }) {
     })
   }
 
-  function remove(l: LotRow) {
-    if (!window.confirm(`¿Eliminar ${l.name}? Se eliminan también sus ciclos y cosechas.`)) return
+  async function remove(l: LotRow) {
+    if (!(await confirm({ title: `¿Eliminar ${l.name}?`, description: 'Se eliminan también sus ciclos y cosechas.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteLote(l.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -302,8 +304,8 @@ export default function AgroPage({ data }: { data: AgroData }) {
     })
   }
 
-  function removeInsumo(i: InsumoRow) {
-    if (!window.confirm(`¿Eliminar ${i.name}?`)) return
+  async function removeInsumo(i: InsumoRow) {
+    if (!(await confirm({ title: `¿Eliminar ${i.name}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteInsumo(i.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -394,8 +396,8 @@ export default function AgroPage({ data }: { data: AgroData }) {
     })
   }
 
-  function removeMaquina(m: MaquinaRow) {
-    if (!window.confirm(`¿Eliminar ${m.name}?`)) return
+  async function removeMaquina(m: MaquinaRow) {
+    if (!(await confirm({ title: `¿Eliminar ${m.name}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteMaquina(m.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

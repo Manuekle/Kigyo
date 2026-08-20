@@ -12,6 +12,7 @@ import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { activatable } from '@/lib/a11y'
 import { cop } from '@/lib/utils'
@@ -92,6 +93,7 @@ function toForm(c: CompraRow): FormState {
 
 export default function ComprasPage({ data }: { data: ComprasData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
@@ -231,8 +233,8 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
     })
   }
 
-  function remove(c: CompraRow) {
-    if (!window.confirm(`¿Eliminar la requisición ${c.code ?? ''}?`)) return
+  async function remove(c: CompraRow) {
+    if (!(await confirm({ title: `¿Eliminar la requisición ${c.code ?? ''}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCompra(c.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -325,8 +327,8 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
     })
   }
 
-  function removeInvoice(inv: SupplierInvoiceRow) {
-    if (!window.confirm(`¿Eliminar la factura ${inv.code ?? ''}?`)) return
+  async function removeInvoice(inv: SupplierInvoiceRow) {
+    if (!(await confirm({ title: `¿Eliminar la factura ${inv.code ?? ''}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteSupplierInvoice(inv.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

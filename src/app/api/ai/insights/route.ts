@@ -185,7 +185,6 @@ export const POST = route({
     const { object } = await generateObject({
       model: chatModel(),
       schema: insightsSchema,
-      temperature: 0.3,
       system:
         `Eres el analista de operaciones de "${member.orgName}" en Kigyo. ` +
         'Escribe SIEMPRE en español, en tono directo y profesional. ' +

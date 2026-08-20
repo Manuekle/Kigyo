@@ -9,6 +9,7 @@ import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import { tone } from '@/lib/utils'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { ABSENCE_KINDS, ABSENCE_STATUSES, dayCount } from '@/lib/domain'
 import type { AsistenciaData, AusenciaRow } from '@/server/queries/asistencia'
 import {
@@ -33,6 +34,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10)
 
 export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<AsistenciaData>(data)
@@ -121,8 +123,8 @@ export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
     })
   }
 
-  function remove(a: AusenciaRow) {
-    if (!window.confirm(`¿Eliminar la ausencia de ${a.employeeName}? Si eran vacaciones, los días vuelven a su saldo.`)) return
+  async function remove(a: AusenciaRow) {
+    if (!(await confirm({ title: `¿Eliminar la ausencia de ${a.employeeName}?`, description: 'Si eran vacaciones, los días vuelven a su saldo.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteAusencia(a.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -138,8 +140,8 @@ export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
     })
   }, [addToast, startTransition])
 
-  function removeSalida(s: SalidaRow) {
-    if (!window.confirm(`¿Eliminar la salida de ${s.fullName}?`)) return
+  async function removeSalida(s: SalidaRow) {
+    if (!(await confirm({ title: `¿Eliminar la salida de ${s.fullName}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteSalida(s.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

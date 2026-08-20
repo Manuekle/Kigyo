@@ -158,6 +158,16 @@ export type DocumentKind = (typeof DOCUMENT_KINDS)[number]
 export const DOCUMENT_STATUSES = ['Vigente', 'Borrador', 'Archivado', 'Vencido'] as const
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number]
 
+/**
+ * Quién ve un documento.
+ *
+ * «Pública» es pública *dentro de la empresa*, nunca en internet: el bucket
+ * sigue siendo privado y cada descarga pasa por una URL firmada. La distinción
+ * importa porque la palabra sugiere lo contrario.
+ */
+export const DOCUMENT_VISIBILITIES = ['Privada', 'Pública'] as const
+export type DocumentVisibility = (typeof DOCUMENT_VISIBILITIES)[number]
+
 /* ─── signatures ───────────────────────────────────────────────────────── */
 export const SIGNATURE_KINDS = [
   'Contrato', 'NDA', 'Política', 'Anexo', 'Adenda', 'Acuerdo', 'Terminación', 'Otro',

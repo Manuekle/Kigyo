@@ -6,6 +6,7 @@ import { Users, BarChart3, Search, FileSpreadsheet, Plus, ChevronRight, PenLine,
 import { initials } from '@/lib/utils'
 import { useExport } from '@/lib/hooks/use-export'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import NuevoEmpleadoModal from '@/components/ui/NuevoEmpleadoModal'
 import FormDrawer from '@/components/ui/FormDrawer'
 import Select from '@/components/ui/Select'
@@ -268,6 +269,7 @@ function OrgNode({ emp, byManager, onOpen, seen }: OrgNodeProps) {
 /*  Empleados                                                          */
 /* ------------------------------------------------------------------ */
 export default function EmpleadosPage({ data }: { data: EmpleadosData }) {
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const router = useRouter()
@@ -325,8 +327,8 @@ export default function EmpleadosPage({ data }: { data: EmpleadosData }) {
     })
   }
 
-  function remove(emp: EmpleadoRow) {
-    if (!window.confirm(`¿Retirar a ${emp.fullName} del directorio? Su historial se conserva.`)) return
+  async function remove(emp: EmpleadoRow) {
+    if (!(await confirm({ title: `¿Retirar a ${emp.fullName} del directorio?`, description: 'Su historial se conserva.' }))) return
     startMutating(async () => {
       const result = await deleteEmpleado(emp.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

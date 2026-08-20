@@ -24,6 +24,41 @@
   --font-mono: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
+/* ═══ puente de tokens — utilidades semánticas de Tailwind ═══
+   Los componentes de agente (`src/components/ai/`) están escritos contra el
+   vocabulario shadcn: `text-muted-foreground`, `bg-muted`, `ring-ring`. Aquí
+   ese vocabulario se ata a la paleta Chinese Ink de este archivo en lugar de
+   traer una segunda paleta, así que siguen el tema como todo lo demás y no
+   quedan dos definiciones de "gris apagado" que puedan separarse.
+
+   Los nombres sin prefijo (`--foreground`) existen porque parte de ese código
+   los lee directamente dentro de un gradiente; `@theme inline` es lo que
+   convierte esos mismos valores en clases de utilidad. */
+:root {
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --muted: rgb(var(--ink-rgb) / .05);
+  --muted-foreground: var(--ink2);
+  --ring: var(--focus-ring-color);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--line);
+  --color-ring: var(--ring);
+}
+
+/* Scroll sin barra visible — el patrón que ya usa `.ia-msgs`, expuesto como
+   utilidad para las listas internas de los componentes de agente. */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
 @keyframes shiny-text {
   0% { background-position: calc(var(--shiny-width) * -1) 0; }
   100% { background-position: var(--shiny-width) 0; }
@@ -581,6 +616,13 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+.nav > div { animation: sidebar-section-in 420ms var(--drawer-ease) both; }
+.nav > div:nth-child(2) { animation-delay: 35ms; }
+.nav > div:nth-child(3) { animation-delay: 70ms; }
+.nav > div:nth-child(4) { animation-delay: 105ms; }
+.nav > div:nth-child(5) { animation-delay: 140ms; }
+.nav > div:nth-child(6) { animation-delay: 175ms; }
+.nav > div:nth-child(7) { animation-delay: 210ms; }
 .nav::-webkit-scrollbar { display: none; }
 
 /* The filter over the nav. Sits between the company switcher and the list so
@@ -622,32 +664,6 @@
   color: var(--ink3);
   padding: 20px 8px 6px;
 }
-/* The heading is a button now, so it has to keep looking like a heading: same
-   size, same colour, same padding, with the chevron as the only tell. */
-.nlabel-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  text-align: left;
-  transition: color var(--hover-dur) var(--hover-ease);
-}
-.nlabel-btn:hover { color: var(--ink2); }
-.nlabel-chev {
-  flex-shrink: 0;
-  opacity: .6;
-  transform: rotate(90deg);
-  transition: transform var(--acc-chevron) var(--acc-ease);
-}
-.nlabel-btn.is-shut .nlabel-chev { transform: none; }
-/* How many items are folded away. Only rendered while shut — see Sidebar. */
-.nlabel-count {
-  margin-left: auto;
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink3);
-  opacity: .7;
-}
 
 /* A second screen of the module above it — Órdenes de compra under Compras.
    Indented to the parent's label rather than to its icon, so the relationship
@@ -688,6 +704,7 @@
 .nitem:hover {
   background: var(--hover);
   color: var(--ink);
+  transform: translateX(3px);
 }
 .nitem.on {
   background: var(--active);
@@ -2991,7 +3008,12 @@ input[type="range"].sld::-moz-range-thumb {
   margin-top: 1px;
   background: var(--ink);
 }
-.ia-bub { font-size: 14.5px; line-height: 1.7; white-space: pre-wrap; }
+/* El salto de línea literal se respeta en el texto, no en la burbuja: la
+   burbuja del asistente ahora contiene marcado (plan, traza, tarjetas), y
+   `pre-wrap` ahí convertía cada sangría del JSX en espacio visible. */
+.ia-bub { font-size: 14.5px; line-height: 1.7; }
+.ia-row.me .ia-bub { white-space: pre-wrap; }
+.ia-answer { white-space: pre-wrap; font-size: 14.5px; line-height: 1.7; color: var(--ink); }
 /* Orb + label for a turn with no text yet. The orb is a 20px canvas, so the
    row is centred rather than baseline-aligned — a canvas has no baseline of
    its own and would otherwise sit low against the shimmering label. */
@@ -4456,6 +4478,146 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 .upfill { height: 100%; border-radius: var(--rfull); background: var(--ink2); transition: width var(--meter-dur) var(--hover-ease); }
 .upfoot { display: flex; justify-content: flex-end; margin-top: 7px; }
 .uppct { font-size: 11px; color: var(--ink3); font-weight: 400; }
+
+/* El panel de subida necesita más ancho que un diálogo de confirmación —
+   trae una zona de soltar y una lista de filas, no dos líneas de texto — así
+   que `.mm-panel` se amplía aquí en vez de en la base, que sigue siendo la
+   correcta para confirmaciones. */
+.upload-modal { max-width: 560px; max-height: 88vh; }
+.upload-modal .mm-body { padding: 20px; max-height: 88vh; overflow-y: auto; }
+
+/* ═══ documentos: visibilidad y vista previa ═══ */
+
+/* El distintivo va junto al nombre y no en su propia columna: la pregunta
+   «¿esto lo ve alguien más?» se hace mirando el archivo, no recorriendo una
+   columna. Lo privado lleva más peso porque es el estado que hay que notar. */
+.vischip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 5px;
+  padding: 2px 7px;
+  border-radius: var(--rfull);
+  border: 1px solid var(--line);
+  font-size: 10.5px;
+  color: var(--ink3);
+}
+.vischip.is-private { color: var(--ink2); border-color: rgb(var(--ink-rgb) / .14); }
+.vischip svg { flex-shrink: 0; }
+
+/* El visor ocupa lo que puede: un PDF a 440px de ancho no es una vista previa,
+   es una miniatura con barras de desplazamiento. */
+.dpv { width: min(920px, 100%); max-height: 88vh; }
+.dpv-body { display: flex; flex-direction: column; gap: 12px; min-height: 320px; }
+.dpv-loading { display: grid; place-items: center; min-height: 320px; margin: 0; }
+.dpv-stage { position: relative; display: flex; align-items: center; justify-content: center; min-height: min(70vh, 720px); }
+.dpv-skeleton { position: absolute; inset: 0; z-index: 1; border-radius: var(--r); background: linear-gradient(100deg, var(--hover) 30%, var(--bg2) 50%, var(--hover) 70%); background-size: 200% 100%; animation: dpv-shimmer 1.4s linear infinite; pointer-events: none; }
+@keyframes dpv-shimmer { to { background-position: -200% 0; } }
+.dpv-frame {
+  width: 100%;
+  height: min(70vh, 720px);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg2);
+}
+.dpv-image {
+  width: 100%;
+  height: min(70vh, 720px);
+  max-width: 100%;
+  max-height: min(70vh, 720px);
+  margin: 0 auto;
+  object-fit: contain;
+  border-radius: var(--r);
+}
+.dpv-media { width: 100%; max-height: min(70vh, 720px); border-radius: var(--r); }
+.dpv-audio { width: 100%; }
+.dpv-text {
+  margin: 0;
+  padding: 14px 16px;
+  max-height: min(70vh, 720px);
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--ink2);
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.dpv-note { margin: 0; font-size: 11.5px; color: var(--ink3); text-align: center; }
+.dpv-none {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 48px 20px;
+  color: var(--ink3);
+}
+.dpv-none-title { margin: 0; font-size: 13px; color: var(--ink2); }
+
+/* ═══ diálogo de confirmación ═══
+   Sustituye a `window.confirm`. Va por encima de `.mwrap` (110) porque se
+   confirma *desde dentro* de un modal — borrar una fila del cajón que está
+   abierto — y por debajo de los toasts, que son el acuse de lo que pasó
+   después. */
+.mm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  border: none;
+  padding: 0;
+  background: rgb(var(--shadow-rgb) / .40);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  cursor: default;
+}
+.mm-layer {
+  position: fixed;
+  inset: 16px;
+  z-index: 140;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+.mm-layer-bottom { align-items: flex-end; padding-bottom: 16px; }
+.mm-panel {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  overflow: hidden;
+  border-radius: var(--r-2xl);
+  border: 1px solid var(--line);
+  background: var(--elevated);
+  box-shadow: var(--e4);
+  pointer-events: auto;
+  will-change: transform;
+}
+.mm-body { padding: 20px; }
+.mm-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16.5px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.mm-desc {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink2);
+}
+/* La acción destructiva va a la derecha y cancelar a la izquierda, como en el
+   diálogo nativo que esto reemplaza: cambiar el orden convierte la memoria
+   muscular de quien ya usaba la aplicación en un borrado accidental. */
+.mm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
 
 /* ═══ modals ═══ */
 .mwrap {
@@ -5955,6 +6117,7 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 @keyframes slide { from { transform: translateX(20px); opacity: 0 } to { transform: none; opacity: 1 } }
 @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .3 } 30% { transform: translateY(-4px); opacity: 1 } }
 @keyframes up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+@keyframes sidebar-section-in { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
 .rise { animation: up .4s ease-out both; }
 .rise.d1 { animation-delay: .04s } .rise.d2 { animation-delay: .08s } .rise.d3 { animation-delay: .12s }
 .rise.d4 { animation-delay: .16s } .rise.d5 { animation-delay: .2s } .rise.d6 { animation-delay: .24s }
@@ -5988,6 +6151,9 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 }
 @media (max-width: 1024px) and (prefers-reduced-motion: reduce) {
   .sb { transition: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav > div, .nitem { animation: none !important; transition: none !important; }
 }
 @media (max-width: 1080px) { .g2 { grid-template-columns: 1fr; } }
 @media (max-width: 760px) {
@@ -6413,49 +6579,39 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 }
 .access-denied-body b { color: var(--ink2); font-weight: 400; }
 
-/* ═══ assistant: sources, warnings, errors ═══ */
+/* ═══ assistant: composer orb, proposal, warnings, errors ═══ */
 
-.ia-sources { margin-top: 10px; }
-.ia-sources-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--elevated);
-  color: var(--ink3);
-  font-size: 11.5px;
-  font-weight: 400;
-  transition: color .16s ease-out, border-color .16s ease-out;
-}
-.ia-sources-toggle:hover { color: var(--ink2); border-color: rgb(var(--ink-rgb) / .12); }
-
-.ia-sources-list {
-  list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
+/* El orbe vive dentro de la píldora, a la izquierda del texto. Ancho fijo
+   para que el campo no se desplace cuando el estado cambia de dibujo. */
+.ia-orb {
   display: grid;
-  gap: 10px;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-right: 2px;
 }
-.ia-sources-list li {
-  padding: 10px 12px;
-  border-radius: var(--r-sm);
-  background: var(--bg2);
-  border: 1px solid var(--line2);
+
+/* Los datos de una escritura propuesta, en dos columnas: etiqueta arriba,
+   valor abajo. Se lee de un vistazo, que es la condición para que aprobar
+   sin leer no sea lo más cómodo. */
+.ia-proposal {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
 }
-.ia-sources-list a,
-.ia-sources-list > li > span {
-  font-size: 12.5px;
-  font-weight: 400;
-  color: var(--ink2);
-}
-.ia-sources-list a:hover { color: var(--ink); text-decoration: underline; }
-.ia-sources-list p {
-  margin: 5px 0 0;
-  font-size: 11.5px;
-  line-height: 1.55;
+.ia-proposal-full { grid-column: 1 / -1; }
+.ia-proposal dt {
+  font-size: 11px;
   color: var(--ink3);
+  margin-bottom: 2px;
+}
+.ia-proposal dd {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
 }
 
 .ia-warn {
@@ -6479,9 +6635,7 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   color: var(--ink2);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ia-sources-toggle { transition: none; }
-}
+
 
 /* ═══════════════════════════════════════════════════════════════════
    transitions.dev — additional components

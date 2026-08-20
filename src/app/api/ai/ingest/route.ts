@@ -25,7 +25,7 @@ export const POST = route({
     const supabase = await createClient()
     const { data: document, error } = await supabase
       .from('documents')
-      .select('id, name, mime_type, storage_path')
+      .select('id, name, mime_type, storage_path, kind, department, tags, employees ( full_name )')
       .eq('id', parsed.data.id)
       .eq('org_id', member.orgId)
       .is('deleted_at', null)
@@ -41,6 +41,12 @@ export const POST = route({
         name: document.name,
         mimeType: document.mime_type,
         storagePath: document.storage_path,
+        kind: document.kind,
+        department: document.department,
+        tags: document.tags,
+        ownerName:
+          (document as unknown as { employees: { full_name: string } | null }).employees
+            ?.full_name ?? null,
       })
       return {
         ok: true,

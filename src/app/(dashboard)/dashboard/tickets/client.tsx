@@ -6,6 +6,7 @@ import {
   X, PenLine, Trash2, MessageSquare, Send,
 } from '@/lib/icons'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import NuevoTicketModal from '@/components/ui/NuevoTicketModal'
 import Stat from '@/components/ui/Stat'
@@ -387,6 +388,7 @@ const BOARD_COLUMNS = ['Abierto', 'En proceso', 'Resuelto'] as const
 
 export default function TicketsPage({ data }: { data: TicketsData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
@@ -463,8 +465,8 @@ export default function TicketsPage({ data }: { data: TicketsData }) {
     })
   }
 
-  function removeTicket(t: TicketRow) {
-    if (!window.confirm(`¿Eliminar el ticket ${t.code ?? ''}? Se conservará su historial pero dejará de aparecer.`)) return
+  async function removeTicket(t: TicketRow) {
+    if (!(await confirm({ title: `¿Eliminar el ticket ${t.code ?? ''}? Se conservará su historial pero dejará de aparecer.`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteTicket(t.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

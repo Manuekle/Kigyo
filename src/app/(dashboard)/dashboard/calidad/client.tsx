@@ -7,6 +7,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import type { StatusTone } from '@/lib/types'
 import type { CalidadData } from '@/server/queries/calidad'
 import {
@@ -69,6 +70,7 @@ const EMPTY_NC: NcForm = { productId: '', batch: '', description: '', severity: 
 
 export default function CalidadPage({ data }: { data: CalidadData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -106,8 +108,8 @@ export default function CalidadPage({ data }: { data: CalidadData }) {
     })
   }
 
-  function removeCheck(id: string) {
-    if (!window.confirm('¿Eliminar este control?')) return
+  async function removeCheck(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este control?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCheck(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -141,8 +143,8 @@ export default function CalidadPage({ data }: { data: CalidadData }) {
     })
   }
 
-  function removeNc(id: string) {
-    if (!window.confirm('¿Eliminar esta no conformidad?')) return
+  async function removeNc(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta no conformidad?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteNonconformity(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

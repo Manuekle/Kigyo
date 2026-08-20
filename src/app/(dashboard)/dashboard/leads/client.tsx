@@ -10,6 +10,7 @@ import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import {
   ACTIVITY_KINDS, LEAD_SOURCES, LEAD_STAGES,
 } from '@/lib/leads'
@@ -64,6 +65,7 @@ function toForm(lead: LeadRow): FormState {
 
 export default function LeadsPage({ data }: { data: LeadsData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<LeadsData>(data)
@@ -131,8 +133,8 @@ export default function LeadsPage({ data }: { data: LeadsData }) {
     })
   }
 
-  function convert(lead: LeadRow) {
-    if (!window.confirm(`¿Convertir «${lead.name}» en cliente? Se creará en el directorio de Clientes.`)) return
+  async function convert(lead: LeadRow) {
+    if (!(await confirm({ title: `¿Convertir «${lead.name}» en cliente?`, description: 'Se creará en el directorio de Clientes.' }))) return
     startTransition(async () => {
       const result = await convertLead(lead.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -141,8 +143,8 @@ export default function LeadsPage({ data }: { data: LeadsData }) {
     })
   }
 
-  function remove(lead: LeadRow) {
-    if (!window.confirm(`¿Eliminar el lead «${lead.name}»? Su historial se pierde.`)) return
+  async function remove(lead: LeadRow) {
+    if (!(await confirm({ title: `¿Eliminar el lead «${lead.name}»?`, description: 'Su historial se pierde.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteLead(lead.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

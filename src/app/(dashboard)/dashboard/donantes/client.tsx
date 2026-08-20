@@ -7,6 +7,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { DonantesData } from '@/server/queries/donantes'
@@ -51,6 +52,7 @@ const EMPTY_DONATION = {
 
 export default function DonantesPage({ data }: { data: DonantesData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -87,8 +89,8 @@ export default function DonantesPage({ data }: { data: DonantesData }) {
     })
   }
 
-  function removeDonor(id: string, name: string) {
-    if (!window.confirm(`¿Eliminar a ${name}? Sus donaciones se conservan.`)) return
+  async function removeDonor(id: string, name: string) {
+    if (!(await confirm({ title: `¿Eliminar a ${name}?`, description: 'Sus donaciones se conservan.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteDonor(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -116,8 +118,8 @@ export default function DonantesPage({ data }: { data: DonantesData }) {
     })
   }
 
-  function removeDonation(id: string) {
-    if (!window.confirm('¿Eliminar esta donación?')) return
+  async function removeDonation(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta donación?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteDonation(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

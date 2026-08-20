@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Plus, Trash2 } from '@/lib/icons'
 import Select from '@/components/ui/Select'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { MODULE_LABELS } from '@/lib/auth/permissions'
 import { moduleDef } from '@/lib/modules'
 import type { ReportesData } from '@/server/queries/reportes'
@@ -36,6 +37,7 @@ const EMPTY_FORM = { name: '', moduleKey: '', period: 'mes', notes: '' }
 
 export default function ReportesPage({ data }: { data: ReportesData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -58,8 +60,8 @@ export default function ReportesPage({ data }: { data: ReportesData }) {
     })
   }
 
-  function removeReport(id: string, name: string) {
-    if (!window.confirm(`¿Eliminar el reporte "${name}"?`)) return
+  async function removeReport(id: string, name: string) {
+    if (!(await confirm({ title: `¿Eliminar el reporte "${name}"?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteReport(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

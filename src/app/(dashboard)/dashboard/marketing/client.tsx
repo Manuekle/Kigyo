@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import type { StatusTone } from '@/lib/types'
 import type { MarketingData, CampaignChannel, TemplateRow } from '@/server/queries/marketing'
 import {
@@ -56,6 +57,7 @@ const KIND_OPTS = [
 
 export default function MarketingPage({ data }: { data: MarketingData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -120,8 +122,8 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
     })
   }
 
-  function removeCampaign(id: string) {
-    if (!window.confirm('¿Eliminar esta campaña y su lista de destinatarios?')) return
+  async function removeCampaign(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta campaña y su lista de destinatarios?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCampaign(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -144,8 +146,8 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
     })
   }
 
-  function removePoints(id: string) {
-    if (!window.confirm('¿Eliminar este movimiento de puntos?')) return
+  async function removePoints(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este movimiento de puntos?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePoints(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -164,8 +166,8 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
     })
   }
 
-  function removeTemplate(id: string) {
-    if (!window.confirm('¿Eliminar esta plantilla?')) return
+  async function removeTemplate(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta plantilla?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteTemplate(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

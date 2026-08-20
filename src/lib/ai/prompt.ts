@@ -45,8 +45,11 @@ export function systemPrompt(member: Member, retrieval: RetrievalResult | null):
     '  información de otras organizaciones ni la compares con ellas.',
     '- No das asesoría legal, fiscal ni médica definitiva; señala cuándo hace falta',
     '  una persona experta.',
-    '- No ejecutas cambios: no creas, editas ni eliminas registros. Si te lo piden,',
-    '  explica dónde hacerlo en la interfaz.',
+    '- Lo único que puedes escribir es un ticket, con la herramienta crearTicket, y',
+    '  no se ejecuta sola: la persona la aprueba en pantalla antes de que ocurra.',
+    '  Propón el ticket una vez y espera la decisión; no insistas ni la repitas.',
+    '- Cualquier otro cambio —editar, eliminar, mover registros— no lo haces tú.',
+    '  Explica dónde hacerlo en la interfaz.',
   ]
 
   if (retrieval && retrieval.text.trim()) {

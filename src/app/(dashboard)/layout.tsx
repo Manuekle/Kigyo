@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { AppProvider } from '@/lib/context/AppContext'
+import { ConfirmProvider } from '@/lib/context/ConfirmContext'
 import { MemberProvider } from '@/lib/context/MemberContext'
 import { SoundProvider } from '@/lib/context/SoundContext'
 import { requireMember } from '@/lib/auth/session'
@@ -74,34 +75,36 @@ export default async function DashboardLayout({ children }: { children: React.Re
       }}
     >
       <AppProvider>
-        <SoundProvider>
-          <a href="#contenido" className="skip-link">Saltar al contenido</a>
-          <Sidebar />
-          <main className="main">
-            <Topbar notificaciones={notificaciones} />
-            {/*
-              A suspended company is fully readable and refuses every write.
-              Without this banner the customer learns that from a failed save —
-              an error about a permission they do have, for a reason nothing on
-              screen mentions. Said once, at the top, on every page.
+        <ConfirmProvider>
+          <SoundProvider>
+            <a href="#contenido" className="skip-link">Saltar al contenido</a>
+            <Sidebar />
+            <main className="main">
+              <Topbar notificaciones={notificaciones} />
+              {/*
+                A suspended company is fully readable and refuses every write.
+                Without this banner the customer learns that from a failed save —
+                an error about a permission they do have, for a reason nothing on
+                screen mentions. Said once, at the top, on every page.
 
-              Rendered here rather than per page because it is a property of the
-              company, not of what is being looked at.
-            */}
-            {member.status === 'suspended' && (
-              <div className="suspend-banner" role="status">
-                <strong>{member.orgName} está en modo solo lectura.</strong>{' '}
-                El plan de la cuenta no cubre esta empresa o el pago está pendiente. Tus datos
-                siguen completos y vuelven a estar disponibles al regularizar el plan.
+                Rendered here rather than per page because it is a property of the
+                company, not of what is being looked at.
+              */}
+              {member.status === 'suspended' && (
+                <div className="suspend-banner" role="status">
+                  <strong>{member.orgName} está en modo solo lectura.</strong>{' '}
+                  El plan de la cuenta no cubre esta empresa o el pago está pendiente. Tus datos
+                  siguen completos y vuelven a estar disponibles al regularizar el plan.
+                </div>
+              )}
+              <div className="content" id="contenido" tabIndex={-1}>
+                {children}
               </div>
-            )}
-            <div className="content" id="contenido" tabIndex={-1}>
-              {children}
-            </div>
-          </main>
-          <Toasts />
-          <CommandPalette />
-        </SoundProvider>
+            </main>
+            <Toasts />
+            <CommandPalette />
+          </SoundProvider>
+        </ConfirmProvider>
       </AppProvider>
     </MemberProvider>
   )

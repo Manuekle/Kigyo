@@ -11,6 +11,7 @@ import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { activatable } from '@/lib/a11y'
 import { cop } from '@/lib/utils'
@@ -66,6 +67,7 @@ const lineTotal = (i: DraftItem) =>
 
 export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
@@ -195,8 +197,8 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
     })
   }
 
-  function resetStages() {
-    if (!window.confirm('¿Restablecer las etapas por defecto? Las tuyas se conservan y se reactivan; las que falten se agregan.')) return
+  async function resetStages() {
+    if (!(await confirm({ title: '¿Restablecer las etapas por defecto?', description: 'Las tuyas se conservan y se reactivan; las que falten se agregan.' }))) return
     startTransition(async () => {
       const result = await resetPipelineStages()
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -204,8 +206,8 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
     })
   }
 
-  function remove(q: CotizacionRow) {
-    if (!window.confirm(`¿Eliminar la cotización de "${q.client}"?`)) return
+  async function remove(q: CotizacionRow) {
+    if (!(await confirm({ title: `¿Eliminar la cotización de "${q.client}"?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCotizacion(q.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

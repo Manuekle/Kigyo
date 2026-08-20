@@ -7,6 +7,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { TiemposData } from '@/server/queries/tiempos'
 import { addTimeEntry, deleteTimeEntry } from '@/server/mutations/tiempos'
@@ -44,6 +45,7 @@ const EMPTY_FORM = {
 
 export default function TiemposPage({ data }: { data: TiemposData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
   const [state, setState] = useState(data)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -73,8 +75,8 @@ export default function TiemposPage({ data }: { data: TiemposData }) {
     })
   }
 
-  function remove(id: string) {
-    if (!window.confirm('¿Eliminar esta entrada?')) return
+  async function remove(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta entrada?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteTimeEntry(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

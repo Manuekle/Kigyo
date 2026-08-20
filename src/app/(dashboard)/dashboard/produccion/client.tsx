@@ -9,6 +9,7 @@ import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { PRODUCTION_STATUSES } from '@/lib/domain'
 import type { BomRow, ProduccionData, ProductionRow } from '@/server/queries/produccion'
 import {
@@ -56,6 +57,7 @@ function yieldOf(o: ProductionRow): number | null {
 
 export default function ProduccionPage({ data }: { data: ProduccionData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [ordenes, setOrdenes] = useState<ProductionRow[]>(data.ordenes)
@@ -158,8 +160,8 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
     })
   }
 
-  function remove(o: ProductionRow) {
-    if (!window.confirm('¿Eliminar esta orden? Se eliminan también sus etapas.')) return
+  async function remove(o: ProductionRow) {
+    if (!(await confirm({ title: '¿Eliminar esta orden?', description: 'Se eliminan también sus etapas.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteOrdenProduccion(o.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -187,8 +189,8 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
     })
   }
 
-  function removeBom(id: string) {
-    if (!window.confirm('¿Eliminar esta lista de materiales?')) return
+  async function removeBom(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta lista de materiales?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteBom(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

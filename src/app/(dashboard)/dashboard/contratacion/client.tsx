@@ -8,6 +8,7 @@ import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import Toggle from '@/components/ui/Toggle'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { ContratacionData } from '@/server/queries/contratacion'
@@ -105,6 +106,7 @@ const EMPTY_OFER: OferForm = { procesoId: '', name: '', contacto: '', valor: '' 
 
 export default function ContratacionPage({ data }: { data: ContratacionData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -187,8 +189,8 @@ export default function ContratacionPage({ data }: { data: ContratacionData }) {
     })
   }
 
-  function removeProc(id: string) {
-    if (!window.confirm('¿Eliminar este proceso con sus pliegos y oferentes?')) return
+  async function removeProc(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este proceso con sus pliegos y oferentes?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteProceso(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -197,8 +199,8 @@ export default function ContratacionPage({ data }: { data: ContratacionData }) {
     })
   }
 
-  function removePliego(id: string) {
-    if (!window.confirm('¿Eliminar este requisito?')) return
+  async function removePliego(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este requisito?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePliego(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -207,8 +209,8 @@ export default function ContratacionPage({ data }: { data: ContratacionData }) {
     })
   }
 
-  function removeOfer(id: string) {
-    if (!window.confirm('¿Eliminar este oferente?')) return
+  async function removeOfer(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este oferente?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteOferente(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

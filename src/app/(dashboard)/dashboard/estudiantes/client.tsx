@@ -10,6 +10,7 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { ACADEMIC_ENROLLMENT_STATUSES, STUDENT_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
@@ -62,6 +63,7 @@ const EMPTY_HORARIO = {
 export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [estudiantes, setEstudiantes] = useState<StudentRow[]>(data.estudiantes)
@@ -180,8 +182,8 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
     })
   }
 
-  function remove(s: StudentRow) {
-    if (!window.confirm(`¿Eliminar a ${s.fullName}? Se eliminan también sus materias.`)) return
+  async function remove(s: StudentRow) {
+    if (!(await confirm({ title: `¿Eliminar a ${s.fullName}?`, description: 'Se eliminan también sus materias.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteEstudiante(s.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -303,8 +305,8 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
     })
   }
 
-  function removeHorario(h: HorarioRow) {
-    if (!window.confirm(`¿Eliminar el horario de ${h.subject}?`)) return
+  async function removeHorario(h: HorarioRow) {
+    if (!(await confirm({ title: `¿Eliminar el horario de ${h.subject}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteHorario(h.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -331,8 +333,8 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
     })
   }
 
-  function removeNota(id: string) {
-    if (!window.confirm('¿Eliminar este corte? La nota de la materia se recalcula.')) return
+  async function removeNota(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este corte?', description: 'La nota de la materia se recalcula.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteNota(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -354,8 +356,8 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
     })
   }
 
-  function removeAttendance(a: AsistenciaRow) {
-    if (!window.confirm(`¿Quitar la marca de asistencia de ${a.studentName}?`)) return
+  async function removeAttendance(a: AsistenciaRow) {
+    if (!(await confirm({ title: `¿Quitar la marca de asistencia de ${a.studentName}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteAsistencia(a.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

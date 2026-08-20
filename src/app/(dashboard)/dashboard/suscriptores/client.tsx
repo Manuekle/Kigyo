@@ -7,6 +7,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { SuscriptoresData } from '@/server/queries/suscriptores'
@@ -43,6 +44,7 @@ const EMPTY_SUBSCRIBER = {
 
 export default function SuscriptoresPage({ data }: { data: SuscriptoresData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -72,8 +74,8 @@ export default function SuscriptoresPage({ data }: { data: SuscriptoresData }) {
     })
   }
 
-  function removePlan(id: string) {
-    if (!window.confirm('¿Eliminar este plan? Los suscriptores que lo usan se quedan, sin plan.')) return
+  async function removePlan(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este plan?', description: 'Los suscriptores que lo usan se quedan, sin plan.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePlan(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -109,8 +111,8 @@ export default function SuscriptoresPage({ data }: { data: SuscriptoresData }) {
     })
   }
 
-  function removeSubscriber(id: string, name: string) {
-    if (!window.confirm(`¿Eliminar a ${name}?`)) return
+  async function removeSubscriber(id: string, name: string) {
+    if (!(await confirm({ title: `¿Eliminar a ${name}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteSubscriber(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

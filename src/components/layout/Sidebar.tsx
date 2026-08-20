@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useMemo, useState } from 'react'
 import {
   LayoutDashboard, Users, PenLine, Calendar, Clock, Wallet, GraduationCap,
   Package, FileText, MessageSquare, Ticket, ShieldAlert, ShieldCheck, Activity, Sparkles, Settings,
@@ -25,79 +25,6 @@ import { ROUTE_PERMISSIONS } from '@/lib/auth/permissions'
 import { DROPDOWN_CLOSE_MS, dropdownClass, useExitTransition } from '@/lib/hooks/use-exit-transition'
 
 const DRAWER_CLOSE_MS = 200 // matches --drawer-close-dur
-
-/* ═══════════════════════════════════════════════════════════════════════════
- * Which headings are collapsed
- *
- * Kept in `localStorage` and read through `useSyncExternalStore` rather than
- * copied into React state by an effect. The effect version renders the sidebar
- * fully expanded, then immediately re-renders it collapsed — a visible flicker
- * on every page load for somebody who has folded a section away. This is the
- * shape React provides for exactly this: an external store with a server
- * snapshot, so hydration starts from "nothing collapsed" without a mismatch and
- * the real value arrives in the same commit.
- *
- * Per browser rather than per account: it is a preference about this screen on
- * this machine, nobody else is affected, and a round trip would make the
- * chevron feel slower than the section it opens.
- * ═══════════════════════════════════════════════════════════════════════════ */
-
-const COLLAPSED_KEY = 'kigyo.nav.collapsed'
-
-const NO_COLLAPSED: ReadonlySet<string> = new Set()
-
-/**
- * `getSnapshot` must return the same object until the value actually changes,
- * or React re-renders forever. So the parse is memoised on the raw string.
- */
-let snapshotCache: { raw: string | null; value: ReadonlySet<string> } = {
-  raw: null,
-  value: NO_COLLAPSED,
-}
-
-const collapsedListeners = new Set<() => void>()
-
-function subscribeCollapsed(onChange: () => void) {
-  collapsedListeners.add(onChange)
-  // Another tab folding a section should fold it here too. `storage` does not
-  // fire in the document that wrote the value, which is what the local set is
-  // for.
-  window.addEventListener('storage', onChange)
-  return () => {
-    collapsedListeners.delete(onChange)
-    window.removeEventListener('storage', onChange)
-  }
-}
-
-function readCollapsed(): ReadonlySet<string> {
-  let raw: string | null
-  try {
-    raw = window.localStorage.getItem(COLLAPSED_KEY)
-  } catch {
-    // Private mode, a blocked store, a quota error. Nothing collapsed is a
-    // perfectly usable sidebar, so this is not worth telling anybody about.
-    return NO_COLLAPSED
-  }
-  if (raw !== snapshotCache.raw) {
-    let value: ReadonlySet<string> = NO_COLLAPSED
-    try {
-      if (raw) value = new Set(JSON.parse(raw) as string[])
-    } catch {
-      // Somebody edited the key by hand, or an older format. Treated as empty.
-    }
-    snapshotCache = { raw, value }
-  }
-  return snapshotCache.value
-}
-
-function writeCollapsed(next: ReadonlySet<string>) {
-  try {
-    window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]))
-  } catch {
-    // See above: the sidebar still works, it just forgets.
-  }
-  for (const listener of collapsedListeners) listener()
-}
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   LayoutDashboard: <LayoutDashboard size={18} />,
@@ -162,19 +89,6 @@ export default function Sidebar() {
   // Same for the drawer's scrim: the drawer itself slides out on a CSS
   // transition, but the scrim used to blink off the moment the flag flipped.
   const scrim = useExitTransition(sidebarOpen, DRAWER_CLOSE_MS)
-
-  const collapsed = useSyncExternalStore(
-    subscribeCollapsed,
-    readCollapsed,
-    () => NO_COLLAPSED,
-  )
-
-  function toggleSection(label: string) {
-    const next = new Set(collapsed)
-    if (next.has(label)) next.delete(label)
-    else next.add(label)
-    writeCollapsed(next)
-  }
 
   /**
    * The nav, shaped by the sector and narrowed to what this member can open.
@@ -254,27 +168,12 @@ export default function Sidebar() {
 
         <nav className="nav">
           {sections.map((section, si) => {
-            const shut = section.label !== undefined && collapsed.has(section.label)
             return (
               <div key={section.label ?? si}>
                 {section.label && (
-                  <button
-                    type="button"
-                    className={`nlabel nlabel-btn${shut ? ' is-shut' : ''}`}
-                    onClick={() => toggleSection(section.label as string)}
-                    aria-expanded={!shut}
-                  >
-                    <ChevronRight className="nlabel-chev" size={12} />
-                    {section.label}
-                    {/* The count, only while folded. Without it a collapsed
-                        heading is indistinguishable from an empty one — a
-                        heading with nothing under it reads as something broken,
-                        which is exactly how «Comercial» looked the first time
-                        this shipped. */}
-                    {shut && <span className="nlabel-count">{section.items.length}</span>}
-                  </button>
+                  <div className="nlabel">{section.label}</div>
                 )}
-                {!shut && section.items.map((item) => (
+                {section.items.map((item) => (
                   <div key={item.key}>
                     <button
                       className={`nitem${isActive(item.key) ? ' on' : ''}`}

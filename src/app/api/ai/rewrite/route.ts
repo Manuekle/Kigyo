@@ -49,7 +49,6 @@ export const POST = route({
 
     const { text } = await generateText({
       model: chatModel(),
-      temperature: 0.4,
       abortSignal: request.signal,
       system:
         'Eres un asistente de redacción para comunicaciones internas en español. ' +

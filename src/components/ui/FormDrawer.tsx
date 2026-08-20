@@ -1,6 +1,7 @@
 'use client'
 
 import { useId } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from '@/lib/icons'
 import { useFocusTrap } from '@/lib/hooks/use-focus-trap'
 import { PANEL_CLOSE_MS, useExitTransition } from '@/lib/hooks/use-exit-transition'
@@ -42,9 +43,9 @@ export default function FormDrawer({
   // page behind, which is still fully laid out beside it.
   const trapRef = useFocusTrap<HTMLDivElement>(open, { onEscape: onClose })
 
-  if (!render) return null
+  if (!render || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <div ref={trapRef}>
       <div className="ovl" data-open={shown} onClick={onClose} />
       {/* `inert` while closing: the sheet is still painted for its exit, and
@@ -64,6 +65,7 @@ export default function FormDrawer({
         <div className="fdbody">{children}</div>
         {footer && <div className="fdfoot">{footer}</div>}
       </aside>
-    </div>
+    </div>,
+    document.body,
   )
 }

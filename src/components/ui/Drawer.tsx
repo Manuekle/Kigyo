@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { PANEL_CLOSE_MS, useExitTransition } from '@/lib/hooks/use-exit-transition'
 
 interface DrawerProps<T> {
@@ -31,9 +32,9 @@ export default function Drawer<T>({ value, onClose, children }: DrawerProps<T>) 
 
   if (value != null && value !== latched) setLatched(value)
 
-  if (!render || latched == null) return null
+  if (!render || latched == null || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <>
       <div className="ovl" data-open={shown} onClick={onClose} />
       {/* Closing, the panel is still in the DOM but on its way out — `inert`
@@ -42,6 +43,7 @@ export default function Drawer<T>({ value, onClose, children }: DrawerProps<T>) 
       <aside className="drawer" data-open={shown} inert={!open}>
         {children(latched)}
       </aside>
-    </>
+    </>,
+    document.body,
   )
 }

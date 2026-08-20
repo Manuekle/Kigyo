@@ -1,8 +1,15 @@
 -- 86 — Native document RAG: chunks, vectors and attributable AI cost.
+--
+-- Escrita para poder volver a pasar por encima de una base donde parte de esto
+-- ya existe. No es una preferencia de estilo: esta migración llegó a aplicarse
+-- sin quedar anotada en `supabase_migrations.schema_migrations`, y el siguiente
+-- `db:push` la reintentó y murió en el primer `create table`. Una migración que
+-- solo funciona sobre una base virgen no se puede reintentar, y reintentar es
+-- exactamente lo que hace falta cuando algo salió a medias.
 
 create extension if not exists vector with schema extensions;
 
-create table public.document_chunks (
+create table if not exists public.document_chunks (
   id               uuid primary key default gen_random_uuid(),
   org_id           uuid not null references public.organizations (id) on delete cascade,
   document_id      uuid not null references public.documents (id) on delete cascade,
@@ -21,18 +28,27 @@ create table public.document_chunks (
   unique (document_id, chunk_index)
 );
 
-create index document_chunks_org_idx on public.document_chunks (org_id, status);
-create index document_chunks_document_idx on public.document_chunks (document_id, chunk_index);
-create index document_chunks_embedding_hnsw
+create index if not exists document_chunks_org_idx on public.document_chunks (org_id, status);
+create index if not exists document_chunks_document_idx on public.document_chunks (document_id, chunk_index);
+create index if not exists document_chunks_embedding_hnsw
   on public.document_chunks using hnsw (embedding vector_cosine_ops)
   where embedding is not null and status = 'ready';
 
+drop trigger if exists document_chunks_touch on public.document_chunks;
 create trigger document_chunks_touch before update on public.document_chunks
   for each row execute function app.touch_updated_at();
 
-select app.apply_standard_rls('document_chunks', 'documentos:read', 'documentos:write');
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+     where schemaname = 'public' and tablename = 'document_chunks'
+  ) then
+    perform app.apply_standard_rls('document_chunks', 'documentos:read', 'documentos:write');
+  end if;
+end $$;
 
-create table public.ai_usage_events (
+create table if not exists public.ai_usage_events (
   id                   uuid primary key default gen_random_uuid(),
   org_id               uuid not null references public.organizations (id) on delete cascade,
   user_id              uuid references public.profiles (id) on delete set null,
@@ -47,10 +63,18 @@ create table public.ai_usage_events (
   created_at           timestamptz not null default now()
 );
 
-create index ai_usage_events_org_month_idx on public.ai_usage_events (org_id, created_at desc);
-select app.apply_standard_rls('ai_usage_events', 'ia:use', 'ia:use');
+create index if not exists ai_usage_events_org_month_idx on public.ai_usage_events (org_id, created_at desc);
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+     where schemaname = 'public' and tablename = 'ai_usage_events'
+  ) then
+    perform app.apply_standard_rls('ai_usage_events', 'ia:use', 'ia:use');
+  end if;
+end $$;
 
-create table public.ai_monthly_budgets (
+create table if not exists public.ai_monthly_budgets (
   org_id              uuid not null references public.organizations (id) on delete cascade,
   month_start         date not null,
   limit_cents         bigint not null default 5000 check (limit_cents >= 0),
@@ -60,10 +84,19 @@ create table public.ai_monthly_budgets (
   primary key (org_id, month_start)
 );
 
+drop trigger if exists ai_monthly_budgets_touch on public.ai_monthly_budgets;
 create trigger ai_monthly_budgets_touch before update on public.ai_monthly_budgets
   for each row execute function app.touch_updated_at();
 
-select app.apply_standard_rls('ai_monthly_budgets', 'ia:use', 'configuracion:manage');
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+     where schemaname = 'public' and tablename = 'ai_monthly_budgets'
+  ) then
+    perform app.apply_standard_rls('ai_monthly_budgets', 'ia:use', 'configuracion:manage');
+  end if;
+end $$;
 
 create or replace function public.match_document_chunks(
   query_embedding extensions.vector(1536),

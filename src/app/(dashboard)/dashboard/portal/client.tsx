@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import type { StatusTone } from '@/lib/types'
 import type { PortalData, PortalKind } from '@/server/queries/portal'
 import { createLink, deleteLink, revokeLink } from '@/server/mutations/portal'
@@ -30,6 +31,7 @@ const EMPTY_FORM = { kind: 'factura' as PortalKind, targetId: '', label: '', day
 
 export default function PortalPage({ data }: { data: PortalData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -87,8 +89,8 @@ export default function PortalPage({ data }: { data: PortalData }) {
     })
   }
 
-  function remove(id: string) {
-    if (!window.confirm('¿Eliminar este enlace? Nadie podrá volver a abrirlo.')) return
+  async function remove(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este enlace?', description: 'Nadie podrá volver a abrirlo.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteLink(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

@@ -7,6 +7,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { SuscripcionesData } from '@/server/queries/suscripciones'
@@ -39,6 +40,7 @@ const EMPTY_SUB = {
 
 export default function SuscripcionesPage({ data }: { data: SuscripcionesData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -69,8 +71,8 @@ export default function SuscripcionesPage({ data }: { data: SuscripcionesData })
     })
   }
 
-  function removePlan(id: string) {
-    if (!window.confirm('¿Eliminar este plan? Las suscripciones que lo usan se quedan, con su precio congelado.')) return
+  async function removePlan(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este plan?', description: 'Las suscripciones que lo usan se quedan, con su precio congelado.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePlan(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -105,8 +107,8 @@ export default function SuscripcionesPage({ data }: { data: SuscripcionesData })
     })
   }
 
-  function removeSub(subId: string) {
-    if (!window.confirm('¿Eliminar esta suscripción?')) return
+  async function removeSub(subId: string) {
+    if (!(await confirm({ title: '¿Eliminar esta suscripción?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteSub(subId)
       if (!result.ok) { addToast(result.error, 'err'); return }

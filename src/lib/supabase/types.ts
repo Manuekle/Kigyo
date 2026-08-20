@@ -2628,6 +2628,8 @@ export interface Database {
           updated_at: string
           deleted_at: string | null
           ai_status: "Correcto" | "Revisar" | "Incompleto" | null
+          visibility: "Privada" | "Pública"
+          uploaded_by: string | null
         }
         Insert: {
           id?: string
@@ -2650,6 +2652,8 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           ai_status?: "Correcto" | "Revisar" | "Incompleto" | null
+          visibility?: "Privada" | "Pública"
+          uploaded_by?: string | null
         }
         Update: {
           id?: string
@@ -2672,6 +2676,8 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           ai_status?: "Correcto" | "Revisar" | "Incompleto" | null
+          visibility?: "Privada" | "Pública"
+          uploaded_by?: string | null
         }
         Relationships: [
           {
@@ -2693,6 +2699,13 @@ export interface Database {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

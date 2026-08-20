@@ -19,9 +19,13 @@ import type { InventoryCategory, TicketArea } from '@/lib/supabase/types'
  *      The service-role client is deliberately not used: a tool that bypassed
  *      RLS would let a carefully worded prompt read another tenant's rows.
  *   2. A tool is only offered to the model when the caller holds the matching
- *      permission (see TOOL_PERMISSIONS). Someone without payroll access is
- *      not handed a payroll tool and then refused — the model never sees that
- *      it exists.
+ *      permission. Someone without payroll access is not handed a payroll tool
+ *      and then refused — the model never sees that it exists.
+ *
+ * All but one of them read. `crearTicket` is the exception, and it carries a
+ * third guarantee: `needsApproval` parks the call until the person approves it
+ * on screen, so a prompt that talks the model into filing tickets still ends
+ * at a button someone has to press.
  */
 
 // The enum columns are typed unions in the generated schema, so the model is
@@ -57,7 +61,7 @@ function personName(relation: unknown): string | undefined {
   return (value as { full_name?: string } | null)?.full_name
 }
 
-function defineTools() {
+function defineTools(member: Member) {
   return {
     firmasPendientes: tool({
       description:
@@ -318,6 +322,66 @@ function defineTools() {
         }
       },
     }),
+
+    crearTicket: tool({
+      description:
+        'Crea un ticket de soporte. Es la única herramienta que escribe: la persona ' +
+        'tiene que aprobarla en la interfaz antes de que se ejecute, así que propón ' +
+        'el ticket con los datos que tengas y espera la decisión. Si falta el área o ' +
+        'la prioridad, elige la más razonable y dilo en la respuesta — la persona lo ' +
+        've en la tarjeta antes de aprobar.',
+      inputSchema: z.object({
+        asunto: z.string().trim().min(3).max(200).describe('Título del ticket.'),
+        descripcion: z.string().trim().max(4000).default(''),
+        area: z.enum(TICKET_AREAS).default('Otro'),
+        prioridad: z.enum(['Alta', 'Media', 'Baja']).default('Media'),
+      }),
+      // El modelo nunca escribe por su cuenta. Con esto el SDK detiene la
+      // llamada en `approval-requested` y solo ejecuta cuando la respuesta de
+      // aprobación vuelve desde el cliente; ver ApprovalCard en la página.
+      needsApproval: true,
+      async execute({ asunto, descripcion, area, prioridad }) {
+        const supabase = await createClient()
+
+        // Quien reporta es quien está en sesión, no quien nombre el modelo:
+        // un ticket abierto «a nombre de» otra persona es otra función.
+        const { data: employee } = await supabase
+          .from('employees')
+          .select('id')
+          .eq('org_id', member.orgId)
+          .eq('user_id', member.userId)
+          .is('deleted_at', null)
+          .maybeSingle()
+
+        const { data, error } = await supabase
+          .from('tickets')
+          .insert({
+            org_id: member.orgId,
+            subject: asunto,
+            body: descripcion,
+            area,
+            priority: prioridad,
+            status: 'Abierto',
+            requester_id: employee?.id ?? null,
+            origin: 'Interno',
+          })
+          .select('code, subject, area, priority')
+          .single()
+
+        if (error) {
+          console.error('[ai] crearTicket', error)
+          return { error: 'No se pudo crear el ticket.' }
+        }
+
+        return {
+          creado: true,
+          codigo: data.code,
+          asunto: data.subject,
+          area: data.area,
+          prioridad: data.priority,
+        }
+      },
+    }),
   }
 }
 
@@ -325,12 +389,12 @@ function defineTools() {
  * The set of tools this member may use.
  *
  * Built with conditional spreads rather than a loop over a permission map: an
- * indexed assignment across six differently-typed tools produces a union TS
- * cannot represent, and spreading keeps each tool's own input/output types
- * intact while still putting the required permission next to the tool.
+ * indexed assignment across differently-typed tools produces a union TS cannot
+ * represent, and spreading keeps each tool's own input/output types intact
+ * while still putting the required permission next to the tool.
  */
 export function buildTools(member: Member) {
-  const all = defineTools()
+  const all = defineTools(member)
   const has = (permission: Permission) => can(member.permissions, permission)
 
   return {
@@ -340,5 +404,6 @@ export function buildTools(member: Member) {
     ...(has('riesgos:read') ? { riesgosAbiertos: all.riesgosAbiertos } : {}),
     ...(has('documentos:read') ? { cumplimientoDocumental: all.cumplimientoDocumental } : {}),
     ...(has('empleados:read') ? { resumenEquipo: all.resumenEquipo } : {}),
+    ...(has('tickets:write') ? { crearTicket: all.crearTicket } : {}),
   }
 }

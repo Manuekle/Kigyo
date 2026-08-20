@@ -1,19 +1,20 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Sparkles, Upload, FileText, X, Check, Calendar, ChevronLeft, PenLine, Trash2, Download, Plus, Share2, FileSpreadsheet, RotateCcw,
+  Sparkles, Upload, FileText, X, Check, Calendar, ChevronLeft, PenLine, Trash2, Download, Plus, Share2, FileSpreadsheet, RotateCcw, Eye, Lock, Users,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import LoadMore from '@/components/ui/LoadMore'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { DUR_RESIZE_S } from '@/lib/motion'
 import { createClient } from '@/lib/supabase/client'
-import { DOCUMENT_KINDS, DOCUMENT_STATUSES } from '@/lib/domain'
+import { DOCUMENT_KINDS, DOCUMENT_STATUSES, DOCUMENT_VISIBILITIES } from '@/lib/domain'
 import type { DocumentosData, DocumentoRow } from '@/server/queries/documentos'
 import type { DocumentoRevision } from '@/app/api/ai/documento/route'
 import {
@@ -21,20 +22,14 @@ import {
   fetchDocumentShares, shareDocument, revokeShare,
   type DocumentShare,
 } from '@/server/mutations/documentos'
+import DocumentPreview from '@/components/ui/DocumentPreview'
+import { AttachmentUpload, type AttachmentItem } from '@/components/ui/AttachmentUpload'
+import { MorphingModal } from '@/components/ai/MorphingModal'
 import { fetchMoreDocumentos } from '@/server/actions/documentos'
+import { documentIconSrc } from '@/lib/document-icons'
 
 const MONTH = new Intl.DateTimeFormat('es-CO', { month: 'short', year: 'numeric' })
 
-/** Mirrors the bucket's `allowed_mime_types`; the upload is rejected without it. */
-const ACCEPT = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain', 'text/csv',
-  'image/png', 'image/jpeg', 'image/webp',
-].join(',')
 
 const MAX_BYTES = 50 * 1024 * 1024
 
@@ -65,10 +60,7 @@ function objectKey(orgId: string, fileName: string): string {
   return `${orgId}/${crypto.randomUUID()}-${safe}`
 }
 
-interface UploadState {
-  name: string
-  stage: 'uploading' | 'saving'
-}
+
 
 /* ── Botón de carpeta ── */
 // Every colour here comes from the `--folder-*` tokens in globals.css, which
@@ -198,17 +190,20 @@ function FolderButton({ name, count, onClick }: { name: string; count: number; o
 export default function DocumentosPage({ data }: { data: DocumentosData }) {
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<DocumentosData>(data)
   const [activeFolder, setActiveFolder] = useState<string | null>(null)
   const [editing, setEditing] = useState<DocumentoRow | null>(null)
   const [sharing, setSharing] = useState<DocumentoRow | null>(null)
-  const [upload, setUpload] = useState<UploadState | null>(null)
+  const [previewing, setPreviewing] = useState<DocumentoRow | null>(null)
+  // `undefined` = modal cerrado. El valor es la carpeta destino de esta
+  // tanda, para que "Subir documento" dentro de una carpeta suba ahí.
+  const [uploadFolder, setUploadFolder] = useState<string | null | undefined>(undefined)
+  const [attachments, setAttachments] = useState<AttachmentItem[]>([])
   const [folderOpen, setFolderOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
-  const targetFolder = useRef<string | null>(null)
 
   const [loadingMore, startLoadingMore] = useTransition()
   const [loadMoreError, setLoadMoreError] = useState('')
@@ -345,71 +340,102 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
   const activeDocs = activeFolder ? (byFolder.get(activeFolder) ?? []) : []
   const looseDocs = byFolder.get(null) ?? []
 
-  /**
-   * Real upload.
-   *
-   * The browser writes straight into the private bucket — the storage policy
-   * is what authorizes it, and going through a Server Function would mean
-   * pushing a 50 MB body through the app server for no benefit. Only once the
-   * object exists does the row get created, so a failed transfer leaves no
-   * document pointing at nothing.
-   *
-   * This used to be three `setTimeout`s animating a progress bar over a
-   * filename picked at random from a list of three.
-   */
-  async function handleFile(file: File) {
-    if (file.size > MAX_BYTES) {
-      addToast('El archivo supera el límite de 50 MB.', 'err')
-      return
-    }
+  /** Marca una fila del panel de subida por id, sin tocar las demás. */
+  function patchAttachment(id: string, patch: Partial<AttachmentItem>) {
+    setAttachments((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)))
+  }
 
-    setUpload({ name: file.name, stage: 'uploading' })
+  /**
+   * Sube un archivo directo al bucket y, si la transferencia llega, crea la fila.
+   *
+   * El navegador escribe directo al bucket privado — la política de storage es
+   * quien autoriza, y pasar por una Server Function significaría empujar un
+   * cuerpo de hasta 50 MB por el servidor de la aplicación sin ganar nada. La
+   * fila solo se crea si el objeto ya existe: una transferencia que falla no
+   * deja un documento apuntando a la nada.
+   *
+   * Cada archivo de la tanda corre su propia llamada; una tanda de diez
+   * archivos hace diez subidas independientes, así que uno que falle no frena
+   * a los demás y se puede reintentar solo.
+   */
+  async function uploadAttachment(item: AttachmentItem, folderId: string | null) {
+    const file = item.file
+    if (!file) return
+
+    patchAttachment(item.id, { status: 'uploading', error: undefined })
     const key = objectKey(state.orgId, file.name)
 
     const supabase = createClient()
-    const { error } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from(state.bucket)
       .upload(key, file, { contentType: file.type || undefined, upsert: false })
 
-    if (error) {
-      setUpload(null)
-      console.error('[documentos] upload', error)
-      addToast('No se pudo subir el archivo.', 'err')
+    if (uploadError) {
+      console.error('[documentos] upload', uploadError)
+      patchAttachment(item.id, { status: 'failed', error: 'No se pudo subir el archivo.' })
       return
     }
 
-    setUpload({ name: file.name, stage: 'saving' })
-    startTransition(async () => {
-      const result = await createDocumento({
-        name: file.name.replace(/\.[^.]+$/, ''),
-        kind: 'Otro',
-        folderId: targetFolder.current,
-        storagePath: key,
-        mimeType: file.type || null,
-        sizeBytes: file.size,
-        department: '',
-        ownerId: null,
-        tags: [],
-        expiresOn: null,
-      })
-      setUpload(null)
-       if (!result.ok) { addToast(result.error, 'err'); return }
-       setState(result.data)
-       addToast('Documento subido', 'ok')
-       const created = result.data.documentos.find((document) => document.storagePath === key)
-       if (created) {
-         void fetch(`/api/ai/ingest?id=${created.id}`, { method: 'POST' })
-           .then((response) => {
-             if (response.ok) addToast('Documento indexado para la IA', 'ok')
-           })
-           .catch((error) => console.error('[documentos] rag ingest', error))
-       }
-     })
+    const result = await createDocumento({
+      name: file.name.replace(/\.[^.]+$/, ''),
+      kind: 'Otro',
+      folderId,
+      storagePath: key,
+      mimeType: file.type || null,
+      sizeBytes: file.size,
+      department: '',
+      ownerId: null,
+      tags: [],
+      expiresOn: null,
+    })
+
+    if (!result.ok) {
+      patchAttachment(item.id, { status: 'failed', error: result.error })
+      return
+    }
+
+    setState(result.data)
+    patchAttachment(item.id, { status: 'complete' })
+
+    const created = result.data.documentos.find((document) => document.storagePath === key)
+    if (created) {
+      void fetch(`/api/ai/ingest?id=${created.id}`, { method: 'POST' }).catch((ingestError) =>
+        console.error('[documentos] rag ingest', ingestError),
+      )
+    }
   }
 
-  function pickFile(folderId: string | null) {
-    targetFolder.current = folderId
-    fileRef.current?.click()
+  /**
+   * Una tanda entera de archivos recién soltados o elegidos.
+   *
+   * Van en paralelo — cada uno es su propia fila, su propio storage key, su
+   * propia inserción — y el resumen se calcula sobre lo que de verdad terminó
+   * en vez de sobre lo que se pidió, porque un archivo que supera el límite ni
+   * siquiera llega a intentarlo.
+   */
+  function addAttachments(items: AttachmentItem[]) {
+    if (items.length === 0) return
+    const folderId = uploadFolder ?? null
+    startTransition(async () => {
+      const settled = await Promise.allSettled(items.map((item) => uploadAttachment(item, folderId)))
+      const failed = settled.filter((entry) => entry.status === 'rejected').length
+      if (failed > 0) {
+        addToast(
+          failed === items.length ? 'No se pudo subir ningún archivo.' : `${failed} archivo(s) no se pudieron subir.`,
+          'err',
+        )
+      } else {
+        addToast(
+          items.length === 1 ? 'Documento subido · privado' : `${items.length} documentos subidos · privados`,
+          'ok',
+        )
+      }
+    })
+  }
+
+  function openUpload(folderId: string | null) {
+    setAttachments([])
+    setUploadFolder(folderId)
   }
 
   async function download(d: DocumentoRow) {
@@ -420,8 +446,8 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
     window.open(result.url, '_blank', 'noopener,noreferrer')
   }
 
-  function remove(d: DocumentoRow) {
-    if (!window.confirm(`¿Eliminar "${d.name}"? El archivo se conserva pero deja de aparecer.`)) return
+  async function remove(d: DocumentoRow) {
+    if (!(await confirm({ title: `¿Eliminar "${d.name}"?`, description: 'El archivo se conserva pero deja de aparecer.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteDocumento(d.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -460,18 +486,6 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
 
   return (
     <>
-      <input
-        ref={fileRef}
-        type="file"
-        accept={ACCEPT}
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          e.target.value = ''
-          if (file) void handleFile(file)
-        }}
-      />
-
       <div className="g3" style={{ marginBottom: 20 }}>
         <div className="rise d1"><Stat icon={<FileText size={16} />} tone="blu" label="Documentos" value={stats.total} /></div>
         <div className="rise d2"><Stat icon={<FileText size={16} />} tone="grn" label="Carpetas" value={stats.carpetasConContenido} sub={`de ${carpetas.length} totales`} /></div>
@@ -504,12 +518,12 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
               <span className="kvs">{activeDocs.length} documentos</span>
             </div>
             {state.canWrite && (
-              <button className="btn pri" onClick={() => pickFile(activeFolder)} disabled={pending || upload !== null}>
-                <Upload size={15} />Subir documento
+              <button className="btn pri" onClick={() => openUpload(activeFolder)} disabled={pending}>
+                <Upload size={15} />Subir archivos
               </button>
             )}
           </div>
-          <DocTable rows={activeDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} indexing={indexing} onEdit={setEditing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} onIndex={index} />
+          <DocTable rows={activeDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} indexing={indexing} onEdit={setEditing} onPreview={setPreviewing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} onIndex={index} />
         </div>
       ) : (
         <>
@@ -546,25 +560,15 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}><FileSpreadsheet size={15} />Exportar</button>
                 {state.canWrite && (
-                  <button className="btn pri" onClick={() => pickFile(null)} disabled={pending || upload !== null}>
-                    <Upload size={15} />Subir documento
+                  <button className="btn pri" onClick={() => openUpload(null)} disabled={pending}>
+                    <Upload size={15} />Subir archivos
                   </button>
                 )}
               </div>
             </div>
-          <DocTable rows={rows.length > 0 ? rows : looseDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} indexing={indexing} onEdit={setEditing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} onIndex={index} />
+          <DocTable rows={rows.length > 0 ? rows : looseDocs} canWrite={state.canWrite} busy={pending} reviewing={reviewing} indexing={indexing} onEdit={setEditing} onPreview={setPreviewing} onShare={setSharing} onDelete={remove} onDownload={download} onReview={review} onIndex={index} />
           </div>
         </>
-      )}
-
-      {upload && (
-        <div className="card cpad" style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Upload size={16} style={{ color: 'var(--ink3)' }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="eltxt" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{upload.name}</div>
-            <div className="elsub">{upload.stage === 'uploading' ? 'Subiendo archivo…' : 'Registrando documento…'}</div>
-          </div>
-        </div>
       )}
 
       {/* Outside the folder/overview switch: both views draw on the same page
@@ -602,6 +606,48 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
         <ShareModal key={sharing.id} doc={sharing} canWrite={state.canWrite} onClose={() => setSharing(null)} />
       )}
 
+      {previewing && (
+        <DocumentPreview
+          key={previewing.id}
+          documentId={previewing.id}
+          onClose={() => setPreviewing(null)}
+          onDownload={() => download(previewing)}
+        />
+      )}
+
+      <MorphingModal
+        viewId={uploadFolder === undefined ? null : 'upload'}
+        onClose={() => setUploadFolder(undefined)}
+        labelledBy="upload-modal-title"
+        className="upload-modal"
+      >
+        <div className="mhead" style={{ padding: 0, marginBottom: 16 }}>
+          <div className="mtitle" id="upload-modal-title">Subir archivos</div>
+          <button className="ibtn" onClick={() => setUploadFolder(undefined)} aria-label="Cerrar"><X size={18} /></button>
+        </div>
+        {/* Nace privado siempre: quien sube decide después, desde Editar, si
+            el archivo pasa a verlo toda la empresa. */}
+        <AttachmentUpload
+          value={attachments}
+          onValueChange={setAttachments}
+          onFilesAdded={addAttachments}
+          onFilesRejected={(files, reason) =>
+            addToast(
+              reason === 'too-large'
+                ? `${files.length === 1 ? 'Ese archivo supera' : 'Esos archivos superan'} el límite de 50 MB.`
+                : 'Ya llegaste al máximo de archivos por tanda.',
+              'err',
+            )
+          }
+          onRetry={(item) => {
+            patchAttachment(item.id, { error: undefined })
+            startTransition(() => uploadAttachment(item, uploadFolder ?? null))
+          }}
+          maxFileSize={MAX_BYTES}
+          description="Cualquier formato, hasta 50 MB por archivo"
+        />
+      </MorphingModal>
+
       {folderOpen && (
         <div className="mwrap" onClick={() => setFolderOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -631,7 +677,7 @@ const AI_TONE: Record<string, string> = {
 }
 
 function DocTable({
-  rows, canWrite, busy, reviewing, indexing, onEdit, onShare, onDelete, onDownload, onReview, onIndex,
+  rows, canWrite, busy, reviewing, indexing, onEdit, onPreview, onShare, onDelete, onDownload, onReview, onIndex,
 }: {
   rows: DocumentoRow[]
   canWrite: boolean
@@ -640,6 +686,7 @@ function DocTable({
   reviewing: string | null
   indexing: string | null
   onEdit: (d: DocumentoRow) => void
+  onPreview: (d: DocumentoRow) => void
   onShare: (d: DocumentoRow) => void
   onDelete: (d: DocumentoRow) => void
   onDownload: (d: DocumentoRow) => void
@@ -649,34 +696,59 @@ function DocTable({
   return (
     <div className="tblwrap">
       <table className="tbl">
-        <thead><tr><th scope="col">Documento</th><th scope="col">Tipo</th><th scope="col">Responsable</th><th scope="col">Tamaño</th><th scope="col">Fecha</th><th scope="col"></th></tr></thead>
+        <thead><tr><th scope="col">Documento</th><th scope="col">Tipo</th><th scope="col">Subido por</th><th scope="col">Responsable</th><th scope="col">Tamaño</th><th scope="col">Fecha</th><th scope="col"></th></tr></thead>
         <tbody>
           {rows.length === 0 ? (
-            <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+            <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
               {canWrite ? 'Todavía no hay documentos aquí. Sube el primero.' : 'Todavía no hay documentos aquí.'}
             </div></td></tr>
-          ) : rows.map((d) => (
+          ) : rows.map((d) => {
+            const icon = documentIconSrc(d.mimeType, d.storagePath)
+            const fileType = icon?.split('/').pop()?.replace('.svg', '')
+            return (
             <tr className="trow" key={d.id}>
               <td>
-                <div className="cename">{d.name}</div>
-                <div className="ceid mono">{d.code ?? '—'}</div>
-                {/* Only shown once a review has actually run. A document with
-                    no verdict says nothing, rather than "sin observaciones". */}
-                {d.aiStatus && (
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 5 }}>
-                    <span className={`badge b-${AI_TONE[d.aiStatus] ?? 'neu'}`}>
-                      <span className="bd" />{d.aiStatus}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                  {icon ? (
+                    <img src={icon} alt="" width={24} height={24} style={{ flexShrink: 0, marginTop: 1 }} />
+                  ) : (
+                    <FileText size={18} style={{ flexShrink: 0, marginTop: 2, color: 'var(--ink3)' }} />
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <div className="cename">{d.name}</div>
+                    <div className="ceid mono">{d.code ?? '—'}</div>
+                    <span className={`vischip ${d.visibility === 'Privada' ? 'is-private' : ''}`}>
+                      {d.visibility === 'Privada' ? <Lock size={11} /> : <Users size={11} />}
+                      {d.visibility === 'Privada' ? 'Privada' : 'Toda la empresa'}
                     </span>
-                    <span className="elsub" style={{ whiteSpace: 'normal' }}>{d.aiVerdict}</span>
+                    {/* Only shown once a review has actually run. A document with
+                        no verdict says nothing, rather than "sin observaciones". */}
+                    {d.aiStatus && (
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 5 }}>
+                        <span className={`badge b-${AI_TONE[d.aiStatus] ?? 'neu'}`}>
+                          <span className="bd" />{d.aiStatus}
+                        </span>
+                        <span className="elsub" style={{ whiteSpace: 'normal' }}>{d.aiVerdict}</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </td>
-              <td className="muted">{d.kind}</td>
+              <td className="muted">{fileType === 'generic' ? (d.mimeType?.startsWith('image/') ? 'img' : d.kind) : fileType ?? d.kind}</td>
+              {/* Quién lo subió es un hecho de la sesión que lo creó; el
+                  responsable puede ser otra persona, o nadie. Son dos
+                  columnas porque son dos preguntas distintas. */}
+              <td className="muted">{d.uploaderName ?? '—'}</td>
               <td className="muted">{d.ownerName ?? (d.department || '—')}</td>
               <td className="muted mono" style={{ fontSize: 12 }}>{humanSize(d.sizeBytes)}</td>
               <td className="muted mono" style={{ fontSize: 12 }}>{MONTH.format(new Date(d.createdAt))}</td>
               <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                 <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                  {d.storagePath && (
+                    <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Vista previa" onClick={() => onPreview(d)} aria-label={`Ver ${d.name}`}>
+                      <Eye size={13} />
+                    </button>
+                  )}
                   {d.storagePath && (
                     <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Descargar" onClick={() => onDownload(d)} aria-label={`Descargar ${d.name}`}>
                       <Download size={13} />
@@ -720,7 +792,8 @@ function DocTable({
                 </div>
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>
@@ -743,6 +816,7 @@ function EditModal({
     folderId: string | null
     status: (typeof DOCUMENT_STATUSES)[number]
     expiresOn: string | null
+    visibility: (typeof DOCUMENT_VISIBILITIES)[number]
   }) => void
 }) {
   const [form, setForm] = useState({
@@ -751,6 +825,7 @@ function EditModal({
     folderId: doc.folderId ?? '',
     status: doc.status as (typeof DOCUMENT_STATUSES)[number],
     expiresOn: doc.expiresOn ?? '',
+    visibility: doc.visibility,
   })
 
   return (
@@ -779,6 +854,17 @@ function EditModal({
           />
           <div className="flabel">Vence</div>
           <DatePicker ariaLabel="Vence" value={form.expiresOn} onChange={(v) => setForm((f) => ({ ...f, expiresOn: v }))} />
+          {/* La opción dice a quién alcanza, no cómo se llama la columna:
+              «Pública» a secas se lee como pública en internet, y no lo es. */}
+          <div className="flabel">Quién puede verlo</div>
+          <Select
+            value={form.visibility}
+            onChange={(v) => setForm((f) => ({ ...f, visibility: v as (typeof DOCUMENT_VISIBILITIES)[number] }))}
+            options={[
+              { value: 'Privada', label: 'Solo yo y con quien lo comparta' },
+              { value: 'Pública', label: 'Toda la empresa' },
+            ]}
+          />
         </div>
         <div className="mfoot"><span /><div style={{ display: 'flex', gap: 9 }}>
           <button className="btn" onClick={onClose} disabled={busy}>Cancelar</button>
@@ -792,6 +878,7 @@ function EditModal({
               folderId: form.folderId || null,
               status: form.status,
               expiresOn: form.expiresOn || null,
+              visibility: form.visibility,
             })}
           ><Check size={15} />{busy ? 'Guardando…' : 'Guardar'}</button>
         </div></div>
@@ -808,6 +895,7 @@ function ShareModal({ doc, canWrite, onClose }: {
   canWrite: boolean
   onClose: () => void
 }) {
+  const confirm = useConfirm()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
   const [shares, setShares] = useState<DocumentShare[] | null>(null)
@@ -835,9 +923,9 @@ function ShareModal({ doc, canWrite, onClose }: {
     })
   }
 
-  function revoke(share: DocumentShare) {
+  async function revoke(share: DocumentShare) {
     const who = share.employeeName ?? share.email ?? 'esa persona'
-    if (!window.confirm(`¿Quitar el acceso de ${who}?`)) return
+    if (!(await confirm({ title: `¿Quitar el acceso de ${who}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await revokeShare(share.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

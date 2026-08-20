@@ -11,6 +11,7 @@ import Toggle from '@/components/ui/Toggle'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { ONLINE_ORDER_STATUSES, SHIPPING_METHODS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
@@ -67,6 +68,7 @@ function isOpen(status: string): boolean {
 export default function EcommercePage({ data }: { data: EcommerceData }) {
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [pedidos, setPedidos] = useState<OnlineOrderRow[]>(data.pedidos)
@@ -165,8 +167,8 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
     })
   }
 
-  function remove(p: OnlineOrderRow) {
-    if (!window.confirm(`¿Eliminar ${p.code ?? 'este pedido'}? Se eliminan también sus líneas.`)) return
+  async function remove(p: OnlineOrderRow) {
+    if (!(await confirm({ title: `¿Eliminar ${p.code ??'este pedido'}? Se eliminan también sus líneas.`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePedido(p.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

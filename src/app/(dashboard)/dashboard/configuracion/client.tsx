@@ -11,6 +11,7 @@ import {
 import type { IconProps } from '@/lib/icons'
 import { initials } from '@/lib/utils'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import TabBar from '@/components/ui/TabBar'
 import Toggle from '@/components/ui/Toggle'
 import OtpInput from '@/components/ui/OtpInput'
@@ -111,6 +112,7 @@ function Avatar({ name, size = 34 }: { name: string; size?: number }) {
 /* ------------------------------------------------------------------ */
 export default function ConfiguracionPage({ data, sites }: { data: SettingsData; sites: SitesData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const router = useRouter()
   const [pending, startTransition] = useTransition()
 
@@ -268,9 +270,9 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
   const mark = useCallback(() => setDirty(true), [])
 
   /* ---- tab switch with dirty guard ---- */
-  const switchTab = (id: string) => {
+  const switchTab = async (id: string) => {
     if (id === tab) return
-    if (dirty && !window.confirm('Tienes cambios sin guardar. ¿Descartar y cambiar de pestaña?')) return
+    if (dirty && !(await confirm({ title: '¿Descartar los cambios?', description: 'Tienes cambios sin guardar en esta pestaña.', confirmLabel: 'Descartar', tone: 'danger' }))) return
     setDirty(false)
     setErrors({})
     setFadeIdx((k) => k + 1)
@@ -408,12 +410,12 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
     })
   }
 
-  const removeRole = (key: string, memberCount: number) => {
+  const removeRole = async (key: string, memberCount: number) => {
     const warning = memberCount > 0
       ? `${key} lo tienen ${memberCount} persona(s). Muévelas a otro rol antes de eliminarlo.`
       : `¿Eliminar el rol ${key}? Se borran también sus permisos. Esta acción no se puede deshacer.`
     if (memberCount > 0) { addToast(warning, 'err'); return }
-    if (!window.confirm(warning)) return
+    if (!(await confirm({ title: warning }))) return
     startTransition(async () => {
       const result = await deleteRole(key)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -769,8 +771,8 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
               className="btn danger"
               style={{ marginTop: 18 }}
               disabled={pending}
-              onClick={() => {
-                if (!window.confirm('¿Cerrar sesión en todos tus dispositivos? Tendrás que volver a iniciar sesión en cada uno, incluido este.')) return
+              onClick={async () => {
+                if (!(await confirm({ title: '¿Cerrar sesión en todos tus dispositivos?', description: 'Tendrás que volver a iniciar sesión en cada uno, incluido este.' }))) return
                 startTransition(async () => {
                   const result = await signOutEverywhere()
                   if (!result.ok) { addToast(result.error, 'err'); return }

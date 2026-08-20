@@ -33,6 +33,8 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>(
 ) {
   const containerRef = useRef<T>(null)
   const { onEscape, initialFocus = 'first' } = options
+  const onEscapeRef = useRef(onEscape)
+  onEscapeRef.current = onEscape
 
   useEffect(() => {
     if (!active) return
@@ -60,7 +62,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>(
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.stopPropagation()
-        onEscape?.()
+        onEscapeRef.current?.()
         return
       }
       if (event.key !== 'Tab') return
@@ -95,7 +97,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>(
       // back to <body> and the next Tab restarts from the top of the page.
       previouslyFocused?.focus?.({ preventScroll: true })
     }
-  }, [active, onEscape, initialFocus])
+  }, [active, initialFocus])
 
   return containerRef
 }

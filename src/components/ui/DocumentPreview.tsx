@@ -1,0 +1,165 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { Download, FileText, X } from '@/lib/icons'
+import { documentoPreview, type DocumentoPreview } from '@/server/mutations/documentos'
+import { documentIconSrc } from '@/lib/document-icons'
+
+function humanSize(bytes: number | null): string {
+  if (bytes === null) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+/** Lo que se enseña como encabezado del formato: `application/pdf` → PDF. */
+function formatLabel(mimeType: string | null): string {
+  if (!mimeType) return 'Archivo'
+  const subtype = mimeType.split('/')[1] ?? mimeType
+  const short = subtype.split('.').pop() ?? subtype
+  return short.replace(/^x-/, '').replace(/sheet|document/i, (m) =>
+    m.toLowerCase() === 'sheet' ? 'xlsx' : 'docx',
+  ).toUpperCase()
+}
+
+/** Las primeras filas de un CSV, como tabla en vez de como una línea larga. */
+function CsvTable({ text }: { text: string }) {
+  const rows = text.split('\n').slice(0, 200).map((line) => line.split(','))
+  const [head, ...body] = rows
+  if (!head) return null
+
+  return (
+    <div className="tblwrap">
+      <table className="tbl">
+        <thead>
+          <tr>{head.map((cell, i) => <th key={i} scope="col">{cell}</th>)}</tr>
+        </thead>
+        <tbody>
+          {body.map((row, i) => (
+            <tr key={i}>{row.map((cell, j) => <td key={j} className="muted">{cell}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/**
+ * Vista previa de un archivo, sea del formato que sea.
+ *
+ * El servidor decide cómo se puede enseñar cada cosa (`documentoPreview`) y
+ * aquí solo se pinta esa decisión. Lo que no admite vista previa —un .zip, un
+ * plano, un binario— muestra su ficha y el botón de descargar: cerrar con
+ * "no se puede" es más útil que un marco en blanco que parece roto.
+ */
+export default function DocumentPreview({
+  documentId,
+  onClose,
+  onDownload,
+}: {
+  documentId: string
+  onClose: () => void
+  onDownload: () => void
+}) {
+  const [preview, setPreview] = useState<DocumentoPreview | null>(null)
+  const [error, setError] = useState('')
+  const [assetLoading, setAssetLoading] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    setPreview(null)
+    setError('')
+    setAssetLoading(false)
+    documentoPreview(documentId).then((result) => {
+      if (!live) return
+      if (!result.ok) { setError(result.error); return }
+      setAssetLoading(Boolean(result.data.url))
+      setPreview(result.data)
+    }).catch(() => {
+      if (live) { setAssetLoading(false); setError('No se pudo cargar la vista previa.') }
+    })
+    return () => { live = false }
+  }, [documentId])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const mime = preview?.mimeType?.split(';', 1)[0].trim().toLowerCase() ?? ''
+  const fallbackIcon = preview ? documentIconSrc(preview.mimeType) : null
+
+  return (
+    <div className="mwrap" onClick={onClose}>
+      <div className="modal dpv" style={{ width: 'min(920px, 100%)' }} onClick={(e) => e.stopPropagation()}>
+        <div className="mhead">
+          <div className="mtitle">{preview?.name ?? 'Vista previa'}</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="ibtn" onClick={onDownload} aria-label="Descargar">
+              <Download size={17} />
+            </button>
+            <button className="ibtn" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
+          </div>
+        </div>
+
+        <div className="mbody dpv-body">
+          {error ? (
+            <p className="dempty">{error}</p>
+          ) : !preview ? (
+            <div className="dpv-stage dpv-loading" aria-busy="true">
+              <div className="dpv-skeleton" aria-label="Cargando vista previa" />
+            </div>
+          ) : preview.mode === 'url' && preview.url ? (
+            <div className="dpv-stage">
+              {assetLoading && <div className="dpv-skeleton" aria-label="Cargando archivo" />}
+              {mime.startsWith('image/') ? (
+                // eslint-disable-next-line @next/next/no-img-element -- URL firmada y efímera de Storage; el optimizador de Next no puede tomarla.
+                <img src={preview.url} alt={preview.name} className="dpv-image" onLoad={() => setAssetLoading(false)} />
+              ) : mime.startsWith('video/') ? (
+                <video src={preview.url} controls className="dpv-media" onLoadedData={() => setAssetLoading(false)} />
+              ) : mime.startsWith('audio/') ? (
+                <audio src={preview.url} controls className="dpv-audio" onCanPlay={() => setAssetLoading(false)} />
+              ) : (
+                // `sandbox` sin `allow-scripts`: un HTML subido por alguien de
+                // la empresa se enseña, no se ejecuta.
+                <iframe
+                  src={preview.url}
+                  title={preview.name}
+                  className="dpv-frame"
+                  onLoad={() => setAssetLoading(false)}
+                  sandbox={mime === 'application/pdf' ? undefined : ''}
+                />
+              )}
+            </div>
+          ) : preview.mode === 'text' && preview.text ? (
+            <>
+              {mime === 'text/csv' ? (
+                <CsvTable text={preview.text} />
+              ) : (
+                <pre className="dpv-text">{preview.text}</pre>
+              )}
+              {preview.truncated && (
+                <p className="dpv-note">
+                  Vista previa recortada. Descarga el archivo para leerlo completo.
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="dpv-none">
+              {fallbackIcon ? <img src={fallbackIcon} alt="" width={40} height={40} /> : <FileText size={28} />}
+              <p className="dpv-none-title">{formatLabel(preview.mimeType)}</p>
+              <p className="dpv-note">
+                Este formato no se puede previsualizar en el navegador.
+                {preview.sizeBytes !== null && ` Pesa ${humanSize(preview.sizeBytes)}.`}
+              </p>
+              <button className="btn dark" onClick={onDownload}>
+                <Download size={15} />Descargar
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

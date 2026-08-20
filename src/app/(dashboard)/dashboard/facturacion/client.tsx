@@ -11,6 +11,7 @@ import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { INVOICE_STATUSES, PAYMENT_METHODS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
@@ -79,6 +80,7 @@ function previewTotals(items: DraftItem[]) {
 export default function FacturacionPage({ data }: { data: FacturacionData }) {
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [facturas, setFacturas] = useState<InvoiceRow[]>(data.facturas)
@@ -188,8 +190,8 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
     })
   }
 
-  function remove(f: InvoiceRow) {
-    if (!window.confirm(`¿Eliminar ${f.code ?? 'esta factura'}? Se eliminan también sus líneas.`)) return
+  async function remove(f: InvoiceRow) {
+    if (!(await confirm({ title: `¿Eliminar ${f.code ??'esta factura'}? Se eliminan también sus líneas.`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteFactura(f.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

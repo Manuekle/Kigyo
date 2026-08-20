@@ -9,6 +9,7 @@ import Select from '@/components/ui/Select'
 import FormDrawer from '@/components/ui/FormDrawer'
 import Toggle from '@/components/ui/Toggle'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import { PRODUCT_UNITS } from '@/lib/domain'
 import LoadMore from '@/components/ui/LoadMore'
@@ -52,6 +53,7 @@ function toForm(p: ProductoRow): FormState {
 
 export default function CatalogosPage({ data }: { data: ProductosData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState<ProductosData>(data)
@@ -145,8 +147,8 @@ export default function CatalogosPage({ data }: { data: ProductosData }) {
     })
   }
 
-  function remove(p: ProductoRow) {
-    if (!window.confirm(`¿Eliminar "${p.name}"? Seguirá apareciendo en las cotizaciones y órdenes donde ya se usó.`)) return
+  async function remove(p: ProductoRow) {
+    if (!(await confirm({ title: `¿Eliminar "${p.name}"?`, description: 'Seguirá apareciendo en las cotizaciones y órdenes donde ya se usó.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteProducto(p.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

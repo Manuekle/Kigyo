@@ -10,6 +10,7 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import {
   LEASE_STATUSES, PAYMENT_METHODS, PROPERTY_KINDS, PROPERTY_STATUSES,
 } from '@/lib/domain'
@@ -57,6 +58,7 @@ const EMPTY_PAYMENT = {
 
 export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [inmuebles, setInmuebles] = useState<PropertyRow[]>(data.inmuebles)
@@ -128,8 +130,8 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
     })
   }
 
-  function remove(p: PropertyRow) {
-    if (!window.confirm(`¿Eliminar ${p.name}? Se eliminan también sus contratos y pagos.`)) return
+  async function remove(p: PropertyRow) {
+    if (!(await confirm({ title: `¿Eliminar ${p.name}?`, description: 'Se eliminan también sus contratos y pagos.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteInmueble(p.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

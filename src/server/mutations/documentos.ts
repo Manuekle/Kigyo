@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
-import { DOCUMENT_KINDS, DOCUMENT_STATUSES } from '@/lib/domain'
+import { DOCUMENT_KINDS, DOCUMENT_STATUSES, DOCUMENT_VISIBILITIES } from '@/lib/domain'
+import { readRagText } from '@/lib/ai/rag'
 import { belongsToOrg } from '@/server/queries/shared'
 import { getDocumentos, type DocumentosData } from '@/server/queries/documentos'
 
@@ -30,6 +31,11 @@ const createSchema = z.object({
   storagePath: z.string().trim().max(400).nullable().default(null),
   mimeType: z.string().trim().max(160).nullable().default(null),
   sizeBytes: z.number().int().min(0).nullable().default(null),
+  /**
+   * Privada por defecto, igual que la columna. Quien sube decide después si
+   * el archivo es de la empresa; nada se comparte por no haberlo pensado.
+   */
+  visibility: z.enum(DOCUMENT_VISIBILITIES).default('Privada'),
 })
 
 /**
@@ -74,6 +80,9 @@ export async function createDocumento(
       mime_type: parsed.data.mimeType,
       size_bytes: parsed.data.sizeBytes,
       expires_on: parsed.data.expiresOn,
+      visibility: parsed.data.visibility,
+      // `uploaded_by` lo pone la base de datos con `auth.uid()`: es un hecho
+      // sobre la sesión, no un dato que el cliente pueda enviar.
     })
 
     if (error) {
@@ -96,6 +105,7 @@ const updateSchema = z.object({
   status: z.enum(DOCUMENT_STATUSES).optional(),
   tags: z.array(z.string().trim().max(40)).max(12).optional(),
   expiresOn: z.string().date().nullable().optional(),
+  visibility: z.enum(DOCUMENT_VISIBILITIES).optional(),
 })
 
 export async function updateDocumento(
@@ -113,6 +123,8 @@ export async function updateDocumento(
       status?: (typeof DOCUMENT_STATUSES)[number]
       tags?: string[]
       expires_on?: string | null
+      visibility?: (typeof DOCUMENT_VISIBILITIES)[number]
+      uploaded_by?: string
     } = {}
     if (parsed.data.name !== undefined) patch.name = parsed.data.name
     if (parsed.data.kind !== undefined) patch.kind = parsed.data.kind
@@ -120,12 +132,32 @@ export async function updateDocumento(
     if (parsed.data.status !== undefined) patch.status = parsed.data.status
     if (parsed.data.tags !== undefined) patch.tags = parsed.data.tags
     if (parsed.data.expiresOn !== undefined) patch.expires_on = parsed.data.expiresOn
+    // Cambiar la visibilidad es un UPDATE como cualquier otro, y la política
+    // RESTRICTIVE de la tabla ya decide quién puede tocar esta fila: si el
+    // documento no es tuyo, el UPDATE no encuentra nada que actualizar.
+    if (parsed.data.visibility !== undefined) patch.visibility = parsed.data.visibility
 
     if (Object.keys(patch).length === 0) {
       return { ok: true, data: await getDocumentos() }
     }
 
     const supabase = await createClient()
+
+    // Un documento anterior a la privacidad puede no tener `uploaded_by`.
+    // Marcarlo privado sin más lo dejaría sin nadie que lo vea, incluida la
+    // persona que acaba de marcarlo, así que quien lo hace lo adopta. Solo
+    // cuando el campo está vacío: no reescribe un hecho, rellena un hueco.
+    if (patch.visibility === 'Privada') {
+      const { data: current } = await supabase
+        .from('documents')
+        .select('uploaded_by')
+        .eq('id', parsed.data.id)
+        .maybeSingle()
+      if (current && current.uploaded_by === null) {
+        Object.assign(patch, { uploaded_by: member.userId })
+      }
+    }
+
     const { error } = await supabase
       .from('documents')
       .update(patch)
@@ -225,6 +257,120 @@ export async function documentoDownloadUrl(
     }
 
     return { ok: true, url: data.signedUrl, name: doc.name }
+  } catch {
+    return fail('No tienes permiso para ver este documento.')
+  }
+}
+
+/**
+ * Todo lo que hace falta para enseñar un archivo, sea del formato que sea.
+ *
+ * El repositorio acepta cualquier cosa, así que la vista previa tiene que
+ * responder algo para cualquier cosa. Hay tres respuestas posibles y esta
+ * función decide cuál:
+ *
+ *   · `url`  — el navegador ya sabe pintarlo: imagen, PDF, audio, vídeo,
+ *              texto plano. Se manda la URL firmada y se muestra tal cual.
+ *   · `text` — el navegador no, pero el servidor sí sabe leerlo: Word, Excel.
+ *              Se extrae aquí con el mismo código que alimenta a la IA, en vez
+ *              de mandar un megabyte de librería al navegador para repetirlo.
+ *   · `none` — un .zip, un plano, un binario sin extractor. Se dice que no hay
+ *              vista previa y se ofrece la descarga; inventar una previsualización
+ *              vacía sería peor que admitirlo.
+ *
+ * El texto extraído se recorta: la vista previa es para reconocer el archivo,
+ * no para leerlo entero, y ese trabajo ya lo hace el visor de cada quien.
+ */
+const PREVIEW_TEXT_LIMIT = 20_000
+/** Extraer texto de un archivo enorme por una previsualización no compensa. */
+const PREVIEW_EXTRACT_MAX_BYTES = 8 * 1024 * 1024
+
+export interface DocumentoPreview {
+  mode: 'url' | 'text' | 'none'
+  name: string
+  mimeType: string | null
+  sizeBytes: number | null
+  url?: string
+  text?: string
+  /** True cuando el texto se cortó en `PREVIEW_TEXT_LIMIT`. */
+  truncated?: boolean
+}
+
+function browserRenders(mimeType: string | null): boolean {
+  if (!mimeType) return false
+  mimeType = mimeType.split(';', 1)[0].trim().toLowerCase()
+  // Un CSV dentro de un `iframe` es una pared de comas, o directamente una
+  // descarga. Va por la vía del texto, que lo enseña como tabla.
+  if (mimeType === 'text/csv') return false
+  return (
+    mimeType.startsWith('image/') ||
+    mimeType.startsWith('video/') ||
+    mimeType.startsWith('audio/') ||
+    mimeType.startsWith('text/') ||
+    mimeType === 'application/pdf' ||
+    mimeType === 'application/json' ||
+    mimeType === 'application/xml'
+  )
+}
+
+export async function documentoPreview(
+  id: string,
+): Promise<{ ok: true; data: DocumentoPreview } | { ok: false; error: string }> {
+  try {
+    await requirePermission('documentos:read')
+    if (!z.uuid().safeParse(id).success) return fail('Documento desconocido.')
+
+    const supabase = await createClient()
+    // Sin `org_id` en el filtro a propósito: las políticas de la tabla ya
+    // deciden qué filas existen para esta persona, y ahora eso incluye la
+    // visibilidad. Repetir el filtro aquí no añadía nada y sugería que la
+    // comprobación vivía en el cliente.
+    const { data: doc } = await supabase
+      .from('documents')
+      .select('name, storage_path, mime_type, size_bytes')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle()
+
+    if (!doc) return fail('Documento desconocido.')
+
+    const base = {
+      name: doc.name,
+      mimeType: doc.mime_type,
+      sizeBytes: doc.size_bytes === null ? null : Number(doc.size_bytes),
+    }
+
+    if (!doc.storage_path) {
+      return { ok: true, data: { ...base, mode: 'none' } }
+    }
+
+    const isPdf = doc.storage_path.toLowerCase().endsWith('.pdf')
+    if (browserRenders(doc.mime_type) || isPdf) {
+      // Cinco minutos, no sesenta segundos: una firma de un minuto caduca
+      // mientras alguien lee el PDF, y el visor se queda en negro a mitad.
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .createSignedUrl(doc.storage_path, 300, { download: false })
+      if (error || !data) return fail('No se pudo abrir el archivo.')
+      return { ok: true, data: { ...base, mode: 'url', url: data.signedUrl } }
+    }
+
+    if (base.sizeBytes !== null && base.sizeBytes > PREVIEW_EXTRACT_MAX_BYTES) {
+      return { ok: true, data: { ...base, mode: 'none' } }
+    }
+
+    const text = await readRagText(supabase, doc.storage_path, doc.mime_type)
+    if (!text) return { ok: true, data: { ...base, mode: 'none' } }
+
+    return {
+      ok: true,
+      data: {
+        ...base,
+        mode: 'text',
+        text: text.slice(0, PREVIEW_TEXT_LIMIT),
+        truncated: text.length > PREVIEW_TEXT_LIMIT,
+      },
+    }
   } catch {
     return fail('No tienes permiso para ver este documento.')
   }

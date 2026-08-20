@@ -11,6 +11,7 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { CANDIDATE_STAGES, EMPLOYMENT_TYPES, OPENING_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
@@ -55,6 +56,7 @@ function pesos(cents: number): string {
 
 export default function ReclutamientoPage({ data }: { data: ReclutamientoData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
@@ -159,8 +161,8 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
     })
   }
 
-  function removeCandidate(candidate: CandidateRow) {
-    if (!window.confirm(`¿Eliminar a ${candidate.fullName}? Esta acción no se puede deshacer.`)) return
+  async function removeCandidate(candidate: CandidateRow) {
+    if (!(await confirm({ title: `¿Eliminar a ${candidate.fullName}?`, description: 'Esta acción no se puede deshacer.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCandidate(candidate.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -178,8 +180,8 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
     })
   }
 
-  function removeOpening(opening: OpeningRow) {
-    if (!window.confirm('¿Eliminar esta vacante? Úsalo solo si se creó por error; para terminarla, ciérrala.')) return
+  async function removeOpening(opening: OpeningRow) {
+    if (!(await confirm({ title: '¿Eliminar esta vacante?', description: 'Úsalo solo si se creó por error; para terminarla, ciérrala.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteOpening(opening.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

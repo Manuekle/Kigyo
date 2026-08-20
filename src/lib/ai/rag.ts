@@ -26,6 +26,11 @@ export interface IndexDocumentInput {
   name: string
   mimeType: string | null
   storagePath: string | null
+  /** Ficha del documento; alimenta el fragmento que siempre se indexa. */
+  kind?: string | null
+  department?: string | null
+  tags?: string[] | null
+  ownerName?: string | null
 }
 
 interface RagQuery extends PromiseLike<{ data: unknown; error: unknown }> {
@@ -132,11 +137,65 @@ async function extractDocumentText(
       return normalizeDocumentText(parts.join('\n'))
     }
 
-    default:
-      // Binary Word (.doc) and images have no cheap extractor here; a document
-      // that cannot be read simply is not indexed, it is not rejected.
+    default: {
+      // Cualquier cosa que sea texto lo es aunque su tipo MIME sea uno que
+      // nadie enumeró: `text/markdown`, `text/html`, `application/xml`,
+      // `application/x-yaml`, el `.log` que el navegador manda como
+      // `text/plain; charset=utf-8`. Enumerar formatos dejaba fuera archivos
+      // perfectamente legibles por no estar en la lista.
+      if (
+        mimeType.startsWith('text/') ||
+        mimeType.endsWith('+json') ||
+        mimeType.endsWith('+xml') ||
+        mimeType === 'application/xml' ||
+        mimeType === 'application/x-yaml'
+      ) {
+        const text = await blob.text()
+        return normalizeDocumentText(
+          mimeType.includes('html') || mimeType.endsWith('+xml') || mimeType === 'application/xml'
+            ? stripMarkup(text)
+            : text,
+        )
+      }
+
+      // Un .doc binario, un ZIP, un audio, una imagen: no hay extractor barato
+      // aquí. No se indexa su contenido — pero el documento sí se indexa, por
+      // su ficha. Ver `describeDocument`.
       return null
+    }
   }
+}
+
+/** Quita etiquetas y deja el texto que el navegador mostraría. */
+function stripMarkup(value: string): string {
+  return value
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+}
+
+/**
+ * La ficha del documento, que se indexa siempre.
+ *
+ * Antes, un archivo sin extractor —un .zip, un plano, una foto del acta
+ * firmada— no producía ningún fragmento, así que para el asistente no existía:
+ * preguntar «¿tenemos el plano de la bodega?» respondía que no hay nada,
+ * cuando lo que pasaba es que no se sabía leer el interior. La ficha arregla
+ * justo eso y nada más: el nombre, el tipo, el área, las etiquetas y el
+ * responsable son datos que la organización sí escribió, y bastan para
+ * encontrar el archivo y decir dónde está.
+ */
+function describeDocument(input: IndexDocumentInput): string {
+  const parts = [`Documento: ${input.name}.`]
+  if (input.kind) parts.push(`Tipo: ${input.kind}.`)
+  if (input.department) parts.push(`Área: ${input.department}.`)
+  if (input.tags?.length) parts.push(`Etiquetas: ${input.tags.join(', ')}.`)
+  if (input.ownerName) parts.push(`Responsable: ${input.ownerName}.`)
+  if (input.mimeType) parts.push(`Formato: ${input.mimeType}.`)
+  return parts.join(' ')
 }
 
 export async function readRagText(
@@ -226,9 +285,15 @@ export async function indexDocument(
   input: IndexDocumentInput,
 ): Promise<{ chunks: number; tokens: number }> {
   const text = await readRagText(supabase, input.storagePath, input.mimeType)
-  if (!text) return { chunks: 0, tokens: 0 }
 
-  const chunks = chunkDocumentText(text)
+  // La ficha va primero y siempre; el contenido se añade cuando el formato se
+  // deja leer. Así todo lo que se sube queda indexado, y un formato opaco es
+  // un documento que se encuentra por su nombre en vez de uno invisible.
+  const summary = describeDocument(input)
+  const chunks = [
+    ...chunkDocumentText(summary),
+    ...(text ? chunkDocumentText(text) : []),
+  ].map((chunk, index) => ({ ...chunk, index }))
 
   // Reuse embeddings whose content_hash already exists for this document:
   // re-indexing an unchanged file must not charge the embedding provider
@@ -245,7 +310,7 @@ export async function indexDocument(
   )
   const fresh = chunks.filter((chunk) => !cached.has(chunk.contentHash))
 
-  let embeddings = new Map<string, number[]>()
+  const embeddings = new Map<string, number[]>()
   let freshTokens = 0
   if (fresh.length > 0) {
     freshTokens = fresh.reduce((sum, chunk) => sum + chunk.tokenCount, 0)

@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Toggle from '@/components/ui/Toggle'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import type { StatusTone } from '@/lib/types'
 import type { NotifPanelData } from '@/server/queries/notif-panel'
 import { addRule, deleteRule, toggleRule } from '@/server/mutations/notif-panel'
@@ -53,6 +54,7 @@ const EMPTY_FORM = { name: '', kind: 'cita', days: '1', channel: 'email' }
 
 export default function NotificacionesPage({ data }: { data: NotifPanelData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -81,8 +83,8 @@ export default function NotificacionesPage({ data }: { data: NotifPanelData }) {
     })
   }
 
-  function removeRule(id: string, name: string) {
-    if (!window.confirm(`¿Eliminar la regla "${name}"?`)) return
+  async function removeRule(id: string, name: string) {
+    if (!(await confirm({ title: `¿Eliminar la regla "${name}"?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteRule(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

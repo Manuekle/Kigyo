@@ -10,6 +10,7 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { RESERVATION_STATUSES, ROOM_KINDS, ROOM_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
@@ -59,6 +60,7 @@ const EMPTY_SEASON = { name: '', startsOn: '', endsOn: '', notes: '' }
 export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [habitaciones, setHabitaciones] = useState<RoomRow[]>(data.habitaciones)
@@ -162,8 +164,8 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
     })
   }
 
-  function remove(r: RoomRow) {
-    if (!window.confirm(`¿Eliminar la habitación ${r.number}? Se eliminan también sus reservas.`)) return
+  async function remove(r: RoomRow) {
+    if (!(await confirm({ title: `¿Eliminar la habitación ${r.number}?`, description: 'Se eliminan también sus reservas.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteHabitacion(r.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -276,8 +278,8 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
     })
   }
 
-  function removeSeason(id: string) {
-    if (!window.confirm('¿Eliminar esta temporada y sus tarifas?')) return
+  async function removeSeason(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta temporada y sus tarifas?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteSeason(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -347,8 +349,8 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
     })
   }
 
-  function removeTask(t: LimpiezaRow) {
-    if (!window.confirm(`¿Eliminar la tarea de ${t.kind} de la habitación ${t.roomNumber}?`)) return
+  async function removeTask(t: LimpiezaRow) {
+    if (!(await confirm({ title: `¿Eliminar la tarea de ${t.kind} de la habitación ${t.roomNumber}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteTarea(t.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

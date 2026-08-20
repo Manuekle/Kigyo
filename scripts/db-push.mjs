@@ -280,21 +280,46 @@ for (const file of files) {
 
   const sql = readFileSync(resolve(MIGRATIONS_DIR, file), 'utf8')
 
+  // El apunte en el ledger viaja DENTRO de la misma transacción que la
+  // migración. Cuando iban en dos llamadas separadas, una migración podía
+  // aplicarse y quedar sin anotar —basta con que la segunda llamada no llegue—
+  // y el siguiente `db:push` la reintentaba y moría en el primer `create
+  // table ... already exists`. Ahora las dos cosas se confirman juntas o no
+  // ocurre ninguna, que es lo único que hace el ledger fiable.
+  const ledger = `insert into supabase_migrations.schema_migrations (version, name)
+       values ('${version}', '${file.replace(/'/g, "''")}')
+       on conflict (version) do nothing;`
+
   try {
     // Each migration runs in one transaction, so a failure halfway leaves the
     // database exactly as it was rather than half-migrated.
-    psql(['--single-transaction', '--file', '-'], sql)
-    psql([
-      '--command',
-      `insert into supabase_migrations.schema_migrations (version, name)
-       values ('${version}', '${file.replace(/'/g, "''")}')
-       on conflict (version) do nothing`,
-    ])
+    psql(['--single-transaction', '--file', '-'], `${sql}\n${ledger}\n`)
     console.log(`  ok    ${file}`)
     ran++
   } catch (error) {
+    const message = String(error.stderr ?? error.message).trim()
     console.error(`  FAIL  ${file}\n`)
-    console.error(String(error.stderr ?? error.message).trim().slice(0, 2000))
+    console.error(message.slice(0, 2000))
+
+    if (/already exists/i.test(message)) {
+      console.error(`
+Eso que "ya existe" está en la base pero no en el ledger: la migración se
+aplicó alguna vez sin quedar anotada, o alguien la corrió a mano desde el
+editor SQL de Supabase.
+
+Dos salidas:
+
+  · si ${file} ya está completa en la base, anótala y sigue:
+
+      insert into supabase_migrations.schema_migrations (version, name)
+      values ('${version}', '${file}')
+      on conflict (version) do nothing;
+
+  · si solo está a medias, hazla idempotente (create table if not exists,
+    create index if not exists, drop trigger if exists antes de crearlo) y
+    vuelve a ejecutar.`)
+    }
+
     console.error(`\nNada de ${file} se aplicó. Corrige y vuelve a ejecutar.`)
     process.exit(1)
   }

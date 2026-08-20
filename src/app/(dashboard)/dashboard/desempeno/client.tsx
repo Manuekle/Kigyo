@@ -11,6 +11,7 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { CYCLE_STATUSES, GOAL_STATUSES, REVIEW_STATUSES } from '@/lib/domain'
 import type { CycleRow, DesempenoData, GoalRow, ReviewRow } from '@/server/queries/desempeno'
 import type { EncuestaRow } from '@/server/mutations/desempeno'
@@ -58,6 +59,7 @@ function progressOf(goal: GoalRow): number | null {
 
 export default function DesempenoPage({ data }: { data: DesempenoData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const [pending, startTransition] = useTransition()
 
@@ -158,8 +160,8 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
     })
   }
 
-  function remove(kind: 'cycle' | 'review' | 'goal', id: string, label: string) {
-    if (!window.confirm(`¿Eliminar ${label}?`)) return
+  async function remove(kind: 'cycle' | 'review' | 'goal', id: string, label: string) {
+    if (!(await confirm({ title: `¿Eliminar ${label}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = kind === 'cycle' ? await deleteCycle(id)
         : kind === 'review' ? await deleteReview(id)
@@ -170,8 +172,8 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
     })
   }
 
-  function removeEncuesta(id: string, label: string) {
-    if (!window.confirm(`¿Eliminar ${label}?`)) return
+  async function removeEncuesta(id: string, label: string) {
+    if (!(await confirm({ title: `¿Eliminar ${label}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteEncuesta(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

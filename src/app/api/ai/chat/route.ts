@@ -134,7 +134,13 @@ export const POST = route({
       conversationId = data?.id ?? null
     }
 
-    if (conversationId) {
+    // Una respuesta de aprobación reanuda el turno: el cliente reenvía la
+    // misma conversación con la decisión adjunta al mensaje del asistente, así
+    // que la última pregunta ya está guardada. Sin esta condición cada
+    // aprobación duplicaba la fila del usuario en el historial.
+    const resuming = body.messages[body.messages.length - 1]?.role !== 'user'
+
+    if (conversationId && !resuming) {
       await supabase.from('ai_messages').insert({
         conversation_id: conversationId,
         role: 'user',
@@ -152,7 +158,6 @@ export const POST = route({
       // Enough for the model to call a tool, read the result and answer; not
       // so many that a confused loop runs up a bill.
       stopWhen: stepCountIs(6),
-      temperature: 0.2,
       abortSignal: request.signal,
 
       async onFinish({ text, usage }) {

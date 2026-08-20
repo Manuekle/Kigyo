@@ -15,6 +15,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import type { StatusTone } from '@/lib/types'
 import type { PuestosData } from '@/server/queries/puestos'
 import {
@@ -48,6 +49,7 @@ const EMPTY_SHIFT = { postId: '', employeeId: '', startsAt: '', endsAt: '', note
 
 export default function PuestosPage({ data }: { data: PuestosData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -79,8 +81,8 @@ export default function PuestosPage({ data }: { data: PuestosData }) {
     })
   }
 
-  function removePost(id: string, name: string) {
-    if (!window.confirm(`¿Eliminar ${name}? Sus turnos se eliminan también.`)) return
+  async function removePost(id: string, name: string) {
+    if (!(await confirm({ title: `¿Eliminar ${name}?`, description: 'Sus turnos se eliminan también.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deletePost(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -127,8 +129,8 @@ export default function PuestosPage({ data }: { data: PuestosData }) {
     })
   }
 
-  function removeShift(id: string) {
-    if (!window.confirm('¿Eliminar este turno?')) return
+  async function removeShift(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este turno?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteShift(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

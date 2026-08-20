@@ -13,6 +13,7 @@ import Toggle from '@/components/ui/Toggle'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { COURSE_MODES, ENROLLMENT_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { CapacitacionData, CourseRow, EnrollmentRow } from '@/server/queries/capacitacion'
@@ -68,6 +69,7 @@ function daysUntil(iso: string | null): number | null {
 
 export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [courses, setCourses] = useState<CourseRow[]>(data.courses)
@@ -134,8 +136,8 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
     })
   }
 
-  function drop(row: EnrollmentRow) {
-    if (!window.confirm(`¿Quitar a ${row.employeeName} de ${row.courseName}?`)) return
+  async function drop(row: EnrollmentRow) {
+    if (!(await confirm({ title: `¿Quitar a ${row.employeeName} de ${row.courseName}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await removeEnrollment(row.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -144,8 +146,8 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
     })
   }
 
-  function removeCourse(course: CourseRow) {
-    if (!window.confirm(`¿Eliminar ${course.name}? Se eliminan también sus inscripciones.`)) return
+  async function removeCourse(course: CourseRow) {
+    if (!(await confirm({ title: `¿Eliminar ${course.name}?`, description: 'Se eliminan también sus inscripciones.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCourse(course.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -246,8 +248,8 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
     })
   }
 
-  function removeCertificacion(row: CertificacionRow) {
-    if (!window.confirm(`¿Eliminar ${row.name}?`)) return
+  async function removeCertificacion(row: CertificacionRow) {
+    if (!(await confirm({ title: `¿Eliminar ${row.name}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCertificacion(row.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

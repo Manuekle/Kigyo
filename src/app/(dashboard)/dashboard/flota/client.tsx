@@ -10,6 +10,7 @@ import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import {
   FUEL_KINDS, VEHICLE_KINDS, VEHICLE_STATUSES, WORK_ORDER_KINDS,
@@ -97,6 +98,7 @@ const EMPTY_RUTA = {
 export default function FlotaPage({ data }: { data: FlotaData }) {
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [vehiculos, setVehiculos] = useState<VehicleRow[]>(data.vehiculos)
@@ -189,8 +191,8 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
     })
   }
 
-  function remove(v: VehicleRow) {
-    if (!window.confirm(`¿Eliminar ${v.plate}? Se eliminan también sus servicios y tanqueos.`)) return
+  async function remove(v: VehicleRow) {
+    if (!(await confirm({ title: `¿Eliminar ${v.plate}?`, description: 'Se eliminan también sus servicios y tanqueos.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteVehiculo(v.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -208,8 +210,8 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
     })
   }
 
-  function removeRuta(r: RouteRow) {
-    if (!window.confirm(`¿Eliminar la ruta hacia ${r.destination}?`)) return
+  async function removeRuta(r: RouteRow) {
+    if (!(await confirm({ title: `¿Eliminar la ruta hacia ${r.destination}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteRuta(r.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { createClient } from '@/lib/supabase/client'
 import type { RadiografiasData } from '@/server/queries/radiografias'
 import { addImagen, deleteImagen } from '@/server/mutations/radiografias'
@@ -59,6 +60,7 @@ interface Props {
 
 export default function ImagenesPaciente({ data, onData, pacientes }: Props) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -111,8 +113,8 @@ export default function ImagenesPaciente({ data, onData, pacientes }: Props) {
     })
   }
 
-  function remove(id: string) {
-    if (!window.confirm('¿Eliminar este registro? El archivo se conserva en el bucket.')) return
+  async function remove(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este registro?', description: 'El archivo se conserva en el bucket.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteImagen(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

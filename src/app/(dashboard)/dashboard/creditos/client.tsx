@@ -7,6 +7,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { CreditosData } from '@/server/queries/creditos'
@@ -41,6 +42,7 @@ const EMPTY_LOAN = {
 
 export default function CreditosPage({ data }: { data: CreditosData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -73,8 +75,8 @@ export default function CreditosPage({ data }: { data: CreditosData }) {
     })
   }
 
-  function removeLoan(id: string) {
-    if (!window.confirm('¿Eliminar este préstamo y sus cuotas?')) return
+  async function removeLoan(id: string) {
+    if (!(await confirm({ title: '¿Eliminar este préstamo y sus cuotas?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteLoan(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -83,8 +85,8 @@ export default function CreditosPage({ data }: { data: CreditosData }) {
     })
   }
 
-  function pay(id: string, number: number) {
-    if (!window.confirm(`¿Marcar la cuota #${number} como pagada?`)) return
+  async function pay(id: string, number: number) {
+    if (!(await confirm({ title: `¿Marcar la cuota #${number} como pagada?` }))) return
     startTransition(async () => {
       const result = await payInstallment(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

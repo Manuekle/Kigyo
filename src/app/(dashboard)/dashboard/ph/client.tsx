@@ -7,6 +7,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { PhData } from '@/server/queries/ph'
@@ -88,6 +89,7 @@ const EMPTY_ZONA: ZonaForm = { name: '', tipo: 'otro', notas: '' }
 
 export default function PhPage({ data }: { data: PhData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
@@ -182,8 +184,8 @@ export default function PhPage({ data }: { data: PhData }) {
     })
   }
 
-  function removeAsam(id: string) {
-    if (!window.confirm('¿Eliminar esta asamblea?')) return
+  async function removeAsam(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta asamblea?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteAsamblea(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -192,8 +194,8 @@ export default function PhPage({ data }: { data: PhData }) {
     })
   }
 
-  function removeCuota(id: string) {
-    if (!window.confirm('¿Eliminar esta cuota?')) return
+  async function removeCuota(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta cuota?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCuota(id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -202,8 +204,8 @@ export default function PhPage({ data }: { data: PhData }) {
     })
   }
 
-  function removeZona(id: string) {
-    if (!window.confirm('¿Eliminar esta zona?')) return
+  async function removeZona(id: string) {
+    if (!(await confirm({ title: '¿Eliminar esta zona?', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteZona(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

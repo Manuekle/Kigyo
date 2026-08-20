@@ -13,6 +13,7 @@ import Toggle from '@/components/ui/Toggle'
 import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { CLIENT_KINDS, CLIENT_STATUSES, INTERACTION_KINDS } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { ClientRow, ClientesData } from '@/server/queries/clientes'
@@ -67,6 +68,7 @@ function daysSince(iso: string | null): number | null {
 
 export default function ClientesPage({ data }: { data: ClientesData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [clientes, setClientes] = useState<ClientRow[]>(data.clientes)
@@ -156,8 +158,8 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
     })
   }
 
-  function remove(c: ClientRow) {
-    if (!window.confirm(`¿Eliminar ${c.name}? Se eliminan también sus contactos e interacciones.`)) return
+  async function remove(c: ClientRow) {
+    if (!(await confirm({ title: `¿Eliminar ${c.name}?`, description: 'Se eliminan también sus contactos e interacciones.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteCliente(c.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
@@ -166,8 +168,8 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
     })
   }
 
-  function dropContact(id: string, name: string) {
-    if (!window.confirm(`¿Eliminar a ${name}?`)) return
+  async function dropContact(id: string, name: string) {
+    if (!(await confirm({ title: `¿Eliminar a ${name}?`, tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteContacto(id)
       if (!result.ok) { addToast(result.error, 'err'); return }

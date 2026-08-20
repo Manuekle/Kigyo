@@ -132,6 +132,13 @@ import {
   ConstructionIcon,
   ApartmentIcon,
   ContractsIcon,
+  ThumbsUpIcon,
+  ThumbsDownIcon,
+  CircleIcon,
+  TerminalIcon,
+  Loading03Icon,
+  CheckListIcon,
+  LinkSquare01Icon,
 } from '@hugeicons/core-free-icons'
 
 export interface IconProps {
@@ -280,3 +287,12 @@ export const Store = make(Store01Icon)
 export const Construction = make(ConstructionIcon)
 export const Apartment = make(ApartmentIcon)
 export const Contracts = make(ContractsIcon)
+
+// Superficie del asistente — `src/components/ai/`.
+export const ThumbsUp = make(ThumbsUpIcon)
+export const ThumbsDown = make(ThumbsDownIcon)
+export const Circle = make(CircleIcon)
+export const Terminal = make(TerminalIcon)
+export const Loader = make(Loading03Icon)
+export const ListTodo = make(CheckListIcon)
+export const ExternalLink = make(LinkSquare01Icon)

@@ -114,7 +114,6 @@ export const POST = route({
     const { object, usage } = await generateObject({
       model: chatModel(),
       schema: verdictSchema,
-      temperature: 0.2,
       system:
         `Eres quien revisa el repositorio documental de "${member.orgName}" en Kigyo. ` +
         'Escribe SIEMPRE en español, breve y concreto. ' +

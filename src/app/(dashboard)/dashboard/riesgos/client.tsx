@@ -8,6 +8,7 @@ import Stat from '@/components/ui/Stat'
 import Select from '@/components/ui/Select'
 import TabBar from '@/components/ui/TabBar'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { RISK_CATEGORIES, RISK_SEVERITIES } from '@/lib/domain'
 import LoadMore from '@/components/ui/LoadMore'
 import type { RiesgosData, RiesgoRow } from '@/server/queries/riesgos'
@@ -22,6 +23,7 @@ const EMPTY = { category: 'Otro', severity: 'Media', area: '', detail: '', actio
 
 export default function RiesgosPage({ data }: { data: RiesgosData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
   const [riesgos, setRiesgos] = useState<RiesgoRow[]>(data.riesgos)
@@ -118,8 +120,8 @@ export default function RiesgosPage({ data }: { data: RiesgosData }) {
     })
   }
 
-  function remove(r: RiesgoRow) {
-    if (!window.confirm('¿Eliminar este riesgo? Úsalo solo si se registró por error; para cerrarlo, usa Gestionar.')) return
+  async function remove(r: RiesgoRow) {
+    if (!(await confirm({ title: '¿Eliminar este riesgo?', description: 'Úsalo solo si se registró por error; para cerrarlo, usa Gestionar.', tone: 'danger' }))) return
     startTransition(async () => {
       const result = await deleteRiesgo(r.id)
       if (!result.ok) { addToast(result.error, 'err'); return }

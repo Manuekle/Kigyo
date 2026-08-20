@@ -10,6 +10,7 @@ import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { activatable } from '@/lib/a11y'
 import { cop } from '@/lib/utils'
@@ -36,6 +37,7 @@ const EMPTY_FORM = {
 
 export default function ProyectosPage({ data }: { data: ProyectosData }) {
   const { addToast } = useApp()
+  const confirm = useConfirm()
   const { runExport, exporting } = useExport()
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -182,8 +184,8 @@ export default function ProyectosPage({ data }: { data: ProyectosData }) {
     })
   }
 
-  function archive(p: ProyectoRow) {
-    if (!window.confirm(`¿Archivar "${p.name}"? Dejará de aparecer en los listados y en los canales.`)) return
+  async function archive(p: ProyectoRow) {
+    if (!(await confirm({ title: `¿Archivar "${p.name}"?`, description: 'Dejará de aparecer en los listados y en los canales.' }))) return
     startTransition(async () => {
       const result = await deleteProyecto(p.id)
       if (!result.ok) { addToast(result.error, 'err'); return }
