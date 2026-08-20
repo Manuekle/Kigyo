@@ -69,6 +69,16 @@ export interface SessionRow {
   siteName: string | null
 }
 
+/** Cierre Z: el rollup de turnos cerrados de una sucursal. */
+export interface SiteClosureRow {
+  siteId: string
+  siteName: string
+  turnos: number
+  esperadoCents: number
+  contadoCents: number
+  diferenciaCents: number
+}
+
 export interface CajaData {
   /** El turno abierto, si lo hay. A lo sumo uno: índice parcial en la mig. 25. */
   abierta: SessionRow | null
@@ -78,6 +88,11 @@ export interface CajaData {
   ventas: SaleSummary[]
   /** Turnos cerrados, del más reciente hacia atrás. */
   historial: SessionRow[]
+  /**
+   * Cierre Z: `historial` agrupado por sucursal. Solo tiene sentido con más
+   * de un site — con uno solo es el mismo número que ya está en `historial`.
+   */
+  cierresPorSucursal: SiteClosureRow[]
   /** Desglose del turno abierto, en centavos. */
   resumen: {
     baseCents: number
@@ -347,11 +362,32 @@ export async function getCaja(): Promise<CajaData> {
   // se contradicen.
   const vivas = sales.filter((v) => v.status !== 'Anulada')
 
+  const historial = historyRows.map((row) => toSession(row, names, siteNames, null))
+
+  // Cierre Z: el mismo `historial` que ya se manda, agrupado por sucursal.
+  // Sin consulta nueva — son los mismos 60 turnos que ya viajan a la pantalla.
+  const bySite = new Map<string, Omit<SiteClosureRow, 'siteId'>>()
+  for (const s of historial) {
+    if (!s.siteId) continue
+    const entry = bySite.get(s.siteId) ?? {
+      siteName: s.siteName ?? '—', turnos: 0, esperadoCents: 0, contadoCents: 0, diferenciaCents: 0,
+    }
+    entry.turnos += 1
+    entry.esperadoCents += s.expectedCents ?? 0
+    entry.contadoCents += s.countedCents ?? 0
+    entry.diferenciaCents += s.differenceCents ?? 0
+    bySite.set(s.siteId, entry)
+  }
+  const cierresPorSucursal = [...bySite.entries()]
+    .map(([siteId, e]) => ({ siteId, ...e }))
+    .sort((a, b) => b.turnos - a.turnos)
+
   return {
     abierta: open ? toSession(open, names, siteNames, liveExpected) : null,
     movimientos,
     ventas,
-    historial: historyRows.map((row) => toSession(row, names, siteNames, null)),
+    historial,
+    cierresPorSucursal,
     resumen: {
       baseCents: open?.opening_float_cents ?? 0,
       ventasEfectivoCents: vivas.filter((v) => isCash(v.paymentMethod))

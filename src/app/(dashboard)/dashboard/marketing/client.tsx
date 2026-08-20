@@ -37,7 +37,7 @@ const EMPTY_POINTS = { clientId: '', points: '', reason: '' }
 const EMPTY_TEMPLATE: { name: string; channel: CampaignChannel; message: string } = {
   name: '', channel: 'whatsapp', message: '',
 }
-const EMPTY_FILTERS = { status: '', kind: '', city: '', hasEmail: false }
+const EMPTY_FILTERS = { status: '', kind: '', city: '', ownerId: '', hasEmail: false }
 
 const STATUS_OPTS = [
   { value: '', label: 'Todos' },
@@ -66,6 +66,7 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
   const [genFilters, setGenFilters] = useState(EMPTY_FILTERS)
 
   const clientOpts = state.clients.map((c) => ({ value: c.id, label: c.name }))
+  const ownerOpts = state.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))
 
   function submitCampaign() {
     startTransition(async () => {
@@ -88,6 +89,7 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
     if (genFilters.status) filters.status = genFilters.status
     if (genFilters.kind) filters.kind = genFilters.kind
     if (genFilters.city.trim()) filters.city = genFilters.city.trim()
+    if (genFilters.ownerId) filters.ownerId = genFilters.ownerId
     if (genFilters.hasEmail) filters.hasEmail = true
 
     startTransition(async () => {
@@ -368,6 +370,16 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
                               onChange={(e) => setGenFilters((f) => ({ ...f, city: e.target.value }))}
                             />
                           </div>
+                          {ownerOpts.length > 0 && (
+                            <div style={{ flex: '1 1 170px', minWidth: 140 }}>
+                              <div className="flabel">Vendedor</div>
+                              <Select
+                                value={genFilters.ownerId}
+                                onChange={(v) => setGenFilters((f) => ({ ...f, ownerId: v }))}
+                                options={[{ value: '', label: 'Todos' }, ...ownerOpts]}
+                              />
+                            </div>
+                          )}
                           <div style={{ flex: '0 1 auto', minWidth: 130, alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 6 }}>
                             <input
                               type="checkbox"

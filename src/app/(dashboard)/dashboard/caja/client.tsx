@@ -151,6 +151,7 @@ export default function CajaPage({ data }: { data: CajaData }) {
             items={[
               { key: 'turno', label: 'Turno' },
               { key: 'historial', label: 'Historial' },
+              ...(state.sites.length > 1 ? [{ key: 'sucursales', label: 'Sucursales' }] : []),
             ]}
             value={tab}
             onChange={setTab}
@@ -345,6 +346,52 @@ export default function CajaPage({ data }: { data: CajaData }) {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* ─── Sucursales ─────────────────────────────────────────────── */}
+        {tab === 'sucursales' && (
+          <div className="tblwrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th scope="col">Sucursal</th>
+                  <th scope="col">Turnos cerrados</th>
+                  <th scope="col">Esperado</th>
+                  <th scope="col">Contado</th>
+                  <th scope="col">Diferencia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.cierresPorSucursal.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        Sin turnos cerrados todavía en ninguna sucursal.
+                      </div>
+                    </td>
+                  </tr>
+                ) : state.cierresPorSucursal.map((r) => {
+                  const diff = differenceLabel(r.diferenciaCents)
+                  return (
+                    <tr key={r.siteId}>
+                      <td><div className="cename">{r.siteName}</div></td>
+                      <td className="mono">{r.turnos}</td>
+                      <td>{pesos(r.esperadoCents)}</td>
+                      <td>{pesos(r.contadoCents)}</td>
+                      <td><Badge st={diff.text} tone={diff.tone} /></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <div className="cpad" style={{ paddingTop: 0 }}>
+              <p className="psub" style={{ fontSize: 12.5 }}>
+                Suma de los últimos {state.historial.length} turnos cerrados, agrupados por
+                sucursal. La diferencia es la suma de cada arqueo — un sobrante en un turno
+                puede tapar un faltante en otro.
+              </p>
+            </div>
           </div>
         )}
       </div>

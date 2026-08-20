@@ -1,7 +1,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
-import { allows, scoped } from './shared'
+import { allows, rosterFor, scoped, type RosterEntry } from './shared'
 
 /**
  * Marketing: campañas y fidelización.
@@ -73,13 +73,15 @@ export interface MarketingData {
   templates: TemplateRow[]
   /** Campañas en borrador o programadas: el trabajo por delante. */
   activasCount: number
+  /** Para filtrar destinatarios por vendedor dueño del cliente. */
+  roster: RosterEntry[]
 }
 
 export async function getMarketing(): Promise<MarketingData> {
   const member = await requirePermission('marketing:read')
   const supabase = await createClient()
 
-  const [campaignsResult, recipientsResult, clientsResult, pointsResult, templatesResult] = await Promise.all([
+  const [campaignsResult, recipientsResult, clientsResult, pointsResult, templatesResult, roster] = await Promise.all([
     scoped(supabase, member, 'marketing_campaigns')
       .select(
         'id, name, channel, message, status, scheduled_for, sent_at, ' +
@@ -108,6 +110,7 @@ export async function getMarketing(): Promise<MarketingData> {
       .select('id, name, channel, message, created_at')
       .order('created_at', { ascending: false })
       .limit(100),
+    rosterFor(supabase, member),
   ])
 
   const campaigns = ((campaignsResult.data ?? []) as unknown as {
@@ -201,5 +204,6 @@ export async function getMarketing(): Promise<MarketingData> {
     balances,
     templates,
     activasCount: campaigns.filter((c) => c.status === 'borrador' || c.status === 'programada').length,
+    roster,
   }
 }
