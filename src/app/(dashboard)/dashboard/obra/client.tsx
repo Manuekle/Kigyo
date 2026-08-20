@@ -517,7 +517,7 @@ function FragmentCap(props: CapProps) {
       {open && (
         <tr>
           <td colSpan={6} style={{ background: 'var(--bg2)', padding: '14px 16px' }}>
-            <div className="cname" style={{ fontSize: 13 }}>Análisis de precios unitarios (APU)</div>
+            <div className="dsect">Análisis de precios unitarios (APU)</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 8 }}>
               <div style={{ flex: '1 1 180px', minWidth: 150 }}>
                 <div className="flabel" style={{ marginTop: 0 }}>Partida</div>
@@ -654,7 +654,7 @@ function FragmentCap(props: CapProps) {
               </div>
             )}
 
-            <div className="cname" style={{ fontSize: 13, marginTop: 16 }}>Registrar avance</div>
+            <div className="dsect">Registrar avance</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 8 }}>
               <div style={{ flex: '0 1 150px', minWidth: 130 }}>
                 <div className="flabel" style={{ marginTop: 0 }}>Fecha</div>

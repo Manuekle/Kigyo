@@ -434,7 +434,7 @@ export default function EmpleadosPage({ data }: { data: EmpleadosData }) {
                   <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No se encontraron empleados para &quot;{q}&quot;.</div></td></tr>
                 ) : rows.map((e) => (
                   <tr className="trow" key={e.id} style={{ cursor: 'pointer' }} {...activatable(() => openEmpleado(e), `Ver perfil de ${e.fullName}`)}>
-                    <td><div className="cemp"><Avatar name={e.fullName} /><div><div className="cename">{e.fullName}</div><div className="ceid mono">{e.code ?? '—'}{e.siteName ? <span className="fg3"> · {e.siteName}</span> : null}</div></div></div></td>
+                    <td><div className="cemp"><Avatar name={e.fullName} /><div><div className="cename">{e.fullName}</div><div className="ceid mono">{e.code ?? '—'}{e.siteName ? <span> · {e.siteName}</span> : null}</div></div></div></td>
                     <td className="muted">{e.position || '—'}</td>
                     <td className="muted">{e.department || '—'}</td>
                     <td className="muted">{e.location || '—'}</td>

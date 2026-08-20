@@ -199,7 +199,7 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
       <div className="card rise d3">
         <div className="chead">
           <div className="ctitle">Nueva campaña</div>
-          <div className="csub">
+          <div className="psub">
             Compón el mensaje; la lista de destinatarios sale del directorio de clientes y el
             envío real llega con Integraciones.
           </div>
@@ -417,7 +417,7 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
       <div className="card rise d5" style={{ marginTop: 16 }}>
         <div className="chead">
           <div className="ctitle">Plantillas</div>
-          <div className="csub">
+          <div className="psub">
             El molde reutilizable de una campaña. Aplica una plantilla para rellenar el
             formulario de arriba y edita luego lo que haga falta.
           </div>
@@ -532,7 +532,7 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
       <div className="card rise d6" style={{ marginTop: 16 }}>
         <div className="chead">
           <div className="ctitle">Fidelización</div>
-          <div className="csub">
+          <div className="psub">
             Puntos positivos por compra, negativos por redención. Cada movimiento pide un motivo.
           </div>
         </div>

@@ -432,7 +432,7 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
       <div className="card rise d3" style={{ marginTop: 16 }}>
         <div className="chead">
           <div className="ctitle">Listas de materiales</div>
-          <div className="csub">
+          <div className="psub">
             La receta de cada producto fabricado: componentes del catálogo y cantidad por
             unidad. El costo se sugiere al crear la orden.
           </div>

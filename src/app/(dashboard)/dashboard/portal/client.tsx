@@ -122,7 +122,7 @@ export default function PortalPage({ data }: { data: PortalData }) {
       <div className="card rise d3">
         <div className="chead">
           <div className="ctitle">Nuevo enlace</div>
-          <div className="csub">
+          <div className="psub">
             Cualquiera con la URL puede verlo, sin cuenta. Vence solo, o lo revocas tú.
           </div>
         </div>

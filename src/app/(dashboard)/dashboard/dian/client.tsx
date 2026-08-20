@@ -119,7 +119,7 @@ export default function DianPage({ data }: { data: DianPanelData }) {
             <AlertTriangle size={14} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--ambd)' }} />
             Facturación electrónica DIAN — modo demo
           </div>
-          <div className="csub">
+          <div className="psub">
             Ambiente DEMO. El CUFE se simula localmente; el XML UBL 2.1 se genera pero no se firma
             digitalmente, no se envía a la DIAN y <b>no es válido ante la DIAN</b>. Para producción
             se requiere proveedor tecnológico homologado, certificado de firma digital y validación
@@ -152,7 +152,7 @@ export default function DianPage({ data }: { data: DianPanelData }) {
       <div className="card rise d3" style={{ marginTop: 16 }}>
         <div className="chead">
           <div className="ctitle">Enviar factura a DIAN</div>
-          <div className="csub">
+          <div className="psub">
             Solo facturas <b>Emitidas</b> sin documento DIAN previo. Si necesitas re-enviar, elimina
             el documento existente (no disponible en demo — es inmutable por diseño).
           </div>
@@ -195,7 +195,7 @@ export default function DianPage({ data }: { data: DianPanelData }) {
       <div className="card rise d4" style={{ marginTop: 16 }}>
         <div className="chead">
           <div className="ctitle">Documentos DIAN</div>
-          <div className="csub">
+          <div className="psub">
             Últimos 50 envíos. La bitácora de eventos (envío, aceptación, rechazo) es inmutable.
           </div>
         </div>

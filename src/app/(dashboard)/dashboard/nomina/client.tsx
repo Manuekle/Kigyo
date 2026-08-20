@@ -31,7 +31,7 @@ function LineAmount({ line, locked, onSave }: {
   }
   return (
     <input
-      className="field amt"
+      className="field"
       type="number"
       min={0}
       step={100}

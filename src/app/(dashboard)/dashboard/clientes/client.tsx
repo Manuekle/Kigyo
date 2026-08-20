@@ -714,7 +714,7 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
           Envía este enlace al cliente. Abre sus tickets y le deja escribirte sin cuenta.
         </p>
         <div style={{ display: 'flex', gap: 8 }}>
-          <input className="finput" readOnly value={portalUrl ?? ''} onFocus={(e) => e.target.select()} />
+          <input className="field" readOnly value={portalUrl ?? ''} onFocus={(e) => e.target.select()} />
           <button className="btn" onClick={() => navigator.clipboard?.writeText(portalUrl ?? '')}>
             Copiar
           </button>

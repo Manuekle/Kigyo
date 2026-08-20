@@ -109,7 +109,7 @@ export default function IntegracionesPage({ data }: { data: IntegracionesData })
       <div className="card rise d1">
         <div className="chead">
           <div className="ctitle">Pasarela de pagos</div>
-          <div className="csub">
+          <div className="psub">
             Cobra facturas con Wompi u otro proveedor. Las llaves privadas van al vault de
             Supabase — nunca quedan en la tabla ni llegan al navegador.
           </div>
@@ -198,7 +198,7 @@ export default function IntegracionesPage({ data }: { data: IntegracionesData })
       <div className="card rise d2" style={{ marginTop: 16 }}>
         <div className="chead">
           <div className="ctitle">WhatsApp</div>
-          <div className="csub">
+          <div className="psub">
             WhatsApp Cloud API para despachar las campañas de Marketing. El token de acceso
             vive en el vault; aquí solo queda el phone number id.
           </div>
@@ -271,7 +271,7 @@ export default function IntegracionesPage({ data }: { data: IntegracionesData })
             <AlertTriangle size={14} style={{ verticalAlign: 'middle', marginRight: 6, color: 'var(--ambd)' }} />
             Facturación electrónica DIAN (modo demo)
           </div>
-          <div className="csub">
+          <div className="psub">
             Ambiente DEMO. Sin firma digital ni envío real: el CUFE se simula localmente y{' '}
             <b>no es válido ante la DIAN</b>. Producción requiere proveedor tecnológico homologado,
             certificado de firma digital y revisor fiscal — flujo aparte.

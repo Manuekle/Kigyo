@@ -780,10 +780,10 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                   </tr>
                 ) : reservas.map((r) => (
                   <tr key={r.id}>
-                    <td><div className="cecode">{r.code ?? '—'}</div></td>
+                    <td><div className="cename">{r.code ?? '—'}</div></td>
                     <td>
                       <div className="cename">{r.guestName}</div>
-                      {r.guestPhone && <div className="cesub">{r.guestPhone}</div>}
+                      {r.guestPhone && <div className="ceid">{r.guestPhone}</div>}
                     </td>
                     <td>{r.partySize}</td>
                     <td>{formatWhen(r.reservedAt)}</td>
@@ -905,10 +905,10 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                   </tr>
                 ) : domicilios.map((d) => (
                   <tr key={d.id}>
-                    <td><div className="cecode">{d.orderCode ?? '—'}</div></td>
+                    <td><div className="cename">{d.orderCode ?? '—'}</div></td>
                     <td>
                       <div className="cename">{d.address}</div>
-                      {d.phone && <div className="cesub">{d.phone}</div>}
+                      {d.phone && <div className="ceid">{d.phone}</div>}
                     </td>
                     <td>{d.courierName || 'Sin asignar'}</td>
                     <td>{pesos(d.feeCents)}</td>
@@ -961,8 +961,8 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                 ) : cajas.map((c) => (
                   <tr key={c.id}>
                     <td>
-                      <div className="cecode">{c.code ?? '—'}</div>
-                      <div className="cesub">{formatWhen(c.openedAt)}</div>
+                      <div className="cename">{c.code ?? '—'}</div>
+                      <div className="ceid">{formatWhen(c.openedAt)}</div>
                     </td>
                     <td>{c.openedByName || '—'}</td>
                     <td>{pesos(c.openingFloatCents)}</td>
