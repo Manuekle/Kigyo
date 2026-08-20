@@ -11,6 +11,7 @@ import {
   XCircle,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
@@ -313,20 +314,20 @@ export default function PuestosPage({ data }: { data: PuestosData }) {
             </div>
             <div style={{ flex: '0 1 190px', minWidth: 170 }}>
               <div className="flabel">Inicio</div>
-              <input
-                type="datetime-local"
-                className="field"
+              <DatePicker
+                withTime
+                ariaLabel="Inicio"
                 value={shiftForm.startsAt}
-                onChange={(e) => setShiftForm((f) => ({ ...f, startsAt: e.target.value }))}
+                onChange={(v) => setShiftForm((f) => ({ ...f, startsAt: v }))}
               />
             </div>
             <div style={{ flex: '0 1 190px', minWidth: 170 }}>
               <div className="flabel">Fin</div>
-              <input
-                type="datetime-local"
-                className="field"
+              <DatePicker
+                withTime
+                ariaLabel="Fin"
                 value={shiftForm.endsAt}
-                onChange={(e) => setShiftForm((f) => ({ ...f, endsAt: e.target.value }))}
+                onChange={(v) => setShiftForm((f) => ({ ...f, endsAt: v }))}
               />
             </div>
             <div style={{ flex: '1 1 180px', minWidth: 150 }}>

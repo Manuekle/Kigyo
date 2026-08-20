@@ -1063,9 +1063,9 @@ items={[
           </div>
         </div>
 
-        <label className="flabel" htmlFor="tur-fecha">Fecha y hora</label>
-        <input id="tur-fecha" className="field" type="datetime-local" value={turnoForm.scheduledFor}
-          onChange={(e) => setTurnoForm({ ...turnoForm, scheduledFor: e.target.value })} />
+        <div className="flabel">Fecha y hora</div>
+        <DatePicker withTime ariaLabel="Fecha y hora" value={turnoForm.scheduledFor}
+          onChange={(v) => setTurnoForm({ ...turnoForm, scheduledFor: v })} />
 
         <label className="flabel" htmlFor="tur-reason">Motivo</label>
         <input id="tur-reason" className="field" value={turnoForm.reason}

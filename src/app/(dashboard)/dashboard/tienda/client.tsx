@@ -184,11 +184,11 @@ export default function TiendaPage({ data }: { data: ProductosData }) {
             </div>
 
             {productos.length === 0 ? (
-              <div className="dempty">
+              <div className="dempty" style={{ padding: '40px 0', textAlign: 'center' }}>
                 No hay productos publicados en la tienda. Actívalos desde Catálogos.
               </div>
             ) : filtered.length === 0 ? (
-              <div className="dempty">No se encontraron productos con los filtros actuales.</div>
+              <div className="dempty" style={{ padding: '40px 0', textAlign: 'center' }}>No se encontraron productos con los filtros actuales.</div>
             ) : (
               <div style={{ padding: 16 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(220px, 100%), 1fr))', gap: 12 }}>

@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Restaurant, FileSpreadsheet, Check, Plus, Trash2, DollarSign, LayoutGrid, Clock, PenLine } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -1230,9 +1231,9 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
           </div>
         </div>
 
-        <label className="flabel" htmlFor="rsv-when">Fecha y hora</label>
-        <input id="rsv-when" className="field" type="datetime-local" value={reservaForm.reservedAt}
-          onChange={(e) => setReservaForm({ ...reservaForm, reservedAt: e.target.value })} />
+        <div className="flabel">Fecha y hora</div>
+        <DatePicker withTime ariaLabel="Fecha y hora" value={reservaForm.reservedAt}
+          onChange={(v) => setReservaForm({ ...reservaForm, reservedAt: v })} />
 
         {/* Optional: most bookings are taken before anyone decides which table
             they get, and forcing the choice here would block the call. */}

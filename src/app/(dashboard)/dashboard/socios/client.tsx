@@ -746,9 +746,9 @@ export default function SociosPage({ data }: { data: SociosData }) {
           placeholder="Spinning 6:00"
           onChange={(e) => setClaseForm({ ...claseForm, name: e.target.value })} />
 
-        <label className="flabel" htmlFor="cl-when">Fecha y hora</label>
-        <input id="cl-when" className="field" type="datetime-local" value={claseForm.startsAt}
-          onChange={(e) => setClaseForm({ ...claseForm, startsAt: e.target.value })} />
+        <div className="flabel">Fecha y hora</div>
+        <DatePicker withTime ariaLabel="Fecha y hora" value={claseForm.startsAt}
+          onChange={(v) => setClaseForm({ ...claseForm, startsAt: v })} />
 
         <label className="flabel" htmlFor="cl-instructor">Profesor</label>
         <Select value={claseForm.instructorId}

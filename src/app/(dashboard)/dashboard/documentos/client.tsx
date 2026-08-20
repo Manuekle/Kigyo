@@ -522,7 +522,7 @@ export default function DocumentosPage({ data }: { data: DocumentosData }) {
             </div>
             <div className="cpad">
               {carpetas.length === 0 ? (
-                <div className="dempty">
+                <div className="dempty" style={{ padding: '28px 0', textAlign: 'center' }}>
                   Todavía no hay carpetas. Los documentos sueltos aparecen abajo.
                 </div>
               ) : (

@@ -186,11 +186,11 @@ export default function CatalogosPage({ data }: { data: ProductosData }) {
         </div>
 
         {productos.length === 0 ? (
-          <div className="dempty">
+          <div className="dempty" style={{ padding: '40px 0', textAlign: 'center' }}>
             {state.canWrite ? 'Todavía no hay productos. Crea el primero.' : 'Todavía no hay productos.'}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="dempty">No se encontraron productos con los filtros actuales.</div>
+          <div className="dempty" style={{ padding: '40px 0', textAlign: 'center' }}>No se encontraron productos con los filtros actuales.</div>
         ) : (
           <div className="tblwrap">
             <table className="tbl">

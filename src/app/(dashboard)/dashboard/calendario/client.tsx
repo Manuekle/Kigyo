@@ -275,7 +275,7 @@ export default function CalendarioPage({ data }: { data: CalendarioData }) {
           )}
         </div>
         {upcoming.length === 0 ? (
-          <div className="dempty">No hay reuniones próximas.</div>
+          <div className="dempty" style={{ padding: '28px 0', textAlign: 'center' }}>No hay reuniones próximas.</div>
         ) : upcoming.map((m) => {
           const start = new Date(m.startsAt)
           const expanded = expandedId === m.id
