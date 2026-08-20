@@ -3,8 +3,8 @@
 import { useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { BarChart3, FileSpreadsheet, Clock, Check, Plus, X, Users, ChevronRight, MapPin, Zap, UserPlus } from '@/lib/icons'
-import type { IconProps } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
@@ -28,26 +28,6 @@ import {
 
 const DAY = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
 const fmtDate = (iso: string | null) => (iso ? DAY.format(new Date(`${iso}T00:00:00`)) : '—')
-
-function Stat({ ico: Ico, tone = 'ink', label, value, sub }: {
-  ico: (p: IconProps) => React.ReactElement
-  tone?: string
-  label: string
-  value: string | number
-  sub?: string
-}) {
-  return (
-    <div className="card kpi">
-      <div className={`kglow ${tone}`} />
-      <div className="klab">
-        <span className={`kico-soft ${tone}`}><Ico size={16} /></span>
-        {label}
-      </div>
-      <div className="kval">{value}</div>
-      {sub && <div className="kvs" style={{ marginTop: 3 }}>{sub}</div>}
-    </div>
-  )
-}
 
 const EMPTY_FORM = {
   name: '', client: '', location: '', kind: 'Instalación' as (typeof PROJECT_KINDS)[number],
@@ -238,10 +218,10 @@ export default function ProyectosPage({ data }: { data: ProyectosData }) {
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
-        <div className="rise d1"><Stat ico={BarChart3} tone="blu" label="Proyectos activos" value={stats.activos} sub="en ejecución" /></div>
-        <div className="rise d2"><Stat ico={Check} tone="grn" label="Finalizados" value={stats.completados} sub="históricos" /></div>
-        <div className="rise d3"><Stat ico={Clock} tone="amb" label="En planificación" value={stats.planificacion} sub="próximos" /></div>
-        <div className="rise d4"><Stat ico={Zap} tone="vio" label="Presupuesto total" value={cop(stats.presupuesto / 100)} sub="todos los proyectos" /></div>
+        <div className="rise d1"><Stat icon={<BarChart3 size={16} />} tone="blu" label="Proyectos activos" value={stats.activos} sub="en ejecución" /></div>
+        <div className="rise d2"><Stat icon={<Check size={16} />} tone="grn" label="Finalizados" value={stats.completados} sub="históricos" /></div>
+        <div className="rise d3"><Stat icon={<Clock size={16} />} tone="amb" label="En planificación" value={stats.planificacion} sub="próximos" /></div>
+        <div className="rise d4"><Stat icon={<Zap size={16} />} tone="vio" label="Presupuesto total" value={cop(stats.presupuesto / 100)} sub="todos los proyectos" /></div>
       </div>
 
       <div className="card rise d2">

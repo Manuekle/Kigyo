@@ -116,13 +116,13 @@ export default function SuscripcionesPage({ data }: { data: SuscripcionesData })
 
   return (
     <>
-      <div className="g2" style={{ marginBottom: 16 }}>
+      <div className="g3 g3--few" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             icon={<Users size={16} />}
             tone="grn"
             label="Suscripciones activas"
-            value={`${state.activeCount} activas`}
+            value={state.activeCount}
             sub={`${pesos(state.monthlyCents)}/mes`}
           />
         </div>

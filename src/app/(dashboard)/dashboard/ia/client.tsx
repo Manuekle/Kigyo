@@ -224,7 +224,7 @@ export default function IAPage() {
                   speed={0.3}
                 />
               </div>
-              <h1 className="ia-title">¿En qué puedo ayudarte?</h1>
+              <h2 className="ia-title">¿En qué puedo ayudarte?</h2>
               <p className="ia-sub">
                 Consulta firmas, inventario, riesgos, tickets y cumplimiento en lenguaje natural.
               </p>

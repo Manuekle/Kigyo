@@ -127,7 +127,7 @@ export default function DonantesPage({ data }: { data: DonantesData }) {
 
   return (
     <>
-      <div className="g2" style={{ marginBottom: 16 }}>
+      <div className="g3 g3--few" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             icon={<Handshake size={16} />}

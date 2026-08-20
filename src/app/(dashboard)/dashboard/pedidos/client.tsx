@@ -117,7 +117,7 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
     <>
       <div className="dash-head">
         <div>
-          <h1 className="dash-hello">Pedidos</h1>
+          <h2 className="dash-hello">Pedidos</h2>
           <p className="dash-sub">
             Acuerdos comerciales de tus clientes: del sí a la entrega, sin duplicar líneas.
           </p>
@@ -133,37 +133,45 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
       </div>
 
       <div className="gkpi">
-        <Stat
-          label="Pedidos activos"
-          value={String(stats.activos)}
-          sub="sin cancelar"
-          tone="blu"
-          icon={<Truck size={16} />}
-        />
-        <Stat
-          label="En curso"
-          value={String(stats.enCurso)}
-          sub="confirmado a despacho"
-          tone="amb"
-          icon={<Clock size={16} />}
-        />
-        <Stat
-          label="Entregados"
-          value={String(stats.entregados)}
-          sub="cerrados con éxito"
-          tone="grn"
-          icon={<Package size={16} />}
-        />
-        <Stat
-          label="Valor activo"
-          value={pesos(stats.total)}
-          sub="pedidos sin cancelar"
-          tone="vio"
-          icon={<Check size={16} />}
-        />
+        <div className="rise d1">
+          <Stat
+            label="Pedidos activos"
+            value={String(stats.activos)}
+            sub="sin cancelar"
+            tone="blu"
+            icon={<Truck size={16} />}
+          />
+        </div>
+        <div className="rise d2">
+          <Stat
+            label="En curso"
+            value={String(stats.enCurso)}
+            sub="confirmado a despacho"
+            tone="amb"
+            icon={<Clock size={16} />}
+          />
+        </div>
+        <div className="rise d3">
+          <Stat
+            label="Entregados"
+            value={String(stats.entregados)}
+            sub="cerrados con éxito"
+            tone="grn"
+            icon={<Package size={16} />}
+          />
+        </div>
+        <div className="rise d4">
+          <Stat
+            label="Valor activo"
+            value={pesos(stats.total)}
+            sub="pedidos sin cancelar"
+            tone="vio"
+            icon={<Check size={16} />}
+          />
+        </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
+      <div className="card rise d5" style={{ marginTop: 16 }}>
         {pedidos.length === 0 ? (
           <div className="dempty" style={{ padding: '40px 0', textAlign: 'center' }}>
             Todavía no hay pedidos. {data.canWrite && quotes.length > 0 && 'Convierte una cotización aceptada para empezar.'}

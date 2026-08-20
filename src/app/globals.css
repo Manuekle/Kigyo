@@ -854,6 +854,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  margin: 0;
   font-size: 13px;
   color: var(--ink);
   font-weight: 400;
@@ -1447,6 +1448,11 @@ button.notifitem:hover { background: var(--hover); cursor: pointer; }
   align-items: stretch;
 }
 .g3 > div { display: flex; flex-direction: column; }
+/* A KPI row holding one or two figures. `auto-fit` collapses the tracks it did
+   not fill, so a lone card stretches the whole row — a 28px number floating in
+   a 1200px banner. `auto-fill` keeps those tracks, so the cards land at the
+   same width they have in the four-up rows the rest of the dashboard uses. */
+.g3--few { grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); }
 
 /* ═══ KPI cards ═══ */
 .kpi {
@@ -1539,7 +1545,7 @@ button.notifitem:hover { background: var(--hover); cursor: pointer; }
   margin-bottom: 28px;
   flex-wrap: wrap;
 }
-.dash-hello { font-family: var(--font-display); font-size: 28px; font-weight: 500; letter-spacing: -.01em; line-height: 1.1; color: var(--ink); }
+.dash-hello { margin: 0; font-family: var(--font-display); font-size: 28px; font-weight: 500; letter-spacing: -.01em; line-height: 1.1; color: var(--ink); }
 .dash-sub { font-size: 14px; color: var(--ink2); margin-top: 6px; font-weight: 400; }
 .kico-soft {
   width: 36px;
@@ -2945,7 +2951,7 @@ input[type="range"].sld::-moz-range-thumb {
   padding: 20px 0 32px;
 }
 
-.ia-title { font-family: var(--font-display); font-size: 23px; font-weight: 500; letter-spacing: -.01em; color: var(--ink); margin-bottom: 7px; line-height: 1.15; }
+.ia-title { font-family: var(--font-display); font-size: 23px; font-weight: 500; letter-spacing: -.01em; color: var(--ink); margin: 0 0 7px; line-height: 1.15; }
 .ia-sub { font-size: 14px; color: var(--ink2); font-weight: 400; max-width: 400px; margin-bottom: 24px; line-height: 1.5; }
 .ia-chips { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; max-width: 560px; }
 .ia-chip {

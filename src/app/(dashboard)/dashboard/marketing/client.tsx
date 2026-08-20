@@ -174,13 +174,13 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
 
   return (
     <>
-      <div className="g2" style={{ marginBottom: 16 }}>
+      <div className="g3 g3--few" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             icon={<Send size={16} />}
             label="Campañas activas"
-            value={`${state.activasCount} en preparación`}
-            sub={`${state.campaigns.filter((c) => c.status === 'enviada').length} enviadas`}
+            value={state.activasCount}
+            sub={`En preparación · ${state.campaigns.filter((c) => c.status === 'enviada').length} enviadas`}
           />
         </div>
         <div className="rise d2">
@@ -188,8 +188,8 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
             icon={<Star size={16} />}
             tone="grn"
             label="Clientes con puntos"
-            value={`${state.balances.length} con saldo`}
-            sub="El saldo es la suma del libro"
+            value={state.balances.length}
+            sub="Con saldo · el saldo es la suma del libro"
           />
         </div>
       </div>

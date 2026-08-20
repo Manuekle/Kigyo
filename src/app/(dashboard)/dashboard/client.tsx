@@ -124,6 +124,14 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
    * them, on every account, whether or not the assistant was configured.
    */
   const genInsights = useCallback(async (refresh = false) => {
+    // Organizations without the `ia` module don't have `ia:use`, so the
+    // endpoint answers 403. That's expected, not a failure worth a toast —
+    // treat it the same as the model-not-configured case below.
+    if (!member.hasModule('ia')) {
+      setInsightsAvailable(false)
+      return
+    }
+
     setLoadingInsights(true)
     try {
       const result = await apiFetch<InsightsResponse>(
@@ -145,7 +153,7 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
     } finally {
       setLoadingInsights(false)
     }
-  }, [addToast])
+  }, [addToast, member])
 
   useEffect(() => {
     // After first paint: an AI round trip should never delay the dashboard.
@@ -161,7 +169,7 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
     <>
       <div className="dash-head">
         <div className={`t-stagger${shown ? ' is-shown' : ''}`}>
-          <h1 className="dash-hello t-stagger-line t-stagger-line--1">Hola, {firstName}</h1>
+          <h2 className="dash-hello t-stagger-line t-stagger-line--1">Hola, {firstName}</h2>
           <p className="dash-sub t-stagger-line t-stagger-line--2">
             Esto es lo que está pasando en {data.orgName}.
           </p>

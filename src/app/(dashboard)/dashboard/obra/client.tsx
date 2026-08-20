@@ -220,7 +220,7 @@ export default function ObraPage({ data }: { data: ObraData }) {
 
   return (
     <>
-      <div className="g2" style={{ marginBottom: 16 }}>
+      <div className="g3" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             icon={<Construction size={16} />}

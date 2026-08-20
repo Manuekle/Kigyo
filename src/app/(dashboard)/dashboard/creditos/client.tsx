@@ -94,13 +94,13 @@ export default function CreditosPage({ data }: { data: CreditosData }) {
 
   return (
     <>
-      <div className="g2" style={{ marginBottom: 16 }}>
+      <div className="g3 g3--few" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             icon={<AlertTriangle size={16} />}
             tone="red"
             label="Mora"
-            value={`${state.enMoraCount} en mora`}
+            value={state.enMoraCount}
             sub={`${pesos(state.moraCents)} vencido`}
           />
         </div>

@@ -1,11 +1,10 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import type { ComponentType } from 'react'
 import { Wallet, Users, ShieldCheck, TrendingUp, TrendingDown, FileSpreadsheet, Plus, PenLine, X, Lock, DollarSign, Tag, Printer } from '@/lib/icons'
-import type { IconProps } from '@/lib/icons'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import ChartTip from '@/components/ui/ChartTip'
+import Stat from '@/components/ui/Stat'
 import Select from '@/components/ui/Select'
 import { useExport } from '@/lib/hooks/use-export'
 import { useApp } from '@/lib/context/AppContext'
@@ -19,22 +18,6 @@ const MONTH_LONG = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'nume
 const asDate = (iso: string) => new Date(`${iso}T00:00:00`)
 
 const BENEFIT_KINDS = ['Salud', 'Alimentación', 'Seguro', 'Transporte', 'Educación', 'Otro']
-
-function Stat({ ico: Ico, tone = 'ink', label, value, sub }: {
-  ico: ComponentType<IconProps>; tone?: string; label: string; value: string | number; sub?: string
-}) {
-  return (
-    <div className="card kpi">
-      <div className={`kglow ${tone}`} />
-      <div className="klab">
-        <span className={`kico-soft ${tone}`}><Ico size={16} /></span>
-        {label}
-      </div>
-      <div className="kval">{value}</div>
-      {sub && <div className="kvs" style={{ marginTop: 3 }}>{sub}</div>}
-    </div>
-  )
-}
 
 /** Editable amount (pesos) of one desglose line; commits on blur. */
 function LineAmount({ line, locked, onSave }: {
@@ -414,12 +397,12 @@ export default function NominaPage({ data }: { data: NominaData }) {
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
-        <div className="rise d1"><Stat ico={Wallet} tone="grn" label="Costo total de nómina" value={cop(stats.total / 100)} sub={current ? MONTH_LONG.format(asDate(current.period)) : 'sin periodo'} /></div>
-        <div className="rise d2"><Stat ico={Users} tone="blu" label="Costo promedio" value={cop(stats.average / 100)} sub={`${stats.headcount} personas`} /></div>
-        <div className="rise d3"><Stat ico={ShieldCheck} tone="vio" label="Beneficios otorgados" value={cop(stats.benefits / 100)} sub="mensual" /></div>
+        <div className="rise d1"><Stat icon={<Wallet size={16} />} tone="grn" label="Costo total de nómina" value={cop(stats.total / 100)} sub={current ? MONTH_LONG.format(asDate(current.period)) : 'sin periodo'} /></div>
+        <div className="rise d2"><Stat icon={<Users size={16} />} tone="blu" label="Costo promedio" value={cop(stats.average / 100)} sub={`${stats.headcount} personas`} /></div>
+        <div className="rise d3"><Stat icon={<ShieldCheck size={16} />} tone="vio" label="Beneficios otorgados" value={cop(stats.benefits / 100)} sub="mensual" /></div>
         <div className="rise d4">
           <Stat
-            ico={(stats.variation ?? 0) >= 0 ? TrendingUp : TrendingDown}
+            icon={(stats.variation ?? 0) >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
             tone={stats.variation === null ? 'neu' : stats.variation >= 0 ? 'amb' : 'grn'}
             label="Variación mensual"
             value={stats.variation === null ? '—' : `${stats.variation > 0 ? '+' : ''}${stats.variation.toFixed(1)}%`}

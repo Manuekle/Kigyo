@@ -85,13 +85,13 @@ export default function CarteraPage({ data }: { data: CarteraData }) {
 
   return (
     <>
-      <div className="g2" style={{ marginBottom: 16 }}>
+      <div className="g3 g3--few" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             icon={<Wallet size={16} />}
             tone="amb"
             label="Cuentas por cobrar"
-            value={`${pesos(state.pendienteCents)} pendiente`}
+            value={pesos(state.pendienteCents)}
             sub={`${pesos(state.vencidaCents)} vencida`}
           />
         </div>

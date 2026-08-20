@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { ShieldAlert, Clock, Info, Check, AlertCircle, Plus, Trash2, X, Zap, PenLine, FileSpreadsheet } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import Stat from '@/components/ui/Stat'
 import Select from '@/components/ui/Select'
 import TabBar from '@/components/ui/TabBar'
 import { useApp } from '@/lib/context/AppContext'
@@ -12,26 +13,6 @@ import LoadMore from '@/components/ui/LoadMore'
 import type { RiesgosData, RiesgoRow } from '@/server/queries/riesgos'
 import { createRiesgo, deleteRiesgo, setRiesgoStatus, updateRiesgo } from '@/server/mutations/riesgos'
 import { fetchMoreRiesgos } from '@/server/actions/riesgos'
-
-function Stat({ ico: Ico, tone = 'ink', label, value, sub }: {
-  ico: (p: IconProps) => React.ReactElement
-  tone?: string
-  label: string
-  value: string | number
-  sub?: string
-}) {
-  return (
-    <div className="card kpi">
-      <div className={`kglow ${tone}`} />
-      <div className="klab">
-        <span className={`kico-soft ${tone}`}><Ico size={16} /></span>
-        {label}
-      </div>
-      <div className="kval">{value}</div>
-      {sub && <div className="kvs" style={{ marginTop: 3 }}>{sub}</div>}
-    </div>
-  )
-}
 
 const SEV_ICO: Record<string, (p: IconProps) => React.ReactElement> = {
   Alta: AlertCircle, Media: Clock, Baja: Info,
@@ -182,10 +163,10 @@ export default function RiesgosPage({ data }: { data: RiesgosData }) {
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
-        <div className="rise d1"><Stat ico={ShieldAlert} tone="red" label="Riesgos críticos" value={counts.alta} sub="Alta prioridad" /></div>
-        <div className="rise d2"><Stat ico={Clock} tone="amb" label="Riesgos medios" value={counts.media} sub="Atención pronto" /></div>
-        <div className="rise d3"><Stat ico={Info} tone="neu" label="Riesgos bajos" value={counts.baja} sub="Monitorear" /></div>
-        <div className="rise d4"><Stat ico={Check} tone="grn" label="Gestionados" value={managed} sub="mitigados o cerrados" /></div>
+        <div className="rise d1"><Stat icon={<ShieldAlert size={16} />} tone="red" label="Riesgos críticos" value={counts.alta} sub="Alta prioridad" /></div>
+        <div className="rise d2"><Stat icon={<Clock size={16} />} tone="amb" label="Riesgos medios" value={counts.media} sub="Atención pronto" /></div>
+        <div className="rise d3"><Stat icon={<Info size={16} />} tone="neu" label="Riesgos bajos" value={counts.baja} sub="Monitorear" /></div>
+        <div className="rise d4"><Stat icon={<Check size={16} />} tone="grn" label="Gestionados" value={managed} sub="mitigados o cerrados" /></div>
       </div>
 
       <div className="card rise d2">

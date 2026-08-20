@@ -46,7 +46,7 @@ export default function Topbar({ notificaciones }: { notificaciones: Notificacio
         <Menu size={18} />
       </button>
 
-      <div className="crumb mono">{title}</div>
+      <h1 className="crumb mono">{title}</h1>
 
       <div style={{ flex: 1 }} />
 

@@ -39,9 +39,13 @@ function ToastItem({ t, onRemove }: { t: Toast; onRemove: (id: number) => void }
   }, [t.id, onRemove])
 
   useEffect(() => {
+    // Errors and toasts carrying an action stay until the person dismisses
+    // them — auto-clearing one before it's read or acted on is how a failed
+    // mutation gets mistaken for a successful one.
+    if (t.type === 'err' || t.action) return
     const timer = setTimeout(dismiss, VISIBLE_MS)
     return () => clearTimeout(timer)
-  }, [dismiss])
+  }, [dismiss, t.type, t.action])
 
   // Fires once per toast, on mount. A no-op while sound is off.
   useEffect(() => {

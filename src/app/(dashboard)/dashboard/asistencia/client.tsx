@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { UserMinus, AlertCircle, Calendar, Plus, Check, Trash2, X, PenLine } from '@/lib/icons'
-import type { IconProps } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
+import Stat from '@/components/ui/Stat'
 import LoadMore from '@/components/ui/LoadMore'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
@@ -28,26 +28,6 @@ type SalidaReason = (typeof SALIDA_REASONS)[number]
 const Badge = ({ st }: { st: string }) => (
   <span className={`badge b-${tone(st)}`}><span className="bd" />{st}</span>
 )
-
-function Stat({ ico: Ico, tone: t = 'ink', label, value, sub }: {
-  ico: (p: IconProps) => React.ReactElement
-  tone?: string
-  label: string
-  value: string | number
-  sub?: string
-}) {
-  return (
-    <div className="card kpi">
-      <div className={`kglow ${t}`} />
-      <div className="klab">
-        <span className={`kico-soft ${t}`}><Ico size={16} /></span>
-        {label}
-      </div>
-      <div className="kval">{value}</div>
-      {sub && <div className="kvs" style={{ marginTop: 3 }}>{sub}</div>}
-    </div>
-  )
-}
 
 const todayIso = () => new Date().toISOString().slice(0, 10)
 
@@ -171,12 +151,12 @@ export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
-        <div className="rise d1"><Stat ico={UserMinus} tone="amb" label="Ausencias hoy" value={stats.activas} /></div>
-        <div className="rise d2"><Stat ico={AlertCircle} tone="red" label="Incapacidades" value={stats.incapacidades} sub="registradas" /></div>
+        <div className="rise d1"><Stat icon={<UserMinus size={16} />} tone="amb" label="Ausencias hoy" value={stats.activas} /></div>
+        <div className="rise d2"><Stat icon={<AlertCircle size={16} />} tone="red" label="Incapacidades" value={stats.incapacidades} sub="registradas" /></div>
         {/* "Horas extra (mes)" was here with a hardcoded figure. There is no
             overtime table and no clock-in data, so there is nothing to count. */}
-        <div className="rise d3"><Stat ico={Calendar} tone="blu" label="Programadas" value={stats.programadas} sub="a futuro" /></div>
-        <div className="rise d4"><Stat ico={Calendar} tone="grn" label="Vacaciones pendientes" value={`${stats.vacPendientes} días`} sub={`saldo ${state.year}`} /></div>
+        <div className="rise d3"><Stat icon={<Calendar size={16} />} tone="blu" label="Programadas" value={stats.programadas} sub="a futuro" /></div>
+        <div className="rise d4"><Stat icon={<Calendar size={16} />} tone="grn" label="Vacaciones pendientes" value={stats.vacPendientes} sub={`días · saldo ${state.year}`} /></div>
       </div>
 
       <div className="g2">

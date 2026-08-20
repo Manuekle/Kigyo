@@ -101,7 +101,7 @@ export default function ProveedoresPage({ data }: { data: ProveedoresData }) {
     <>
       <div className="dash-head">
         <div>
-          <h1 className="dash-hello">Proveedores</h1>
+          <h2 className="dash-hello">Proveedores</h2>
           <p className="dash-sub">
             Quién surte tu negocio, cómo contactarlos y cuánto les debes.
           </p>
@@ -114,30 +114,36 @@ export default function ProveedoresPage({ data }: { data: ProveedoresData }) {
       </div>
 
       <div className="gkpi">
-        <Stat
-          label="Proveedores activos"
-          value={String(stats.activos)}
-          sub="en el directorio"
-          tone="blu"
-          icon={<Building2 size={16} />}
-        />
-        <Stat
-          label="Con facturas abiertas"
-          value={String(stats.conDeuda)}
-          sub="pendiente o en revisión"
-          tone="amb"
-          icon={<Check size={16} />}
-        />
-        <Stat
-          label="Deuda total"
-          value={pesos(stats.deuda)}
-          sub="facturas sin pagar"
-          tone="red"
-          icon={<UserPlus size={16} />}
-        />
+        <div className="rise d1">
+          <Stat
+            label="Proveedores activos"
+            value={String(stats.activos)}
+            sub="en el directorio"
+            tone="blu"
+            icon={<Building2 size={16} />}
+          />
+        </div>
+        <div className="rise d2">
+          <Stat
+            label="Con facturas abiertas"
+            value={String(stats.conDeuda)}
+            sub="pendiente o en revisión"
+            tone="amb"
+            icon={<Check size={16} />}
+          />
+        </div>
+        <div className="rise d3">
+          <Stat
+            label="Deuda total"
+            value={pesos(stats.deuda)}
+            sub="facturas sin pagar"
+            tone="red"
+            icon={<UserPlus size={16} />}
+          />
+        </div>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
+      <div className="card rise d4" style={{ marginTop: 16 }}>
         {proveedores.length === 0 ? (
           <div className="dempty" style={{ padding: '40px 0', textAlign: 'center' }}>
             Todavía no hay proveedores. {data.canWrite && 'Crea el primero para empezar el directorio.'}

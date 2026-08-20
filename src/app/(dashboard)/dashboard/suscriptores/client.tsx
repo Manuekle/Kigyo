@@ -120,14 +120,14 @@ export default function SuscriptoresPage({ data }: { data: SuscriptoresData }) {
 
   return (
     <>
-      <div className="g2" style={{ marginBottom: 16 }}>
+      <div className="g3 g3--few" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             icon={<Activity size={16} />}
             tone="grn"
             label="Suscriptores"
-            value={`${state.activosCount} activos · ${state.suspendidosCount} suspendidos`}
-            sub="Estado del servicio"
+            value={state.activosCount}
+            sub={`${state.suspendidosCount} suspendidos`}
           />
         </div>
       </div>

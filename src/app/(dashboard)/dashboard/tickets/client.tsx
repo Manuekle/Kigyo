@@ -8,6 +8,7 @@ import {
 import { useApp } from '@/lib/context/AppContext'
 import { useExport } from '@/lib/hooks/use-export'
 import NuevoTicketModal from '@/components/ui/NuevoTicketModal'
+import Stat from '@/components/ui/Stat'
 import LoadMore from '@/components/ui/LoadMore'
 import Drawer from '@/components/ui/Drawer'
 import TabBar from '@/components/ui/TabBar'
@@ -134,26 +135,6 @@ const Avatar = ({ name, size = 34 }: { name: string; size?: number }) => {
   const [c1, c2] = AV_GRADS[avHash(name)]
   return (
     <div className="av" style={{ width: size, height: size, fontSize: size * 0.36, background: `linear-gradient(145deg,${c1},${c2})`, boxShadow: `0 4px 10px -4px ${c2}88` }}>{initials(name)}</div>
-  )
-}
-
-function Stat({ ico: Ico, tone: t = 'ink', label, value, sub }: {
-  ico: (p: { size?: number }) => React.ReactElement
-  tone?: string
-  label: string
-  value: string | number
-  sub?: string
-}) {
-  return (
-    <div className="card kpi">
-      <div className={`kglow ${t}`} />
-      <div className="klab">
-        <span className={`kico-soft ${t}`}><Ico size={16} /></span>
-        {label}
-      </div>
-      <div className="kval">{value}</div>
-      {sub && <div className="kvs" style={{ marginTop: 3 }}>{sub}</div>}
-    </div>
   )
 }
 
@@ -646,12 +627,12 @@ export default function TicketsPage({ data }: { data: TicketsData }) {
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
-        <div className="rise d1"><Stat ico={Ticket} tone="amb" label="Abiertos" value={count('Abierto')} /></div>
-        <div className="rise d2"><Stat ico={Clock} tone="blu" label="En proceso" value={count('En proceso')} /></div>
-        <div className="rise d3"><Stat ico={Check} tone="grn" label="Resueltos" value={count('Resuelto')} /></div>
+        <div className="rise d1"><Stat icon={<Ticket size={16} />} tone="amb" label="Abiertos" value={count('Abierto')} /></div>
+        <div className="rise d2"><Stat icon={<Clock size={16} />} tone="blu" label="En proceso" value={count('En proceso')} /></div>
+        <div className="rise d3"><Stat icon={<Check size={16} />} tone="grn" label="Resueltos" value={count('Resuelto')} /></div>
         {/* Was a hardcoded "5.2 h". Computed from resolved_at − created_at, and
             "—" while nothing has been resolved yet. */}
-        <div className="rise d4"><Stat ico={Activity} tone="vio" label="Tiempo medio" value={meanResolution(items)} sub="hasta resolver" /></div>
+        <div className="rise d4"><Stat icon={<Activity size={16} />} tone="vio" label="Tiempo medio" value={meanResolution(items)} sub="hasta resolver" /></div>
       </div>
 
       <div className="ptools">

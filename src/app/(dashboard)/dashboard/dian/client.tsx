@@ -129,12 +129,12 @@ export default function DianPage({ data }: { data: DianPanelData }) {
         </div>
       </div>
 
-      <div className="g2" style={{ marginTop: 16 }}>
+      <div className="g3 g3--few" style={{ marginTop: 16 }}>
         <div className="rise d1">
           <Stat
             icon={<Send size={16} />}
             label="Enviadas a DIAN"
-            value={`${state.documentos.length} documentos`}
+            value={state.documentos.length}
             sub={`${state.aceptadas} aceptadas·${state.rechazadas} rechazadas`}
           />
         </div>
@@ -274,12 +274,12 @@ export default function DianPage({ data }: { data: DianPanelData }) {
       >
         {detalle && (
           <div>
-            <div className="g2" style={{ marginBottom: 16 }}>
-              <div className="rise d1" style={{ background: 'var(--bg2)' }}>
+            <div className="g2b" style={{ marginBottom: 16 }}>
+              <div className="rise d1" style={{ background: 'var(--bg2)', padding: 8, borderRadius: 8 }}>
                 <div className="flabel" style={{ marginTop: 0 }}>Cliente</div>
                 <div>{detalle.documento.clientName || '—'}</div>
               </div>
-              <div className="rise d2" style={{ background: 'var(--bg2)' }}>
+              <div className="rise d2" style={{ background: 'var(--bg2)', padding: 8, borderRadius: 8 }}>
                 <div className="flabel" style={{ marginTop: 0 }}>Total</div>
                 <div className="mono">{pesos(detalle.documento.totalCents)}</div>
               </div>

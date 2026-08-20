@@ -99,12 +99,12 @@ export default function PortalPage({ data }: { data: PortalData }) {
 
   return (
     <>
-      <div className="g2" style={{ marginBottom: 16 }}>
+      <div className="g3 g3--few" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             icon={<Link2 size={16} />}
             label="Activos"
-            value={`${state.links.filter((l) => l.status === 'Activo').length} enlaces`}
+            value={state.links.filter((l) => l.status === 'Activo').length}
             sub={`${state.links.length} creados`}
           />
         </div>
@@ -113,7 +113,7 @@ export default function PortalPage({ data }: { data: PortalData }) {
             icon={<ShieldCheck size={16} />}
             tone="grn"
             label="Vistas"
-            value={`${state.vistasCount} aperturas`}
+            value={state.vistasCount}
             sub="Cada apertura queda registrada"
           />
         </div>
