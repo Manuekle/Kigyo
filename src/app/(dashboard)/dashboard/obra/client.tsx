@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { ChevronDown, ChevronUp, Construction, Plus, Trash2 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
 import { cop } from '@/lib/utils'
@@ -291,20 +292,18 @@ export default function ObraPage({ data }: { data: ObraData }) {
             </div>
             <div style={{ flex: '0 1 150px', minWidth: 130 }}>
               <div className="flabel">Inicio</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Inicio"
                 value={presForm.fechaInicio}
-                onChange={(e) => setPresForm((f) => ({ ...f, fechaInicio: e.target.value }))}
+                onChange={(v) => setPresForm((f) => ({ ...f, fechaInicio: v }))}
               />
             </div>
             <div style={{ flex: '0 1 150px', minWidth: 130 }}>
               <div className="flabel">Fin</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Fin"
                 value={presForm.fechaFin}
-                onChange={(e) => setPresForm((f) => ({ ...f, fechaFin: e.target.value }))}
+                onChange={(v) => setPresForm((f) => ({ ...f, fechaFin: v }))}
               />
             </div>
             <button
@@ -659,11 +658,10 @@ function FragmentCap(props: CapProps) {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 8 }}>
               <div style={{ flex: '0 1 150px', minWidth: 130 }}>
                 <div className="flabel" style={{ marginTop: 0 }}>Fecha</div>
-                <input
-                  type="date"
-                  className="field"
+                <DatePicker
+                  ariaLabel="Fecha"
                   value={avForm.fecha}
-                  onChange={(e) => props.onAvChange({ fecha: e.target.value })}
+                  onChange={(v) => props.onAvChange({ fecha: v })}
                 />
               </div>
               <div style={{ flex: '0 1 110px', minWidth: 90 }}>

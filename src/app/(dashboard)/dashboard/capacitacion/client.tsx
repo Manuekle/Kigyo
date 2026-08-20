@@ -5,6 +5,7 @@ import {
   GraduationCap, Award, AlertTriangle, Check, PenLine, Plus, Trash2, UserPlus, Clock,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -605,14 +606,14 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="cur-from">Inicia</label>
-            <input id="cur-from" className="field" type="date" value={courseForm.startsOn}
-              onChange={(e) => setCourseForm({ ...courseForm, startsOn: e.target.value })} />
+            <div className="flabel">Inicia</div>
+            <DatePicker ariaLabel="Inicia" value={courseForm.startsOn}
+              onChange={(v) => setCourseForm({ ...courseForm, startsOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="cur-to">Termina</label>
-            <input id="cur-to" className="field" type="date" value={courseForm.endsOn}
-              onChange={(e) => setCourseForm({ ...courseForm, endsOn: e.target.value })} />
+            <div className="flabel">Termina</div>
+            <DatePicker ariaLabel="Termina" value={courseForm.endsOn}
+              onChange={(v) => setCourseForm({ ...courseForm, endsOn: v })} />
           </div>
         </div>
 
@@ -692,14 +693,14 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="cert-from">Emitido</label>
-            <input id="cert-from" className="field" type="date" value={certForm.issuedOn}
-              onChange={(e) => setCertForm({ ...certForm, issuedOn: e.target.value })} />
+            <div className="flabel">Emitido</div>
+            <DatePicker ariaLabel="Emitido" value={certForm.issuedOn}
+              onChange={(v) => setCertForm({ ...certForm, issuedOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="cert-to">Vence</label>
-            <input id="cert-to" className="field" type="date" value={certForm.expiresOn}
-              onChange={(e) => setCertForm({ ...certForm, expiresOn: e.target.value })} />
+            <div className="flabel">Vence</div>
+            <DatePicker ariaLabel="Vence" value={certForm.expiresOn}
+              onChange={(v) => setCertForm({ ...certForm, expiresOn: v })} />
           </div>
         </div>
       </FormDrawer>

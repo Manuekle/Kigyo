@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { Target, Star, Check, Plus, Trash2, Kanban, TrendingUp, FileSpreadsheet } from '@/lib/icons'
 import { useExport } from '@/lib/hooks/use-export'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -614,14 +615,14 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="cyc-from">Inicia</label>
-            <input id="cyc-from" className="field" type="date" value={cycleForm.startsOn}
-              onChange={(e) => setCycleForm({ ...cycleForm, startsOn: e.target.value })} />
+            <div className="flabel">Inicia</div>
+            <DatePicker ariaLabel="Inicia" value={cycleForm.startsOn}
+              onChange={(v) => setCycleForm({ ...cycleForm, startsOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="cyc-to">Cierra</label>
-            <input id="cyc-to" className="field" type="date" value={cycleForm.endsOn}
-              onChange={(e) => setCycleForm({ ...cycleForm, endsOn: e.target.value })} />
+            <div className="flabel">Cierra</div>
+            <DatePicker ariaLabel="Cierra" value={cycleForm.endsOn}
+              onChange={(v) => setCycleForm({ ...cycleForm, endsOn: v })} />
           </div>
         </div>
 
@@ -749,9 +750,9 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
               onChange={(e) => setGoalForm({ ...goalForm, weight: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="goal-due">Vence</label>
-            <input id="goal-due" className="field" type="date" value={goalForm.dueOn}
-              onChange={(e) => setGoalForm({ ...goalForm, dueOn: e.target.value })} />
+            <div className="flabel">Vence</div>
+            <DatePicker ariaLabel="Vence" value={goalForm.dueOn}
+              onChange={(v) => setGoalForm({ ...goalForm, dueOn: v })} />
           </div>
         </div>
 
@@ -789,9 +790,9 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
           </div>
         </div>
 
-        <label className="flabel" htmlFor="enc-close">Cierre</label>
-        <input id="enc-close" className="field" type="date" value={encuestaForm.closedOn}
-          onChange={(e) => setEncuestaForm({ ...encuestaForm, closedOn: e.target.value })} />
+        <div className="flabel">Cierre</div>
+        <DatePicker ariaLabel="Cierre" value={encuestaForm.closedOn}
+          onChange={(v) => setEncuestaForm({ ...encuestaForm, closedOn: v })} />
       </FormDrawer>
     </>
   )

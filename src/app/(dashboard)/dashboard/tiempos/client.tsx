@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Check, Clock, Trash2 } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
@@ -107,11 +108,10 @@ export default function TiemposPage({ data }: { data: TiemposData }) {
           <div className="fg2">
             <div>
               <div className="flabel">Fecha</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Fecha"
                 value={form.workDate}
-                onChange={(e) => setForm((f) => ({ ...f, workDate: e.target.value }))}
+                onChange={(v) => setForm((f) => ({ ...f, workDate: v }))}
               />
             </div>
             <div>

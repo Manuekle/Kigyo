@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Truck, Check, Clock, Package, Plus, Trash2, ChevronRight } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Stat from '@/components/ui/Stat'
 import Select from '@/components/ui/Select'
 import FormDrawer from '@/components/ui/FormDrawer'
@@ -247,11 +248,11 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
         <div className="fg2">
           <div>
             <div className="flabel">Fecha del pedido</div>
-            <input className="field" type="date" value={form.issuedOn} onChange={(e) => setForm({ ...form, issuedOn: e.target.value })} />
+            <DatePicker ariaLabel="Fecha del pedido" value={form.issuedOn} onChange={(v) => setForm({ ...form, issuedOn: v })} />
           </div>
           <div>
             <div className="flabel">Vencimiento</div>
-            <input className="field" type="date" value={form.dueOn} onChange={(e) => setForm({ ...form, dueOn: e.target.value })} />
+            <DatePicker ariaLabel="Vencimiento" value={form.dueOn} onChange={(v) => setForm({ ...form, dueOn: v })} />
           </div>
         </div>
 

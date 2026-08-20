@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Factory, Check, Plus, Trash2, AlertTriangle, Layers, PenLine } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
@@ -649,14 +650,14 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="po-from">Inicia</label>
-            <input id="po-from" className="field" type="date" value={orderForm.startsOn}
-              onChange={(e) => setOrderForm({ ...orderForm, startsOn: e.target.value })} />
+            <div className="flabel">Inicia</div>
+            <DatePicker ariaLabel="Inicia" value={orderForm.startsOn}
+              onChange={(v) => setOrderForm({ ...orderForm, startsOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="po-due">Entrega</label>
-            <input id="po-due" className="field" type="date" value={orderForm.dueOn}
-              onChange={(e) => setOrderForm({ ...orderForm, dueOn: e.target.value })} />
+            <div className="flabel">Entrega</div>
+            <DatePicker ariaLabel="Entrega" value={orderForm.dueOn}
+              onChange={(v) => setOrderForm({ ...orderForm, dueOn: v })} />
           </div>
         </div>
 

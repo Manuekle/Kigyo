@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Truck, Check, Plus, Trash2, Tag, DollarSign, Package, PenLine, RotateCcw, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -770,14 +771,14 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="cup-from">Desde</label>
-            <input id="cup-from" className="field" type="date" value={couponForm.startsOn}
-              onChange={(e) => setCouponForm({ ...couponForm, startsOn: e.target.value })} />
+            <div className="flabel">Desde</div>
+            <DatePicker ariaLabel="Desde" value={couponForm.startsOn}
+              onChange={(v) => setCouponForm({ ...couponForm, startsOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="cup-to">Hasta</label>
-            <input id="cup-to" className="field" type="date" value={couponForm.expiresOn}
-              onChange={(e) => setCouponForm({ ...couponForm, expiresOn: e.target.value })} />
+            <div className="flabel">Hasta</div>
+            <DatePicker ariaLabel="Hasta" value={couponForm.expiresOn}
+              onChange={(v) => setCouponForm({ ...couponForm, expiresOn: v })} />
           </div>
         </div>
       </FormDrawer>

@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Car, AlertTriangle, Check, PenLine, Plus, Trash2, Wrench, Zap, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -693,19 +694,16 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
           onChange={(e) => setVehicleForm({ ...vehicleForm, capacityKg: e.target.value })} />
 
         <div className="flabel">Vencimiento SOAT</div>
-        <input className="field" type="date" aria-label="Vencimiento SOAT"
-          value={vehicleForm.soatExpiresOn}
-          onChange={(e) => setVehicleForm({ ...vehicleForm, soatExpiresOn: e.target.value })} />
+        <DatePicker ariaLabel="Vencimiento SOAT" value={vehicleForm.soatExpiresOn}
+          onChange={(v) => setVehicleForm({ ...vehicleForm, soatExpiresOn: v })} />
 
         <div className="flabel">Vencimiento tecnomecánica</div>
-        <input className="field" type="date" aria-label="Vencimiento tecnomecánica"
-          value={vehicleForm.inspectionExpiresOn}
-          onChange={(e) => setVehicleForm({ ...vehicleForm, inspectionExpiresOn: e.target.value })} />
+        <DatePicker ariaLabel="Vencimiento tecnomecánica" value={vehicleForm.inspectionExpiresOn}
+          onChange={(v) => setVehicleForm({ ...vehicleForm, inspectionExpiresOn: v })} />
 
         <div className="flabel">Vencimiento seguro</div>
-        <input className="field" type="date" aria-label="Vencimiento seguro"
-          value={vehicleForm.insuranceExpiresOn}
-          onChange={(e) => setVehicleForm({ ...vehicleForm, insuranceExpiresOn: e.target.value })} />
+        <DatePicker ariaLabel="Vencimiento seguro" value={vehicleForm.insuranceExpiresOn}
+          onChange={(v) => setVehicleForm({ ...vehicleForm, insuranceExpiresOn: v })} />
 
         <label className="flabel" htmlFor="veh-notes">Notas</label>
         <textarea id="veh-notes" className="field" rows={3} value={vehicleForm.notes}
@@ -758,15 +756,15 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
               onChange={(e) => setServiceForm({ ...serviceForm, cost: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="srv-date">Fecha</label>
-            <input id="srv-date" className="field" type="date" value={serviceForm.servicedOn}
-              onChange={(e) => setServiceForm({ ...serviceForm, servicedOn: e.target.value })} />
+            <div className="flabel">Fecha</div>
+            <DatePicker ariaLabel="Fecha" value={serviceForm.servicedOn}
+              onChange={(v) => setServiceForm({ ...serviceForm, servicedOn: v })} />
           </div>
         </div>
 
-        <label className="flabel" htmlFor="srv-next">Próximo servicio</label>
-        <input id="srv-next" className="field" type="date" value={serviceForm.nextServiceOn}
-          onChange={(e) => setServiceForm({ ...serviceForm, nextServiceOn: e.target.value })} />
+        <div className="flabel">Próximo servicio</div>
+        <DatePicker ariaLabel="Próximo servicio" value={serviceForm.nextServiceOn}
+          onChange={(v) => setServiceForm({ ...serviceForm, nextServiceOn: v })} />
       </FormDrawer>
 
       <FormDrawer
@@ -806,9 +804,9 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
               onChange={(e) => setFuelForm({ ...fuelForm, odometerKm: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="fuel-date">Fecha</label>
-            <input id="fuel-date" className="field" type="date" value={fuelForm.filledOn}
-              onChange={(e) => setFuelForm({ ...fuelForm, filledOn: e.target.value })} />
+            <div className="flabel">Fecha</div>
+            <DatePicker ariaLabel="Fecha" value={fuelForm.filledOn}
+              onChange={(v) => setFuelForm({ ...fuelForm, filledOn: v })} />
           </div>
         </div>
 
@@ -850,9 +848,9 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="rta-date">Fecha</label>
-            <input id="rta-date" className="field" type="date" value={rutaForm.scheduledOn}
-              onChange={(e) => setRutaForm({ ...rutaForm, scheduledOn: e.target.value })} />
+            <div className="flabel">Fecha</div>
+            <DatePicker ariaLabel="Fecha" value={rutaForm.scheduledOn}
+              onChange={(v) => setRutaForm({ ...rutaForm, scheduledOn: v })} />
           </div>
           <div>
             <label className="flabel" htmlFor="rta-km">Distancia (km)</label>

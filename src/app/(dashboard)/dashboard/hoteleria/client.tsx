@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Bed, Check, Plus, Trash2, DollarSign, Calendar, Users, PenLine, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -688,9 +689,9 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                       <td>{t.assignedName ?? '—'}</td>
                       <td>
                         {data.canWrite ? (
-                          <input className="field" type="date" value={t.scheduledOn}
+                          <DatePicker ariaLabel={`Fecha de tarea de ${t.roomNumber}`} value={t.scheduledOn}
                             disabled={pending}
-                            onChange={(e) => changeFecha(t, e.target.value)} />
+                            onChange={(v) => changeFecha(t, v)} />
                         ) : formatDate(t.scheduledOn)}
                       </td>
                       <td>
@@ -851,17 +852,17 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="res-in">Entrada</label>
-            <input id="res-in" className="field" type="date" value={reservationForm.checkinOn}
-              onChange={(e) => {
-                setReservationForm({ ...reservationForm, checkinOn: e.target.value })
-                resolveRate(reservationForm.roomId, e.target.value)
+            <div className="flabel">Entrada</div>
+            <DatePicker ariaLabel="Entrada" value={reservationForm.checkinOn}
+              onChange={(v) => {
+                setReservationForm({ ...reservationForm, checkinOn: v })
+                resolveRate(reservationForm.roomId, v)
               }} />
           </div>
           <div>
-            <label className="flabel" htmlFor="res-out">Salida</label>
-            <input id="res-out" className="field" type="date" value={reservationForm.checkoutOn}
-              onChange={(e) => setReservationForm({ ...reservationForm, checkoutOn: e.target.value })} />
+            <div className="flabel">Salida</div>
+            <DatePicker ariaLabel="Salida" value={reservationForm.checkoutOn}
+              onChange={(v) => setReservationForm({ ...reservationForm, checkoutOn: v })} />
           </div>
         </div>
 
@@ -923,9 +924,9 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
           onChange={(v) => setTareaForm({ ...tareaForm, kind: v })}
           options={[...TASK_KINDS]} />
 
-        <label className="flabel" htmlFor="tarea-fecha">Fecha</label>
-        <input id="tarea-fecha" className="field" type="date" value={tareaForm.scheduledOn}
-          onChange={(e) => setTareaForm({ ...tareaForm, scheduledOn: e.target.value })} />
+        <div className="flabel">Fecha</div>
+        <DatePicker ariaLabel="Fecha" value={tareaForm.scheduledOn}
+          onChange={(v) => setTareaForm({ ...tareaForm, scheduledOn: v })} />
 
         {empleados.length > 0 && (
           <>
@@ -958,14 +959,14 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
           onChange={(e) => setSeasonForm({ ...seasonForm, name: e.target.value })} />
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="season-from">Desde</label>
-            <input id="season-from" className="field" type="date" value={seasonForm.startsOn}
-              onChange={(e) => setSeasonForm({ ...seasonForm, startsOn: e.target.value })} />
+            <div className="flabel">Desde</div>
+            <DatePicker ariaLabel="Desde" value={seasonForm.startsOn}
+              onChange={(v) => setSeasonForm({ ...seasonForm, startsOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="season-to">Hasta</label>
-            <input id="season-to" className="field" type="date" value={seasonForm.endsOn}
-              onChange={(e) => setSeasonForm({ ...seasonForm, endsOn: e.target.value })} />
+            <div className="flabel">Hasta</div>
+            <DatePicker ariaLabel="Hasta" value={seasonForm.endsOn}
+              onChange={(v) => setSeasonForm({ ...seasonForm, endsOn: v })} />
           </div>
         </div>
         <label className="flabel" htmlFor="season-notes">Notas</label>

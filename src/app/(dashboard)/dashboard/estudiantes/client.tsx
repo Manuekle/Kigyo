@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { School, BookOpen, Check, Plus, Trash2, Award, Users, PenLine, Clock, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -713,10 +714,10 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
           <>
             <div className="cpad" style={{ paddingBottom: 0 }}>
               <div style={{ maxWidth: 220 }}>
-                <label className="flabel" htmlFor="att-date">Fecha</label>
-                <input id="att-date" className="field" type="date" value={attendanceDate}
+                <div className="flabel">Fecha</div>
+                <DatePicker ariaLabel="Fecha" value={attendanceDate}
                   disabled={pending}
-                  onChange={(e) => setAttendanceDate(e.target.value)} />
+                  onChange={(v) => setAttendanceDate(v)} />
               </div>
             </div>
 
@@ -860,9 +861,9 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
               onChange={(e) => setStudentForm({ ...studentForm, documentId: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="est-birth">Fecha de nacimiento</label>
-            <input id="est-birth" className="field" type="date" value={studentForm.birthDate}
-              onChange={(e) => setStudentForm({ ...studentForm, birthDate: e.target.value })} />
+            <div className="flabel">Fecha de nacimiento</div>
+            <DatePicker ariaLabel="Fecha de nacimiento" value={studentForm.birthDate}
+              onChange={(v) => setStudentForm({ ...studentForm, birthDate: v })} />
           </div>
         </div>
 
@@ -1074,9 +1075,9 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
               onChange={(e) => setNotaForm({ ...notaForm, weight: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="nota-on">Fecha</label>
-            <input id="nota-on" className="field" type="date" value={notaForm.gradedOn}
-              onChange={(e) => setNotaForm({ ...notaForm, gradedOn: e.target.value })} />
+            <div className="flabel">Fecha</div>
+            <DatePicker ariaLabel="Fecha" value={notaForm.gradedOn}
+              onChange={(v) => setNotaForm({ ...notaForm, gradedOn: v })} />
           </div>
         </div>
         <label className="flabel" htmlFor="nota-notes">Nota</label>

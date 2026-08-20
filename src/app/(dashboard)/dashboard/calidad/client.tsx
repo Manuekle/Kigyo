@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Activity, Check, Plus, RotateCcw, ShieldAlert, Trash2 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
@@ -191,11 +192,10 @@ export default function CalidadPage({ data }: { data: CalidadData }) {
             </div>
             <div style={{ flex: '0 1 160px', minWidth: 140 }}>
               <div className="flabel">Fecha</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Fecha"
                 value={checkForm.checkedOn}
-                onChange={(e) => setCheckForm((f) => ({ ...f, checkedOn: e.target.value }))}
+                onChange={(v) => setCheckForm((f) => ({ ...f, checkedOn: v }))}
               />
             </div>
             <div style={{ flex: '0 1 160px', minWidth: 130 }}>
@@ -331,11 +331,10 @@ export default function CalidadPage({ data }: { data: CalidadData }) {
             </div>
             <div style={{ flex: '0 1 160px', minWidth: 140 }}>
               <div className="flabel">Fecha</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Fecha"
                 value={ncForm.openedOn}
-                onChange={(e) => setNcForm((f) => ({ ...f, openedOn: e.target.value }))}
+                onChange={(v) => setNcForm((f) => ({ ...f, openedOn: v }))}
               />
             </div>
             <button

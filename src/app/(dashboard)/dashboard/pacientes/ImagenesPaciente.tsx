@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react'
 import { Trash2, Upload, X } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import { useApp } from '@/lib/context/AppContext'
 import { createClient } from '@/lib/supabase/client'
@@ -156,11 +157,10 @@ export default function ImagenesPaciente({ data, onData, pacientes }: Props) {
             </div>
             <div style={{ flex: '0 1 140px', minWidth: 110 }}>
               <div className="flabel">Tomada</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Tomada"
                 value={form.takenOn}
-                onChange={(e) => setForm((f) => ({ ...f, takenOn: e.target.value }))}
+                onChange={(v) => setForm((f) => ({ ...f, takenOn: v }))}
               />
             </div>
             <button

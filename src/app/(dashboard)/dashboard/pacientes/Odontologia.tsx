@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Check, Plus, Trash2, PenLine } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import FormDrawer from '@/components/ui/FormDrawer'
 import Odontograma from '@/components/ui/Odontograma'
@@ -276,9 +277,9 @@ export default function Odontologia({
             onChange={(v) => setChartForm({ ...chartForm, kind: v })}
             options={[...DENTAL_CHART_KINDS]} />
 
-          <label className="flabel" htmlFor="od-date">Fecha</label>
-          <input id="od-date" className="field" type="date" value={chartForm.chartedOn}
-            onChange={(e) => setChartForm({ ...chartForm, chartedOn: e.target.value })} />
+          <div className="flabel">Fecha</div>
+          <DatePicker ariaLabel="Fecha" value={chartForm.chartedOn}
+            onChange={(v) => setChartForm({ ...chartForm, chartedOn: v })} />
 
           <label className="flabel">Profesional</label>
           <Select value={chartForm.professionalId}
@@ -506,9 +507,9 @@ export default function Odontologia({
             onChange={(v) => setPlanForm({ ...planForm, patientId: v })}
             options={patientOptions} />
 
-          <label className="flabel" htmlFor="pl-date">Fecha de propuesta</label>
-          <input id="pl-date" className="field" type="date" value={planForm.proposedOn}
-            onChange={(e) => setPlanForm({ ...planForm, proposedOn: e.target.value })} />
+          <div className="flabel">Fecha de propuesta</div>
+          <DatePicker ariaLabel="Fecha de propuesta" value={planForm.proposedOn}
+            onChange={(v) => setPlanForm({ ...planForm, proposedOn: v })} />
 
           <label className="flabel">Profesional</label>
           <Select value={planForm.professionalId}
@@ -728,13 +729,13 @@ export default function Odontologia({
         <input id="lab-name" className="field" value={labForm.labName} maxLength={160}
           onChange={(e) => setLabForm({ ...labForm, labName: e.target.value })} />
 
-        <label className="flabel" htmlFor="lab-sent">Enviado</label>
-        <input id="lab-sent" className="field" type="date" value={labForm.sentOn}
-          onChange={(e) => setLabForm({ ...labForm, sentOn: e.target.value })} />
+        <div className="flabel">Enviado</div>
+        <DatePicker ariaLabel="Enviado" value={labForm.sentOn}
+          onChange={(v) => setLabForm({ ...labForm, sentOn: v })} />
 
-        <label className="flabel" htmlFor="lab-due">Fecha de entrega</label>
-        <input id="lab-due" className="field" type="date" value={labForm.dueOn}
-          onChange={(e) => setLabForm({ ...labForm, dueOn: e.target.value })} />
+        <div className="flabel">Fecha de entrega</div>
+        <DatePicker ariaLabel="Fecha de entrega" value={labForm.dueOn}
+          onChange={(v) => setLabForm({ ...labForm, dueOn: v })} />
         <p className="psub" style={{ fontSize: 12.5 }}>
           Es la fecha contra la que ya se le dio cita al paciente, así que es la que se
           vigila: un trabajo atrasado aparece marcado hasta que vuelve.

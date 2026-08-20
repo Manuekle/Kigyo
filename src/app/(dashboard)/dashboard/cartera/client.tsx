@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { CalendarClock, Check, History, Plus, Trash2, Wallet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
@@ -133,11 +134,10 @@ export default function CarteraPage({ data }: { data: CarteraData }) {
             </div>
             <div style={{ flex: '0 1 140px', minWidth: 110 }}>
               <div className="flabel">Vencimiento</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Vencimiento"
                 value={deudaForm.dueDate}
-                onChange={(e) => setDeudaForm((f) => ({ ...f, dueDate: e.target.value }))}
+                onChange={(v) => setDeudaForm((f) => ({ ...f, dueDate: v }))}
               />
             </div>
             <div style={{ flex: '1 1 180px', minWidth: 150 }}>

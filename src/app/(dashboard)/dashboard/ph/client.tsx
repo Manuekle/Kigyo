@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Apartment, Check, Plus, RotateCcw, Trash2, Wrench } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
@@ -253,11 +254,10 @@ export default function PhPage({ data }: { data: PhData }) {
             </div>
             <div style={{ flex: '0 1 150px', minWidth: 130 }}>
               <div className="flabel">Fecha</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Fecha"
                 value={asamForm.fecha}
-                onChange={(e) => setAsamForm((f) => ({ ...f, fecha: e.target.value }))}
+                onChange={(v) => setAsamForm((f) => ({ ...f, fecha: v }))}
               />
             </div>
             <div style={{ flex: '0 1 160px', minWidth: 130 }}>
@@ -384,11 +384,10 @@ export default function PhPage({ data }: { data: PhData }) {
             </div>
             <div style={{ flex: '0 1 150px', minWidth: 130 }}>
               <div className="flabel">Vence</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Vence"
                 value={cuotaForm.vence}
-                onChange={(e) => setCuotaForm((f) => ({ ...f, vence: e.target.value }))}
+                onChange={(v) => setCuotaForm((f) => ({ ...f, vence: v }))}
               />
             </div>
             <button

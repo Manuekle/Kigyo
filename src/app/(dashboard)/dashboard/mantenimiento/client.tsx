@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState, useTransition } from 'react'
 import { Wrench, AlertTriangle, Check, Clock, Plus, Trash2, DollarSign, PenLine, ChevronDown } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
@@ -510,9 +511,9 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
               onChange={(e) => setForm({ ...form, location: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="wo-date">Programada para</label>
-            <input id="wo-date" className="field" type="date" value={form.scheduledOn}
-              onChange={(e) => setForm({ ...form, scheduledOn: e.target.value })} />
+            <div className="flabel">Programada para</div>
+            <DatePicker ariaLabel="Programada para" value={form.scheduledOn}
+              onChange={(v) => setForm({ ...form, scheduledOn: v })} />
           </div>
         </div>
 

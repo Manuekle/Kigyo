@@ -5,6 +5,7 @@ import {
   Building2, UserPlus, Check, Plus, Trash2, MessageSquare, Star, Clock, PenLine,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -690,9 +691,9 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
           placeholder="Sin asignar"
           options={data.roster.map((r) => ({ value: r.employeeId, label: r.fullName }))} />
 
-        <label className="flabel" htmlFor="in-follow">Volver a contactar el</label>
-        <input id="in-follow" className="field" type="date" value={interactionForm.followUpOn}
-          onChange={(e) => setInteractionForm({ ...interactionForm, followUpOn: e.target.value })} />
+        <div className="flabel">Volver a contactar el</div>
+        <DatePicker ariaLabel="Volver a contactar el" value={interactionForm.followUpOn}
+          onChange={(v) => setInteractionForm({ ...interactionForm, followUpOn: v })} />
 
         <label className="flabel" htmlFor="in-detail">Detalle</label>
         <textarea id="in-detail" className="field" rows={4} value={interactionForm.detail}

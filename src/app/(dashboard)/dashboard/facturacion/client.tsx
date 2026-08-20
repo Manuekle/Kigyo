@@ -5,6 +5,7 @@ import {
   DollarSign, AlertTriangle, Check, Plus, Trash2, Receipt, Wallet, PenLine, FileSpreadsheet,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
@@ -562,14 +563,14 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="inv-issued">Emitida</label>
-            <input id="inv-issued" className="field" type="date" value={invoiceForm.issuedOn}
-              onChange={(e) => setInvoiceForm({ ...invoiceForm, issuedOn: e.target.value })} />
+            <div className="flabel">Emitida</div>
+            <DatePicker ariaLabel="Emitida" value={invoiceForm.issuedOn}
+              onChange={(v) => setInvoiceForm({ ...invoiceForm, issuedOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="inv-due">Vence</label>
-            <input id="inv-due" className="field" type="date" value={invoiceForm.dueOn}
-              onChange={(e) => setInvoiceForm({ ...invoiceForm, dueOn: e.target.value })} />
+            <div className="flabel">Vence</div>
+            <DatePicker ariaLabel="Vence" value={invoiceForm.dueOn}
+              onChange={(v) => setInvoiceForm({ ...invoiceForm, dueOn: v })} />
           </div>
         </div>
 
@@ -673,9 +674,9 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
               onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="pay-date">Fecha</label>
-            <input id="pay-date" className="field" type="date" value={paymentForm.paidOn}
-              onChange={(e) => setPaymentForm({ ...paymentForm, paidOn: e.target.value })} />
+            <div className="flabel">Fecha</div>
+            <DatePicker ariaLabel="Fecha" value={paymentForm.paidOn}
+              onChange={(v) => setPaymentForm({ ...paymentForm, paidOn: v })} />
           </div>
         </div>
 

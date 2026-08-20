@@ -6,6 +6,7 @@ import {
   PenLine, FileSpreadsheet, AlertTriangle,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -668,9 +669,9 @@ export default function SociosPage({ data }: { data: SociosData }) {
           placeholder="Opcional"
           onChange={(e) => setSocioForm({ ...socioForm, email: e.target.value })} />
 
-        <label className="flabel" htmlFor="so-birth">Fecha de nacimiento</label>
-        <input id="so-birth" className="field" type="date" value={socioForm.birthDate}
-          onChange={(e) => setSocioForm({ ...socioForm, birthDate: e.target.value })} />
+        <div className="flabel">Fecha de nacimiento</div>
+        <DatePicker ariaLabel="Fecha de nacimiento" value={socioForm.birthDate}
+          onChange={(v) => setSocioForm({ ...socioForm, birthDate: v })} />
 
         <label className="flabel" htmlFor="so-status">Estado</label>
         <Select value={socioForm.status}
@@ -803,9 +804,9 @@ export default function SociosPage({ data }: { data: SociosData }) {
             label: `${p.name} · ${pesos(p.priceCents)} · ${p.durationDays} d`,
           }))} />
 
-        <label className="flabel" htmlFor="ve-start">Inicio</label>
-        <input id="ve-start" className="field" type="date" value={ventaForm.startsOn}
-          onChange={(e) => setVentaForm({ ...ventaForm, startsOn: e.target.value })} />
+        <div className="flabel">Inicio</div>
+        <DatePicker ariaLabel="Inicio" value={ventaForm.startsOn}
+          onChange={(v) => setVentaForm({ ...ventaForm, startsOn: v })} />
 
         {/* El precio y la fecha de vencimiento no se piden: los calcula el
             servidor desde el plan. Ver `venderMembresia`. */}

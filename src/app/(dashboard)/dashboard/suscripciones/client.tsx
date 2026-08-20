@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Check, Plus, RotateCcw, Trash2, Users, X, XCircle } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
@@ -257,20 +258,18 @@ export default function SuscripcionesPage({ data }: { data: SuscripcionesData })
             </div>
             <div style={{ flex: '0 1 140px', minWidth: 110 }}>
               <div className="flabel">Inicio</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Inicio"
                 value={subForm.startedOn}
-                onChange={(e) => setSubForm((f) => ({ ...f, startedOn: e.target.value }))}
+                onChange={(v) => setSubForm((f) => ({ ...f, startedOn: v }))}
               />
             </div>
             <div style={{ flex: '0 1 140px', minWidth: 110 }}>
               <div className="flabel">Próximo cobro</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Próximo cobro"
                 value={subForm.nextChargeOn}
-                onChange={(e) => setSubForm((f) => ({ ...f, nextChargeOn: e.target.value }))}
+                onChange={(v) => setSubForm((f) => ({ ...f, nextChargeOn: v }))}
               />
             </div>
             <div style={{ flex: '0 1 110px', minWidth: 90 }}>

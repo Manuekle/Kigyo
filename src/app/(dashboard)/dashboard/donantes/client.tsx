@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Handshake, Plus, Trash2 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
@@ -339,11 +340,10 @@ export default function DonantesPage({ data }: { data: DonantesData }) {
             </div>
             <div style={{ flex: '0 1 140px', minWidth: 110 }}>
               <div className="flabel">Fecha</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Fecha"
                 value={donationForm.donatedOn}
-                onChange={(e) => setDonationForm((f) => ({ ...f, donatedOn: e.target.value }))}
+                onChange={(v) => setDonationForm((f) => ({ ...f, donatedOn: v }))}
               />
             </div>
             <div style={{ flex: '1 1 160px', minWidth: 130 }}>

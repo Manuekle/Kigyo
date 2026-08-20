@@ -5,6 +5,7 @@ import {
   BookOpen, Plus, Trash2, Check, TrendingUp, Building2, Layers,
 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -430,9 +431,9 @@ export default function ContabilidadPage({ data }: { data: ContabilidadData }) {
       >
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="je-date">Fecha</label>
-            <input id="je-date" className="field" type="date" value={form.entryDate}
-              onChange={(e) => setForm((f) => ({ ...f, entryDate: e.target.value }))} />
+            <div className="flabel">Fecha</div>
+            <DatePicker ariaLabel="Fecha" value={form.entryDate}
+              onChange={(v) => setForm((f) => ({ ...f, entryDate: v }))} />
           </div>
           <div>
             <label className="flabel" htmlFor="je-memo">Descripción</label>

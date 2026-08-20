@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { AlertTriangle, Check, Plus, Trash2 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
@@ -161,11 +162,10 @@ export default function CreditosPage({ data }: { data: CreditosData }) {
             </div>
             <div style={{ flex: '0 1 140px', minWidth: 110 }}>
               <div className="flabel">Fecha inicio</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Fecha inicio"
                 value={loanForm.startDate}
-                onChange={(e) => setLoanForm((f) => ({ ...f, startDate: e.target.value }))}
+                onChange={(v) => setLoanForm((f) => ({ ...f, startDate: v }))}
               />
             </div>
             <div style={{ flex: '1 1 180px', minWidth: 150 }}>

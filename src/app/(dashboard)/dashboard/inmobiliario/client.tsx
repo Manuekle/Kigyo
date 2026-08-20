@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Home, Check, Plus, Trash2, AlertTriangle, Wallet, PenLine } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -684,15 +685,15 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
               onChange={(e) => setLeaseForm({ ...leaseForm, dueDay: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="lea-start">Inicia</label>
-            <input id="lea-start" className="field" type="date" value={leaseForm.startsOn}
-              onChange={(e) => setLeaseForm({ ...leaseForm, startsOn: e.target.value })} />
+            <div className="flabel">Inicia</div>
+            <DatePicker ariaLabel="Inicia" value={leaseForm.startsOn}
+              onChange={(v) => setLeaseForm({ ...leaseForm, startsOn: v })} />
           </div>
         </div>
 
-        <label className="flabel" htmlFor="lea-end">Termina</label>
-        <input id="lea-end" className="field" type="date" value={leaseForm.endsOn}
-          onChange={(e) => setLeaseForm({ ...leaseForm, endsOn: e.target.value })} />
+        <div className="flabel">Termina</div>
+        <DatePicker ariaLabel="Termina" value={leaseForm.endsOn}
+          onChange={(v) => setLeaseForm({ ...leaseForm, endsOn: v })} />
 
         <label className="flabel" htmlFor="lea-notes">Notas</label>
         <textarea id="lea-notes" className="field" rows={3} value={leaseForm.notes}

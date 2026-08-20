@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Sprout, Check, Plus, Trash2, PenLine, Package, DollarSign, MapPin, Wrench, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -997,14 +998,14 @@ export default function AgroPage({ data }: { data: AgroData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="cyc-sown">Siembra</label>
-            <input id="cyc-sown" className="field" type="date" value={cycleForm.sownOn}
-              onChange={(e) => setCycleForm({ ...cycleForm, sownOn: e.target.value })} />
+            <div className="flabel">Siembra</div>
+            <DatePicker ariaLabel="Siembra" value={cycleForm.sownOn}
+              onChange={(v) => setCycleForm({ ...cycleForm, sownOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="cyc-harv">Cosecha esperada</label>
-            <input id="cyc-harv" className="field" type="date" value={cycleForm.expectedHarvestOn}
-              onChange={(e) => setCycleForm({ ...cycleForm, expectedHarvestOn: e.target.value })} />
+            <div className="flabel">Cosecha esperada</div>
+            <DatePicker ariaLabel="Cosecha esperada" value={cycleForm.expectedHarvestOn}
+              onChange={(v) => setCycleForm({ ...cycleForm, expectedHarvestOn: v })} />
           </div>
         </div>
 
@@ -1060,9 +1061,9 @@ export default function AgroPage({ data }: { data: AgroData }) {
               placeholder="Primera, exportación…" />
           </div>
           <div>
-            <label className="flabel" htmlFor="har-date">Fecha</label>
-            <input id="har-date" className="field" type="date" value={harvestForm.harvestedOn}
-              onChange={(e) => setHarvestForm({ ...harvestForm, harvestedOn: e.target.value })} />
+            <div className="flabel">Fecha</div>
+            <DatePicker ariaLabel="Fecha" value={harvestForm.harvestedOn}
+              onChange={(v) => setHarvestForm({ ...harvestForm, harvestedOn: v })} />
           </div>
         </div>
 
@@ -1185,9 +1186,9 @@ export default function AgroPage({ data }: { data: AgroData }) {
               options={['Fertilización', 'Herbicida', 'Fungicida', 'Insecticida', 'Foliar', 'Otro']} />
           </div>
           <div>
-            <label className="flabel" htmlFor="trt-on">Aplicada</label>
-            <input id="trt-on" className="field" type="date" value={treatmentForm.appliedOn}
-              onChange={(e) => setTreatmentForm({ ...treatmentForm, appliedOn: e.target.value })} />
+            <div className="flabel">Aplicada</div>
+            <DatePicker ariaLabel="Aplicada" value={treatmentForm.appliedOn}
+              onChange={(v) => setTreatmentForm({ ...treatmentForm, appliedOn: v })} />
           </div>
         </div>
         <label className="flabel" htmlFor="trt-product">Producto</label>
@@ -1235,9 +1236,9 @@ export default function AgroPage({ data }: { data: AgroData }) {
               options={['Goteo', 'Aspersión', 'Gravedad', 'Pivote', 'Manual', 'Otro']} />
           </div>
           <div>
-            <label className="flabel" htmlFor="irr-on">Fecha</label>
-            <input id="irr-on" className="field" type="date" value={irrigationForm.startedOn}
-              onChange={(e) => setIrrigationForm({ ...irrigationForm, startedOn: e.target.value })} />
+            <div className="flabel">Fecha</div>
+            <DatePicker ariaLabel="Fecha" value={irrigationForm.startedOn}
+              onChange={(v) => setIrrigationForm({ ...irrigationForm, startedOn: v })} />
           </div>
         </div>
         <div className="fg2">

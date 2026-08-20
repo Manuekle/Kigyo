@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Check, Heart, Plus, Trash2 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
@@ -432,9 +433,9 @@ export default function Veterinaria({ section, data, onData, pacientes }: Props)
         </div>
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="vet-pet-birth">Nacimiento</label>
-            <input id="vet-pet-birth" className="field" type="date" value={petForm.birthDate}
-              onChange={(e) => setPetForm({ ...petForm, birthDate: e.target.value })} />
+            <div className="flabel">Nacimiento</div>
+            <DatePicker ariaLabel="Nacimiento" value={petForm.birthDate}
+              onChange={(v) => setPetForm({ ...petForm, birthDate: v })} />
           </div>
           <div>
             <label className="flabel" htmlFor="vet-pet-weight">Peso (kg)</label>
@@ -469,14 +470,14 @@ export default function Veterinaria({ section, data, onData, pacientes }: Props)
           onChange={(e) => setVaccineForm({ ...vaccineForm, vaccine: e.target.value })} />
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="vet-vac-on">Aplicada</label>
-            <input id="vet-vac-on" className="field" type="date" value={vaccineForm.administeredOn}
-              onChange={(e) => setVaccineForm({ ...vaccineForm, administeredOn: e.target.value })} />
+            <div className="flabel">Aplicada</div>
+            <DatePicker ariaLabel="Aplicada" value={vaccineForm.administeredOn}
+              onChange={(v) => setVaccineForm({ ...vaccineForm, administeredOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="vet-vac-due">Próxima dosis</label>
-            <input id="vet-vac-due" className="field" type="date" value={vaccineForm.nextDueOn}
-              onChange={(e) => setVaccineForm({ ...vaccineForm, nextDueOn: e.target.value })} />
+            <div className="flabel">Próxima dosis</div>
+            <DatePicker ariaLabel="Próxima dosis" value={vaccineForm.nextDueOn}
+              onChange={(v) => setVaccineForm({ ...vaccineForm, nextDueOn: v })} />
           </div>
         </div>
         <label className="flabel" htmlFor="vet-vac-batch">Lote</label>

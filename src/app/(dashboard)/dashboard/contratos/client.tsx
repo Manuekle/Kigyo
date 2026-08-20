@@ -6,6 +6,7 @@ import {
 } from '@/lib/icons'
 import { useExport } from '@/lib/hooks/use-export'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import Toggle from '@/components/ui/Toggle'
@@ -461,14 +462,14 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="ctr-from">Inicia</label>
-            <input id="ctr-from" className="field" type="date" value={contractForm.startsOn}
-              onChange={(e) => setContractForm({ ...contractForm, startsOn: e.target.value })} />
+            <div className="flabel">Inicia</div>
+            <DatePicker ariaLabel="Inicia" value={contractForm.startsOn}
+              onChange={(v) => setContractForm({ ...contractForm, startsOn: v })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="ctr-to">Termina</label>
-            <input id="ctr-to" className="field" type="date" value={contractForm.endsOn}
-              onChange={(e) => setContractForm({ ...contractForm, endsOn: e.target.value })} />
+            <div className="flabel">Termina</div>
+            <DatePicker ariaLabel="Termina" value={contractForm.endsOn}
+              onChange={(v) => setContractForm({ ...contractForm, endsOn: v })} />
           </div>
         </div>
 
@@ -526,9 +527,9 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="ms-due">Vence</label>
-            <input id="ms-due" className="field" type="date" value={milestoneForm.dueOn}
-              onChange={(e) => setMilestoneForm({ ...milestoneForm, dueOn: e.target.value })} />
+            <div className="flabel">Vence</div>
+            <DatePicker ariaLabel="Vence" value={milestoneForm.dueOn}
+              onChange={(v) => setMilestoneForm({ ...milestoneForm, dueOn: v })} />
           </div>
           <div>
             <label className="flabel" htmlFor="ms-amount">Monto (COP)</label>

@@ -869,14 +869,14 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
               onChange={(e) => setPaymentForm((p) => ({ ...p, amount: e.target.value }))} />
           </div>
           <div>
-            <label className="flabel" htmlFor="pay-date">
+            <div className="flabel">
               {paymentForm.mode === 'paid' ? 'Fecha de pago' : 'Fecha programada'}
-            </label>
-            <input id="pay-date" className="field" type="date"
+            </div>
+            <DatePicker ariaLabel={paymentForm.mode === 'paid' ? 'Fecha de pago' : 'Fecha programada'}
               value={paymentForm.mode === 'paid' ? paymentForm.paidOn : paymentForm.scheduledOn}
-              onChange={(e) => setPaymentForm((p) => paymentForm.mode === 'paid'
-                ? { ...p, paidOn: e.target.value }
-                : { ...p, scheduledOn: e.target.value })} />
+              onChange={(v) => setPaymentForm((p) => paymentForm.mode === 'paid'
+                ? { ...p, paidOn: v }
+                : { ...p, scheduledOn: v })} />
           </div>
         </div>
 

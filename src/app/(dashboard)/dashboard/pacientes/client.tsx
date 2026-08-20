@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react'
 import { Stethoscope, Check, Plus, PenLine, Trash2, Calendar, AlertTriangle, Users, FileText, Activity } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import TabBar from '@/components/ui/TabBar'
@@ -894,9 +895,9 @@ items={[
               onChange={(e) => setPatientForm({ ...patientForm, documentId: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="pac-birth">Fecha de nacimiento</label>
-            <input id="pac-birth" className="field" type="date" value={patientForm.birthDate}
-              onChange={(e) => setPatientForm({ ...patientForm, birthDate: e.target.value })} />
+            <div className="flabel">Fecha de nacimiento</div>
+            <DatePicker ariaLabel="Fecha de nacimiento" value={patientForm.birthDate}
+              onChange={(v) => setPatientForm({ ...patientForm, birthDate: v })} />
           </div>
         </div>
 
@@ -1020,9 +1021,9 @@ items={[
               onChange={(e) => setVisitForm({ ...visitForm, fee: e.target.value })} />
           </div>
           <div>
-            <label className="flabel" htmlFor="vis-follow">Control el</label>
-            <input id="vis-follow" className="field" type="date" value={visitForm.followUpOn}
-              onChange={(e) => setVisitForm({ ...visitForm, followUpOn: e.target.value })} />
+            <div className="flabel">Control el</div>
+            <DatePicker ariaLabel="Control el" value={visitForm.followUpOn}
+              onChange={(v) => setVisitForm({ ...visitForm, followUpOn: v })} />
           </div>
         </div>
 
@@ -1115,9 +1116,9 @@ items={[
 
         <div className="fg2">
           <div>
-            <label className="flabel" htmlFor="rec-date">Fecha</label>
-            <input id="rec-date" className="field" type="date" value={recetaForm.prescribedOn}
-              onChange={(e) => setRecetaForm({ ...recetaForm, prescribedOn: e.target.value })} />
+            <div className="flabel">Fecha</div>
+            <DatePicker ariaLabel="Fecha" value={recetaForm.prescribedOn}
+              onChange={(v) => setRecetaForm({ ...recetaForm, prescribedOn: v })} />
           </div>
           <div>
             <div className="flabel">Profesional</div>
@@ -1149,9 +1150,9 @@ items={[
           onChange={(e) => setExamenForm({ ...examenForm, testName: e.target.value })}
           placeholder="Hemograma, TSH…" />
 
-        <label className="flabel" htmlFor="ex-date">Fecha de solicitud</label>
-        <input id="ex-date" className="field" type="date" value={examenForm.orderedOn}
-          onChange={(e) => setExamenForm({ ...examenForm, orderedOn: e.target.value })} />
+        <div className="flabel">Fecha de solicitud</div>
+        <DatePicker ariaLabel="Fecha de solicitud" value={examenForm.orderedOn}
+          onChange={(v) => setExamenForm({ ...examenForm, orderedOn: v })} />
       </FormDrawer>
 
       <FormDrawer

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Contracts, Plus, Trash2, X } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import Toggle from '@/components/ui/Toggle'
@@ -288,11 +289,10 @@ export default function ContratacionPage({ data }: { data: ContratacionData }) {
             </div>
             <div style={{ flex: '0 1 150px', minWidth: 130 }}>
               <div className="flabel">Cierre</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Cierre"
                 value={procForm.cierreOn}
-                onChange={(e) => setProcForm((f) => ({ ...f, cierreOn: e.target.value }))}
+                onChange={(v) => setProcForm((f) => ({ ...f, cierreOn: v }))}
               />
             </div>
             <button

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Activity, Plus, RotateCcw, Trash2, X, XCircle } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
@@ -287,11 +288,10 @@ export default function SuscriptoresPage({ data }: { data: SuscriptoresData }) {
             </div>
             <div style={{ flex: '0 1 140px', minWidth: 110 }}>
               <div className="flabel">Activación</div>
-              <input
-                type="date"
-                className="field"
+              <DatePicker
+                ariaLabel="Activación"
                 value={subscriberForm.activatedOn}
-                onChange={(e) => setSubscriberForm((f) => ({ ...f, activatedOn: e.target.value }))}
+                onChange={(v) => setSubscriberForm((f) => ({ ...f, activatedOn: v }))}
               />
             </div>
             <div style={{ flex: '1 1 180px', minWidth: 150 }}>
