@@ -5,6 +5,7 @@ import { Contracts, Plus, Trash2, X } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
+import Toggle from '@/components/ui/Toggle'
 import { useApp } from '@/lib/context/AppContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
@@ -412,14 +413,13 @@ export default function ContratacionPage({ data }: { data: ContratacionData }) {
                 onChange={(e) => setPliegoForm((f) => ({ ...f, description: e.target.value }))}
               />
             </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', alignSelf: 'flex-end', marginBottom: 10 }}>
-              <input
-                type="checkbox"
-                checked={pliegoForm.obligatorio}
-                onChange={(e) => setPliegoForm((f) => ({ ...f, obligatorio: e.target.checked }))}
+            <div style={{ alignSelf: 'flex-end', marginBottom: 10 }}>
+              <Toggle
+                on={pliegoForm.obligatorio}
+                onChange={(v) => setPliegoForm((f) => ({ ...f, obligatorio: v }))}
+                label="Obligatorio"
               />
-              <span>Obligatorio</span>
-            </label>
+            </div>
             <button
               className="btn dark"
               disabled={pending || !pliegoForm.procesoId || pliegoForm.name.trim().length < 2}

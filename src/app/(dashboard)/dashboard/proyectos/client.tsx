@@ -327,6 +327,7 @@ export default function ProyectosPage({ data }: { data: ProyectosData }) {
               {data.canWrite && (
                 <input
                   type="range"
+                  className="simrange"
                   min={0}
                   max={100}
                   step={5}
@@ -334,7 +335,7 @@ export default function ProyectosPage({ data }: { data: ProyectosData }) {
                   disabled={pending}
                   aria-label={`Avance de ${proy.name}`}
                   onChange={(e) => setProgress(proy, Number(e.target.value))}
-                  style={{ width: '100%', marginTop: 10 }}
+                  style={{ marginTop: 10 }}
                 />
               )}
 

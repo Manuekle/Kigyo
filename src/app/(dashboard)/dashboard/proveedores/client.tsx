@@ -99,21 +99,7 @@ export default function ProveedoresPage({ data }: { data: ProveedoresData }) {
 
   return (
     <>
-      <div className="dash-head">
-        <div>
-          <h2 className="dash-hello">Proveedores</h2>
-          <p className="dash-sub">
-            Quién surte tu negocio, cómo contactarlos y cuánto les debes.
-          </p>
-        </div>
-        {data.canWrite && (
-          <button className="btn pri" onClick={openCreate} disabled={pending}>
-            <Plus size={15} />Nuevo proveedor
-          </button>
-        )}
-      </div>
-
-      <div className="gkpi">
+      <div className="g3 g3--few" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             label="Proveedores activos"
@@ -143,7 +129,15 @@ export default function ProveedoresPage({ data }: { data: ProveedoresData }) {
         </div>
       </div>
 
-      <div className="card rise d4" style={{ marginTop: 16 }}>
+      <div className="card rise d4">
+        <div className="chead">
+          <div className="ctitle">Proveedores</div>
+          {data.canWrite && (
+            <button className="btn dark" onClick={openCreate} disabled={pending}>
+              <Plus size={15} />Nuevo proveedor
+            </button>
+          )}
+        </div>
         {proveedores.length === 0 ? (
           <div className="dempty" style={{ padding: '40px 0', textAlign: 'center' }}>
             Todavía no hay proveedores. {data.canWrite && 'Crea el primero para empezar el directorio.'}
@@ -186,10 +180,10 @@ export default function ProveedoresPage({ data }: { data: ProveedoresData }) {
                     </td>
                     {data.canWrite && (
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button className="iconbtn" onClick={() => openEdit(p)} title="Editar" disabled={pending}>
+                        <button className="ibtn" style={{ width: 28, height: 28 }} onClick={() => openEdit(p)} title="Editar" aria-label={`Editar ${p.name}`} disabled={pending}>
                           <PenLine size={15} />
                         </button>
-                        <button className="iconbtn" onClick={() => remove(p)} title="Eliminar" disabled={pending}>
+                        <button className="ibtn" style={{ width: 28, height: 28 }} onClick={() => remove(p)} title="Eliminar" aria-label={`Eliminar ${p.name}`} disabled={pending}>
                           <Trash2 size={15} />
                         </button>
                       </td>
@@ -215,40 +209,44 @@ export default function ProveedoresPage({ data }: { data: ProveedoresData }) {
           </>
         }
       >
-        <div className="fgrid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <label className="flabel" style={{ gridColumn: '1 / -1' }}>
-            Nombre
-            <input className="finput" value={form.name} onChange={set('name')} placeholder="Distribuidora XYZ" />
-          </label>
-          <label className="flabel">
-            RUT / NIT
-            <input className="finput" value={form.taxId} onChange={set('taxId')} placeholder="901.234.567-8" />
-          </label>
-          <label className="flabel">
-            Categoría
-            <input className="finput" value={form.category} onChange={set('category')} placeholder="Materia prima" />
-          </label>
-          <label className="flabel">
-            Contacto
-            <input className="finput" value={form.contactName} onChange={set('contactName')} placeholder="Nombre de quien atiende" />
-          </label>
-          <label className="flabel">
-            Teléfono
-            <input className="finput" value={form.phone} onChange={set('phone')} placeholder="300 000 0000" />
-          </label>
-          <label className="flabel">
-            Correo
-            <input className="finput" type="email" value={form.email} onChange={set('email')} placeholder="ventas@proveedor.com" />
-          </label>
-          <label className="flabel">
-            Ciudad
-            <input className="finput" value={form.city} onChange={set('city')} placeholder="Medellín" />
-          </label>
-          <label className="flabel" style={{ gridColumn: '1 / -1' }}>
-            Notas
-            <textarea className="finput" rows={3} value={form.notes} onChange={set('notes')} placeholder="Días de entrega, mínimos, observaciones…" />
-          </label>
+        <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
+        <input className="field" value={form.name} onChange={set('name')} placeholder="Distribuidora XYZ" />
+
+        <div className="fg2">
+          <div>
+            <div className="flabel">RUT / NIT</div>
+            <input className="field" value={form.taxId} onChange={set('taxId')} placeholder="901.234.567-8" />
+          </div>
+          <div>
+            <div className="flabel">Categoría</div>
+            <input className="field" value={form.category} onChange={set('category')} placeholder="Materia prima" />
+          </div>
         </div>
+
+        <div className="fg2">
+          <div>
+            <div className="flabel">Contacto</div>
+            <input className="field" value={form.contactName} onChange={set('contactName')} placeholder="Nombre de quien atiende" />
+          </div>
+          <div>
+            <div className="flabel">Teléfono</div>
+            <input className="field" value={form.phone} onChange={set('phone')} placeholder="300 000 0000" />
+          </div>
+        </div>
+
+        <div className="fg2">
+          <div>
+            <div className="flabel">Correo</div>
+            <input className="field" type="email" value={form.email} onChange={set('email')} placeholder="ventas@proveedor.com" />
+          </div>
+          <div>
+            <div className="flabel">Ciudad</div>
+            <input className="field" value={form.city} onChange={set('city')} placeholder="Medellín" />
+          </div>
+        </div>
+
+        <div className="flabel">Notas</div>
+        <textarea className="field" rows={3} value={form.notes} onChange={set('notes')} placeholder="Días de entrega, mínimos, observaciones…" />
       </FormDrawer>
     </>
   )

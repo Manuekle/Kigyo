@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { Truck, Check, Clock, Package, Plus, Trash2, ChevronRight } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Stat from '@/components/ui/Stat'
+import Select from '@/components/ui/Select'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
 import { cop } from '@/lib/utils'
@@ -115,24 +116,7 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
 
   return (
     <>
-      <div className="dash-head">
-        <div>
-          <h2 className="dash-hello">Pedidos</h2>
-          <p className="dash-sub">
-            Acuerdos comerciales de tus clientes: del sí a la entrega, sin duplicar líneas.
-          </p>
-        </div>
-        {data.canWrite && (
-          <button className="btn pri" onClick={openCreate} disabled={pending || quotes.length === 0}>
-            <Plus size={15} />Desde cotización
-          </button>
-        )}
-        {data.canWrite && quotes.length === 0 && (
-          <p className="dash-sub">No hay cotizaciones aceptadas sin pedido todavía.</p>
-        )}
-      </div>
-
-      <div className="gkpi">
+      <div className="g3" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat
             label="Pedidos activos"
@@ -171,7 +155,16 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
         </div>
       </div>
 
-      <div className="card rise d5" style={{ marginTop: 16 }}>
+      <div className="card rise d5">
+        <div className="chead">
+          <div className="ctitle">Pedidos</div>
+          {data.canWrite && (
+            <button className="btn dark" onClick={openCreate} disabled={pending || quotes.length === 0}
+              title={quotes.length === 0 ? 'No hay cotizaciones aceptadas sin pedido todavía.' : undefined}>
+              <Plus size={15} />Desde cotización
+            </button>
+          )}
+        </div>
         {pedidos.length === 0 ? (
           <div className="dempty" style={{ padding: '40px 0', textAlign: 'center' }}>
             Todavía no hay pedidos. {data.canWrite && quotes.length > 0 && 'Convierte una cotización aceptada para empezar.'}
@@ -205,17 +198,17 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
                     {data.canWrite && (
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {NEXT_STATUS[p.status] && (
-                          <button className="btn sm" onClick={() => advance(p)} disabled={pending}>
+                          <button className="btn" onClick={() => advance(p)} disabled={pending}>
                             Avanzar<ChevronRight size={13} />
                           </button>
                         )}
                         {p.status !== 'Cancelado' && (
-                          <button className="iconbtn" onClick={() => cancel(p)} title="Cancelar pedido" disabled={pending}>
+                          <button className="ibtn" style={{ width: 28, height: 28 }} onClick={() => cancel(p)} title="Cancelar pedido" aria-label={`Cancelar pedido ${p.code ?? ''}`} disabled={pending}>
                             <Trash2 size={15} />
                           </button>
                         )}
                         {p.status === 'Cancelado' && (
-                          <button className="iconbtn" onClick={() => remove(p)} title="Eliminar" disabled={pending}>
+                          <button className="ibtn" style={{ width: 28, height: 28 }} onClick={() => remove(p)} title="Eliminar" aria-label={`Eliminar pedido ${p.code ?? ''}`} disabled={pending}>
                             <Trash2 size={15} />
                           </button>
                         )}
@@ -242,39 +235,34 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
           </>
         }
       >
-        <div className="fgrid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <label className="flabel" style={{ gridColumn: '1 / -1' }}>
-            Cotización aceptada
-            <select className="finput" value={quoteId} onChange={(e) => setQuoteId(e.target.value)}>
-              {quotes.length === 0 && <option value="">Sin cotizaciones disponibles</option>}
-              {quotes.map((q) => (
-                <option key={q.id} value={q.id}>
-                  {q.code || 'Cotización'} · {q.client} · {pesos(q.totalCents)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flabel">
-            Fecha del pedido
-            <input className="finput" type="date" value={form.issuedOn} onChange={(e) => setForm({ ...form, issuedOn: e.target.value })} />
-          </label>
-          <label className="flabel">
-            Vencimiento
-            <input className="finput" type="date" value={form.dueOn} onChange={(e) => setForm({ ...form, dueOn: e.target.value })} />
-          </label>
-          <label className="flabel" style={{ gridColumn: '1 / -1' }}>
-            Condiciones de pago
-            <input className="finput" value={form.paymentTerms} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })} placeholder="Contado, 30 días…" />
-          </label>
-          <label className="flabel" style={{ gridColumn: '1 / -1' }}>
-            Dirección de entrega
-            <input className="finput" value={form.shippingAddress} onChange={(e) => setForm({ ...form, shippingAddress: e.target.value })} placeholder="Dónde se entrega" />
-          </label>
-          <label className="flabel" style={{ gridColumn: '1 / -1' }}>
-            Notas
-            <textarea className="finput" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Instrucciones de despacho…" />
-          </label>
+        <div className="flabel" style={{ marginTop: 0 }}>Cotización aceptada</div>
+        <Select
+          value={quoteId}
+          onChange={setQuoteId}
+          options={quotes.length === 0
+            ? [{ value: '', label: 'Sin cotizaciones disponibles' }]
+            : quotes.map((q) => ({ value: q.id, label: `${q.code || 'Cotización'} · ${q.client} · ${pesos(q.totalCents)}` }))}
+        />
+
+        <div className="fg2">
+          <div>
+            <div className="flabel">Fecha del pedido</div>
+            <input className="field" type="date" value={form.issuedOn} onChange={(e) => setForm({ ...form, issuedOn: e.target.value })} />
+          </div>
+          <div>
+            <div className="flabel">Vencimiento</div>
+            <input className="field" type="date" value={form.dueOn} onChange={(e) => setForm({ ...form, dueOn: e.target.value })} />
+          </div>
         </div>
+
+        <div className="flabel">Condiciones de pago</div>
+        <input className="field" value={form.paymentTerms} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })} placeholder="Contado, 30 días…" />
+
+        <div className="flabel">Dirección de entrega</div>
+        <input className="field" value={form.shippingAddress} onChange={(e) => setForm({ ...form, shippingAddress: e.target.value })} placeholder="Dónde se entrega" />
+
+        <div className="flabel">Notas</div>
+        <textarea className="field" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Instrucciones de despacho…" />
       </FormDrawer>
     </>
   )
