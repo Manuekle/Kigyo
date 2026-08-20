@@ -127,7 +127,7 @@ export default function PortalPage({ data }: { data: PortalData }) {
           </div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '0 1 150px', minWidth: 120 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Qué compartes</div>

@@ -170,7 +170,7 @@ export default function CalidadPage({ data }: { data: CalidadData }) {
           <div className="ctitle">Nuevo control</div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 160px', minWidth: 130 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Producto</div>
@@ -291,7 +291,7 @@ export default function CalidadPage({ data }: { data: CalidadData }) {
           <div className="ctitle">Nueva no conformidad</div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 160px', minWidth: 130 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Producto</div>

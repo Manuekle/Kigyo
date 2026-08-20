@@ -103,7 +103,7 @@ export default function CarteraPage({ data }: { data: CarteraData }) {
           <div className="ctitle">Nueva cuenta por cobrar</div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 160px', minWidth: 130 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Cliente</div>

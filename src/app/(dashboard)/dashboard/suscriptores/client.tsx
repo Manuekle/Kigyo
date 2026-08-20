@@ -138,7 +138,7 @@ export default function SuscriptoresPage({ data }: { data: SuscriptoresData }) {
           <div className="ctitle">Nuevo plan</div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 150px', minWidth: 120 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
@@ -238,7 +238,7 @@ export default function SuscriptoresPage({ data }: { data: SuscriptoresData }) {
           <div className="ctitle">Nuevo suscriptor</div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 160px', minWidth: 130 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>

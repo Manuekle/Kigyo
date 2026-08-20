@@ -145,7 +145,7 @@ export default function DonantesPage({ data }: { data: DonantesData }) {
           <div className="ctitle">Nuevo donante</div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 180px', minWidth: 150 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Nombre</div>
@@ -293,7 +293,7 @@ export default function DonantesPage({ data }: { data: DonantesData }) {
           <div className="ctitle">Registrar donación</div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 180px', minWidth: 150 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Donante</div>

@@ -115,7 +115,7 @@ export default function IntegracionesPage({ data }: { data: IntegracionesData })
           </div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '0 1 150px', minWidth: 120 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Proveedor</div>
@@ -204,7 +204,7 @@ export default function IntegracionesPage({ data }: { data: IntegracionesData })
           </div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 220px', minWidth: 180 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Phone number ID</div>
@@ -278,7 +278,7 @@ export default function IntegracionesPage({ data }: { data: IntegracionesData })
           </div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 240px', minWidth: 200, paddingBottom: 8 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Proveedor</div>

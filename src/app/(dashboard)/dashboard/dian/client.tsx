@@ -158,7 +158,7 @@ export default function DianPage({ data }: { data: DianPanelData }) {
           </div>
         </div>
 
-        <div className="cpad" style={{ paddingBottom: 0 }}>
+        <div className="cpad">
           {!integracionLista ? (
             <div className="muted" style={{ padding: '14px 0' }}>
               La integración DIAN no está habilitada. Habilítala en{' '}
