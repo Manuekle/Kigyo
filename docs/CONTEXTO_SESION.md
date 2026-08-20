@@ -93,7 +93,9 @@ Account    public.accounts          — plan, billing, límites
 - Mig 95 `add_site_scope('pos_sales')` + política RESTRICTIVE `app.may_access_site`.
 - `register_pos_sale`: si hay turno abierto, la venta hereda el site del turno (gana el turno sobre el picker).
 - Patrón UI en los 8 módulos: picker «Sucursal» solo si >1 site activa; `XxxData.sites` vía `scoped(supabase, member, 'sites')`; validación `belongsToOrg(supabase, 'sites', siteId, orgId)`; joins `sites ( name )` verificados bajo RLS real.
-- Pendiente opcional: cierres Z por sucursal (reporte sobre pos_sales).
+- Cierre Z por sucursal: pestaña «Sucursales» en `caja` (solo si `sites.length > 1`),
+  agrega `historial` (turnos cerrados) por `site_id` — turnos, esperado, contado,
+  diferencia. Sin migración ni consulta nueva, mismo dato que ya viajaba a la pantalla.
 
 ### RAG documental (Fase 7 CERRADA)
 
@@ -111,7 +113,10 @@ Account    public.accounts          — plan, billing, límites
 ### Marketing automation (DONE; conversión DEFERIDA)
 
 - Mig 91: `marketing_templates` + segmentación `generateRecipients` con `filters {status, kind, city, hasEmail}`.
-- Conversión (respuestas/compras) requiere proveedor real de delivery receipts. Brecha menor: filtro ownerId (roster en client).
+- Conversión (respuestas/compras) requiere proveedor real de delivery receipts.
+- Filtro «Vendedor» (ownerId) al armar la lista: el mutation ya lo soportaba
+  (`generateRecipients` → `clients.owner_id`); faltaba el `<Select>` en el
+  panel de filtros y `roster` en `MarketingData` — ambos agregados.
 
 ### DIAN (DONE modo demo; producción DEFERIDA)
 
@@ -138,7 +143,9 @@ Account    public.accounts          — plan, billing, límites
 2. **Wompi en vivo** — llaves sandbox para probar loop 3.3 completo.
 3. **Marketing conversión** — proveedor real de delivery.
 4. **Nómina** — validación contador laboral.
-5. **Opcional codeable**: cierres Z por sucursal (reporte pos_sales por site); ownerId filter en marketing.
+
+Los dos ítems «opcional codeable» (cierres Z por sucursal; filtro ownerId en
+marketing) quedaron hechos 2026-08-20 — ver §4.
 
 ## 6. Gotchas vigentes
 
@@ -229,7 +236,7 @@ Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (maestro, 2026-08-16): qué es, todo l
 
 Estado: plan CRM/ERP/POS 18/18 + Fase 7 RAG completa (híbrido + ingestión PDF/docx/xlsx + umbral 0.60 calibrado) + sites 8/8 tablas del contrato + auditoría 6 verticales (fix pacientes). vitest 256/256, tsc 0, build verde, e2e 5/5 (workers=1), migraciones 1–95 en remota, branch pusheada, 0 residuos E2E.
 
-Pendiente (todo requiere externo): DIAN prod (proveedor homologado + certificado + revisor), Wompi llaves reales, marketing conversión (proveedor), nómina (contador laboral). Opcional codeable: cierres Z por sucursal sobre pos_sales; ownerId filter marketing.
+Pendiente (todo requiere externo): DIAN prod (proveedor homologado + certificado + revisor), Wompi llaves reales, marketing conversión (proveedor), nómina (contador laboral). Los opcionales codeable (cierres Z por sucursal, ownerId en marketing) ya están hechos.
 
 Reglas: org_id = empresa, nunca company_id. app.apply_standard_rls/apply_child_rls/orgs_with congelados. Supabase MCP apunta a otro proyecto — todo vía psql SUPABASE_DB_URL. Mutations 'use server' no 'server-only'. Migs aplicadas: cambios = SQL manual remota + editar archivo local. Nómina/DIAN/marketing: NO inventar cifras ni métricas. E2e workers=1. Ruta nueva exige ROUTE_MAP. No crear .md nuevos — actualizar CONTEXTO_SESION.md.
 
