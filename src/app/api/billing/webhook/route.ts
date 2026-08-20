@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { billingWebhookSecret } from '@/lib/env'
-import { manualProvider } from '@/lib/billing/provider'
+import { billingWebhookSecret, polarEnv } from '@/lib/env'
+import { manualProvider, polarProvider } from '@/lib/billing/provider'
+import { planForPolarProduct } from '@/lib/billing/polar'
 
 /**
  * Where a payment provider tells Kigyo what a customer has paid for.
@@ -38,24 +39,34 @@ import { manualProvider } from '@/lib/billing/provider'
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
-  const secret = billingWebhookSecret()
+  const polar = polarEnv()
+  const manualSecret = billingWebhookSecret()
 
-  // No secret means every caller is unauthenticated and none can be told apart.
-  // An endpoint that can suspend a customer's companies must refuse to run in
-  // that state rather than trusting whatever arrives.
-  if (!secret) {
-    console.error('[billing] BILLING_WEBHOOK_SECRET is not configured')
+  // Polar first: it is the processor actually chosen. `manual` stays reachable
+  // behind it for a self-hosted deployment or an internal admin tool, per its
+  // own docstring — never both at once, since a body signed for one would be
+  // meaningless to the other.
+  const provider = polar
+    ? polarProvider(polar.POLAR_WEBHOOK_SECRET, planForPolarProduct)
+    : manualSecret
+      ? manualProvider(manualSecret)
+      : null
+
+  // No provider means every caller is unauthenticated and none can be told
+  // apart. An endpoint that can suspend a customer's companies must refuse to
+  // run in that state rather than trusting whatever arrives.
+  if (!provider) {
+    console.error('[billing] no provider configured — set POLAR_* or BILLING_WEBHOOK_SECRET')
     return Response.json({ error: 'billing not configured' }, { status: 503 })
   }
 
-  const provider = manualProvider(secret)
   const raw = await request.text()
 
   if (!provider.verify(raw, request.headers)) {
     return Response.json({ error: 'invalid signature' }, { status: 401 })
   }
 
-  const event = provider.parse(raw)
+  const event = provider.parse(raw, request.headers)
   if (!event) {
     return Response.json({ error: 'unreadable event' }, { status: 400 })
   }

@@ -81,6 +81,32 @@ const demoSchema = z.object({
   DEMO_ACCOUNT_PASSWORD: z.string().min(1),
 })
 
+/**
+ * Polar.sh — the chosen billing processor, and the one `BillingProvider` in
+ * `src/lib/billing/provider.ts` was built to wait for.
+ *
+ * `POLAR_ACCESS_TOKEN` creates checkout sessions and customer portal
+ * sessions; `POLAR_WEBHOOK_SECRET` verifies the events Polar sends back. Both
+ * ends are required together — a checkout with no way to hear that it
+ * succeeded, or a webhook with no way to send a customer to pay, are each
+ * half a feature — so this is one group, not two optional getters.
+ *
+ * The four product ids are one per self-serve tier × interval. Enterprise is
+ * not here: `/pricing` sends it to `/contact` rather than a checkout, and
+ * that does not change by adding a processor.
+ */
+const polarSchema = z.object({
+  POLAR_ACCESS_TOKEN: z.string().min(20),
+  POLAR_WEBHOOK_SECRET: z.string().min(16),
+  POLAR_SERVER: z.enum(['sandbox', 'production']).default('sandbox'),
+  POLAR_PRODUCT_STARTER_MONTHLY: z.string().min(1),
+  POLAR_PRODUCT_STARTER_YEARLY: z.string().min(1),
+  POLAR_PRODUCT_GROWTH_MONTHLY: z.string().min(1),
+  POLAR_PRODUCT_GROWTH_YEARLY: z.string().min(1),
+})
+
+export type PolarEnv = z.infer<typeof polarSchema>
+
 export type ServerEnv = z.infer<typeof serverSchema>
 export type ModelEnv = z.infer<typeof modelSchema>
 export type RetrievalEnv = z.infer<typeof retrievalSchema>
@@ -171,6 +197,22 @@ export function demoAccount(): DemoEnv | null {
   if (!parsed.success) return null
   cachedDemo = parsed.data
   return cachedDemo
+}
+
+let cachedPolar: PolarEnv | null = null
+
+/**
+ * Null when Polar is not configured — an expected state until the keys are
+ * in place, not an error. The webhook route falls back to the `manual`
+ * provider in that case; the checkout and portal actions report plainly that
+ * billing is not set up rather than throwing.
+ */
+export function polarEnv(): PolarEnv | null {
+  if (cachedPolar) return cachedPolar
+  const parsed = polarSchema.safeParse(process.env)
+  if (!parsed.success) return null
+  cachedPolar = parsed.data
+  return cachedPolar
 }
 
 /**

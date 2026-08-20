@@ -9,19 +9,14 @@ import TabBar from '@/components/ui/TabBar'
 import PopNumber from '@/components/ui/PopNumber'
 import TextSwap from '@/components/ui/TextSwap'
 import { Check } from '@/lib/icons'
-import { PLANS, type PlanKey } from '@/lib/plans'
+import { PLANS } from '@/lib/plans'
 import { modulesByGroup } from '@/lib/modules'
-
-type Cycle = 'mensual' | 'anual'
-
-const CYCLES = [
-  { key: 'mensual', label: 'Mensual' },
-  { key: 'anual', label: 'Anual' },
-]
+import { CYCLES, PRICING, type Cycle } from '@/lib/pricing'
 
 /**
- * What each tier costs, and how it is sold. What each tier *includes* is not
- * here — that is `src/lib/plans.ts`, which is also what the product enforces.
+ * What each tier costs lives in `@/lib/pricing`, shared with the in-dashboard
+ * plan switcher so the two screens cannot quote different numbers. What each
+ * tier *includes* is `@/lib/plans`, which is also what the product enforces.
  *
  * These two used to be separate prose. The page promised Starter customers
  * "empleados, asistencia y documentos" while the app let them switch on all
@@ -33,37 +28,6 @@ const CYCLES = [
  * module moved between tiers changes this page in the same commit, with no
  * second edit to forget.
  */
-const PRICING: Record<
-  PlanKey,
-  { priceMonthly: string; priceAnnual: string; cta: string; href: string; featured: boolean; extras: string[] }
-> = {
-  starter: {
-    priceMonthly: '$80.000',
-    priceAnnual: '$800.000',
-    cta: 'Comenzar',
-    href: '/register',
-    featured: false,
-    extras: ['Soporte por correo'],
-  },
-  growth: {
-    priceMonthly: '$300.000',
-    priceAnnual: '$3.000.000',
-    cta: 'Comenzar',
-    href: '/register',
-    featured: true,
-    extras: ['Asistente de IA sobre tus datos', 'Soporte prioritario'],
-  },
-  enterprise: {
-    priceMonthly: '$600.000',
-    priceAnnual: '$6.000.000',
-    // The one plan that needs a conversation first, so its action is the demo
-    // rather than self-serve signup.
-    cta: 'Solicitar demo',
-    href: '/contact',
-    featured: false,
-    extras: ['SSO y controles de seguridad', 'Integraciones personalizadas', 'SLA y onboarding asistido'],
-  },
-}
 
 /**
  * The headline features for a tier: the seat allowance, then the modules this

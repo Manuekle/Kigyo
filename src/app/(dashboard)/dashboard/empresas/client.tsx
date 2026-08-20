@@ -2,14 +2,19 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Check, Plus, ArrowRight } from '@/lib/icons'
+import Link from 'next/link'
+import { Building2, Check, Plus, ArrowRight, Wallet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
+import TabBar from '@/components/ui/TabBar'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
 import { useMember } from '@/lib/context/MemberContext'
 import { companyType } from '@/lib/modules'
+import { PLANS } from '@/lib/plans'
+import { CYCLES, PRICING, type Cycle } from '@/lib/pricing'
 import { createCompany, joinCompany, switchCompany } from '@/server/mutations/companies'
+import { startPolarCheckout, openBillingPortal } from '@/server/mutations/billing'
 import type { AccountCompany } from '@/server/queries/companies'
 
 /**
@@ -54,6 +59,10 @@ export default function Client({ companies }: { companies: AccountCompany[] }) {
   const [form, setForm] = useState(EMPTY)
   const [joining, setJoining] = useState<AccountCompany | null>(null)
   const [joinRole, setJoinRole] = useState('Empleado')
+  const [planOpen, setPlanOpen] = useState(false)
+  const [cycle, setCycle] = useState<Cycle>('mensual')
+  /** Which plan's checkout is in flight, so only that button shows a spinner. */
+  const [checkingOut, setCheckingOut] = useState<string | null>(null)
 
   const plan = member.planDef
 
@@ -135,6 +144,38 @@ export default function Client({ companies }: { companies: AccountCompany[] }) {
     })
   }
 
+  /**
+   * Hands the browser to Polar. `location.href` and not `router.push`: the
+   * destination is `checkout.polar.sh`, not a route this app serves, and the
+   * whole point is leaving the SPA — the person comes back on `successUrl`.
+   */
+  function goToCheckout(planKey: 'starter' | 'growth') {
+    setCheckingOut(planKey)
+    startTransition(async () => {
+      const result = await startPolarCheckout({
+        plan: planKey,
+        interval: cycle === 'anual' ? 'yearly' : 'monthly',
+      })
+      setCheckingOut(null)
+      if (!result.ok) {
+        addToast(result.error, 'err')
+        return
+      }
+      window.location.href = result.url
+    })
+  }
+
+  function goToPortal() {
+    startTransition(async () => {
+      const result = await openBillingPortal()
+      if (!result.ok) {
+        addToast(result.error, 'err')
+        return
+      }
+      window.location.href = result.url
+    })
+  }
+
   function open(orgId: string) {
     startTransition(async () => {
       const result = await switchCompany(orgId)
@@ -185,14 +226,21 @@ export default function Client({ companies }: { companies: AccountCompany[] }) {
                   {group.companies.length} {group.companies.length === 1 ? 'empresa' : 'empresas'}
                 </span>
               </div>
-              <button
-                className="btn"
-                onClick={() => { setCreating(group.accountId); setForm(EMPTY) }}
-                disabled={!canCreate || pending}
-                title={canCreate ? undefined : `Tu plan ${plan.label} no permite más empresas.`}
-              >
-                <Plus size={15} />Nueva empresa
-              </button>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {isActiveAccount && (member.account.role === 'owner' || member.account.role === 'admin') && (
+                  <button className="btn" onClick={() => setPlanOpen(true)} disabled={pending}>
+                    <Wallet size={15} />Cambiar de plan
+                  </button>
+                )}
+                <button
+                  className="btn"
+                  onClick={() => { setCreating(group.accountId); setForm(EMPTY) }}
+                  disabled={!canCreate || pending}
+                  title={canCreate ? undefined : `Tu plan ${plan.label} no permite más empresas.`}
+                >
+                  <Plus size={15} />Nueva empresa
+                </button>
+              </div>
             </div>
 
             <div className="g3">
@@ -308,6 +356,86 @@ export default function Client({ companies }: { companies: AccountCompany[] }) {
         <p className="psub" style={{ fontSize: 12.5 }}>
           Empieza por el rol más bajo que te sirva. Entrar como Administrador de una
           empresa que no operas es más acceso del que suele hacer falta.
+        </p>
+      </FormDrawer>
+
+      <FormDrawer
+        open={planOpen}
+        onClose={() => setPlanOpen(false)}
+        title="Cambiar de plan"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+          <TabBar items={CYCLES} value={cycle} onChange={(key) => setCycle(key as Cycle)} />
+          {cycle === 'anual' && <span className="muted" style={{ fontSize: 12 }}>2 meses gratis</span>}
+        </div>
+
+        {PLANS.map((tier) => {
+          const pricing = PRICING[tier.key]
+          const isCurrent = tier.key === plan.key
+          const price = cycle === 'anual' ? pricing.priceAnnual : pricing.priceMonthly
+          return (
+            <div
+              key={tier.key}
+              className="card"
+              style={{
+                padding: 14, marginBottom: 10, display: 'flex',
+                alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: 14.5 }}>{tier.label}</strong>
+                  {isCurrent && <Badge st="Plan actual" tone="grn" />}
+                </div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>{tier.description}</div>
+              </div>
+
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  {price}
+                  <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>
+                    {cycle === 'anual' ? '/año' : '/mes'}
+                  </span>
+                </div>
+                {!isCurrent && (
+                  tier.key === 'enterprise' ? (
+                    <Link href={pricing.href} className="btn" style={{ marginTop: 6 }}>
+                      Contactar ventas
+                    </Link>
+                  ) : (
+                    <button
+                      className="btn dark"
+                      style={{ marginTop: 6 }}
+                      disabled={pending}
+                      aria-busy={checkingOut === tier.key}
+                      // Not 'enterprise': that branch renders the Link above.
+                      // TS does not carry the ternary's narrowing into this
+                      // closure, since `tier.key` is a property read, not a
+                      // narrowed local.
+                      onClick={() => goToCheckout(tier.key as 'starter' | 'growth')}
+                    >
+                      <ArrowRight size={14} />Cambiar a {tier.label}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+          )
+        })}
+
+        <p className="psub" style={{ fontSize: 12.5 }}>
+          Cambiar de plan te lleva a Polar a pagar la diferencia. Ya pagas por este plan y
+          quieres actualizar el método de pago, ver facturas o cancelar en vez de cambiar de
+          nivel —
+          {' '}
+          <button
+            type="button"
+            onClick={goToPortal}
+            disabled={pending}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--ink)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}
+          >
+            gestiona tu suscripción
+          </button>.
         </p>
       </FormDrawer>
     </div>

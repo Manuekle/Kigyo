@@ -137,12 +137,46 @@ Account    public.accounts          — plan, billing, límites
 - Columnas verificadas contra DB, enums contra CHECK constraints, FKs validados, RLS completo, sin datos inventados.
 - Único bug real: pacientes — 5 mutaciones `const { error } = builder` **sin await** (error siempre undefined, fallos silenciosos) + sin `.eq('org_id')` explícito. Corregido `955901b`.
 
+### Facturación de Kigyo — Polar.sh (código listo 2026-08-20; llaves pendientes)
+
+No confundir con Wompi (§5.2): Wompi cobra a los *clientes* de una empresa
+desde el POS; Polar cobra a Kigyo su propia suscripción SaaS. El
+`BillingProvider` de migración 38 (`src/lib/billing/provider.ts`) esperaba
+justo esto — «swapping in a vendor means writing verify and parse against
+their documentation, the webhook route does not change» — y así fue.
+
+- `polarProvider()`: verifica Standard Webhooks a mano con el paquete
+  `standardwebhooks` en vez del `validateEvent` tipado del SDK — ese switchea
+  por tipo de evento y explota (`SDKValidationError`) en cualquiera que la
+  versión instalada del SDK (0.49.0) no liste todavía, `subscription.paused`
+  incluido. `accountId` sale de `customer.external_id` primero (sobrevive a
+  renovaciones) y cae a `metadata.account_id`.
+- `/api/billing/webhook`: Polar si `polarEnv()` existe, si no `manual`
+  (`BILLING_WEBHOOK_SECRET`), si no 503. Nunca los dos a la vez.
+- `src/lib/billing/polar.ts`: cliente Polar + mapa producto↔plan a partir de
+  4 env vars (starter/growth × monthly/yearly). Enterprise sin checkout.
+- `src/server/mutations/billing.ts`: `startPolarCheckout` (crea el checkout,
+  `externalCustomerId` = accountId) y `openBillingPortal` (portal nativo de
+  Polar para cambiar de plan/cancelar una suscripción ya activa — no hay
+  swap-de-plan hecho a mano). Las dos exigen `account.role` owner o admin.
+- UI: `/dashboard/empresas` → botón «Cambiar de plan» (solo en la cuenta
+  activa) → drawer con toggle mensual/anual (`@/lib/pricing`, compartido con
+  `/pricing` para que no diverjan los precios) y checkout por plan.
+- `accounts.billing_provider`/`billing_status` siguen sin grant a
+  `authenticated` (decisión de mig. 38, no tocada): el portal se ofrece sin
+  saber si ya hay cliente Polar, y un 404 real de Polar (`ResourceNotFound`)
+  se traduce a «todavía no tienes una suscripción activa».
+- Pendiente puramente externo: `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`,
+  `POLAR_PRODUCT_*` (4) en `.env.local` — plantilla y guía en `.env.example`.
+  Sin ellos, el botón responde "todavía no está configurada" en vez de fallar.
+
 ## 5. Pendiente (todo requiere decisión o proveedor externo)
 
 1. **DIAN producción** — proveedor homologado + certificado + revisor fiscal.
 2. **Wompi en vivo** — llaves sandbox para probar loop 3.3 completo.
-3. **Marketing conversión** — proveedor real de delivery.
-4. **Nómina** — validación contador laboral.
+3. **Polar.sh** — crear cuenta, productos (4) y access token; pegar en `.env.local` (ver `.env.example`).
+4. **Marketing conversión** — proveedor real de delivery.
+5. **Nómina** — validación contador laboral.
 
 Los dos ítems «opcional codeable» (cierres Z por sucursal; filtro ownerId en
 marketing) quedaron hechos 2026-08-20 — ver §4.
@@ -236,7 +270,7 @@ Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (maestro, 2026-08-16): qué es, todo l
 
 Estado: plan CRM/ERP/POS 18/18 + Fase 7 RAG completa (híbrido + ingestión PDF/docx/xlsx + umbral 0.60 calibrado) + sites 8/8 tablas del contrato + auditoría 6 verticales (fix pacientes). vitest 256/256, tsc 0, build verde, e2e 5/5 (workers=1), migraciones 1–95 en remota, branch pusheada, 0 residuos E2E.
 
-Pendiente (todo requiere externo): DIAN prod (proveedor homologado + certificado + revisor), Wompi llaves reales, marketing conversión (proveedor), nómina (contador laboral). Los opcionales codeable (cierres Z por sucursal, ownerId en marketing) ya están hechos.
+Pendiente (todo requiere externo): DIAN prod (proveedor homologado + certificado + revisor), Wompi llaves reales, Polar.sh (cuenta + 4 productos + access token en .env.local), marketing conversión (proveedor), nómina (contador laboral). Facturación con Polar: código completo (checkout, portal, webhook, UI en /dashboard/empresas), solo faltan las llaves reales. Los opcionales codeable (cierres Z por sucursal, ownerId en marketing) ya están hechos.
 
 Reglas: org_id = empresa, nunca company_id. app.apply_standard_rls/apply_child_rls/orgs_with congelados. Supabase MCP apunta a otro proyecto — todo vía psql SUPABASE_DB_URL. Mutations 'use server' no 'server-only'. Migs aplicadas: cambios = SQL manual remota + editar archivo local. Nómina/DIAN/marketing: NO inventar cifras ni métricas. E2e workers=1. Ruta nueva exige ROUTE_MAP. No crear .md nuevos — actualizar CONTEXTO_SESION.md.
 
