@@ -270,7 +270,8 @@ export async function cobrarConQr(
         .eq('kind', 'pagos')
         .maybeSingle()
 
-      const key = (gateway?.config as Record<string, unknown> | undefined)?.public_key
+      // camelCase, como lo guarda mutations/integraciones.ts. Ver queries/pos.ts.
+      const key = (gateway?.config as Record<string, unknown> | undefined)?.publicKey
       if (!gateway?.enabled || typeof key !== 'string' || !key) {
         return fail('Configura la pasarela de pagos en Integraciones antes de cobrar con QR.')
       }

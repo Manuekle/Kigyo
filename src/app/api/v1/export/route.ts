@@ -5,6 +5,7 @@ import { route } from '@/lib/api/handler'
 import { RATE_LIMITS } from '@/lib/api/rate-limit'
 import { forbidden } from '@/lib/api/errors'
 import { can, ROUTE_PERMISSIONS } from '@/lib/auth/permissions'
+import { moduleOf } from '@/lib/auth/session'
 import { columnsOf, sanitizeCell } from '@/lib/export'
 
 /**
@@ -33,9 +34,27 @@ export const POST = route({
   body: bodySchema,
   rateLimit: RATE_LIMITS.export,
   async handler({ body, member }) {
-    // Reuse the route→permission map rather than a second list that can drift.
+    /*
+     * Las dos puertas, y aquí hay que ponerlas a mano.
+     *
+     * `route()` aplica módulo y permiso cuando se le pasa `permission` en las
+     * opciones, pero esta ruta no puede: el módulo lo trae el cuerpo de la
+     * petición, así que el envoltorio no sabe cuál comprobar y su gate no
+     * corre. Solo se miraba el permiso, de modo que un módulo apagado en
+     * Configuración seguía exportándose por HTTP — su pantalla desaparecía del
+     * menú y sus datos salían igual en un Excel.
+     *
+     * El mapa ruta→permiso se reutiliza en vez de una segunda lista que pueda
+     * divergir.
+     */
     const permission = ROUTE_PERMISSIONS[body.module]
-    if (!permission || !can(member.permissions, permission)) {
+    if (!permission) {
+      throw forbidden(`No tienes permiso para exportar ${body.module}.`)
+    }
+    if (!member.modules.has(moduleOf(permission))) {
+      throw forbidden(`El módulo "${body.module}" no está activo en esta organización.`)
+    }
+    if (!can(member.permissions, permission)) {
       throw forbidden(`No tienes permiso para exportar ${body.module}.`)
     }
 

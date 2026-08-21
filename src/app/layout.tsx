@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
 import { THEME_INIT_SCRIPT, ThemeProvider } from '@/lib/context/ThemeContext'
+import { lowestMonthlyCop } from '@/lib/pricing'
 import './globals.css'
 
 // Typography is declared in globals.css: Saans for display and Inter for text,
@@ -123,10 +124,24 @@ const jsonLd = {
   operatingSystem: 'Web',
   description:
     'People Operating System para equipos modernos. Gestión de personas, nómina, documentos, vacaciones y más.',
+  /*
+   * Decía `price: '0'`, o sea que Kigyo es gratis, mientras /pricing cobra
+   * desde $80.000 al mes. Los datos estructurados los lee Google para los
+   * resultados enriquecidos y los leen los rastreadores de IA, así que era una
+   * afirmación falsa dicha exactamente donde más se propaga — la misma familia
+   * que las cuatro del FAQ.
+   *
+   * `AggregateOffer` y no `Offer` porque hay tres planes y ninguno es «el»
+   * precio; `lowPrice` es la respuesta correcta a «¿desde cuánto?». El número
+   * sale de `lib/pricing.ts`, que es de donde salen también las tarjetas, así
+   * que no pueden divergir.
+   */
   offers: {
-    '@type': 'Offer',
-    price: '0',
+    '@type': 'AggregateOffer',
+    lowPrice: String(lowestMonthlyCop()),
     priceCurrency: 'COP',
+    offerCount: 3,
+    url: 'https://kigyo.app/pricing',
   },
 }
 

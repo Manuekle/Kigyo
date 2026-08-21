@@ -26,7 +26,7 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 281/281 · tsc 0 · build verde · e2e 6/6 (`workers: 1` obligatorio).
+- vitest 290/290 · tsc 0 · build verde · e2e 6/6 (`workers: 1` obligatorio).
 - Remota: migraciones 1–104 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
 - Working tree limpio, branch pusheada.
@@ -560,6 +560,46 @@ datos (IndexedDB + idempotencia por `client_uuid`) y ficticio en aplicación: si
 service worker el navegador no carga el bundle sin red. Construirlo es trabajo
 de producto, no de limpieza, y sigue en la deuda abierta.
 
+### Revisión de `docs/ARQUITECTURA_ACTUAL.md` (2026-08-21)
+
+El archivo apareció sin trackear al inicio de la jornada y no lo escribió esta
+sesión. Se revisó entero contra la base remota, no solo contra los archivos.
+
+**Su calidad es alta.** Se extrajeron los 198 nombres de tabla de su §7 y se
+compararon con `pg_tables`: **cero inventados**. Los 23 sectores y 84
+subsectores, correctos uno por uno. El conteo del registro, correcto.
+
+Estaba al día hasta la migración 96 — actualizado a 104, con la capa de
+suspensión, el libro de inventario, el IVA y el embudo relacional.
+
+**Tres cosas que señalaba y estaban sin arreglar, corregidas al verificarlas:**
+
+1. **JSON-LD con `price: '0'`** en `app/layout.tsx`, diciéndole a buscadores y
+   rastreadores de IA que Kigyo es gratis mientras `/pricing` cobra desde
+   $80.000. Es la afirmación falsa dicha donde más se propaga y donde menos se
+   revisa, porque no se ve en pantalla. Ahora `AggregateOffer` con `lowPrice`
+   derivado de `lib/pricing.ts` —la misma fuente que dibuja las tarjetas— y
+   pineado en `plans.test.ts`.
+2. **Wompi**: `integraciones.ts` guardaba `config: { publicKey }` y los dos
+   lectores del POS leían `public_key`. La llave recién guardada no se
+   encontraba nunca. Enmascarado porque el modo simulado no la consulta: el
+   fallo esperaba al día de `WOMPI_REAL=true`. Corregidos los lectores; no hubo
+   dato que migrar.
+3. **IA y export sin gate de módulo**: `buildTools()` y `/api/v1/export`
+   comprobaban permiso pero no `member.modules`. Como `role_permissions` no se
+   toca al apagar un módulo, una empresa que apagaba Inventario lo veía salir
+   del menú y seguía pudiendo preguntarle sus existencias al asistente y
+   exportarlas. Corregidos, y pineado en `guards.test.ts`.
+
+**Un falso positivo peligroso, marcado como tal en el propio doc:** decía que
+`polarProvider()` re-encodea mal el secreto, severidad Alta. El SDK de Polar
+hace exactamente lo mismo (`webhooks.ts:140-141`). Actuar sobre ese punto
+rompería la verificación de webhooks de facturación. Se dejó escrito en vez de
+borrarlo, para que nadie lo «arregle» leyendo una versión anterior.
+
+**Un artefacto:** su «el workspace no pasa typecheck» era un scratch temporal de
+la auditoría que corría en paralelo. Lo que sí sigue en rojo es `npm run lint`.
+
 ### Deuda abierta que salió de la auditoría
 
 1. ~~**Moneda.**~~ RESUELTO en fase 5: se retiró el selector. Queda como deuda
@@ -689,6 +729,7 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL' … SQL
 | `AGENTS.md`, `CLAUDE.md`, `README.md` | instrucciones repo (vinculantes) |
 | `docs/FASE_0_CONTRATOS.md` | contratos vinculantes (citado por AGENTS.md, tests y plans.ts) — NO borrar |
 | `docs/AUDITORIA_ARQUITECTURA_KIGYO.md` | razonamiento arquitectura (citado por AGENTS.md y tests) — NO borrar |
+| `docs/ARQUITECTURA_ACTUAL.md` | mapa técnico del sistema. Revisado y verificado contra la base remota el 2026-08-21; su §20 registra qué se comprobó, qué estaba mal y qué sigue abierto |
 | `docs/SETUP.md` | puesta en marcha (citado por README y código) |
 | `docs/CONTEXTO_SESION.md` | este archivo — único archivo de sesión |
 | ~~`docs/PLAN_CRM_ERP_POS.md`~~ | absorbido aquí (18/18 ejecutado) — eliminado |
@@ -696,13 +737,62 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL' … SQL
 ## 11. Prompt para retomar
 
 ```
-Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (maestro, 2026-08-16): qué es, todo lo hecho, gotchas y pendientes.
+Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (maestro) y docs/ARQUITECTURA_ACTUAL.md
+(mapa técnico, revisado y verificado contra la base remota el 2026-08-21; su §20
+dice qué se comprobó y qué salió mal).
 
-Estado: plan CRM/ERP/POS 18/18 + Fase 7 RAG completa (híbrido + ingestión PDF/docx/xlsx + umbral 0.60 calibrado) + sites 8/8 tablas del contrato + auditoría 6 verticales (fix pacientes). vitest 256/256, tsc 0, build verde, e2e 5/5 (workers=1), migraciones 1–95 en remota, branch pusheada, 0 residuos E2E.
+ESTADO
+tsc 0 · vitest 290/290 · build verde · e2e 6/6 (workers: 1 SIEMPRE)
+Migraciones 1–104 aplicadas en remota. Base casi vacía (1 producto, 0 sucursales).
+Working tree limpio, 0 residuos E2E. Único rojo: npm run lint → 4 errores,
+24 avisos (casi todo no-unused-vars sobre `member`/`parsed`).
 
-Pendiente (todo requiere externo): DIAN prod (proveedor homologado + certificado + revisor), Wompi llaves reales, Polar.sh (cuenta + 4 productos + access token en .env.local), marketing conversión (proveedor), nómina (contador laboral). Facturación con Polar: código completo (checkout, portal, webhook, UI en /dashboard/empresas), solo faltan las llaves reales. Los opcionales codeable (cierres Z por sucursal, ownerId en marketing) ya están hechos.
+QUÉ SE HIZO (auditoría + 6 fases de reparación, commits 862c28f…b185faf)
+Bloqueantes cerrados: onboarding fallaba en 23/23 sectores en Starter · «Ventas
+de hoy» mostraba 100× · «hoy» era UTC en ~30 sitios · 4 afirmaciones falsas en
+el FAQ y una en el JSON-LD · un módulo nuevo no llegaba a las empresas
+existentes · pedidos y contabilidad estaban en Enterprise por descuido · el
+módulo Pedidos nunca funcionó desde la UI (subconsulta imposible en PostgREST) ·
+la suspensión por impago era un banner · el inventario era un entero editable
+sin libro · facturar a precio de góndola cobraba 19% de más · la llave de Wompi
+se guardaba y se leía con nombres distintos · la IA y el export ignoraban el
+apagado de módulos.
 
-Reglas: org_id = empresa, nunca company_id. app.apply_standard_rls/apply_child_rls/orgs_with congelados. Supabase MCP apunta a otro proyecto — todo vía psql SUPABASE_DB_URL. Mutations 'use server' no 'server-only'. Migs aplicadas: cambios = SQL manual remota + editar archivo local. Nómina/DIAN/marketing: NO inventar cifras ni métricas. E2e workers=1. Ruta nueva exige ROUTE_MAP. No crear .md nuevos — actualizar CONTEXTO_SESION.md.
+REGLAS VINCULANTES
+- org_id = empresa, nunca company_id, nunca tabla companies.
+- app.orgs_with / apply_standard_rls / apply_child_rls: CONGELADAS.
+- products.price_cents es precio CON IVA. El POS extrae, la factura convierte.
+  pos_sales NO cumple total = subtotal + tax, y es deliberado.
+- products.stock es DERIVADA. Todo movimiento entra por inventory_movements.
+- Mutations 'use server', nunca 'server-only'.
+- Ruta nueva exige entrada en ROUTE_MAP. Query nueva exige scoped() o .eq(org_id).
+- Módulo nuevo: registry.ts es la fuente; el resto se deriva.
+- Nómina y DIAN: NO inventar cifras regulatorias.
+- Supabase MCP apunta a otro proyecto: todo por psql con SUPABASE_DB_URL.
+- Migración nueva: validarla primero dentro de `begin; … rollback;`.
+- NO lanzar dos `npx playwright test` a la vez, ni con workers:1.
+- No crear .md nuevos: actualizar CONTEXTO_SESION.md.
+
+PENDIENTE, TODO EXTERNO
+1. Nómina: validación de contador laboral colombiano. Parámetros en cero por
+   diseño; hay banner cuando minWage=0.
+2. Polar: crear cuenta, 4 productos y token; pegar 6 vars en .env.local.
+3. DIAN producción: proveedor homologado, certificado XAdES-EPES, revisor
+   fiscal, y añadir ciudad y dirección a organizations.
+4. Wompi: llaves reales (hoy WOMPI_REAL !== 'true').
+5. Marketing: proveedor de delivery receipts.
+
+DEUDA TÉCNICA PRIORIZADA
+1. Cobertura e2e: 6 specs para 62 pantallas. Es el riesgo meta — el bloqueante
+   de onboarding vivía en ese hueco con todo verde.
+2. lint en rojo.
+3. Service worker: sin él el POS offline es cierto en datos y falso en app.
+4. notif-panel mezcla timestamptz y date: una cita de hoy a las 15:00 dice
+   «en 1 día». Cambiarlo cambia lo que el usuario lee.
+5. Inventario sin decimales; validación de stock por sucursal llega tarde.
+6. Moneda: si algún día se internacionaliza, cablear organizations.currency
+   cuesta 41 archivos (30 con cop en helpers de módulo). Antes están los 67
+   archivos con es-CO, la nómina colombiana, DIAN y PILA.
 
 Modo caveman ultra.
 ```

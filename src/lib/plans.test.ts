@@ -6,6 +6,7 @@ import {
   planAllows, planFor, planModules, seatsAvailable,
 } from './plans'
 import { CORE_MODULES, MODULE_KEYS, resolveModules } from './modules'
+import { lowestMonthlyCop, monthlyCop } from './pricing'
 
 /**
  * The plan is the outermost of the three access gates, so a mistake here is
@@ -207,6 +208,35 @@ describe('el salto de Growth a Enterprise es deliberado', () => {
     const growth = planModules('growth')
     for (const m of ['clientes', 'leads', 'cotizaciones', 'pedidos', 'facturacion']) {
       expect(growth.has(m), `${m} debería estar en Growth`).toBe(true)
+    }
+  })
+})
+
+/**
+ * El precio que ven los buscadores es el precio que cobra la página.
+ *
+ * El JSON-LD de `app/layout.tsx` declaraba `price: '0'`, o sea que Kigyo es
+ * gratis, mientras `/pricing` cobra desde $80.000 al mes. Los datos
+ * estructurados alimentan los resultados enriquecidos de Google y los
+ * rastreadores de IA, así que era la afirmación falsa dicha donde más se
+ * propaga — la misma familia que las cuatro del FAQ, y la que menos se revisa
+ * porque no se ve en pantalla.
+ */
+describe('los datos estructurados no contradicen la página de precios', () => {
+  it('el precio de entrada sale de PRICING y no es cero', () => {
+    expect(lowestMonthlyCop()).toBe(80_000)
+    expect(lowestMonthlyCop()).toBe(monthlyCop('starter'))
+    expect(lowestMonthlyCop()).toBeGreaterThan(0)
+  })
+
+  it('Growth cuesta más que Starter, o el «desde» miente', () => {
+    expect(monthlyCop('growth')).toBeGreaterThan(monthlyCop('starter'))
+  })
+
+  it('cada plan con checkout tiene un precio legible como número', () => {
+    for (const key of ['starter', 'growth'] as const) {
+      expect(Number.isFinite(monthlyCop(key)), `${key} no parsea`).toBe(true)
+      expect(monthlyCop(key)).toBeGreaterThan(0)
     }
   })
 })

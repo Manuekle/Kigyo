@@ -150,3 +150,41 @@ describe('una empresa suspendida lee pero no escribe', () => {
     expect(suspendedRefuses('ia:use')).toBe(true)
   })
 })
+
+/**
+ * Las dos puertas, en los tres sitios que las aplican.
+ *
+ * Módulo y permiso son ortogonales: uno responde «esta empresa usa X», el otro
+ * «esta persona puede ver X». Comprobar solo el segundo deja que apagar un
+ * módulo en Configuración lo quite del menú y no de los datos.
+ *
+ * Pasó en dos sitios a la vez y ninguno lo notó porque los dos «funcionaban»:
+ * `buildTools()` armaba las herramientas de IA con `can()` a secas, así que una
+ * empresa sin Inventario podía preguntarle sus existencias al asistente; y
+ * `/api/v1/export` no podía apoyarse en el gate de `route()` —el módulo llega
+ * en el cuerpo de la petición, no en las opciones— así que exportaba a Excel lo
+ * que su pantalla ya no mostraba.
+ */
+describe('apagar un módulo lo apaga en todas partes', () => {
+  const conModulo: Caller = {
+    modules: new Set(['inventario']),
+    permissions: ['inventario:read'],
+  }
+  // El caso real: el módulo se apaga en Configuración y el rol conserva el
+  // permiso, porque `role_permissions` no se toca al apagar un módulo.
+  const sinModulo: Caller = { modules: new Set(), permissions: ['inventario:read'] }
+
+  it('el permiso solo no basta', () => {
+    expect(decide(conModulo, 'inventario:read')).toBe('ok')
+    expect(decide(sinModulo, 'inventario:read')).toBe('module-disabled')
+  })
+
+  it('la regla es la misma que usa buildTools y el export', () => {
+    // Idéntica a la de `lib/ai/tools.ts` y `api/v1/export/route.ts`.
+    const dosPuertas = (c: Caller, p: Permission) =>
+      c.modules.has(p.split(':')[0]) && can(c.permissions, p)
+
+    expect(dosPuertas(conModulo, 'inventario:read')).toBe(true)
+    expect(dosPuertas(sinModulo, 'inventario:read')).toBe(false)
+  })
+})

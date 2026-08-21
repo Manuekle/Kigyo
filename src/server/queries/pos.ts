@@ -232,7 +232,20 @@ export async function getPos(): Promise<PosData> {
             .eq('org_id', member.orgId)
             .eq('kind', 'pagos')
             .maybeSingle()
-          const publicKey = (data?.config as Record<string, unknown> | undefined)?.public_key
+          /*
+           * `publicKey`, no `public_key`.
+           *
+           * `mutations/integraciones.ts` guarda `config: { publicKey }` — igual
+           * que `phoneNumberId` y `ambiente`, que es la convención del jsonb.
+           * Estos dos lectores eran los únicos en snake_case, así que la llave
+           * que un administrador acababa de guardar no se encontraba nunca.
+           *
+           * No se notaba porque `paymentsSimulated()` es true por defecto y el
+           * camino simulado no consulta la llave: el fallo esperaba al día que
+           * alguien pusiera WOMPI_REAL=true, con el QR configurado en pantalla
+           * y muerto en producción.
+           */
+          const publicKey = (data?.config as Record<string, unknown> | undefined)?.publicKey
           return Boolean(data?.enabled && typeof publicKey === 'string' && publicKey)
         })()
     : false

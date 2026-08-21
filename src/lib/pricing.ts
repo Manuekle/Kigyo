@@ -18,6 +18,26 @@ export const CYCLES: Array<{ key: Cycle; label: string }> = [
   { key: 'anual', label: 'Anual' },
 ]
 
+/**
+ * El precio de entrada, en número, para los datos estructurados.
+ *
+ * Se deriva de `priceMonthly` en vez de escribirse aparte porque un segundo
+ * número es un número que se queda atrás. Esto existe por un caso concreto: el
+ * JSON-LD de `app/layout.tsx` declaraba `price: '0'` a los buscadores mientras
+ * esta página cobraba $80.000 — el mismo tipo de afirmación falsa que el FAQ,
+ * pero dirigida a quien indexa el sitio en vez de a quien lo lee.
+ *
+ * Los separadores de miles se quitan; el resultado es COP enteros.
+ */
+export function monthlyCop(plan: PlanKey): number {
+  return Number(PRICING[plan].priceMonthly.replace(/[^\d]/g, ''))
+}
+
+/** El más barato de los planes con checkout, para `AggregateOffer.lowPrice`. */
+export function lowestMonthlyCop(): number {
+  return Math.min(...(['starter', 'growth'] as PlanKey[]).map(monthlyCop))
+}
+
 export const PRICING: Record<
   PlanKey,
   { priceMonthly: string; priceAnnual: string; cta: string; href: string; featured: boolean; extras: string[] }

@@ -395,7 +395,22 @@ function defineTools(member: Member) {
  */
 export function buildTools(member: Member) {
   const all = defineTools(member)
-  const has = (permission: Permission) => can(member.permissions, permission)
+  /**
+   * Las dos puertas, no una.
+   *
+   * Esto comprobaba solo el permiso, y el permiso responde «esta persona puede
+   * ver X» — no «esta empresa usa X». Son ortogonales en todo el resto del
+   * producto: `requirePermission` mira las dos, y `member.can()` en la interfaz
+   * también. Aquí faltaba la del módulo, así que una empresa que apagaba
+   * Inventario en Configuración lo veía desaparecer del menú y seguía pudiendo
+   * preguntárselo al asistente, porque el rol conservaba `inventario:read`.
+   *
+   * Apagar un módulo tiene que apagarlo en todas partes o no significa nada.
+   * Es el mismo agujero que el envoltorio de `lib/api/handler.ts` documenta
+   * haber tapado en su día para las rutas HTTP.
+   */
+  const has = (permission: Permission) =>
+    member.modules.has(permission.split(':')[0]) && can(member.permissions, permission)
 
   return {
     ...(has('firmas:read') ? { firmasPendientes: all.firmasPendientes } : {}),
