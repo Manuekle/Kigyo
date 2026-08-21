@@ -26,8 +26,8 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 273/273 · tsc 0 · build verde · e2e 6/6 (`workers: 1` obligatorio).
-- Remota: migraciones 1–98 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
+- vitest 276/276 · tsc 0 · build verde · e2e 6/6 (`workers: 1` obligatorio).
+- Remota: migraciones 1–100 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
 - Working tree limpio, branch pusheada.
 - 0 residuos E2E en remota.
@@ -296,6 +296,60 @@ cazó `contabilidad`) y «la cadena comercial completa cabe en Growth».
 Pendiente de la fase 1: no existe flujo «facturar un pedido». La columna
 `invoices.sales_order_id` y su guard ya están, así que el enlace se puede
 registrar; construir la pantalla es función nueva, no reparación.
+
+### Fase 2 — la suspensión deja de ser decorativa (migs 99, 100)
+
+`requirePermission` niega toda escritura de una empresa suspendida, y **cero de
+las 753 políticas RLS mencionaban `organizations.status`**. Como la URL y la
+anon key son `NEXT_PUBLIC_*`, cualquier usuario autenticado habla con PostgREST
+directo sin pasar por TypeScript. Demostrado antes de tocar nada, como
+`authenticated`: suspender IPS Bogota e insertar en `clients` → `INSERT 0 1`.
+La suspensión era un banner, no una regla.
+
+Tres agujeros independientes, tres arreglos:
+
+**Mig 99 — RLS.** `app.company_is_active(org_id)` + dos emisores nuevos
+(`apply_active_guard`, `apply_active_guard_child`) que ponen políticas
+**RESTRICTIVE** solo para INSERT/UPDATE/DELETE. 543 políticas sobre 181 tablas
+(126 con `org_id` + 55 hijas), derivadas del catálogo y no de una lista a mano —
+la condición «tiene política permissive que consulta `orgs_with`» es la
+definición operativa de tabla de negocio. La migración termina con un bloque que
+vuelve a preguntar y falla si alguna quedó sin guardia. `apply_standard_rls`
+intacta: sigue diciendo de qué empresa es la fila, esta capa dice si esa empresa
+puede escribir hoy. SELECT nunca se toca — suspender no es confiscar, y una
+empresa que no puede leer sus facturas lo tiene más difícil para pagar.
+
+Fuera a propósito: el plano de identidad (`memberships`, `roles`,
+`role_permissions`, `invitations`, `membership_sites`), porque bloquearlo puede
+encerrar a alguien fuera de la empresa que intenta pagar.
+
+**Mig 100 — los RPC `SECURITY DEFINER`.** Son de `postgres`, que tiene
+`rolbypassrls = true` (verificado en `pg_roles`), así que no ven ninguna
+política. Guard explícito con código `KG106` en las tres que crean negocio:
+`register_pos_sale`, `place_storefront_order`, `void_pos_sale`. Los tres cuerpos
+se generaron desde `pg_get_functiondef()` insertando el bloque por búsqueda
+exacta del ancla — cada función crece 9 líneas y ni una más. Método adoptado
+tras la mig 98, donde transcribir un RPC a mano se desvió en tres puntos.
+Fuera y por decisión: `post_auto_entry`, `lock_payroll_period` y los tokens de
+portal (no crean negocio nuevo); el ciclo de vida de la cuenta (encerraría al
+que paga); y el portal público (castiga a un tercero por la deuda de otro).
+
+**`lib/api/handler.ts` — `route()` no miraba la suspensión.** Seis de las siete
+rutas de la API piden permiso de escritura (`ia:use`, `documentos:write`), así
+que una empresa impaga seguía llamando al modelo y quemando crédito de Foundry.
+Tercera puerta añadida, antes que módulo y permiso.
+
+**Lo que deliberadamente sigue pasando por encima:** `service_role` tiene
+`rolbypassrls = true`, así que ni las 543 políticas ni los guards de RPC lo
+tocan. Es la propiedad que hace reversible todo esto — `apply_subscription`
+siempre puede reactivar una empresa suspendida, y `confirm_pos_payment` /
+`reject_pos_payment` pueden liquidar un cobro que ya ocurrió aunque la empresa
+se suspendiera entre la venta y la confirmación del webhook. Un guard ahí
+dejaría dinero cobrado sin venta registrada.
+
+Pinneado en `guards.test.ts`: la regla es «no termina en `:read`», no «termina
+en `:write`» — `ia:use` y `configuracion:manage` son escrituras que no se
+llaman así, y una regla escrita sobre `:write` las dejaba pasar a las dos.
 
 ### Deuda abierta que salió de la auditoría
 

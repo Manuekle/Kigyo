@@ -46,12 +46,32 @@ export function route<TBody = undefined, TParams extends Record<string, string> 
     try {
       const member = await requireMember()
 
-      // Two gates, outermost first — the same pair `requirePermission` applies
+      // Three gates, outermost first — the same set `requirePermission` applies
       // to Server Functions. Without the module check here, switching a module
       // off hid its pages but left its HTTP endpoints answering normally, so
       // /api/ai/chat kept working for an organization that had turned the
       // assistant off.
       if (options.permission) {
+        /**
+         * La suspensión, que este envoltorio no miraba.
+         *
+         * `requirePermission` niega toda escritura de una empresa suspendida, y
+         * esta ruta paralela no lo hacía. Seis de las siete rutas de la API
+         * piden un permiso que no termina en `:read` — `ia:use`,
+         * `documentos:write` — así que una empresa impaga seguía llamando al
+         * modelo y quemando crédito de Foundry, que es dinero real saliendo por
+         * una cuenta que ya no entra.
+         *
+         * Misma regla que en `requirePermission`, y en el mismo orden: la
+         * suspensión gana al plan y al módulo, porque es la más fuerte de las
+         * tres y la única cuya solución es pagar.
+         */
+        if (member.status === 'suspended' && !options.permission.endsWith(':read')) {
+          throw forbidden(
+            'Esta empresa está en modo solo lectura: el plan de la cuenta está inactivo. ' +
+            'Tus datos siguen disponibles.',
+          )
+        }
         const moduleKey = moduleOf(options.permission)
         if (!member.modules.has(moduleKey)) {
           throw forbidden(`El módulo "${moduleKey}" no está activo en esta organización.`)

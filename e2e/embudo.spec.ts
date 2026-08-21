@@ -57,9 +57,14 @@ const claims = JSON.stringify({ sub: ADMIN_ID, role: 'authenticated' })
 function seed(clientId: string): void {
   psql(`
 select set_config('request.jwt.claims', '${claims}', true);
+-- Idempotente: sin la comprobación de pertenencia, un teardown que no llegó a
+-- correr deja el módulo repetido en el array y el siguiente lo repite otra vez.
 update organizations
-   set enabled_modules = enabled_modules || array['cotizaciones', 'pedidos']
- where id = '${ORG_ID}';
+   set enabled_modules = enabled_modules || array['cotizaciones']
+ where id = '${ORG_ID}' and not ('cotizaciones' = any (enabled_modules));
+update organizations
+   set enabled_modules = enabled_modules || array['pedidos']
+ where id = '${ORG_ID}' and not ('pedidos' = any (enabled_modules));
 insert into clients (id, org_id, name, email, status)
 values ('${clientId}', '${ORG_ID}', '${CLIENT_NAME}', 'e2e-embudo@example.com', 'Activo');
 `)

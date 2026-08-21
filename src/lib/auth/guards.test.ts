@@ -106,3 +106,47 @@ describe('permission vocabulary', () => {
     }
   })
 })
+
+/**
+ * La suspensión, como decisión, en los dos caminos que llegan a los datos.
+ *
+ * `requirePermission()` la aplica para Server Functions. `route()` en
+ * lib/api/handler.ts no la aplicaba, y seis de las siete rutas de la API piden
+ * un permiso de escritura (`ia:use`, `documentos:write`), así que una empresa
+ * impaga seguía llamando al modelo por HTTP.
+ *
+ * La regla es una sola y tiene que ser la misma en los dos sitios: leer siempre
+ * se puede, escribir no. Lo que se pinea aquí es esa regla, no la función —
+ * ambas necesitan una sesión de Supabase para correr.
+ */
+describe('una empresa suspendida lee pero no escribe', () => {
+  const suspendedRefuses = (permission: Permission) => !permission.endsWith(':read')
+
+  it('deja pasar toda lectura', () => {
+    for (const p of PERMISSIONS.filter((k) => k.endsWith(':read'))) {
+      expect(suspendedRefuses(p), `${p} debería poder leerse suspendida`).toBe(false)
+    }
+  })
+
+  it('niega toda escritura, incluidas las que no se llaman write', () => {
+    // `ia:use` y `configuracion:manage` no terminan en `:write` y son escrituras
+    // igualmente — una consume crédito de Foundry, la otra reparte permisos.
+    // Una regla escrita sobre `:write` las habría dejado pasar a las dos.
+    const writes = PERMISSIONS.filter((k) => !k.endsWith(':read'))
+    expect(writes).toContain('ia:use')
+    expect(writes).toContain('configuracion:manage')
+    for (const p of writes) {
+      expect(suspendedRefuses(p), `${p} debería negarse suspendida`).toBe(true)
+    }
+  })
+
+  it('la suspensión se decide antes que el módulo y el permiso', () => {
+    // El orden importa porque cada puerta manda a la persona a un sitio
+    // distinto, y la de la suspensión es la única cuya salida es pagar.
+    // Un administrador con todos los permisos de una empresa suspendida tiene
+    // que leer «el plan está inactivo», no «te falta un permiso».
+    const admin: Caller = { modules: new Set(['ia']), permissions: ['ia:use'] }
+    expect(decide(admin, 'ia:use')).toBe('ok')
+    expect(suspendedRefuses('ia:use')).toBe(true)
+  })
+})
