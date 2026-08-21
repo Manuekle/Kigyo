@@ -45,7 +45,10 @@ export async function createProducto(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
-    const { error } = await supabase.from('products').insert({
+    // `stock` NO va en el insert: desde la migración 101 es una columna
+    // derivada y solo la escribe el trigger del saldo. La cantidad inicial que
+    // el formulario trae entra al libro como un asiento de apertura, abajo.
+    const { data: created, error } = await supabase.from('products').insert({
       org_id: member.orgId,
       sku: parsed.data.sku,
       barcode: parsed.data.barcode,
@@ -55,11 +58,10 @@ export async function createProducto(
       unit: parsed.data.unit,
       price_cents: parsed.data.priceCents,
       cost_cents: parsed.data.costCents,
-      stock: parsed.data.stock,
       supplier: parsed.data.supplier,
       is_active: parsed.data.isActive,
       in_storefront: parsed.data.inStorefront,
-    })
+    }).select('id').single()
 
     if (error) {
       console.error('[productos] createProducto', error)
@@ -70,6 +72,27 @@ export async function createProducto(
           : 'Ya existe un producto con ese SKU.')
       }
       return fail('No se pudo crear el producto.')
+    }
+
+    // Cero no genera asiento: `qty <> 0` lo rechazaría, y un movimiento de
+    // apertura por cero no dice nada que la ausencia de movimientos no diga.
+    if (parsed.data.stock !== 0 && created) {
+      const { error: movError } = await supabase.from('inventory_movements').insert({
+        org_id: member.orgId,
+        product_id: created.id,
+        site_id: null,
+        qty: parsed.data.stock,
+        kind: 'apertura',
+        source_table: 'products',
+        source_id: created.id,
+        note: 'Existencia inicial al crear el producto',
+      })
+      // El producto ya existe; que falle el asiento no debe deshacerlo, pero sí
+      // decirse — quedaría en catálogo con existencia cero y sin explicación.
+      if (movError) {
+        console.error('[productos] createProducto apertura', movError)
+        return fail('El producto se creó, pero no se pudo registrar su existencia inicial.')
+      }
     }
 
     revalidatePath('/dashboard/catalogos')
@@ -100,7 +123,8 @@ export async function updateProducto(
         unit: parsed.data.unit,
         price_cents: parsed.data.priceCents,
         cost_cents: parsed.data.costCents,
-        stock: parsed.data.stock,
+        // `stock` fuera: es derivada. El cambio de existencia que este
+        // formulario proponga se convierte en un ajuste, más abajo.
         supplier: parsed.data.supplier,
         is_active: parsed.data.isActive,
         in_storefront: parsed.data.inStorefront,
@@ -116,6 +140,53 @@ export async function updateProducto(
           : 'Ya existe un producto con ese SKU.')
       }
       return fail('No se pudo actualizar el producto.')
+    }
+
+    /**
+     * La existencia que trae el formulario se convierte en un ajuste.
+     *
+     * Antes esta pantalla escribía `stock` directamente, que es la operación
+     * que hacía imposible responder «¿por qué tengo 7 y no 9?»: quedaba un
+     * UPDATE en `audit_log` sin razón de negocio, indistinguible de una venta
+     * que se hubiera perdido. Ahora la diferencia entra al libro como lo que
+     * es — un conteo que corrigió el saldo — y el trigger recalcula el total.
+     *
+     * Contra el saldo de empresa (`site_id is null`) y no contra
+     * `products.stock`, porque el total suma todas las sucursales: en una
+     * empresa con dos locales, escribir «20» aquí significa «la empresa tiene
+     * 20 en total», y repartir ese número entre sedes es un traslado, no un
+     * ajuste. Mientras nadie tenga sucursales —hoy, nadie— las dos cifras
+     * coinciden.
+     */
+    const { data: saldo } = await supabase
+      .from('product_stock')
+      .select('qty')
+      .eq('product_id', parsed.data.id)
+      .is('site_id', null)
+      .maybeSingle()
+
+    const delta = parsed.data.stock - (saldo?.qty ?? 0)
+    if (delta !== 0) {
+      const { error: ajusteError } = await supabase.from('inventory_movements').insert({
+        org_id: member.orgId,
+        product_id: parsed.data.id,
+        site_id: null,
+        qty: delta,
+        kind: 'ajuste',
+        source_table: 'products',
+        source_id: parsed.data.id,
+        note: 'Existencia corregida desde la ficha del producto',
+      })
+      if (ajusteError) {
+        console.error('[productos] updateProducto ajuste', ajusteError)
+        // KG103: el trigger rechaza dejar el saldo en negativo y nombra el
+        // producto. Su mensaje es mejor que cualquiera que se escriba aquí.
+        return fail(
+          ajusteError.code === 'KG103'
+            ? ajusteError.message
+            : 'El producto se actualizó, pero no se pudo ajustar la existencia.',
+        )
+      }
     }
 
     revalidatePath('/dashboard/catalogos')

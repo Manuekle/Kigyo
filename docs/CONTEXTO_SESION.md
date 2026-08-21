@@ -27,7 +27,7 @@ Account    public.accounts          — plan, billing, límites
 ## 2. Estado de verificación
 
 - vitest 276/276 · tsc 0 · build verde · e2e 6/6 (`workers: 1` obligatorio).
-- Remota: migraciones 1–100 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
+- Remota: migraciones 1–103 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
 - Working tree limpio, branch pusheada.
 - 0 residuos E2E en remota.
@@ -350,6 +350,72 @@ dejaría dinero cobrado sin venta registrada.
 Pinneado en `guards.test.ts`: la regla es «no termina en `:read`», no «termina
 en `:write`» — `ia:use` y `configuracion:manage` son escrituras que no se
 llaman así, y una regla escrita sobre `:write` las dejaba pasar a las dos.
+
+### Fase 3 — inventario auditable (migs 101, 102, 103)
+
+`products.stock` era un `integer` mutado en sitio por cuatro escritores, sin
+tabla de movimientos. A «¿por qué tengo 7 y no 9?» el sistema no tenía respuesta
+—`audit_log` guarda que hubo un UPDATE, no la razón— y `products` no llevaba
+`site_id`, así que dos locales compartían un saldo aunque la venta sí se
+atribuyera a su sucursal.
+
+**Mig 101 — el modelo.**
+
+```
+inventory_movements   el porqué   append-only, un delta con signo por hecho
+       │ trigger
+product_stock         el qué      saldo por (producto, sucursal)
+       │ trigger
+products.stock        el total    derivado; solo lo escribe el trigger
+```
+
+Decisiones: `qty` entero con signo (dos columnas entrada/salida admiten el
+estado «ambas llenas»); `site_id` nullable donde null = la empresa, no «sin
+asignar» (0 sucursales hoy, y una fila fantasma saldría en todos los selectores);
+`products.stock` sobrevive como columna porque 5 archivos de consulta y la UI la
+leen. Append-only por grants: `authenticated` queda con SELECT+INSERT en el
+libro y solo SELECT en el saldo, y se revoca además TRUNCATE, que no pasa por
+RLS ni por trigger.
+
+Dos cosas que costaron encontrar y quedan escritas en la migración:
+- El `on conflict … do update` de una línea **no sirve**: la unicidad vive en dos
+  índices parciales (null no choca con null) y una cláusula no apunta a dos.
+- La comprobación de saldo negativo va **antes** de aplicar. La primera versión
+  sumaba con `update … returning` y miraba después; nunca llegaba, porque el
+  UPDATE completa sus triggers AFTER y `check (stock >= 0)` saltaba primero, con
+  un error que ni nombraba el producto. Ahora hay `for update` sobre la fila del
+  saldo y un KG103 legible — y eso mueve el candado contra sobreventa del
+  catálogo (`products`) a las existencias, que es lo que se disputa.
+
+**Mig 102 — los tres RPC al libro.** `register_pos_sale`, `void_pos_sale` y
+`place_storefront_order` dejan de mutar `stock`. En el POS el asiento se emite
+*después* de crear la venta, que es cuando existen su id y su sucursal. Anular
+añade un asiento de `anulacion`, no borra el de venta. Cuerpos generados desde
+`pg_get_functiondef`, con aserción de que no queda un `update public.products`
+en ninguna.
+
+**Cuarto escritor, en código.** `mutations/productos.ts` escribía el número del
+formulario. Ahora: al crear, asiento de `apertura`; al editar, `ajuste` por la
+diferencia contra el saldo de empresa.
+
+**Recepción de compras.** «Marcar recibida» solo cambiaba una palabra: comprar
+no aumentaba existencias. Ahora emite asientos `compra`, solo de las líneas con
+producto de catálogo (una orden puede pedir horas de consultoría) y leyendo el
+estado actual antes de escribir, para que marcarla dos veces no sume dos veces —
+en un libro append-only esa segunda entrada no se borra, solo se compensa.
+
+**Mig 103 — regresión propia, cerrada estructuralmente.** El smoke de POS
+destapó que `insert into products (…, stock, …)` escribía la columna sin crear
+saldo: 5 en pantalla, 0 en el libro, y la venta rechazada. No era del fixture —
+`seed-demo.mjs` hace lo mismo y cualquier carga inicial también. Trigger
+`after insert` que convierte la existencia inicial en apertura. Solo INSERT: con
+UPDATE se llamaría en círculo con el trigger de saldo.
+
+**Test que estaba mudo.** `account-scope.test.ts` › «every site-scope policy is
+RESTRICTIVE» iteraba `[, body]` sobre un regex **sin grupo de captura**, así que
+`body` era `undefined` siempre. Pasaba porque no encontraba nada: hasta la 101
+todas las políticas de sucursal salían de `app.add_site_scope`. Corregido a
+`match[0]` y comprobado que ahora falla si se escribe una permissive.
 
 ### Deuda abierta que salió de la auditoría
 

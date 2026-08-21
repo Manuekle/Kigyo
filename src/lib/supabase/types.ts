@@ -4211,6 +4211,80 @@ export interface Database {
           },
         ]
       }
+      inventory_movements: {
+        Row: {
+          id: string
+          org_id: string
+          product_id: string
+          site_id: string | null
+          qty: number
+          kind: "apertura" | "compra" | "venta" | "anulacion" | "ajuste" | "traslado" | "merma"
+          source_table: string
+          source_id: string | null
+          note: string
+          created_by: string | null
+          occurred_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          product_id: string
+          site_id?: string | null
+          qty: number
+          kind: "apertura" | "compra" | "venta" | "anulacion" | "ajuste" | "traslado" | "merma"
+          source_table?: string
+          source_id?: string | null
+          note?: string
+          created_by?: string | null
+          occurred_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          product_id?: string
+          site_id?: string | null
+          qty?: number
+          kind?: "apertura" | "compra" | "venta" | "anulacion" | "ajuste" | "traslado" | "merma"
+          source_table?: string
+          source_id?: string | null
+          note?: string
+          created_by?: string | null
+          occurred_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_movements_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_orders: {
         Row: {
           id: string
@@ -7337,6 +7411,55 @@ export interface Database {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "guard_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_stock: {
+        Row: {
+          id: string
+          org_id: string
+          product_id: string
+          site_id: string | null
+          qty: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          product_id: string
+          site_id?: string | null
+          qty?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          product_id?: string
+          site_id?: string | null
+          qty?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_stock_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_stock_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_stock_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]

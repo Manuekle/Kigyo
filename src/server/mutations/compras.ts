@@ -398,6 +398,30 @@ export async function setOrdenStatus(
     if (!parsed.success) return fail('Datos inválidos.')
 
     const supabase = await createClient()
+
+    /**
+     * Recibir una orden mete la mercancía al inventario.
+     *
+     * Hasta ahora «Marcar recibida» solo cambiaba una palabra en una tabla. La
+     * cadena de compras estaba completa en todo menos en su motivo: requisición
+     * → orden → factura → pago, y en ningún punto el inventario subía. Comprar
+     * no aumentaba las existencias, así que el stock solo bajaba (POS) y se
+     * corregía a mano. Con el libro de la migración 101 esto ya tiene dónde ir.
+     *
+     * Se lee el estado actual antes de escribir, y no se confía en el que traiga
+     * la pantalla: sin eso, marcar «Recibida» dos veces —dos pestañas, un doble
+     * clic, un reintento— sumaría la mercancía dos veces, y en un libro
+     * append-only esa segunda entrada no se puede borrar, solo compensar.
+     */
+    const { data: current } = await supabase
+      .from('purchase_orders')
+      .select('status')
+      .eq('id', parsed.data.id)
+      .eq('org_id', member.orgId)
+      .maybeSingle()
+
+    if (!current) return fail('Esa orden no existe en tu organización.')
+
     const { error } = await supabase
       .from('purchase_orders')
       .update({ status: parsed.data.status })
@@ -409,7 +433,49 @@ export async function setOrdenStatus(
       return fail('No se pudo actualizar la orden.')
     }
 
+    if (parsed.data.status === 'Recibida' && current.status !== 'Recibida') {
+      const { data: items } = await supabase
+        .from('purchase_order_items')
+        .select('product_id, quantity')
+        .eq('purchase_order_id', parsed.data.id)
+
+      /*
+       * Solo las líneas con producto de catálogo. Una orden puede pedir «horas
+       * de consultoría» o «alquiler de andamios» describiéndolas a mano, y esas
+       * no son existencias de nada — meterlas al libro inventaría un servicio.
+       *
+       * `quantity` es numeric(12,2) y el movimiento es entero: una compra de
+       * 2,5 kg se redondea, igual que el POS ya redondea sus totales. Un
+       * inventario con decimales es otra decisión y merece su propia migración.
+       */
+      const movimientos = (items ?? [])
+        .filter((i) => i.product_id !== null)
+        .map((i) => ({
+          org_id: member.orgId,
+          product_id: i.product_id as string,
+          site_id: null,
+          qty: Math.round(Number(i.quantity)),
+          kind: 'compra' as const,
+          source_table: 'purchase_orders',
+          source_id: parsed.data.id,
+          note: 'Recepción de orden de compra',
+        }))
+        .filter((m) => m.qty > 0)
+
+      if (movimientos.length > 0) {
+        const { error: movError } = await supabase
+          .from('inventory_movements')
+          .insert(movimientos)
+        if (movError) {
+          console.error('[compras] setOrdenStatus recepción', movError)
+          return fail('La orden quedó recibida, pero no se pudo sumar la mercancía al inventario.')
+        }
+      }
+    }
+
     revalidatePath('/dashboard/ordenes-compra')
+    revalidatePath('/dashboard/inventario')
+    revalidatePath('/dashboard/catalogos')
     revalidatePath('/dashboard/compras')
     return { ok: true, data: await getCompras() }
   } catch {

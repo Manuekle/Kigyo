@@ -283,9 +283,24 @@ describe('branch scope stays additive', () => {
     expect(generator, 'app.add_site_scope not found').toBeTruthy()
     expect(generator![0]).toContain('as restrictive')
 
-    // And no hand-written site policy slipped in permissive.
-    for (const [, body] of all.matchAll(/create policy\s+\w*_site_scope[\s\S]*?;/g)) {
-      expect(body, 'a *_site_scope policy is not restrictive').toContain('as restrictive')
+    /*
+     * And no hand-written site policy slipped in permissive.
+     *
+     * Esto estuvo mudo hasta la migración 101. El patrón no tenía grupo de
+     * captura y el bucle desestructuraba `[, body]`, o sea `match[1]`, que era
+     * `undefined` siempre — la aserción habría explotado en la primera política
+     * que encontrara. Pasaba porque no encontraba ninguna: hasta entonces todas
+     * salían de `app.add_site_scope`, y la comprobación de arriba es la que las
+     * cubre. La 101 escribió las primeras a mano y destapó el hueco.
+     *
+     * Se usa `match[0]` — la sentencia entera — en vez de añadir un grupo: lo
+     * que se quiere comprobar es el texto completo de la política, y un grupo
+     * que empiece después del nombre puede dejar fuera justo lo que se busca.
+     */
+    const handWritten = [...all.matchAll(/create policy\s+\w*_site_scope[\s\S]*?;/g)]
+    for (const match of handWritten) {
+      expect(match[0], `${match[0].slice(0, 60)}… no es restrictive`)
+        .toContain('as restrictive')
     }
   })
 
