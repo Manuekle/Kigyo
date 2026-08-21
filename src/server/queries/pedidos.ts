@@ -150,7 +150,7 @@ export async function getPedidos(): Promise<PedidosData> {
   const member = await requirePermission('pedidos:read')
   const supabase = await createClient()
 
-  const [ordersResult, quotesResult] = await Promise.all([
+  const [ordersResult, quotesResult, convertedResult] = await Promise.all([
     supabase
       .from('sales_orders')
       .select(ORDER_COLUMNS)
@@ -158,23 +158,38 @@ export async function getPedidos(): Promise<PedidosData> {
       .is('deleted_at', null)
       .order('issued_on', { ascending: false })
       .limit(300),
-    // Quotes that can still become an order: accepted, not yet converted.
-    // Without `clientes`, quotes still carry their textual client name, so
-    // the selector works on the soft dependency alone.
+    // Accepted quotes, of which the converted ones are removed below.
+    //
+    // Esto era una sola consulta con la exclusión dentro:
+    //
+    //     .not('id', 'in', supabase.from('sales_orders').select('quote_id')…)
+    //
+    // PostgREST no tiene subconsultas, y supabase-js no avisa: convierte el
+    // builder a texto y manda `id=not.in.[object Object]`, que el servidor
+    // rechaza con un 400. Como el error de *esta* consulta nunca se miraba
+    // —solo el de `ordersResult`—, `quotes` quedaba en `[]` siempre, el botón
+    // «Desde cotización» salía deshabilitado con el texto «No hay cotizaciones
+    // aceptadas sin pedido todavía», y no había forma de crear un pedido desde
+    // la interfaz. Con cero pedidos en la base, nadie lo había notado.
     supabase
       .from('quotes')
       .select('id, code, client, items: quote_items(quantity, unit_price_cents)')
       .eq('org_id', member.orgId)
       .eq('status', 'Aceptada')
       .is('deleted_at', null)
-      .not('id', 'in', supabase
-        .from('sales_orders')
-        .select('quote_id')
-        .eq('org_id', member.orgId)
-        .is('deleted_at', null)
-        .not('status', 'eq', 'Cancelado'))
       .order('issued_on', { ascending: false })
       .limit(50),
+    // Las cotizaciones ya consumidas, como columna suelta. Se cruza en
+    // memoria porque es la única forma honesta de hacerlo con PostgREST, y
+    // una lista de uuids es barata de traer.
+    supabase
+      .from('sales_orders')
+      .select('quote_id')
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+      .neq('status', 'Cancelado')
+      .not('quote_id', 'is', null)
+      .limit(5000),
   ])
 
   if (ordersResult.error) {
@@ -182,11 +197,23 @@ export async function getPedidos(): Promise<PedidosData> {
     return { pedidos: [], total: 0, canWrite: false, quotes: [] }
   }
 
+  // El error de esta consulta sí se mira ahora: una lista vacía por fallo y una
+  // lista vacía porque no hay nada que convertir se ven igual en pantalla, y
+  // eso es exactamente lo que escondió el bug de la subconsulta.
+  if (quotesResult.error) console.error('[pedidos] getPedidos quotes', quotesResult.error)
+  if (convertedResult.error) console.error('[pedidos] getPedidos converted', convertedResult.error)
+
+  const converted = new Set(
+    ((convertedResult.data ?? []) as Array<{ quote_id: string | null }>)
+      .map((r) => r.quote_id)
+      .filter((id): id is string => id !== null),
+  )
+
   return {
     pedidos: (ordersResult.data as unknown as OrderRecord[]).map(toPedido),
     total: ordersResult.data.length,
     canWrite: can(member.permissions, 'pedidos:write'),
-    quotes: (quotesResult.data ?? []).map((q) => ({
+    quotes: (quotesResult.data ?? []).filter((q) => !converted.has(q.id)).map((q) => ({
       id: q.id,
       code: q.code,
       client: q.client,

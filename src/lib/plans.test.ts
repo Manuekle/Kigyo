@@ -169,3 +169,44 @@ describe('resolveModules under a plan', () => {
     expect(resolved.has('nomina')).toBe(true)
   })
 })
+
+/**
+ * Nada llega a Enterprise por descuido.
+ *
+ * `Enterprise` se define como `[...MODULE_KEYS]`, y eso es correcto: un módulo
+ * que este archivo olvide sigue siendo alcanzable en algún plan en vez de
+ * quedar muerto. Pero tiene un coste que no se ve — recoge en silencio todo lo
+ * que `GROWTH` no liste, así que «olvidarse de un módulo» y «ponerlo en el plan
+ * más caro» son indistinguibles desde fuera.
+ *
+ * Fue exactamente lo que pasó con `pedidos`: llegó en la migración 88, nadie lo
+ * añadió a `GROWTH`, y una empresa Growth se encontró con que podía crear
+ * cotizaciones y aceptarlas pero no convertirlas en pedidos — la mitad de una
+ * cadena, detrás de un plan que nadie había decidido cobrar por ella. El
+ * docstring de Enterprise nombra sus tres diferenciadores; esta prueba exige
+ * que sean *exactamente* esos tres.
+ *
+ * Añadir un módulo a Enterprise a propósito es entonces un cambio de dos
+ * líneas: la lista de abajo y el docstring. Que es lo que debería costar.
+ */
+describe('el salto de Growth a Enterprise es deliberado', () => {
+  const ENTERPRISE_ONLY = ['tienda', 'ecommerce', 'trazabilidad']
+
+  it('Enterprise solo añade lo que su docstring nombra', () => {
+    const growth = planModules('growth')
+    const extra = [...planModules('enterprise')]
+      .filter((m) => !growth.has(m) && !CORE_MODULES.includes(m))
+      .sort()
+
+    expect(extra).toEqual([...ENTERPRISE_ONLY].sort())
+  })
+
+  it('la cadena comercial completa cabe en Growth', () => {
+    // Cotizar sin poder convertir, o pedir sin poder facturar, es media
+    // función. Los cinco eslabones viven o mueren juntos.
+    const growth = planModules('growth')
+    for (const m of ['clientes', 'leads', 'cotizaciones', 'pedidos', 'facturacion']) {
+      expect(growth.has(m), `${m} debería estar en Growth`).toBe(true)
+    }
+  })
+})

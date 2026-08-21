@@ -23,6 +23,14 @@ const itemSchema = z.object({
 
 const baseSchema = z.object({
   client: z.string().trim().min(2, 'El cliente es obligatorio.').max(160),
+  /**
+   * La ficha del cliente, cuando la hay.
+   *
+   * Nullable y con default null porque una cotización en frío —a alguien que
+   * todavía no es cliente— es el caso normal al abrir un trato, no una
+   * excepción. `client` sigue siendo obligatorio; esto solo lo enlaza.
+   */
+  clientId: z.uuid().nullable().default(null),
   contact: z.string().trim().max(160).default(''),
   projectId: z.uuid().nullable().default(null),
   ownerId: z.uuid().nullable().default(null),
@@ -77,9 +85,15 @@ async function refsValid(
   projectId: string | null,
   ownerId: string | null,
   stageId: string | null,
+  clientId: string | null,
 ): Promise<string | null> {
   if (!(await belongsToOrg(supabase, 'projects', projectId, orgId))) {
     return 'Ese proyecto no pertenece a tu organización.'
+  }
+  // El trigger `quotes_client_same_org` (mig. 98) rechaza esto igualmente; se
+  // comprueba aquí para devolver una frase en vez de un check_violation.
+  if (!(await belongsToOrg(supabase, 'clients', clientId, orgId))) {
+    return 'Ese cliente no pertenece a tu organización.'
   }
   if (!(await belongsToOrg(supabase, 'employees', ownerId, orgId))) {
     return 'Esa persona no está en el equipo de tu organización.'
@@ -107,7 +121,7 @@ export async function createCotizacion(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
-    const refError = await refsValid(supabase, member.orgId, parsed.data.projectId, parsed.data.ownerId, parsed.data.stageId)
+    const refError = await refsValid(supabase, member.orgId, parsed.data.projectId, parsed.data.ownerId, parsed.data.stageId, parsed.data.clientId)
     if (refError) return fail(refError)
 
     const { data: quote, error } = await supabase
@@ -115,6 +129,7 @@ export async function createCotizacion(
       .insert({
         org_id: member.orgId,
         client: parsed.data.client,
+        client_id: parsed.data.clientId,
         contact: parsed.data.contact,
         project_id: parsed.data.projectId,
         owner_id: parsed.data.ownerId,
@@ -153,13 +168,14 @@ export async function updateCotizacion(
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
     const supabase = await createClient()
-    const refError = await refsValid(supabase, member.orgId, parsed.data.projectId, parsed.data.ownerId, parsed.data.stageId)
+    const refError = await refsValid(supabase, member.orgId, parsed.data.projectId, parsed.data.ownerId, parsed.data.stageId, parsed.data.clientId)
     if (refError) return fail(refError)
 
     const { error } = await supabase
       .from('quotes')
       .update({
         client: parsed.data.client,
+        client_id: parsed.data.clientId,
         contact: parsed.data.contact,
         project_id: parsed.data.projectId,
         owner_id: parsed.data.ownerId,

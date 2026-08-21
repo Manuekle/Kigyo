@@ -33,7 +33,7 @@ type DraftItem = { productId: string | null; description: string; quantity: stri
 const EMPTY_DRAFT: DraftItem = { productId: null, description: '', quantity: '1', price: '' }
 
 const EMPTY_FORM = {
-  client: '', contact: '', projectId: '', ownerId: '',
+  client: '', clientId: '', contact: '', projectId: '', ownerId: '',
   kind: 'Comercial', probability: '0', expiresOn: '', notes: '', stageId: '',
   items: [{ ...EMPTY_DRAFT }] as DraftItem[],
 }
@@ -43,6 +43,7 @@ type FormState = typeof EMPTY_FORM
 function toForm(q: CotizacionRow): FormState {
   return {
     client: q.client,
+    clientId: q.clientId ?? '',
     contact: q.contact,
     projectId: q.projectId ?? '',
     ownerId: q.ownerId ?? '',
@@ -159,6 +160,7 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
     startTransition(async () => {
       const payload = {
         client: form.client.trim(),
+        clientId: form.clientId || null,
         contact: form.contact.trim(),
         projectId: form.projectId || null,
         ownerId: form.ownerId || null,
@@ -444,13 +446,47 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
           </>
         }
       >
+              {/*
+                Dos campos para una pregunta con dos respuestas.
+
+                La ficha contesta *quién es* — y es lo que hace que «¿qué le
+                hemos cotizado a este cliente?» sea un join y no una comparación
+                de cadenas. El nombre contesta *cómo se llama en este documento*,
+                que es lo que se imprime y lo que debe seguir diciendo lo mismo
+                dentro de dos años aunque el directorio cambie.
+
+                Elegir ficha rellena el nombre; escribir el nombre a mano no
+                borra la ficha. Y el selector se puede dejar en «Sin ficha»: una
+                cotización en frío, a alguien que todavía no es cliente, es el
+                caso normal al abrir un trato.
+              */}
+              {state.clientes.length > 0 && (
+                <>
+                  <div className="flabel" style={{ marginTop: 0 }}>Ficha del cliente</div>
+                  <Select
+                    id="co-client-id"
+                    value={form.clientId}
+                    onChange={(v) => setForm((f) => ({
+                      ...f,
+                      clientId: v,
+                      client: v ? state.clientes.find((c) => c.id === v)?.name ?? f.client : f.client,
+                    }))}
+                    options={[
+                      { value: '', label: 'Sin ficha — cliente nuevo' },
+                      ...state.clientes.map((c) => ({ value: c.id, label: c.name })),
+                    ]}
+                  />
+                </>
+              )}
               <div className="fg2">
                 <div>
-                  <div className="flabel" style={{ marginTop: 0 }}>Cliente</div>
+                  <div className="flabel" style={{ marginTop: state.clientes.length > 0 ? undefined : 0 }}>
+                    Nombre en el documento
+                  </div>
                   <input className="field" value={form.client} onChange={(e) => setForm((f) => ({ ...f, client: e.target.value }))} placeholder="Ej. Energía Limpia SA" />
                 </div>
                 <div>
-                  <div className="flabel" style={{ marginTop: 0 }}>Contacto</div>
+                  <div className="flabel" style={{ marginTop: state.clientes.length > 0 ? undefined : 0 }}>Contacto</div>
                   <input className="field" value={form.contact} onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))} />
                 </div>
               </div>

@@ -26,8 +26,8 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 271/271 · tsc 0 · build verde · e2e 5/5 (`workers: 1` obligatorio).
-- Remota: migraciones 1–95 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
+- vitest 273/273 · tsc 0 · build verde · e2e 6/6 (`workers: 1` obligatorio).
+- Remota: migraciones 1–98 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
 - Working tree limpio, branch pusheada.
 - 0 residuos E2E en remota.
@@ -235,6 +235,67 @@ ruta. 0 presets apuntando a módulos inexistentes. 0 mutaciones con el patrón
 `const { error } = rawClient(...)` sin `await`. Ningún dato inventado en las
 pantallas: los literales viejos están documentados en comentarios de por qué se
 fueron.
+
+### Jornada 2026-08-21 — plan de reparación, fase 0 y fase 1
+
+Plan por fases sobre los 13 problemas de la auditoría, ordenado por dependencia:
+0 red e2e · 1 embudo relacional · 2 suspensión en RPCs · 3 inventario real
+(movimientos + sucursal + recepción) · 4 impuestos POS · 5 moneda · 6 limpieza.
+
+Momento elegido a propósito: la base estaba **vacía** —0 quotes, 0 clients, 0
+invoices, 0 sales_orders— así que reparar el modelo no costó ni un backfill.
+Dentro de seis meses la misma migración es un proyecto de conciliación.
+
+**Fase 0 — `e2e/embudo.spec.ts`.** cliente → cotización → Aceptada → pedido,
+más KG105. Montarla destapó tres bugs que ninguna prueba veía.
+
+**Migración 97 — un módulo nuevo alcanza a quien ya estaba.**
+`app.seed_default_permissions` corre una sola vez, al crear la empresa, y
+deriva Administrador de `select key from public.permissions`. Exacto ese día,
+obsoleto al siguiente módulo. Medido: IPS Bogota y Demo Dos tenían 113/115 —
+les faltaba `pedidos:*` desde la migración 88; Microsoft, creada después, 115.
+Cada release dejaba atrás a toda la base instalada. Ahora un trigger
+`AFTER INSERT` en `public.permissions` reparte la clave nueva al rol
+Administrador de cada empresa. Solo Administrador: re-sembrar «Líder de equipo»
+y «Empleado» resucitaría permisos revocados a propósito (`on conflict do
+nothing` no distingue «nunca lo tuvo» de «se lo quitaron»).
+
+**Migración 98 — embudo relacional.** `quotes.client_id` y
+`invoices.sales_order_id` con FK y `on delete set null`, dos guards anti-cruce
+de empresa (`quotes_client_same_org`, `invoices_order_same_org`), y
+`create_order_from_quote` deja de insertar `client_id = null`. El nombre de
+texto sobrevive: la ficha contesta *quién es*, el texto *cómo se llamaba* —
+mismo patrón que `invoices.client_name`. UI: selector de ficha sobre el campo
+de nombre en el editor de cotización, con «Sin ficha — cliente nuevo» para el
+trato en frío.
+
+**Bug: el módulo Pedidos nunca funcionó desde la interfaz.** `getPedidos`
+excluía las cotizaciones ya convertidas con
+`.not('id', 'in', supabase.from('sales_orders').select('quote_id')…)`.
+PostgREST no tiene subconsultas y supabase-js no avisa: serializa el builder y
+manda `id=not.in.[object Object]`, un 400. El error de esa consulta **no se
+miraba** —solo el de `ordersResult`—, así que `quotes` quedaba `[]` siempre y
+«Desde cotización» salía permanentemente deshabilitado con «No hay
+cotizaciones aceptadas sin pedido todavía». Con 0 pedidos en la base, nadie lo
+había notado. Ahora son dos consultas cruzadas en memoria, y los dos errores se
+registran.
+
+**Bug de plan: `pedidos` y `contabilidad` estaban en Enterprise sin que nadie
+lo decidiera.** Ninguno aparecía en `plans.ts` ni una vez;
+`Enterprise = [...MODULE_KEYS]` recoge en silencio lo que `GROWTH` olvide, así
+que «olvidado» y «vendido caro» son indistinguibles desde fuera. Consecuencias
+reales: una empresa Growth cotizaba y aceptaba pero no podía convertir; y
+—peor— `compras`, `facturacion` y `caja` son los tres de Growth y los tres
+llaman a `maybePostAutoEntry`, así que ya estaba *generando* asientos en un
+libro que su plan no le dejaba abrir. Ambos movidos a GROWTH.
+
+Pinneado con dos pruebas en `plans.test.ts`: «Enterprise solo añade lo que su
+docstring nombra» (delta exacto = tienda, ecommerce, trazabilidad — fue la que
+cazó `contabilidad`) y «la cadena comercial completa cabe en Growth».
+
+Pendiente de la fase 1: no existe flujo «facturar un pedido». La columna
+`invoices.sales_order_id` y su guard ya están, así que el enlace se puede
+registrar; construir la pantalla es función nueva, no reparación.
 
 ### Deuda abierta que salió de la auditoría
 

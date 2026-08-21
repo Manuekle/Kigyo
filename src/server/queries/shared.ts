@@ -82,6 +82,12 @@ export interface ProjectRef {
   name: string
 }
 
+/** A client, reduced to what a picker on another module's screen needs. */
+export interface ClientRef {
+  id: string
+  name: string
+}
+
 /**
  * Both gates, in the order the guards apply them: a module the organization
  * does not use hides the picker even from an administrator who holds the
@@ -196,6 +202,39 @@ export async function projectsFor(
   return (data ?? []).map((r: { id: string; code: string | null; name: string }) => ({
     id: r.id,
     code: r.code,
+    name: r.name,
+  }))
+}
+
+/**
+ * Active clients, for "who is this for" pickers on commercial documents.
+ *
+ * Gated on `clientes:read` like every other helper here, and that gate is the
+ * reason a caller must treat an empty list as "you may not look" rather than
+ * as "there are no clients": a salesperson without the directory still writes
+ * quotes, and the name they type stays the authoritative one on the document.
+ */
+export async function clientsFor(
+  supabase: Supabase,
+  member: Member,
+  limit = 300,
+): Promise<ClientRef[]> {
+  if (!allows(member, 'clientes:read')) return []
+
+  const { data, error } = await scoped(supabase, member, 'clients')
+    .select('id, name')
+    .is('deleted_at', null)
+    .eq('status', 'Activo')
+    .order('name', { ascending: true })
+    .limit(limit)
+
+  if (error) {
+    console.error('[shared] clientsFor', error)
+    return []
+  }
+
+  return (data ?? []).map((r: { id: string; name: string }) => ({
+    id: r.id,
     name: r.name,
   }))
 }

@@ -4439,6 +4439,7 @@ export interface Database {
           created_at: string
           updated_at: string
           deleted_at: string | null
+          sales_order_id: string | null
         }
         Insert: {
           id?: string
@@ -4460,6 +4461,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          sales_order_id?: string | null
         }
         Update: {
           id?: string
@@ -4481,6 +4483,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           deleted_at?: string | null
+          sales_order_id?: string | null
         }
         Relationships: [
           {
@@ -4509,6 +4512,13 @@ export interface Database {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_sales_order_id_fkey"
+            columns: ["sales_order_id"]
+            isOneToOne: false
+            referencedRelation: "sales_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -8253,6 +8263,7 @@ export interface Database {
           updated_at: string
           deleted_at: string | null
           stage_id: string | null
+          client_id: string | null
         }
         Insert: {
           id?: string
@@ -8272,6 +8283,7 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           stage_id?: string | null
+          client_id?: string | null
         }
         Update: {
           id?: string
@@ -8291,8 +8303,16 @@ export interface Database {
           updated_at?: string
           deleted_at?: string | null
           stage_id?: string | null
+          client_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "quotes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quotes_org_id_fkey"
             columns: ["org_id"]

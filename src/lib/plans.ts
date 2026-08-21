@@ -109,7 +109,22 @@ const GROWTH = [
   ...STARTER,
   'nomina', 'riesgos', 'firmas', 'reclutamiento', 'capacitacion', 'desempeno',
   'proyectos', 'hseq', 'inventario', 'mantenimiento', 'flota', 'produccion',
-  'cotizaciones', 'leads', 'compras', 'facturacion', 'catalogos',
+  // `pedidos` va aquí y no en Enterprise, donde estaba cayendo sin que nadie
+  // lo decidiera: no aparecía en este archivo ni una vez, y `Enterprise =
+  // [...MODULE_KEYS]` recoge todo lo que esta lista olvide. El resultado era
+  // una cadena partida — una empresa Growth cotiza, la cotización se acepta, y
+  // el módulo que existe para convertirla en pedido (migración 88, con su RPC
+  // `create_order_from_quote`) le pedía subir al plan más caro. El docstring de
+  // Enterprise nombra sus tres diferenciadores —tienda, ecommerce,
+  // trazabilidad— y este no es uno de ellos.
+  // `contabilidad` cayó en Enterprise por el mismo descuido, y ahí el síntoma
+  // era peor que una pantalla escondida: `compras`, `facturacion` y `caja` son
+  // los tres de Growth y los tres llaman a `maybePostAutoEntry`, así que un
+  // cliente Growth ya estaba *generando* asientos —al cerrar caja, al pagar a
+  // un proveedor, al cobrar una factura— en un libro que su plan no le dejaba
+  // abrir. La contabilidad no era una función que no tenía: era una función que
+  // se le estaba escribiendo a ciegas.
+  'cotizaciones', 'pedidos', 'contabilidad', 'leads', 'compras', 'facturacion', 'catalogos',
   // The counter and the till are operating tools, not scale ones. `tienda` and
   // `ecommerce` sit in Enterprise because selling to the public over the
   // internet is a different business; charging the person standing in front of

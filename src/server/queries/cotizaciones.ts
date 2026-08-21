@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import {
+  clientsFor,
   pageRange,
   projectsFor,
   rosterFor,
   totalOf,
+  type ClientRef,
   type Page,
   type ProjectRef,
   type RosterEntry,
@@ -41,7 +43,16 @@ export interface PipelineStage {
 export interface CotizacionRow {
   id: string
   code: string | null
+  /**
+   * El nombre pactado, tal cual se imprime en el documento.
+   *
+   * Sigue siendo la fuente de lo que dice la cotización aunque `clientId`
+   * apunte a una ficha: si el cliente se renombra en el directorio, la
+   * cotización de marzo tiene que seguir diciendo lo que decía en marzo.
+   */
   client: string
+  /** La ficha del cliente, cuando la hay. Null en una cotización en frío. */
+  clientId: string | null
   contact: string
   projectId: string | null
   projectLabel: string | null
@@ -66,6 +77,8 @@ export interface CotizacionesData {
   cotizacionesTotal: number
   roster: RosterEntry[]
   proyectos: ProjectRef[]
+  /** Directorio para enlazar la cotización a una ficha; vacío sin `clientes:read`. */
+  clientes: ClientRef[]
   /** Etapas del pipeline, en orden. */
   stages: PipelineStage[]
   /** Catalogue for the line picker; empty without `catalogos:read`. */
@@ -77,6 +90,7 @@ interface QuoteRecord {
   id: string
   code: string | null
   client: string
+  client_id: string | null
   contact: string
   project_id: string | null
   owner_id: string | null
@@ -99,7 +113,7 @@ interface QuoteRecord {
   }> | null
 }
 
-const QUOTE_COLUMNS = `id, code, client, contact, project_id, owner_id, kind, status, probability,
+const QUOTE_COLUMNS = `id, code, client, client_id, contact, project_id, owner_id, kind, status, probability,
    issued_on, expires_on, notes, stage_id,
    employees ( full_name ),
    projects ( code, name ),
@@ -121,6 +135,7 @@ function toCotizacion(row: QuoteRecord): CotizacionRow {
     id: row.id,
     code: row.code,
     client: row.client,
+    clientId: row.client_id,
     contact: row.contact,
     projectId: row.project_id,
     projectLabel: row.projects
@@ -174,7 +189,7 @@ export async function getCotizaciones(): Promise<CotizacionesData> {
   const canReadProducts =
     member.modules.has('catalogos') && can(member.permissions, 'catalogos:read')
 
-  const [quotesResult, roster, proyectos, productsResult, stagesResult] = await Promise.all([
+  const [quotesResult, roster, proyectos, clientes, productsResult, stagesResult] = await Promise.all([
     supabase
       .from('quotes')
       .select(QUOTE_COLUMNS, { count: 'exact' })
@@ -184,6 +199,7 @@ export async function getCotizaciones(): Promise<CotizacionesData> {
       .range(...pageRange(0)),
     rosterFor(supabase, member),
     projectsFor(supabase, member),
+    clientsFor(supabase, member),
     canReadProducts
       ? supabase
           .from('products')
@@ -206,7 +222,7 @@ export async function getCotizaciones(): Promise<CotizacionesData> {
     console.error('[cotizaciones] getCotizaciones', quotesResult.error)
     return {
       cotizaciones: [], cotizacionesTotal: 0, roster: [], proyectos: [],
-      productos: [], stages: [], canWrite: false,
+      clientes: [], productos: [], stages: [], canWrite: false,
     }
   }
 
@@ -225,6 +241,7 @@ export async function getCotizaciones(): Promise<CotizacionesData> {
     cotizacionesTotal: totalOf(quotesResult.count, cotizaciones.length),
     roster,
     proyectos,
+    clientes,
     stages,
     productos: ((productsResult.data ?? []) as Array<{
       id: string; sku: string; name: string; price_cents: number
