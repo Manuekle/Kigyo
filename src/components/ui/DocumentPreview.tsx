@@ -61,25 +61,51 @@ export default function DocumentPreview({
   onClose: () => void
   onDownload: () => void
 }) {
-  const [preview, setPreview] = useState<DocumentoPreview | null>(null)
-  const [error, setError] = useState('')
-  const [assetLoading, setAssetLoading] = useState(false)
+  /**
+   * Las tres piezas viajan juntas y etiquetadas con el documento del que
+   * hablan. Antes eran tres `useState` que el efecto resetaba a mano al
+   * cambiar de archivo, y ese reset síncrono dentro del efecto es un render en
+   * cascada: se pintaba un fotograma con la vista previa del documento
+   * anterior antes de limpiarla. Con el id dentro del estado, «esto todavía no
+   * es de este documento» se deriva en el render y no hace falta resetear.
+   */
+  type PreviewState = {
+    id: string
+    preview: DocumentoPreview | null
+    error: string
+    assetLoading: boolean
+  }
+  const EMPTY: PreviewState = { id: documentId, preview: null, error: '', assetLoading: false }
+  const [state, setState] = useState<PreviewState>(EMPTY)
+  const { preview, error, assetLoading } = state.id === documentId ? state : EMPTY
 
   useEffect(() => {
     let live = true
-    setPreview(null)
-    setError('')
-    setAssetLoading(false)
     documentoPreview(documentId).then((result) => {
       if (!live) return
-      if (!result.ok) { setError(result.error); return }
-      setAssetLoading(Boolean(result.data.url))
-      setPreview(result.data)
+      if (!result.ok) {
+        setState({ id: documentId, preview: null, error: result.error, assetLoading: false })
+        return
+      }
+      setState({
+        id: documentId,
+        preview: result.data,
+        error: '',
+        assetLoading: Boolean(result.data.url),
+      })
     }).catch(() => {
-      if (live) { setAssetLoading(false); setError('No se pudo cargar la vista previa.') }
+      if (!live) return
+      setState({
+        id: documentId,
+        preview: null,
+        error: 'No se pudo cargar la vista previa.',
+        assetLoading: false,
+      })
     })
     return () => { live = false }
   }, [documentId])
+
+  const assetReady = () => setState((s) => (s.assetLoading ? { ...s, assetLoading: false } : s))
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
@@ -115,11 +141,11 @@ export default function DocumentPreview({
               {assetLoading && <div className="dpv-skeleton" aria-label="Cargando archivo" />}
               {mime.startsWith('image/') ? (
                 // eslint-disable-next-line @next/next/no-img-element -- URL firmada y efímera de Storage; el optimizador de Next no puede tomarla.
-                <img src={preview.url} alt={preview.name} className="dpv-image" onLoad={() => setAssetLoading(false)} />
+                <img src={preview.url} alt={preview.name} className="dpv-image" onLoad={assetReady} />
               ) : mime.startsWith('video/') ? (
-                <video src={preview.url} controls className="dpv-media" onLoadedData={() => setAssetLoading(false)} />
+                <video src={preview.url} controls className="dpv-media" onLoadedData={assetReady} />
               ) : mime.startsWith('audio/') ? (
-                <audio src={preview.url} controls className="dpv-audio" onCanPlay={() => setAssetLoading(false)} />
+                <audio src={preview.url} controls className="dpv-audio" onCanPlay={assetReady} />
               ) : (
                 // `sandbox` sin `allow-scripts`: un HTML subido por alguien de
                 // la empresa se enseña, no se ejecuta.
@@ -127,7 +153,7 @@ export default function DocumentPreview({
                   src={preview.url}
                   title={preview.name}
                   className="dpv-frame"
-                  onLoad={() => setAssetLoading(false)}
+                  onLoad={assetReady}
                   sandbox={mime === 'application/pdf' ? undefined : ''}
                 />
               )}
@@ -147,7 +173,10 @@ export default function DocumentPreview({
             </>
           ) : (
             <div className="dpv-none">
-              {fallbackIcon ? <img src={fallbackIcon} alt="" width={40} height={40} /> : <FileText size={28} />}
+              {fallbackIcon ? (
+                // eslint-disable-next-line @next/next/no-img-element -- SVG local de tamaño fijo: next/image no optimiza SVG y exigiría `dangerouslyAllowSVG`.
+                <img src={fallbackIcon} alt="" width={40} height={40} />
+              ) : <FileText size={28} />}
               <p className="dpv-none-title">{formatLabel(preview.mimeType)}</p>
               <p className="dpv-note">
                 Este formato no se puede previsualizar en el navegador.

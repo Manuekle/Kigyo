@@ -710,6 +710,7 @@ function DocTable({
               <td>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                   {icon ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- SVG local de tamaño fijo: next/image no optimiza SVG y exigiría `dangerouslyAllowSVG`.
                     <img src={icon} alt="" width={24} height={24} style={{ flexShrink: 0, marginTop: 1 }} />
                   ) : (
                     <FileText size={18} style={{ flexShrink: 0, marginTop: 2, color: 'var(--ink3)' }} />

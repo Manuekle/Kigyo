@@ -175,8 +175,6 @@ export async function openPeriod(
 
 // ─── Nómina legal: reglas, conceptos, desglose, cierre ──────────────────────
 
-const pct = (v: unknown) => Math.max(0, Math.min(10000, Number(v) || 0))
-
 const rulesSchema = z.object({
   year: z.number().int().min(2000).max(2100),
   minWageCents: z.number().int().min(0).default(0),
@@ -420,7 +418,7 @@ function lockedOr(fallback: string, error: { message?: string; code?: string }):
 
 export async function lockPeriod(periodId: string): Promise<NominaResult<NominaData>> {
   try {
-    const member = await requirePermission('nomina:write')
+    await requirePermission('nomina:write')
     if (!z.uuid().safeParse(periodId).success) return fail('Periodo desconocido.')
 
     const supabase = await createClient()
@@ -440,7 +438,7 @@ export async function lockPeriod(periodId: string): Promise<NominaResult<NominaD
 
 /** Flat PILA export of the locked period, for manual upload. */
 export async function exportPila(periodId: string) {
-  const member = await requirePermission('nomina:read')
+  await requirePermission('nomina:read')
   if (!z.uuid().safeParse(periodId).success) return []
   const supabase = await createClient()
   const { data } = await supabase.rpc('export_payroll_pila', { p_period_id: periodId })

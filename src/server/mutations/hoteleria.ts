@@ -523,7 +523,7 @@ export async function setTareaFecha(
   input: z.input<typeof tareaFechaSchema>,
 ): Promise<HoteleriaResult<HoteleriaData>> {
   try {
-    const member = await requirePermission('hoteleria:write')
+    await requirePermission('hoteleria:write')
     const parsed = tareaFechaSchema.safeParse(input)
     if (!parsed.success) return fail('Datos inválidos.')
 
@@ -547,7 +547,7 @@ export async function setTareaFecha(
 
 export async function deleteTarea(id: string): Promise<HoteleriaResult<HoteleriaData>> {
   try {
-    const member = await requirePermission('hoteleria:write')
+    await requirePermission('hoteleria:write')
     if (!z.uuid().safeParse(id).success) return fail('Tarea desconocida.')
 
     const supabase = await createClient()

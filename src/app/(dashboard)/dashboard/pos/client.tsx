@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from 'react'
 import Link from 'next/link'
 import {
   Store, Check, Trash2, DollarSign, Search, XCircle,
@@ -135,6 +135,20 @@ function printReceipt(sale: SaleRow, prefs: ReceiptPrefs, orgName: string) {
 }
 
 /** Igual que en el buscador del menú: nadie usa la tecla muerta al filtrar. */
+/**
+ * Suscripción a los cambios de red para `useSyncExternalStore`. Vive fuera del
+ * componente para que su identidad sea estable: si cambiara en cada render,
+ * React volvería a suscribirse en cada uno.
+ */
+function subscribeToNetwork(onChange: () => void): () => void {
+  window.addEventListener('online', onChange)
+  window.addEventListener('offline', onChange)
+  return () => {
+    window.removeEventListener('online', onChange)
+    window.removeEventListener('offline', onChange)
+  }
+}
+
 function fold(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 }
@@ -208,27 +222,25 @@ export default function PosPage({ data }: { data: PosData }) {
   // Cola offline: el navegador pierde red → encolamos en IndexedDB y
   // reproducimos cuando vuelve. `outboxCount` para el badge; `outboxOpen`
   // abre el modal con la lista; `outboxRunning` evita replays concurrentes.
-  const [online, setOnline] = useState(true)
   const [outboxCount, setOutboxCount] = useState(0)
   const [outboxOpen, setOutboxOpen] = useState(false)
   const [outboxEntries, setOutboxEntries] = useState<PosOutboxEntry[]>([])
   const [outboxRunning, setOutboxRunning] = useState(false)
   const scanRef = useRef<HTMLInputElement>(null)
+  // Candado del replay (ver `replayOutbox`) y la última versión de esa función,
+  // porque el listener de `online` se registra una sola vez.
+  const replayRunning = useRef(false)
+  const replayRef = useRef<(() => Promise<void>) | null>(null)
 
-  // Listeners de red — navigator.onLine + eventos `online`/`offline`.
+  // Estado de red — `navigator.onLine` más los eventos `online`/`offline`.
+  // Se lee con `useSyncExternalStore` y no con un `useState` que un efecto
+  // sincroniza al montar: ese patrón pinta el primer fotograma diciendo «en
+  // línea» y lo corrige después, que es justo lo que un cajero sin red no
+  // debe ver. El snapshot del servidor es `true` porque en SSR no hay
+  // navegador al que preguntarle, y la corrección llega en la hidratación.
   // Si el navegador miente (online sin red real), el `cobrarPago` falla y
   // el catch lo manda a la cola también.
-  useEffect(() => {
-    if (typeof navigator !== 'undefined') setOnline(navigator.onLine)
-    const goOnline = () => setOnline(true)
-    const goOffline = () => setOnline(false)
-    window.addEventListener('online', goOnline)
-    window.addEventListener('offline', goOffline)
-    return () => {
-      window.removeEventListener('online', goOnline)
-      window.removeEventListener('offline', goOffline)
-    }
-  }, [])
+  const online = useSyncExternalStore(subscribeToNetwork, () => navigator.onLine, () => true)
 
   // Refresca el contador de pendientes al montar y cuando vuelve la red.
   const refreshOutboxCount = useRef(async () => {
@@ -518,7 +530,11 @@ export default function PosPage({ data }: { data: PosData }) {
    * reintento manual y el auto-play (cuando regresa la red) llaman aquí.
    */
   async function replayOutbox() {
-    if (outboxRunning) return
+    // El candado es la ref, no el estado: dos llamadas en el mismo tick leen
+    // el mismo `outboxRunning` (todavía `false`) y las dos entrarían. El
+    // estado se conserva porque es lo que deshabilita los botones.
+    if (replayRunning.current) return
+    replayRunning.current = true
     setOutboxRunning(true)
     try {
       const pendientes = await listPendingPosSales()
@@ -544,18 +560,23 @@ export default function PosPage({ data }: { data: PosData }) {
       setOutboxEntries(await listPendingPosSales())
       await refreshOutboxCount.current()
     } finally {
+      replayRunning.current = false
       setOutboxRunning(false)
     }
   }
 
   // Auto-replay cuando regresa la red: no requiere clic del usuario.
+  //
+  // Cuelga del evento `online` y no de un efecto sobre el booleano derivado.
+  // Es el mismo momento —el efecto solo disparaba en el flanco false→true,
+  // porque al montar `outboxCount` todavía es 0— y así el replay arranca desde
+  // un handler de evento en vez de escribir estado durante el efecto.
+  useEffect(() => { replayRef.current = replayOutbox })
   useEffect(() => {
-    if (!online) return
-    if (outboxCount === 0) return
-    if (outboxRunning) return
-    void replayOutbox()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online])
+    const onOnline = () => { void replayRef.current?.() }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [])
 
   return (
     <>

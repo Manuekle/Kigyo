@@ -213,7 +213,7 @@ export async function addAttendee(
   input: z.input<typeof addAttendeeSchema>,
 ): Promise<CalendarioResult<CalendarioAttendee[]>> {
   try {
-    const member = await requirePermission('calendario:write')
+    await requirePermission('calendario:write')
     const parsed = addAttendeeSchema.safeParse(input)
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
@@ -243,7 +243,7 @@ export async function setAttendeeResponse(
   response: AttendeeResponse,
 ): Promise<CalendarioResult<null>> {
   try {
-    const member = await requirePermission('calendario:write')
+    await requirePermission('calendario:write')
     if (!z.uuid().safeParse(id).success) return fail('Asistente desconocido.')
     const parsed = z.enum(RESPONSES).safeParse(response)
     if (!parsed.success) return fail('Respuesta inválida.')
@@ -270,7 +270,7 @@ export async function removeAttendee(
   id: string,
 ): Promise<CalendarioResult<CalendarioAttendee[]>> {
   try {
-    const member = await requirePermission('calendario:write')
+    await requirePermission('calendario:write')
     if (!z.uuid().safeParse(id).success) return fail('Asistente desconocido.')
 
     const supabase = await createClient()

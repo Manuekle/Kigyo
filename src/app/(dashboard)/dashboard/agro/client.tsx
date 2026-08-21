@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Sprout, Check, Plus, Trash2, PenLine, Package, DollarSign, MapPin, Wrench, FileSpreadsheet } from '@/lib/icons'
+import { Sprout, Check, Plus, Trash2, PenLine, Package, DollarSign, MapPin, FileSpreadsheet } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import DatePicker from '@/components/ui/DatePicker'
 import Select from '@/components/ui/Select'

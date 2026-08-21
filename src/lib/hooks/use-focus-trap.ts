@@ -34,7 +34,11 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>(
   const containerRef = useRef<T>(null)
   const { onEscape, initialFocus = 'first' } = options
   const onEscapeRef = useRef(onEscape)
-  onEscapeRef.current = onEscape
+  // El callback se guarda en un efecto, no durante el render: escribir una ref
+  // mientras React renderiza es lo que prohíbe `react-hooks/refs`, y aquí no
+  // hace falta — el único lector es el listener de teclado, que no existe hasta
+  // después del commit.
+  useEffect(() => { onEscapeRef.current = onEscape })
 
   useEffect(() => {
     if (!active) return

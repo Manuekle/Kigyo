@@ -301,7 +301,7 @@ export async function createWorkOrderTask(
   input: z.input<typeof createTaskSchema>,
 ): Promise<MantenimientoResult<WorkOrderTask[]>> {
   try {
-    const member = await requirePermission('mantenimiento:write')
+    await requirePermission('mantenimiento:write')
     const parsed = createTaskSchema.safeParse(input)
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
@@ -363,7 +363,7 @@ export async function toggleWorkOrderTask(
 
 export async function deleteWorkOrderTask(id: string): Promise<MantenimientoResult<WorkOrderTask[]>> {
   try {
-    const member = await requirePermission('mantenimiento:write')
+    await requirePermission('mantenimiento:write')
     if (!z.uuid().safeParse(id).success) return fail('Tarea desconocida.')
 
     const supabase = await createClient()

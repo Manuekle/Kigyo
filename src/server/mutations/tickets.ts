@@ -242,7 +242,7 @@ export async function fetchTicketComments(
   ticketId: string,
 ): Promise<TicketResult<TicketComment[]>> {
   try {
-    const member = await requirePermission('tickets:read')
+    await requirePermission('tickets:read')
     if (!z.uuid().safeParse(ticketId).success) return fail('Ticket desconocido.')
 
     const supabase = await createClient()
@@ -309,7 +309,7 @@ export async function createTicketComment(
 
 export async function deleteTicketComment(id: string): Promise<TicketResult<TicketComment[]>> {
   try {
-    const member = await requirePermission('tickets:write')
+    await requirePermission('tickets:write')
     if (!z.uuid().safeParse(id).success) return fail('Comentario desconocido.')
 
     const supabase = await createClient()

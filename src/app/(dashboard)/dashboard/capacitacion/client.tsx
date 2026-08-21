@@ -117,7 +117,7 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
     })
     const invested = courses.reduce((sum, c) => sum + c.costCents * c.enrolled, 0)
     return { active: active.length, certified: certified.length, expiring: expiring.length, invested }
-  }, [enrollments, courses])
+  }, [enrollments, courses, hoy])
 
   const visibleEnrollments = enrollments.filter(
     (e) => statusFilter === 'Todos' || e.status === statusFilter,

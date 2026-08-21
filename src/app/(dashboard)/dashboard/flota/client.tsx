@@ -155,7 +155,7 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
       expiring: expiring.length,
       spend: fuelSpend + serviceSpend,
     }
-  }, [vehiculos, combustible, servicios])
+  }, [vehiculos, combustible, servicios, hoy])
 
   const visible = vehiculos.filter((v) => statusFilter === 'Todos' || v.status === statusFilter)
 

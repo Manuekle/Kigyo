@@ -34,7 +34,7 @@ async function loadSnapshot(
   orgId: string,
   invoiceId: string,
 ): Promise<InvoiceSnapshot | null> {
-  const [invResult, itemsResult, orgResult, clientResult] = await Promise.all([
+  const [invResult, itemsResult, orgResult] = await Promise.all([
     supabase
       .from('invoices')
       .select('id, code, client_id, client_name, issued_on, due_on, subtotal_cents, tax_cents, total_cents, currency')
@@ -52,9 +52,12 @@ async function loadSnapshot(
       .select('name, legal_name, tax_id, country')
       .eq('id', orgId)
       .maybeSingle(),
-    // El client_id puede ser null (walk-in); abajo lo toleramos.
-    Promise.resolve(null),
   ])
+
+  // El receptor no cabe en el `Promise.all`: su id sale de la propia factura,
+  // así que se pide después. Y puede no haberlo (venta de mostrador sin ficha),
+  // que es el caso que `clientTaxId` deja en blanco.
+
 
   if (!invResult.data) return null
   const inv = invResult.data as {

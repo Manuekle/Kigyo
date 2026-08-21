@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { ShieldAlert, Clock, Info, Check, AlertCircle, Plus, Trash2, X, Zap, PenLine, FileSpreadsheet } from '@/lib/icons'
+import { ShieldAlert, Clock, Info, Check, AlertCircle, Plus, Trash2, X, Zap, PenLine } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Stat from '@/components/ui/Stat'

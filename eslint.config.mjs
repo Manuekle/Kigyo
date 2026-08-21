@@ -19,6 +19,19 @@ const eslintConfig = defineConfig([
     "**/.next/**",
     "src/lib/supabase/types.ts",
   ]),
+  {
+    rules: {
+      // El guion bajo es la forma de decir «este parámetro existe para cumplir
+      // la firma y no se usa» — `parse(rawBody, _headers)` en el proveedor de
+      // billing es exactamente eso. Sin esta regla, la única salida es borrar
+      // el nombre y perder la documentación de qué recibe la función.
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+      }],
+    },
+  },
 ]);
 
 export default eslintConfig;

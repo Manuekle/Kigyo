@@ -26,7 +26,7 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 290/290 · tsc 0 · build verde · e2e 6/6 (`workers: 1` obligatorio).
+- vitest 290/290 · tsc 0 · build verde · lint 0/0 · e2e 6/6 (`workers: 1` obligatorio).
 - Remota: migraciones 1–104 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
 - Working tree limpio, branch pusheada.
@@ -560,6 +560,66 @@ datos (IndexedDB + idempotencia por `client_uuid`) y ficticio en aplicación: si
 service worker el navegador no carga el bundle sin red. Construirlo es trabajo
 de producto, no de limpieza, y sigue en la deuda abierta.
 
+### Fase 7 — lint en verde, y dos hallazgos que el lint tapaba
+
+`npm run lint` era el único rojo: 4 errores y 24 avisos. Se cierra entero, pero
+el resultado que importa no es el cero — son las dos cosas que estaban dentro.
+
+**Bug real: editar un proveedor escribía la entrada sin validar.**
+`updateProveedor` hacía `const parsed = proveedorSchema.parse(rest)` y después
+escribía `rest.*`. Solo el aviso «`parsed` asignado y nunca usado» lo delataba.
+`createProveedor` sí escribe `parsed`, así que las dos mitades del mismo
+formulario guardaban distinto: al crear se recortan espacios, el correo baja a
+minúsculas y los opcionales vacíos se rellenan; al editar, nada de eso. Un
+proveedor guardado como « Acme » conservaba el espacio, y el índice único de
+nombre por empresa no lo veía como duplicado de «Acme».
+
+**El candado del replay del POS no era candado.** `replayOutbox` se protegía
+con `if (outboxRunning) return` sobre una variable de estado: dos llamadas en el
+mismo tick leen el mismo `false` y entran las dos. Ahora el cerrojo es una ref y
+el estado se conserva solo para lo que sirve — deshabilitar los botones.
+
+Lo demás, por qué se hizo así:
+
+- **`use-focus-trap`** escribía `onEscapeRef.current` durante el render. La
+  asignación pasa a un efecto: el único lector es el listener de teclado, que no
+  existe hasta después del commit.
+- **`DocumentPreview`** reseteaba tres `useState` dentro del efecto al cambiar
+  de documento, o sea un fotograma con la vista previa del archivo anterior. Las
+  tres piezas pasan a un solo estado etiquetado con el id del documento del que
+  hablan, y «esto todavía no es de este documento» se deriva en el render.
+- **POS `online`** salía de un `useState(true)` que un efecto corregía al
+  montar: el primer fotograma decía «en línea» aunque no lo hubiera. Pasa a
+  `useSyncExternalStore`. El auto-replay cuelga ahora del evento `online` y no
+  de un efecto sobre el booleano — es el mismo momento exacto, porque el efecto
+  anterior solo disparaba en el flanco false→true (al montar, `outboxCount`
+  todavía es 0 y salía por la guardia).
+- **`hoy` faltaba en dos `useMemo`** (`capacitacion`, `flota`), herencia del
+  refactor de `daysUntil`: con la pestaña abierta pasada la medianoche, los KPIs
+  de «vence pronto» se quedaban en el día anterior.
+- **`clientResult`** en `mutations/dian.ts` era un `Promise.resolve(null)`
+  dentro del `Promise.all` — el receptor no cabe ahí porque su id sale de la
+  propia factura. Fuera el hueco, y escrito por qué se pide después.
+- **`pct`** en `mutations/nomina.ts` era un helper muerto: clampaba a 0–10000
+  mientras el esquema Zod valida 0–100. Nada regulatorio se tocó.
+- **Once `const member = await requirePermission(…)`** sin usar `member`. Se
+  deja `await requirePermission(…)`: la guardia es la llamada. Verificado antes
+  de tocarlas que ninguna necesitaba `member.orgId` — todas escriben en tablas
+  hijas donde `apply_child_rls` decide por el padre.
+- **`argsIgnorePattern: '^_'`** en `eslint.config.mjs`. `parse(rawBody, _headers)`
+  cumple una firma; sin la regla, la única salida era borrar el nombre y perder
+  la documentación de qué recibe la función.
+- **Dos `<img>`** de iconos SVG locales de tamaño fijo, con la razón escrita al
+  lado: `next/image` no optimiza SVG y exigiría `dangerouslyAllowSVG`.
+
+**El e2e no es flaky por el servidor: es el límite de intentos de login.**
+Durante la verificación, la suite falló dos veces con specs distintos
+(`company-switch` una, `marketing` y `nomina` otra) y pasó 6/6 la tercera. El
+spec que fallaba, corrido solo, pasa en 8s. `RATE_LIMITS.login` son **10
+intentos por 300 s**, por dirección y por correo, y la suite hace **6 logins con
+el mismo usuario demo**. Dos corridas dentro de la misma ventana de cinco
+minutos son 12 y las últimas specs se quedan en `/login`. Ver §6.
+
 ### Revisión de `docs/ARQUITECTURA_ACTUAL.md` (2026-08-21)
 
 El archivo apareció sin trackear al inicio de la jornada y no lo escribió esta
@@ -676,6 +736,15 @@ marketing) quedaron hechos 2026-08-20 — ver §4.
 ### E2e
 
 - `workers: 1` SIEMPRE — specs comparten demo user/org/DB; paralelo revienta fixtures.
+- **El login tiene límite de intentos y la suite lo agota.**
+  `RATE_LIMITS.login` = 10 intentos por 300 s, contados por dirección **y** por
+  correo. La suite hace 6 logins con el mismo usuario demo, así que una corrida
+  sola cabe (6 ≤ 10) y **dos dentro de la misma ventana de cinco minutos no**
+  (12 > 10). Las últimas specs se quedan en `/login` y falla
+  `expect(page).not.toHaveURL(/\/login/)`. La firma que lo distingue del
+  servidor degradado: los tiempos son normales (~2,2 min) y **las specs que
+  fallan cambian de una corrida a otra**; la que falló, corrida sola, pasa en
+  8 s. No se toca el límite —es una defensa real— se espera cinco minutos.
 - **Nunca dos `npx playwright test` a la vez**, ni aunque cada uno lleve
   `workers: 1`: son dos procesos contra el mismo usuario, la misma empresa y la
   misma base. Pasó dos veces en la jornada del 21 y las dos se leyó como
@@ -785,7 +854,7 @@ PENDIENTE, TODO EXTERNO
 DEUDA TÉCNICA PRIORIZADA
 1. Cobertura e2e: 6 specs para 62 pantallas. Es el riesgo meta — el bloqueante
    de onboarding vivía en ese hueco con todo verde.
-2. lint en rojo.
+2. ~~lint en rojo~~ RESUELTO en fase 7: 0 errores, 0 avisos.
 3. Service worker: sin él el POS offline es cierto en datos y falso en app.
 4. notif-panel mezcla timestamptz y date: una cita de hoy a las 15:00 dice
    «en 1 día». Cambiarlo cambia lo que el usuario lee.

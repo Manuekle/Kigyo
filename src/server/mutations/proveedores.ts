@@ -74,17 +74,24 @@ export async function updateProveedor(
     const { id, ...rest } = input
     const parsed = proveedorSchema.parse(rest)
 
+    /**
+     * Se escribe `parsed`, no `rest`. Escribía la entrada cruda: el esquema
+     * recorta espacios, pasa el correo a minúsculas y rellena los opcionales
+     * vacíos, y nada de eso llegaba a la base al *editar* — solo al crear. Un
+     * proveedor guardado como « Acme » quedaba con el espacio, y el índice
+     * único de nombre por empresa no lo veía como duplicado de «Acme».
+     */
     const { error } = await supabase
       .from('suppliers')
       .update({
-        name: rest.name,
-        tax_id: rest.taxId,
-        contact_name: rest.contactName,
-        email: rest.email,
-        phone: rest.phone,
-        city: rest.city,
-        category: rest.category,
-        notes: rest.notes,
+        name: parsed.name,
+        tax_id: parsed.taxId,
+        contact_name: parsed.contactName,
+        email: parsed.email,
+        phone: parsed.phone,
+        city: parsed.city,
+        category: parsed.category,
+        notes: parsed.notes,
       })
       .eq('id', id)
       .eq('org_id', member.orgId)

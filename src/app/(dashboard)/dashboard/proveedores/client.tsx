@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { Building2, UserPlus, Check, Plus, Trash2, PenLine, Phone, Mail } from '@/lib/icons'
-import Badge from '@/components/ui/Badge'
 import Stat from '@/components/ui/Stat'
 import FormDrawer from '@/components/ui/FormDrawer'
 import { useApp } from '@/lib/context/AppContext'
