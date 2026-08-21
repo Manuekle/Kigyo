@@ -472,13 +472,54 @@ tendría que convertirse en factura primero, y eso es función nueva, no
 reparación. El dato por línea se guarda ahora porque solo existe en el momento
 de la venta.
 
+### Fase 5 — la moneda deja de ser un ajuste que no hace nada
+
+Decisión delegada, y la tomé **al revés de lo que parecía obvio** — con los
+números medidos, no antes.
+
+Empecé cableando `organizations.currency` hasta el formateo, que es el arreglo
+simétrico al de `timezone`: `Member.orgCurrency`, `cop(n, currency)`,
+`useMoney()` en MemberContext, y un codemod sobre los 41 archivos. **Lo revertí
+entero.** El codemod destapó que el coste real no era el que estimé: 30 de los
+41 usan `cop` desde helpers de módulo o desde subcomponentes —`pos`,
+`restaurante`, `pacientes` y `flota` tienen siete u ocho cada uno—, así que no
+basta un hook, hay que enhebrar el formateador por toda la pantalla.
+
+Y lo que se compraría con eso es un símbolo correcto para un mercado que el
+producto no puede servir. Medido: **67 archivos fijan `es-CO`**, 25 tocan
+DIAN/CUFE/UBL, 17 rotulan NIT, 14 Wompi, 5 nómina colombiana, y las tasas de IVA
+de la mig 104 son las de Colombia. Arreglar el símbolo dejaría el producto
+*pareciendo* portable y siendo colombiano — la misma clase de promesa falsa que
+el FAQ del primer commit.
+
+Un ajuste ofrecido que no hace nada tiene dos salidas: hacerlo funcionar, o
+dejar de ofrecerlo. Se toma la segunda.
+
+- Fuera el selector de moneda del onboarding. `organizations.currency` se
+  conserva guardando COP, lista para el día en que internacionalizar sea una
+  decisión de verdad.
+- **El país se sigue preguntando**: de él sale `timezone`, y eso funciona desde
+  que se corrigió el corte de día por UTC. Borrarlo habría sido tomar la
+  decisión de mercado por el dueño, que no me toca.
+- Nota honesta al elegir un país distinto de Colombia, en el onboarding y no en
+  la letra pequeña: nómina, DIAN e importes son colombianos; el resto sirve.
+
+**Bug encontrado de paso:** `mutations/dian.ts` pasaba `org.country` como
+`organizationCity`, así que el `<cbc:CityName>` del XML salía con un código de
+país. No rompe nada hoy (el UBL es de demostración y su archivo lo declara),
+pero es un campo mapeado al dato equivocado y sobreviviría intacto hasta el
+proveedor homologado. Puesto el mismo marcador que ya llevaba la dirección de al
+lado: falta el dato y se dice, en vez de rellenarlo con otro. Producción exige
+añadir ciudad y dirección a `organizations`.
+
 ### Deuda abierta que salió de la auditoría
 
-1. **Moneda.** Onboarding ofrece 8 países y 7 monedas, las guarda, y `cop()` en
-   `lib/utils.ts` está fijo en COP en los 41 archivos que lo usan. Un cliente
-   mexicano elige MXN y ve pesos colombianos en todas las pantallas. O se cablea
-   `organizations.currency` hasta el formateo, o el selector se reduce a lo que
-   el producto de verdad soporta hoy. Es decisión de producto, no un bug suelto.
+1. ~~**Moneda.**~~ RESUELTO en fase 5: se retiró el selector. Queda como deuda
+   real, para el día que se internacionalice de verdad: cablear
+   `organizations.currency` hasta el formateo cuesta 41 archivos, 30 de ellos con
+   `cop` en helpers de módulo o subcomponentes. Y antes que eso están los 67
+   archivos con `es-CO`, la nómina colombiana, DIAN y PILA — la moneda es lo
+   último que haría falta, no lo primero.
 2. **Cobertura e2e.** 5 specs para 62 páginas. Ninguna cubre el onboarding, que
    es donde estaba el bloqueante.
 3. **`daysUntil` está escrito 6 veces** (clientes de capacitación y flota,

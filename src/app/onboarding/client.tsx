@@ -55,20 +55,36 @@ const COUNTRIES = [
   { value: 'US', label: 'Estados Unidos' },
 ]
 
-const CURRENCIES = [
-  { value: 'COP', label: 'COP — Peso colombiano' },
-  { value: 'MXN', label: 'MXN — Peso mexicano' },
-  { value: 'ARS', label: 'ARS — Peso argentino' },
-  { value: 'CLP', label: 'CLP — Peso chileno' },
-  { value: 'PEN', label: 'PEN — Sol' },
-  { value: 'USD', label: 'USD — Dólar' },
-  { value: 'EUR', label: 'EUR — Euro' },
-]
-
-/** Sensible pairing, so picking a country fills the currency it almost always uses. */
-const CURRENCY_FOR: Record<string, string> = {
-  CO: 'COP', MX: 'MXN', AR: 'ARS', CL: 'CLP', PE: 'PEN', EC: 'USD', ES: 'EUR', US: 'USD',
-}
+/**
+ * La moneda ya no se elige, y conviene decir por qué antes de que alguien la
+ * eche de menos.
+ *
+ * Aquí había siete monedas. Se guardaban en `organizations.currency` y no las
+ * leía nadie: `cop()` en lib/utils.ts está fijo en COP, así que una empresa que
+ * elegía MXN veía pesos colombianos en las 41 pantallas que muestran dinero.
+ * Un ajuste ofrecido que no hace nada es peor que no ofrecerlo — el cliente
+ * cree haber configurado algo.
+ *
+ * Se midió lo que costaba cablearlo de verdad, porque era la otra salida: 111
+ * llamadas en 41 archivos, de las cuales 30 usan `cop` desde helpers de módulo
+ * o desde subcomponentes (`pos`, `restaurante`, `pacientes` y `flota` tienen
+ * siete u ocho cada uno), así que no basta un hook: hay que enhebrar el
+ * formateador por toda la pantalla.
+ *
+ * Y el beneficio de pagarlo sería un símbolo correcto para un mercado que el
+ * producto todavía no puede servir: 67 archivos fijan el locale `es-CO`, la
+ * nómina sigue el Código Sustantivo del Trabajo, DIAN y PILA son colombianas,
+ * `tax_id` se rotula NIT y las tasas de IVA de la migración 104 son las de
+ * Colombia. Arreglar el símbolo dejaría el producto *pareciendo* portable y
+ * siendo colombiano, que es la misma clase de promesa falsa que el FAQ.
+ *
+ * La columna se queda —guardando COP— para el día en que internacionalizar sea
+ * una decisión de verdad. Entonces el selector vuelve, con el cableado.
+ *
+ * El país SÍ se sigue preguntando: de él sale `timezone`, y eso funciona desde
+ * que se corrigió el corte de día por UTC.
+ */
+const DEFAULT_CURRENCY = 'COP'
 const TIMEZONE_FOR: Record<string, string> = {
   CO: 'America/Bogota', MX: 'America/Mexico_City', AR: 'America/Argentina/Buenos_Aires',
   CL: 'America/Santiago', PE: 'America/Lima', EC: 'America/Guayaquil',
@@ -109,7 +125,7 @@ export default function Client({
     legalName: '',
     taxId: '',
     country: 'CO',
-    currency: 'COP',
+    currency: DEFAULT_CURRENCY,
     timezone: 'America/Bogota',
   })
 
@@ -387,25 +403,30 @@ export default function Client({
 
             <label className="flabel" htmlFor="onb-country">País</label>
             <Select
-          id="onb-country"
+              id="onb-country"
               value={profile.country}
               onChange={(v) => setProfile({
                 ...profile,
                 country: v,
-                // Filled in, not forced: both stay editable below.
-                currency: CURRENCY_FOR[v] ?? profile.currency,
+                // De aquí sale la zona horaria, que es lo que decide qué día es
+                // «hoy» para esta empresa. Rellenada, no forzada.
                 timezone: TIMEZONE_FOR[v] ?? profile.timezone,
               })}
               options={COUNTRIES}
             />
+            {/* Dicho aquí y no en la letra pequeña de la web: quien está
+                configurando la empresa es quien puede darse cuenta ahora, y no
+                dentro de un mes al abrir Nómina. */}
+            {profile.country !== 'CO' && (
+              <p className="onb-note onb-locked">
+                Kigyo está hecho para Colombia: la nómina sigue el Código Sustantivo
+                del Trabajo, la facturación electrónica es la de la DIAN y los
+                importes van en pesos colombianos. Fuera de Colombia puedes usar
+                clientes, inventario, proyectos y documentos, pero esos tres módulos
+                no te van a servir.
+              </p>
+            )}
 
-            <label className="flabel" htmlFor="onb-currency">Moneda</label>
-            <Select
-          id="onb-currency"
-              value={profile.currency}
-              onChange={(v) => setProfile({ ...profile, currency: v })}
-              options={CURRENCIES}
-            />
           </div>
         )}
 

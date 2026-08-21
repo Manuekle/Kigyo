@@ -111,7 +111,20 @@ async function loadSnapshot(
     organizationName: org?.legal_name?.trim() || org?.name || '—',
     organizationTaxId: org?.tax_id ?? '',
     organizationAddress: '—', // sin campo en organizations; deferred (ver CONTEXTO)
-    organizationCity: org?.country ?? 'CO',
+    /**
+     * Ciudad del emisor, que tampoco existe como columna.
+     *
+     * Decía `org?.country ?? 'CO'`, así que el `<cbc:CityName>` del XML salía
+     * con un código de país. No rompe nada hoy —el UBL es de demostración y su
+     * propio archivo declara que no es válido ante la DIAN— pero es un campo
+     * mapeado al dato equivocado, y es el tipo de cosa que sobrevive intacta
+     * hasta el día del proveedor homologado.
+     *
+     * Se deja el mismo marcador que la dirección de al lado: falta el dato, y
+     * eso se dice en vez de rellenarlo con otro que no es. Producción exige
+     * añadir ciudad y dirección a `organizations`.
+     */
+    organizationCity: '—',
     subtotalCents: inv.subtotal_cents,
     taxCents: inv.tax_cents,
     totalCents: inv.total_cents,
