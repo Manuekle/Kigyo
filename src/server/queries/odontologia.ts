@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { scoped } from './shared'
-import { todayIn } from '@/lib/domain'
+import { todayIn, daysUntil } from '@/lib/domain'
 
 /**
  * Odontograma, planes de tratamiento y laboratorio dental.
@@ -97,12 +97,6 @@ export interface OdontologiaData {
   /** Valor de los planes aceptados o en curso, sin lo cancelado. */
   acceptedCents: number
   canWrite: boolean
-}
-
-export function daysUntil(date: string, from: string): number {
-  const a = new Date(`${from}T00:00:00`).getTime()
-  const b = new Date(`${date}T00:00:00`).getTime()
-  return Math.round((b - a) / 86_400_000)
 }
 
 export async function getOdontologia(): Promise<OdontologiaData> {

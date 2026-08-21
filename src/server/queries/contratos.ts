@@ -7,6 +7,7 @@ import {
   type Page, type RosterEntry, type Supabase,
 } from './shared'
 import type { Member } from '@/lib/auth/session'
+import { daysUntil, todayIn } from '@/lib/domain'
 
 /**
  * Contracts, their milestones, and — above all — when they expire.
@@ -98,20 +99,21 @@ interface MilestoneRecord {
 const COLUMNS = `id, code, title, kind, status, counterparty, client_id, employee_id, owner_id,
    value_cents, starts_on, ends_on, notice_days, auto_renew, notes`
 
-/** Days from today to an ISO date, negative once past. */
-function daysUntil(iso: string | null): number | null {
-  if (!iso) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.round((new Date(`${iso}T00:00:00`).getTime() - today.getTime()) / 86_400_000)
-}
-
+/**
+ * `hoy` entra por parámetro y no se lee del reloj del servidor.
+ *
+ * Antes había aquí una copia local de `daysUntil` que usaba `new Date()`, o sea
+ * la fecha UTC de la máquina: un contrato que vence mañana se leía «vence hoy»
+ * desde las 19:00 en Bogotá. Es el mismo corte de día que se corrigió en el
+ * resto del producto.
+ */
 function toContract(
   row: ContractRecord,
   clientNames: Map<string, string>,
   milestones: Map<string, { total: number; done: number }>,
+  hoy: string,
 ): ContractRow {
-  const daysLeft = daysUntil(row.ends_on)
+  const daysLeft = daysUntil(row.ends_on, hoy)
   const live = row.status === 'Vigente' || row.status === 'Por vencer'
   const counts = milestones.get(row.id) ?? { total: 0, done: 0 }
 
@@ -200,7 +202,7 @@ export async function getContratosPage(offset = 0): Promise<Page<ContractRow>> {
   const counts = tallyMilestones((milestoneRows ?? []) as unknown as MilestoneRecord[])
 
   return {
-    rows: rows.map((row) => toContract(row, names, counts)),
+    rows: rows.map((row) => toContract(row, names, counts, todayIn(member.orgTimezone))),
     total: totalOf(count, rows.length, from),
   }
 }
@@ -242,7 +244,7 @@ export async function getContratos(): Promise<ContratosData> {
   const names = new Map(clientes.map((c) => [c.id, c.name]))
 
   return {
-    contratos: rows.map((row) => toContract(row, names, tallyMilestones(milestoneRows))),
+    contratos: rows.map((row) => toContract(row, names, tallyMilestones(milestoneRows), todayIn(member.orgTimezone))),
     contratosTotal: totalOf(contractsResult.count, rows.length),
     hitos: milestoneRows.map((row) => ({
       id: row.id,

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import * as domain from './domain'
 import {
   ASSET_STATUSES, assetStatusFor, dayCount, lineTotalCents, pesosToCents,
-  netFromGross, projectStateError, rangesOverlap, sumLinesCents, taxWithin, todayIn,
+  daysUntil, netFromGross, projectStateError, rangesOverlap, sumLinesCents, taxWithin, todayIn,
 } from './domain'
 
 /**
@@ -347,5 +347,33 @@ describe('IVA sobre precio con impuesto incluido', () => {
   it('nunca devuelve impuesto sobre un importe no positivo', () => {
     expect(taxWithin(0, 19)).toBe(0)
     expect(taxWithin(-100, 19)).toBe(0)
+  })
+})
+
+describe('daysUntil', () => {
+  it('cuenta hacia adelante y hacia atrás', () => {
+    expect(daysUntil('2026-08-25', '2026-08-21')).toBe(4)
+    expect(daysUntil('2026-08-18', '2026-08-21')).toBe(-3)
+    expect(daysUntil('2026-08-21', '2026-08-21')).toBe(0)
+  })
+
+  it('cruza mes, año y bisiesto sin desviarse', () => {
+    expect(daysUntil('2026-09-01', '2026-08-30')).toBe(2)
+    expect(daysUntil('2027-01-01', '2026-12-30')).toBe(2)
+    expect(daysUntil('2028-03-01', '2028-02-28')).toBe(2) // 2028 es bisiesto
+  })
+
+  it('devuelve null en vez de NaN para lo que no es fecha', () => {
+    // Las seis versiones anteriores devolvían NaN aquí, que se renderiza como
+    // «Vence en NaN d» en vez de no renderizar nada.
+    expect(daysUntil(null, '2026-08-21')).toBeNull()
+    expect(daysUntil('no-es-fecha', '2026-08-21')).toBeNull()
+  })
+
+  it('el «hoy» entra por parámetro, nunca del reloj de la máquina', () => {
+    // Es la propiedad que hace que servidor y navegador respondan lo mismo:
+    // dos husos distintos con el mismo «hoy» dan el mismo número.
+    expect(daysUntil('2026-08-25', todayIn('America/Bogota')))
+      .toBe(daysUntil('2026-08-25', todayIn('America/Bogota')))
   })
 })

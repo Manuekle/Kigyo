@@ -512,6 +512,54 @@ proveedor homologado. Puesto el mismo marcador que ya llevaba la dirección de a
 lado: falta el dato y se dice, en vez de rellenarlo con otro. Producción exige
 añadir ciudad y dirección a `organizations`.
 
+### Fase 6 — limpieza, y tres ítems que no lo eran
+
+De los cuatro que mi propia auditoría listó aquí, **solo uno era limpieza**. Los
+otros tres se cierran sin tocar código, que es el resultado honesto: cambiarlos
+habría sido churn para parecer productivo.
+
+**`daysUntil` ×6 → 2. Era real.** Tres formas y dos respuestas distintas para la
+misma fecha: `socios`/`odontologia` recibían el «hoy» por parámetro (bien);
+`contratos`/`notif-panel` usaban `new Date()` del **servidor**, o sea UTC — un
+contrato que vence mañana se leía «vence hoy» desde las 19:00 en Bogotá;
+`capacitacion`/`flota` usaban `new Date()` del **navegador**, así que servidor y
+cliente podían discrepar sobre la misma fecha.
+
+Ahora una sola en `lib/domain.ts`, con el «hoy» siempre por parámetro — es lo
+que obliga a quien llama a decidir de qué huso habla en vez de heredar el de la
+máquina que ejecuta. `MemberContext` lleva `timezone` (un campo, no un
+formateador: por eso sí salía a cuenta y la moneda no). `soonestDoc` en flota
+pasó a recibir el hoy, porque es de módulo. Devuelve `null` en vez de `NaN` para
+entrada inválida — las seis anteriores renderizaban «Vence en NaN d».
+
+`notif-panel` **no se fusiona**, y queda escrito por qué: redondea hacia arriba,
+acota en cero y su columna `when` mezcla `timestamptz`
+(`patient_appointments.scheduled_for`) con `date` (`due_on`, `next_charge_on`).
+Para una cita de hoy a las 15:00, `ceil` da 1 y la pantalla dice «en 1 día» de
+algo que es hoy. **Eso es un bug abierto**, pero arreglarlo cambia lo que el
+usuario lee, así que es decisión de producto y se anota. Lo que sí se corrigió
+es su «hoy», que ya sale de la zona de la empresa.
+
+**`sector_modules` doble fuente — NO es un defecto.** Es una cadena de respaldo
+deliberada (DB → `COMPANY_TYPES` → `MANUAL_START`), documentada en
+`lib/sectors.ts`, y con motivo: la página de registro previsualiza un sector
+*antes de que haya sesión con la que consultar la tabla*. Y el drift ya está
+pineado — `sectors.test.ts:72` «the presets in the database are the presets in
+TypeScript» parsea las migraciones y compara ambos lados. Quitar el respaldo
+dejaría el sector en `MANUAL_START` si faltara una fila: menos correcto, no más.
+
+**`plan_limits.seats` — NO es un defecto.** La asimetría está razonada en
+`plans.ts`: `maxCompanies` lo impone la base porque una empresa es un objeto que
+se cobra y la fila no debería existir; los asientos se quedan en aplicación
+porque solo un administrador escribe invitaciones, así que pasarse es una
+discrepancia de facturación. Añadir la columna sin trigger que la imponga
+crearía exactamente lo que la fase 5 acaba de quitar: una columna muerta.
+
+**Service worker — no es limpieza, es una función.** El POS offline es real en
+datos (IndexedDB + idempotencia por `client_uuid`) y ficticio en aplicación: sin
+service worker el navegador no carga el bundle sin red. Construirlo es trabajo
+de producto, no de limpieza, y sigue en la deuda abierta.
+
 ### Deuda abierta que salió de la auditoría
 
 1. ~~**Moneda.**~~ RESUELTO en fase 5: se retiró el selector. Queda como deuda
@@ -522,12 +570,23 @@ añadir ciudad y dirección a `organizations`.
    último que haría falta, no lo primero.
 2. **Cobertura e2e.** 5 specs para 62 páginas. Ninguna cubre el onboarding, que
    es donde estaba el bloqueante.
-3. **`daysUntil` está escrito 6 veces** (clientes de capacitación y flota,
-   `notif-panel`, `odontologia`, `contratos`, `socios`); las de cliente siguen
-   calculando sobre la fecha del navegador.
+3. ~~**`daysUntil` ×6**~~ RESUELTO en fase 6: una sola en `lib/domain.ts`, con
+   el «hoy» por parámetro. Queda `notif-panel` aparte a propósito, y con un bug
+   abierto suyo: mezcla `timestamptz` y `date` en la misma columna, así que una
+   cita de hoy a las 15:00 se anuncia «en 1 día». Arreglarlo cambia lo que el
+   usuario lee — decisión de producto.
 4. **Botones muertos** en Configuración: «Cambiar foto» y «Cambiar logo»
    responden «próximamente».
-5. **Doc drift**: §1 decía 48 módulos conmutables; el registro tiene 59.
+5. ~~**Doc drift**~~ corregido en la primera jornada.
+
+6. **`sector_modules` y `plan_limits.seats` estaban mal listados como deuda.**
+   Los dos son decisiones documentadas y, en el primer caso, con test que pinea
+   el drift. La auditoría los llamó problemas y no lo son — anotado aquí para
+   que nadie los «arregle» leyendo solo aquella lista.
+
+7. **Service worker.** Sin él, «POS offline» es cierto en datos y falso en
+   aplicación: la cola sobrevive, pero el navegador no carga el bundle sin red.
+   Es función, no limpieza.
 
 ## 5. Pendiente (todo requiere decisión o proveedor externo)
 

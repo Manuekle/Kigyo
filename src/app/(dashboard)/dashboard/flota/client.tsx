@@ -13,8 +13,7 @@ import { useApp } from '@/lib/context/AppContext'
 import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import {
-  FUEL_KINDS, VEHICLE_KINDS, VEHICLE_STATUSES, WORK_ORDER_KINDS,
-} from '@/lib/domain'
+  FUEL_KINDS, VEHICLE_KINDS, VEHICLE_STATUSES, WORK_ORDER_KINDS, daysUntil, todayIn } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { FlotaData, RouteRow, VehicleRow } from '@/server/queries/flota'
 import {
@@ -22,6 +21,7 @@ import {
   setRutaStatus, setVehiculoStatus, updateVehiculo,
 } from '@/server/mutations/flota'
 import { fetchMoreVehiculos } from '@/server/actions/flota'
+import { useMember } from '@/lib/context/MemberContext'
 
 const RUTA_STATUSES = ['Planificada', 'En curso', 'Completada', 'Cancelada']
 
@@ -47,13 +47,6 @@ function orNull(value: string): string | null {
 const TODAY = () => new Date().toISOString().slice(0, 10)
 
 /** Days from today, negative once past. */
-function daysUntil(iso: string | null): number | null {
-  if (!iso) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.round((new Date(`${iso}T00:00:00`).getTime() - today.getTime()) / 86_400_000)
-}
-
 /**
  * The soonest of a vehicle's three legal documents, and how long it has left.
  *
@@ -61,7 +54,7 @@ function daysUntil(iso: string | null): number | null {
  * glance is whether this vehicle is about to become undriveable, not which
  * particular certificate expires first.
  */
-function soonestDoc(v: VehicleRow): { label: string; days: number } | null {
+function soonestDoc(v: VehicleRow, hoy: string): { label: string; days: number } | null {
   const docs: Array<[string, string | null]> = [
     ['SOAT', v.soatExpiresOn],
     ['Tecnomecánica', v.inspectionExpiresOn],
@@ -69,7 +62,7 @@ function soonestDoc(v: VehicleRow): { label: string; days: number } | null {
   ]
   let best: { label: string; days: number } | null = null
   for (const [label, iso] of docs) {
-    const days = daysUntil(iso)
+    const days = daysUntil(iso, hoy)
     if (days === null) continue
     if (best === null || days < best.days) best = { label, days }
   }
@@ -96,6 +89,8 @@ const EMPTY_RUTA = {
 }
 
 export default function FlotaPage({ data }: { data: FlotaData }) {
+  // El «hoy» de la empresa, no el del reloj de quien mira.
+  const hoy = todayIn(useMember().timezone)
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const confirm = useConfirm()
@@ -149,7 +144,7 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
 
   const stats = useMemo(() => {
     const expiring = vehiculos.filter((v) => {
-      const doc = soonestDoc(v)
+      const doc = soonestDoc(v, hoy)
       return doc !== null && doc.days <= 30
     })
     const fuelSpend = combustible.reduce((s, f) => s + f.costCents, 0)
@@ -421,7 +416,7 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
                       </td>
                     </tr>
                   ) : visible.map((v) => {
-                    const doc = soonestDoc(v)
+                    const doc = soonestDoc(v, hoy)
                     return (
                       <tr key={v.id}>
                         <td>

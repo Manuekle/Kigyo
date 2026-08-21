@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { pageRange, rosterFor, scoped, totalOf, type Page, type RosterEntry } from './shared'
-import { todayIn } from '@/lib/domain'
+import { todayIn, daysUntil } from '@/lib/domain'
 
 /**
  * Socios, membresías, clases y entradas.
@@ -134,12 +134,6 @@ const MEMBER_COLUMNS =
  * y «venció hace 3» son el mismo cálculo con el signo distinto, y escribirlo
  * dos veces es como se llega a que la lista diga una cosa y el detalle otra.
  */
-export function daysUntil(date: string, from: string): number {
-  const a = new Date(`${from}T00:00:00`).getTime()
-  const b = new Date(`${date}T00:00:00`).getTime()
-  return Math.round((b - a) / 86_400_000)
-}
-
 /**
  * La membresía que manda, cuando hay varias.
  *

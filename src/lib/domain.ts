@@ -261,6 +261,37 @@ export function netFromGross(grossCents: number, ratePercent: number): number {
   return grossCents - taxWithin(grossCents, ratePercent)
 }
 
+/**
+ * Días con signo entre `from` y `date`. Negativo = ya pasó.
+ *
+ * Estaba escrita seis veces, con tres formas distintas y dos respuestas
+ * distintas para la misma fecha:
+ *
+ *   · `socios` y `odontologia` recibían el «hoy» como argumento — correcto;
+ *   · `contratos` y `notif-panel` usaban `new Date()` del **servidor**, que es
+ *     UTC en Vercel, o sea el mismo corte de día equivocado que se arregló en
+ *     todo lo demás;
+ *   · `capacitacion` y `flota` usaban `new Date()` del **navegador**, así que
+ *     la misma fecha de vencimiento podía leerse distinta en la lista y en el
+ *     detalle según quién la calculara.
+ *
+ * Una sola, y el «hoy» siempre entra por parámetro: es lo que obliga a quien
+ * llama a decidir de qué zona horaria habla, en vez de heredar en silencio la
+ * de la máquina que ejecuta.
+ *
+ * `T00:00:00` sin `Z` en ambas: se comparan dos medianoches locales del mismo
+ * huso, así que la diferencia es exacta en días y el desfase se cancela. Con
+ * una en UTC y otra local el resultado se movería un día a un lado u otro del
+ * meridiano.
+ */
+export function daysUntil(date: string | null, from: string): number | null {
+  if (!date) return null
+  const a = new Date(`${from}T00:00:00`).getTime()
+  const b = new Date(`${date}T00:00:00`).getTime()
+  if (Number.isNaN(a) || Number.isNaN(b)) return null
+  return Math.round((b - a) / 86_400_000)
+}
+
 export function dayCount(startsOn: string, endsOn: string): number {
   const from = Date.parse(`${startsOn}T00:00:00Z`)
   const to = Date.parse(`${endsOn}T00:00:00Z`)

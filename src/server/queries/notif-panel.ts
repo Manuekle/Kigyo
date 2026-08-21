@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { scoped } from './shared'
+import { todayIn } from '@/lib/domain'
 
 /**
  * Panel de notificaciones: reglas, bitácora y próximos recordatorios.
@@ -60,10 +61,25 @@ interface UpcomingRecord {
 
 const DAY_MS = 86_400_000
 
-/** Días desde hoy (medianoche) hasta la fecha, nunca negativo. */
-function daysUntil(when: string): number {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+/**
+ * Días hasta la fecha, nunca negativo. **No** es `daysUntil` de lib/domain.ts.
+ *
+ * Se dejó aparte a propósito, y conviene decir por qué para que nadie las
+ * fusione: aquella resta dos fechas y devuelve el signo; esta redondea hacia
+ * arriba, acota en cero y recibe una columna que mezcla dos tipos —
+ * `patient_appointments.scheduled_for` es `timestamptz`, mientras que
+ * `contracts.due_on` y `subscriptions.next_charge_on` son `date`.
+ *
+ * Esa mezcla es un problema real y sin resolver: para una cita de hoy a las
+ * 15:00, `ceil` sobre el timestamp da 1 y la pantalla dice «en 1 día» de algo
+ * que es hoy. Arreglarlo cambia lo que un usuario lee, así que es una decisión
+ * de producto y no una limpieza — se anota en vez de cambiarse de paso.
+ *
+ * Lo que sí se corrige aquí es la parte que no admite discusión: el «hoy» ya no
+ * sale del reloj del servidor (UTC en Vercel) sino de la zona de la empresa.
+ */
+function daysUntil(when: string, hoy: string): number {
+  const today = new Date(`${hoy}T00:00:00`)
   return Math.max(0, Math.ceil((new Date(when).getTime() - today.getTime()) / DAY_MS))
 }
 
@@ -155,7 +171,7 @@ export async function getNotifPanel(): Promise<NotifPanelData> {
 
   const upcoming: UpcomingRow[] = (citas as UpcomingRecord[])
     .concat(vencimientos, renovaciones)
-    .map((r) => ({ kind: r.kind, subject: r.subject ?? '', when: r.when, daysLeft: daysUntil(r.when) }))
+    .map((r) => ({ kind: r.kind, subject: r.subject ?? '', when: r.when, daysLeft: daysUntil(r.when, todayIn(member.orgTimezone)) }))
     .sort((a, b) => a.when.localeCompare(b.when))
     .slice(0, 30)
 

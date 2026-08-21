@@ -54,6 +54,12 @@ export interface ClientMember {
   /** The subscription tier, for screens that explain what it unlocks. */
   plan: PlanKey
   /**
+   * La zona de la empresa, para que el navegador calcule «hoy» igual que el
+   * servidor. Sin esto, una pantalla que reste fechas en el cliente responde
+   * según el reloj de quien mira y no según el negocio.
+   */
+  timezone: string
+  /**
    * Modules the company uses, already resolved on the server — plan
    * filter applied, core modules folded in.
    */

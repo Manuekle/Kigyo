@@ -66,6 +66,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         companyType: member.companyType,
         subsector: member.subsector,
         plan: member.plan,
+        timezone: member.orgTimezone,
         modules: [...member.modules],
         role: member.role,
         permissions: [...member.permissions],

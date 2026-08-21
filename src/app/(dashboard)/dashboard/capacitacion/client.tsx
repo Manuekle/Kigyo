@@ -14,7 +14,7 @@ import FormDrawer from '@/components/ui/FormDrawer'
 import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
 import { useConfirm } from '@/lib/context/ConfirmContext'
-import { COURSE_MODES, ENROLLMENT_STATUSES } from '@/lib/domain'
+import { COURSE_MODES, ENROLLMENT_STATUSES, daysUntil, todayIn } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { CapacitacionData, CourseRow, EnrollmentRow } from '@/server/queries/capacitacion'
 import {
@@ -23,6 +23,7 @@ import {
   type CertificacionRow,
 } from '@/server/mutations/capacitacion'
 import { fetchMoreCourses } from '@/server/actions/capacitacion'
+import { useMember } from '@/lib/context/MemberContext'
 
 const EMPTY_CERT = {
   employeeId: '', name: '', provider: '', issuedOn: '', expiresOn: '',
@@ -60,14 +61,9 @@ function formatDate(iso: string | null): string {
  * Negative means it already has. Computed against the start of today so a
  * certificate expiring later today does not read as expired.
  */
-function daysUntil(iso: string | null): number | null {
-  if (!iso) return null
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.round((new Date(`${iso}T00:00:00`).getTime() - today.getTime()) / 86_400_000)
-}
-
 export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
+  // El «hoy» de la empresa, no el del reloj de quien mira.
+  const hoy = todayIn(useMember().timezone)
   const { addToast } = useApp()
   const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
@@ -116,7 +112,7 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
     // Within 60 days is the window worth acting on: shorter and there is no
     // time to schedule a course, longer and the list is permanently full.
     const expiring = certified.filter((e) => {
-      const days = daysUntil(e.expiresOn)
+      const days = daysUntil(e.expiresOn, hoy)
       return days !== null && days <= 60
     })
     const invested = courses.reduce((sum, c) => sum + c.costCents * c.enrolled, 0)
@@ -427,7 +423,7 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
                       </td>
                     </tr>
                   ) : visibleEnrollments.map((e) => {
-                    const days = daysUntil(e.expiresOn)
+                    const days = daysUntil(e.expiresOn, hoy)
                     const lapsed = days !== null && days < 0
                     return (
                       <tr key={e.id}>
