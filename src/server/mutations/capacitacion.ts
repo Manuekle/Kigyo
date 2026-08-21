@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
-import { COURSE_MODES, ENROLLMENT_STATUSES } from '@/lib/domain'
+import { COURSE_MODES, ENROLLMENT_STATUSES, todayIn } from '@/lib/domain'
 import { belongsToOrg } from '@/server/queries/shared'
 import { getCapacitacion, type CapacitacionData } from '@/server/queries/capacitacion'
 
@@ -247,12 +247,15 @@ export async function setEnrollmentStatus(
 
     const course = owned.courses as unknown as { validity_months: number | null }
     const approved = parsed.data.status === 'Aprobado'
-    const completedOn = approved ? new Date() : null
+    // La fecha de la empresa, no la del servidor: un curso aprobado a las 8 de
+    // la noche en Bogotá quedaba fechado al día siguiente, y el vencimiento se
+    // calculaba un día tarde sobre esa fecha equivocada.
+    const completedOn = approved ? todayIn(member.orgTimezone) : null
 
     let expiresOn: string | null = null
     if (completedOn && course.validity_months) {
-      const expiry = new Date(completedOn)
-      expiry.setMonth(expiry.getMonth() + course.validity_months)
+      const expiry = new Date(`${completedOn}T00:00:00Z`)
+      expiry.setUTCMonth(expiry.getUTCMonth() + course.validity_months)
       expiresOn = expiry.toISOString().slice(0, 10)
     }
 
@@ -261,7 +264,7 @@ export async function setEnrollmentStatus(
       .update({
         status: parsed.data.status,
         score: parsed.data.score,
-        completed_on: completedOn ? completedOn.toISOString().slice(0, 10) : null,
+        completed_on: completedOn,
         expires_on: expiresOn,
       })
       .eq('id', parsed.data.id)

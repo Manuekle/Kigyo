@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
-import { RESERVATION_STATUSES, ROOM_KINDS, ROOM_STATUSES } from '@/lib/domain'
+import { RESERVATION_STATUSES, ROOM_KINDS, ROOM_STATUSES, todayIn } from '@/lib/domain'
 import { getHoteleria, nightsBetween, type HoteleriaData } from '@/server/queries/hoteleria'
 import { belongsToOrg } from '@/server/queries/shared'
 
@@ -496,7 +496,7 @@ export async function setTareaDone(
     if (!parsed.success) return fail('Datos inválidos.')
 
     const supabase = await createClient()
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayIn(member.orgTimezone)
     const { error } = await supabase
       .from('room_cleaning_tasks' as never)
       .update({ done: parsed.data.done, done_on: parsed.data.done ? today : null } as never)

@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { maybePostAutoEntry } from '@/server/contabilidad-auto'
-import { CASH_MOVEMENT_KINDS, PAYMENT_METHODS } from '@/lib/domain'
+import { CASH_MOVEMENT_KINDS, PAYMENT_METHODS, todayIn } from '@/lib/domain'
 import { expectedFor, getCaja, type CajaData } from '@/server/queries/caja'
 
 export type CajaResult<T> = { ok: true; data: T } | { ok: false; error: string }
@@ -195,7 +195,7 @@ export async function cerrarCaja(
     await maybePostAutoEntry(
       member, 'caja_diferencia', 'Caja', session.id,
       `Diferencia de caja`,
-      new Date().toISOString().slice(0, 10),
+      todayIn(member.orgTimezone),
       parsed.data.countedCents - Math.max(expected, 0),
     )
 

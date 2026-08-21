@@ -5,6 +5,7 @@ import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { paymentsSimulated } from '@/lib/wompi'
 import { pageRange, scoped, totalOf, type Page } from './shared'
+import { todayIn } from '@/lib/domain'
 
 /**
  * El mostrador.
@@ -117,10 +118,14 @@ interface SaleRecord {
 const SALE_COLUMNS = `id, code, customer_name, subtotal_cents, discount_cents,
    total_cents, payment_method, status, sold_at, sold_by, notes, session_id, site_id`
 
-/** Hoy en ISO local, para el corte del día que muestra la pantalla. */
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+/**
+ * Hoy en la zona de la empresa, para el corte del día que muestra la pantalla.
+ *
+ * Decía «ISO local» y devolvía la fecha **UTC**: en Bogotá el corte saltaba a
+ * las 19:00, así que el resumen del día se vaciaba justo en las horas de más
+ * venta de una tienda o un restaurante.
+ */
+const today = todayIn
 
 /** Las líneas de un conjunto de ventas, agrupadas por venta. */
 async function itemsFor(
@@ -291,7 +296,7 @@ export async function getPos(): Promise<PosData> {
     sale.siteName = row.site_id ? siteNameById.get(row.site_id) ?? null : null
     return sale
   })
-  const now = today()
+  const now = today(member.orgTimezone)
   const hoy = ventas.filter((v) => v.status !== 'Anulada' && v.soldAt.slice(0, 10) === now)
 
   const org = orgResult.data as { name: string; receipt_prefs: Record<string, unknown> | null } | null

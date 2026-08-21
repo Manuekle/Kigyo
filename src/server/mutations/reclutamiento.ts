@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import {
   CANDIDATE_STAGES, EMPLOYMENT_TYPES, OPENING_STATUSES,
+  todayIn,
 } from '@/lib/domain'
 import { belongsToOrg } from '@/server/queries/shared'
 import { getReclutamiento, type ReclutamientoData } from '@/server/queries/reclutamiento'
@@ -146,7 +147,7 @@ export async function setOpeningStatus(
         status: parsed.data.status,
         // Cleared on reopen: a close date on a live vacancy is a lie the
         // time-to-hire report would repeat.
-        closed_on: done ? new Date().toISOString().slice(0, 10) : null,
+        closed_on: done ? todayIn(member.orgTimezone) : null,
       })
       .eq('id', parsed.data.id)
       .eq('org_id', member.orgId)

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { pageRange, totalOf, scoped, type Page } from './shared'
+import { todayIn } from '@/lib/domain'
 
 /**
  * Rooms and the reservations against them.
@@ -242,7 +243,7 @@ export async function getHoteleria(): Promise<HoteleriaData> {
   const roomRows = roomsResult.data as unknown as RoomRecord[]
   const reservationRows = (reservationsResult.data ?? []) as unknown as ReservationRecord[]
   const numbers = new Map(roomRows.map((r) => [r.id, r.number]))
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayIn(member.orgTimezone)
 
   const { data: taskRows, error: tasksError } = await supabase
     .from('room_cleaning_tasks' as never)

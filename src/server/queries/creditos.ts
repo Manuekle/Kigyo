@@ -2,6 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { scoped } from './shared'
+import { todayIn } from '@/lib/domain'
 
 /**
  * Créditos: préstamos, cuotas y mora.
@@ -121,7 +122,7 @@ export async function getCreditos(): Promise<CreditosData> {
     toInstallmentRow,
   )
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayIn(member.orgTimezone)
   const enMora = installments.filter(
     (i) => i.status === 'pendiente' && i.dueDate < today,
   )

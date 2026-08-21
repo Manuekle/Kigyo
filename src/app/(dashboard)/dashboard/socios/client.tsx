@@ -674,7 +674,8 @@ export default function SociosPage({ data }: { data: SociosData }) {
           onChange={(v) => setSocioForm({ ...socioForm, birthDate: v })} />
 
         <label className="flabel" htmlFor="so-status">Estado</label>
-        <Select value={socioForm.status}
+        <Select
+          id="so-status" value={socioForm.status}
           onChange={(v) => setSocioForm({ ...socioForm, status: v })}
           options={[...MEMBER_STATUSES]} />
 
@@ -700,7 +701,8 @@ export default function SociosPage({ data }: { data: SociosData }) {
           onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })} />
 
         <label className="flabel" htmlFor="pl-billing">Cobro</label>
-        <Select value={planForm.billing}
+        <Select
+          id="pl-billing" value={planForm.billing}
           onChange={(v) => setPlanForm({ ...planForm, billing: v })}
           options={[...PLAN_BILLINGS]} />
 
@@ -751,7 +753,8 @@ export default function SociosPage({ data }: { data: SociosData }) {
           onChange={(v) => setClaseForm({ ...claseForm, startsAt: v })} />
 
         <label className="flabel" htmlFor="cl-instructor">Profesor</label>
-        <Select value={claseForm.instructorId}
+        <Select
+          id="cl-instructor" value={claseForm.instructorId}
           onChange={(v) => setClaseForm({ ...claseForm, instructorId: v })}
           options={[
             { value: '', label: 'Sin asignar' },
@@ -771,7 +774,8 @@ export default function SociosPage({ data }: { data: SociosData }) {
           onChange={(e) => setClaseForm({ ...claseForm, room: e.target.value })} />
 
         <label className="flabel" htmlFor="cl-status">Estado</label>
-        <Select value={claseForm.status}
+        <Select
+          id="cl-status" value={claseForm.status}
           onChange={(v) => setClaseForm({ ...claseForm, status: v })}
           options={[...CLASS_STATUSES]} />
       </FormDrawer>
@@ -792,12 +796,14 @@ export default function SociosPage({ data }: { data: SociosData }) {
         }
       >
         <label className="flabel" htmlFor="ve-member">Socio</label>
-        <Select value={ventaForm.memberId}
+        <Select
+          id="ve-member" value={ventaForm.memberId}
           onChange={(v) => setVentaForm({ ...ventaForm, memberId: v })}
           options={socioOptions} />
 
         <label className="flabel" htmlFor="ve-plan">Plan</label>
-        <Select value={ventaForm.planId}
+        <Select
+          id="ve-plan" value={ventaForm.planId}
           onChange={(v) => setVentaForm({ ...ventaForm, planId: v })}
           options={activePlans.map((p) => ({
             value: p.id,
@@ -816,7 +822,8 @@ export default function SociosPage({ data }: { data: SociosData }) {
         </p>
 
         <label className="flabel" htmlFor="ve-paid">Pago</label>
-        <Select value={ventaForm.paid ? 'si' : 'no'}
+        <Select
+          id="ve-paid" value={ventaForm.paid ? 'si' : 'no'}
           onChange={(v) => setVentaForm({ ...ventaForm, paid: v === 'si' })}
           options={[
             { value: 'no', label: 'Pendiente' },
@@ -844,12 +851,14 @@ export default function SociosPage({ data }: { data: SociosData }) {
         }
       >
         <label className="flabel" htmlFor="en-member">Socio</label>
-        <Select value={entradaForm.memberId}
+        <Select
+          id="en-member" value={entradaForm.memberId}
           onChange={(v) => setEntradaForm({ ...entradaForm, memberId: v })}
           options={socioOptions} />
 
         <label className="flabel" htmlFor="en-class">Clase</label>
-        <Select value={entradaForm.classId}
+        <Select
+          id="en-class" value={entradaForm.classId}
           onChange={(v) => setEntradaForm({ ...entradaForm, classId: v })}
           options={[
             { value: '', label: 'Sala — sin clase' },
@@ -860,7 +869,8 @@ export default function SociosPage({ data }: { data: SociosData }) {
           ]} />
 
         <label className="flabel" htmlFor="en-method">Cómo se registró</label>
-        <Select value={entradaForm.method}
+        <Select
+          id="en-method" value={entradaForm.method}
           onChange={(v) => setEntradaForm({ ...entradaForm, method: v })}
           options={[...CHECKIN_METHODS]} />
 
@@ -887,7 +897,8 @@ export default function SociosPage({ data }: { data: SociosData }) {
         }
       >
         <label className="flabel" htmlFor="re-member">Socio</label>
-        <Select value={reservaForm.memberId}
+        <Select
+          id="re-member" value={reservaForm.memberId}
           onChange={(v) => setReservaForm({ ...reservaForm, memberId: v })}
           options={socioOptions} />
 

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { pageRange, totalOf, type Page } from './shared'
+import { todayIn } from '@/lib/domain'
 
 /**
  * Properties, their leases, and the rent that has or has not arrived.
@@ -127,10 +128,9 @@ const LEASE_COLUMNS = `id, property_id, tenant_name, tenant_document, tenant_ema
    status, rent_cents, deposit_cents, due_day, starts_on, ends_on, notes`
 
 /** Outstanding balance and late periods per lease. */
-function arrears(rows: PaymentRecord[]) {
+function arrears(rows: PaymentRecord[], today: string) {
   const balance = new Map<string, number>()
   const late = new Map<string, number>()
-  const today = new Date().toISOString().slice(0, 10)
 
   for (const row of rows) {
     const owed = row.amount_cents - row.paid_cents
@@ -244,7 +244,7 @@ export async function getInmobiliario(): Promise<InmobiliarioData> {
   if (paymentError) console.error('[inmobiliario] payments', paymentError)
 
   const paymentRows = (paymentData ?? []) as unknown as PaymentRecord[]
-  const { balance, late } = arrears(paymentRows)
+  const { balance, late } = arrears(paymentRows, todayIn(member.orgTimezone))
 
   const active = new Map<string, number>()
   for (const row of leaseRows) {

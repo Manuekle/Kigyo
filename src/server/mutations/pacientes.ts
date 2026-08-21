@@ -5,7 +5,7 @@ import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
-import { BLOOD_TYPES, PATIENT_STATUSES, VISIT_KINDS } from '@/lib/domain'
+import { BLOOD_TYPES, PATIENT_STATUSES, VISIT_KINDS, todayIn } from '@/lib/domain'
 import { belongsToOrg, type Supabase } from '@/server/queries/shared'
 import { getPacientes, type PacientesData } from '@/server/queries/pacientes'
 
@@ -45,7 +45,7 @@ export async function createPaciente(
 
     // A birth date in the future is a typo, and it would produce a negative
     // age that every downstream report would print without comment.
-    if (parsed.data.birthDate && parsed.data.birthDate > new Date().toISOString().slice(0, 10)) {
+    if (parsed.data.birthDate && parsed.data.birthDate > todayIn(member.orgTimezone)) {
       return fail('La fecha de nacimiento no puede estar en el futuro.')
     }
 
@@ -90,7 +90,7 @@ export async function updatePaciente(
     const parsed = updateSchema.safeParse(input)
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
-    if (parsed.data.birthDate && parsed.data.birthDate > new Date().toISOString().slice(0, 10)) {
+    if (parsed.data.birthDate && parsed.data.birthDate > todayIn(member.orgTimezone)) {
       return fail('La fecha de nacimiento no puede estar en el futuro.')
     }
 
@@ -560,7 +560,7 @@ export async function setExamenResultado(
         status: parsed.data.status,
         result_on:
           parsed.data.status === 'Resultado'
-            ? parsed.data.resultOn ?? new Date().toISOString().slice(0, 10)
+            ? parsed.data.resultOn ?? todayIn(member.orgTimezone)
             : parsed.data.resultOn,
       })
       .eq('id', parsed.data.id)

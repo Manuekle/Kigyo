@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { getPh, type PhData } from '@/server/queries/ph'
+import { todayIn } from '@/lib/domain'
 
 export type PhResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -148,7 +149,7 @@ export async function setCuotaPagada(id: string, pagada: boolean): Promise<PhRes
       .from('ph_cuotas')
       .update({
         estado: pagada ? 'pagada' : 'pendiente',
-        pagada_on: pagada ? new Date().toISOString().slice(0, 10) : null,
+        pagada_on: pagada ? todayIn(member.orgTimezone) : null,
       })
       .eq('id', id)
       .eq('org_id', member.orgId)

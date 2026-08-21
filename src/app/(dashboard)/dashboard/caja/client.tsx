@@ -420,6 +420,7 @@ export default function CajaPage({ data }: { data: CajaData }) {
           <>
             <label className="flabel" htmlFor="ca-site">Sucursal</label>
             <Select
+          id="ca-site"
               value={openForm.siteId}
               onChange={(v) => setOpenForm({ ...openForm, siteId: v })}
               options={[
@@ -525,7 +526,8 @@ export default function CajaPage({ data }: { data: CajaData }) {
         }
       >
         <label className="flabel" htmlFor="mo-kind">Tipo</label>
-        <Select value={movementForm.kind}
+        <Select
+          id="mo-kind" value={movementForm.kind}
           onChange={(v) => setMovementForm({ ...movementForm, kind: v })}
           options={[...CASH_MOVEMENT_KINDS]} />
 
@@ -540,7 +542,8 @@ export default function CajaPage({ data }: { data: CajaData }) {
           onChange={(e) => setMovementForm({ ...movementForm, concept: e.target.value })} />
 
         <label className="flabel" htmlFor="mo-method">Medio</label>
-        <Select value={movementForm.method}
+        <Select
+          id="mo-method" value={movementForm.method}
           onChange={(v) => setMovementForm({ ...movementForm, method: v })}
           options={[...PAYMENT_METHODS]} />
 

@@ -81,3 +81,36 @@ export function presetFromCatalogue(
 
   return applySectorDelta(base, delta)
 }
+
+/**
+ * The sector's proposal, split into what this plan can save and what it cannot.
+ *
+ * A preset describes the *business*, not the subscription — every sector
+ * proposes modules Starter does not carry, and eight of them propose modules
+ * only Enterprise carries. `updateSector` refuses the entire write if a single
+ * submitted key falls outside the plan, so seeding the wizard with the raw
+ * preset made «Continuar» fail for every Starter customer on every sector, with
+ * an error naming modules the toggle list had already filtered off screen.
+ *
+ * Both halves are returned because both are needed: `included` is the selection,
+ * and `locked` is what the screen has to say out loud instead of letting the
+ * absence be discovered later as a fault.
+ *
+ * Shared by the wizard and its test on purpose. This is the one rule the client
+ * and the server have to agree on, and a copy of it in a test file would pass
+ * happily while the screen it is supposed to guard drifted away.
+ */
+export function proposalForPlan(
+  catalogue: SectorCatalogue,
+  allowed: ReadonlySet<string>,
+  sector: string | null,
+  subsector?: string | null,
+): { included: string[]; locked: string[] } {
+  const included: string[] = []
+  const locked: string[] = []
+  for (const key of presetFromCatalogue(catalogue, sector, subsector)) {
+    if (allowed.has(key)) included.push(key)
+    else locked.push(key)
+  }
+  return { included, locked }
+}

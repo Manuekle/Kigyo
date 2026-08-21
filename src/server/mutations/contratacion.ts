@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { getContratacion, type ContratacionData } from '@/server/queries/contratacion'
 import type { Supabase } from '@/server/queries/shared'
+import { todayIn } from '@/lib/domain'
 
 export type ContratacionResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -97,7 +98,7 @@ export async function setProcesoEstado(
     const supabase = await createClient()
     const query = supabase.from('contratacion_procesos')
     const update = parsed.data === 'publicado'
-      ? { estado: parsed.data, publicado_on: new Date().toISOString().slice(0, 10) }
+      ? { estado: parsed.data, publicado_on: todayIn(member.orgTimezone) }
       : { estado: parsed.data }
 
     const { error } = await query.update(update).eq('id', id).eq('org_id', member.orgId)

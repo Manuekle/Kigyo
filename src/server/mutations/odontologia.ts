@@ -7,6 +7,7 @@ import { requirePermission } from '@/lib/auth/session'
 import {
   DENTAL_CHART_KINDS, DENTAL_LAB_STATUSES, DENTAL_LAB_WORK_TYPES,
   TOOTH_CONDITIONS, TOOTH_SURFACES, TREATMENT_ITEM_STATUSES, TREATMENT_PLAN_STATUSES,
+  todayIn,
 } from '@/lib/domain'
 import { getOdontologia, type OdontologiaData } from '@/server/queries/odontologia'
 
@@ -250,7 +251,7 @@ export async function cambiarEstadoPlan(
         // pasar a «En curso» o «Terminado» no deshace que el paciente dijo que
         // sí el 4 de marzo, que es el dato que respalda el cobro.
         ...(parsed.data.status === 'Aceptado'
-          ? { accepted_on: new Date().toISOString().slice(0, 10) }
+          ? { accepted_on: todayIn(member.orgTimezone) }
           : {}),
       })
       .eq('id', parsed.data.id)
@@ -355,7 +356,7 @@ export async function cambiarEstadoProcedimiento(
   input: z.input<typeof itemStatusSchema>,
 ): Promise<OdontoResult<OdontologiaData>> {
   try {
-    await requirePermission('pacientes:write')
+    const member = await requirePermission('pacientes:write')
     const parsed = itemStatusSchema.safeParse(input)
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
@@ -368,7 +369,7 @@ export async function cambiarEstadoProcedimiento(
         // diferencia de la aceptación del plan, esto sí es reversible — un
         // procedimiento marcado por error no ocurrió.
         done_on: parsed.data.status === 'Hecho'
-          ? new Date().toISOString().slice(0, 10)
+          ? todayIn(member.orgTimezone)
           : null,
         ...(parsed.data.professionalId ? { professional_id: parsed.data.professionalId } : {}),
       })
@@ -473,7 +474,7 @@ export async function cambiarEstadoLaboratorio(
         // se sella aquí y se limpia si vuelve a salir por reproceso — un
         // trabajo que se devolvió al laboratorio está afuera otra vez.
         received_on: parsed.data.status === 'Recibido'
-          ? new Date().toISOString().slice(0, 10)
+          ? todayIn(member.orgTimezone)
           : null,
       })
       .eq('id', parsed.data.id)

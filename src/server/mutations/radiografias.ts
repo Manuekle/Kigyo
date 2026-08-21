@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { getRadiografias, type RadiografiasData } from '@/server/queries/radiografias'
+import { todayIn } from '@/lib/domain'
 
 export type RadiografiasResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -33,7 +34,9 @@ const addImageSchema = z.object({
   patientId: z.string().uuid(),
   kind: z.enum(['Radiografía', 'Ultrasonido', 'Tomografía', 'Fotografía', 'Otro']).default('Radiografía'),
   study: z.string().trim().min(2).max(200),
-  takenOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(() => new Date().toISOString().slice(0, 10)),
+  // Sin `.default()`: la fecha por defecto es «hoy» en la zona de la empresa,
+  // y el esquema es de módulo — no tiene sesión con la que resolverla.
+  takenOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   storagePath: z.string().trim().min(1).max(400),
   mimeType: z.string().trim().max(100).nullable().default(null),
   sizeBytes: z.coerce.number().int().min(0).max(30_000_000),
@@ -68,7 +71,7 @@ export async function addImagen(
       patient_id: parsed.data.patientId,
       kind: parsed.data.kind,
       study: parsed.data.study,
-      taken_on: parsed.data.takenOn,
+      taken_on: parsed.data.takenOn ?? todayIn(member.orgTimezone),
       storage_path: parsed.data.storagePath,
       mime_type: parsed.data.mimeType,
       size_bytes: parsed.data.sizeBytes,

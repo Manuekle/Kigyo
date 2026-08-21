@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
-import { CYCLE_STATUSES, GOAL_STATUSES, REVIEW_STATUSES, type GoalStatus } from '@/lib/domain'
+import { CYCLE_STATUSES, GOAL_STATUSES, REVIEW_STATUSES, type GoalStatus, todayIn } from '@/lib/domain'
 import { belongsToOrg } from '@/server/queries/shared'
 import { getDesempeno, type DesempenoData } from '@/server/queries/desempeno'
 
@@ -213,7 +213,7 @@ export async function setReviewStatus(
         // Both cleared on reopen: a submitted timestamp on a review still being
         // drafted is a claim the calibration meeting would act on.
         submitted_at: done ? new Date().toISOString() : null,
-        evaluated_on: done ? new Date().toISOString().slice(0, 10) : null,
+        evaluated_on: done ? todayIn(member.orgTimezone) : null,
       })
       .eq('id', parsed.data.id)
       .eq('org_id', member.orgId)

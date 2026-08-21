@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
-import { ONLINE_ORDER_STATUSES, SHIPPING_METHODS } from '@/lib/domain'
+import { ONLINE_ORDER_STATUSES, SHIPPING_METHODS, todayIn } from '@/lib/domain'
 import { getEcommerce, type EcommerceData } from '@/server/queries/ecommerce'
 
 export type EcommerceResult<T> = { ok: true; data: T } | { ok: false; error: string }
@@ -96,7 +96,7 @@ export async function createPedido(
       if (!coupon) return fail('Ese cupón no existe.')
       if (!coupon.is_active) return fail('Ese cupón está desactivado.')
 
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayIn(member.orgTimezone)
       if (coupon.starts_on && today < coupon.starts_on) return fail('Ese cupón todavía no está vigente.')
       if (coupon.expires_on && today > coupon.expires_on) return fail('Ese cupón ya venció.')
       if (coupon.max_uses !== null && coupon.used_count >= coupon.max_uses) {

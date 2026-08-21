@@ -1,6 +1,6 @@
 # Kigyo — contexto maestro (estado, historia y pendientes)
 
-Único archivo de sesión. Actualizado: 2026-08-16. Rama `feat/design-system-refresh`, push al día con origin.
+Único archivo de sesión. Actualizado: 2026-08-20. Rama `main`, push al día con origin.
 
 ---
 
@@ -21,12 +21,12 @@ Account    public.accounts          — plan, billing, límites
 - RLS congelado: `app.orgs_with`, `app.apply_standard_rls`, `app.apply_child_rls` — test de aislamiento: miembro de empresa A leyendo tablas de B recibe 0 filas.
 - El scope account NUNCA otorga acceso a datos de empresa: hace falta fila en `public.memberships`.
 - Registro de módulos (`src/lib/modules/registry.ts`) = única fuente de verdad; NAV, permisos y SQL se derivan y se pinean con tests (scope-guard, route-guard, account-scope, modules, plans).
-- 48 módulos conmutables, 10 verticales (obra, ecommerce, pacientes, estudiantes, restaurante, agro, inmobiliario, hoteleria, suscriptores, puestos), 23 sectores / 84 subsectores / 95 presets.
+- 59 módulos en el registro (48 conmutables en el catálogo visible), 10 verticales (obra, ecommerce, pacientes, estudiantes, restaurante, agro, inmobiliario, hoteleria, suscriptores, puestos), 23 sectores / 84 subsectores / 95 presets.
 - 3 planos transversales: portal firmado, marketing fidelización, integraciones (Wompi/WhatsApp, secretos en vault).
 
 ## 2. Estado de verificación
 
-- vitest 256/256 · tsc 0 · build verde · e2e 5/5 (`workers: 1` obligatorio).
+- vitest 271/271 · tsc 0 · build verde · e2e 5/5 (`workers: 1` obligatorio).
 - Remota: migraciones 1–95 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
 - Working tree limpio, branch pusheada.
@@ -169,6 +169,88 @@ their documentation, the webhook route does not change» — y así fue.
 - Pendiente puramente externo: `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`,
   `POLAR_PRODUCT_*` (4) en `.env.local` — plantilla y guía en `.env.example`.
   Sin ellos, el botón responde "todavía no está configurada" en vez de fallar.
+
+### Auditoría pre-venta (2026-08-20) — onboarding, dashboard, sectores, arquitectura
+
+Auditoría completa de las 62 páginas, el registro de módulos, los 23 sectores, la
+capa RLS y el copy comercial. Base de partida verde (tsc 0, 264 tests, build, e2e
+5/5), lo que no impidió que hubiera un bloqueante de producto sin cubrir por
+ninguna prueba.
+
+**Bloqueante — el wizard no dejaba terminar a nadie salvo en Enterprise.**
+`onboarding/client.tsx` sembraba `selected` con el preset crudo del sector,
+mientras `updateSector` rechaza la escritura entera si una sola clave queda
+fuera del plan. Los 23 sectores proponen módulos que Starter no lleva y 8
+proponen módulos que solo lleva Enterprise, así que «Continuar» fallaba en el
+paso de módulos — con un error que nombraba módulos que ni siquiera estaban en
+pantalla, porque la lista de toggles sí venía filtrada por plan. Única salida:
+«Saltar por ahora». Verificado contra `public.sector_modules` en remota, no solo
+contra el fallback de TS.
+
+- `proposalForPlan()` en `lib/sectors.ts` devuelve `{ included, locked }` y la
+  usan la pantalla **y** el test — una copia de la regla en el test habría
+  pasado feliz mientras la pantalla se iba por otro lado.
+- Nota `.onb-locked` bajo la lista: nombra lo que el plan no cubre y desde qué
+  plan se activa, en el momento en que el sector todavía es una decisión.
+- Test `sectors.test.ts` › «the wizard proposes only what the plan can save»,
+  para los 3 planes × 24 sectores. Comprobado que falla si se quita el filtro.
+
+**Dinero — «Ventas de hoy» mostraba 100×.** `queries/dashboard.ts` formateaba
+`total_cents` sin dividir; el resto de la app hace `cop(x.totalCents / 100)`. Un
+día de $250.000 se leía $25.000.000, en la primera pantalla que abre un dueño.
+
+**«Hoy» era UTC en toda la app.** `organizations.timezone` se pedía en
+onboarding, se guardaba desde la migración 30 y **no lo leía nadie**: los ~30
+cortes de día eran `new Date().toISOString().slice(0, 10)`. En Bogotá eso salta
+a las 19:00, así que «Ventas de hoy» se vaciaba durante la cena de un
+restaurante y todo lo fechado de noche quedaba al día siguiente. Ahora
+`member.orgTimezone` viaja en la sesión (misma query, sin round trip) y
+`todayIn(tz)` en `lib/domain.ts` resuelve el corte — 27 sitios migrados entre
+queries y mutations, con test de las tres zonas.
+
+**Copy comercial que no era cierto.** El FAQ público afirmaba cuatro cosas que
+el producto no hace: «los tres planes cuestan $0» (contra $80.000/$300.000/
+$600.000 en `/pricing`), «cumple con la legislación laboral colombiana: sí»
+(los parámetros salen en cero a propósito y exigen validación de contador),
+«importar tu nómina desde Excel» (la palabra solo existía en esa frase; no hay
+importación en ningún módulo) y «eliminar tu cuenta desde la configuración» (no
+existe). Reescritas a lo que el producto sí hace.
+
+**Menores corregidos.** `isEmpty` comparaba contra `'0'` y el KPI de ventas
+formatea `'$ 0'`, así que `PrimerosPasos` no aparecía nunca en empresas con POS
+—justo las que más lo necesitan—; ahora el KPI declara `zero`. Las tarjetas de
+Recomendaciones abrían `/dashboard/riesgos` fuera cual fuera el tema, y una
+empresa sin ese módulo se topaba con una página de error desde su propio
+dashboard; ahora abren el asistente, que es de donde salió la recomendación y
+el único módulo que el panel ya demostró que está encendido. `Select` no
+aceptaba `id`: 26 `<label htmlFor>` en 8 pantallas apuntaban a nada, y a un
+lector de pantalla el control le llegaba como un botón sin nombre.
+
+**Lo que sí está bien** (verificado, no asumido): 201 tablas, 0 sin RLS, 753
+políticas; las 3 tablas sin política tampoco tienen grant a `authenticated`
+(selladas a service_role) y las 6 sin `orgs_with` usan `app.current_org_ids()` /
+`app.is_org_admin()`, que es el plano de identidad y es correcto. Registro de
+módulos coherente: 59 módulos, 61 rutas, 0 rutas sin página y 0 páginas sin
+ruta. 0 presets apuntando a módulos inexistentes. 0 mutaciones con el patrón
+`const { error } = rawClient(...)` sin `await`. Ningún dato inventado en las
+pantallas: los literales viejos están documentados en comentarios de por qué se
+fueron.
+
+### Deuda abierta que salió de la auditoría
+
+1. **Moneda.** Onboarding ofrece 8 países y 7 monedas, las guarda, y `cop()` en
+   `lib/utils.ts` está fijo en COP en los 41 archivos que lo usan. Un cliente
+   mexicano elige MXN y ve pesos colombianos en todas las pantallas. O se cablea
+   `organizations.currency` hasta el formateo, o el selector se reduce a lo que
+   el producto de verdad soporta hoy. Es decisión de producto, no un bug suelto.
+2. **Cobertura e2e.** 5 specs para 62 páginas. Ninguna cubre el onboarding, que
+   es donde estaba el bloqueante.
+3. **`daysUntil` está escrito 6 veces** (clientes de capacitación y flota,
+   `notif-panel`, `odontologia`, `contratos`, `socios`); las de cliente siguen
+   calculando sobre la fecha del navegador.
+4. **Botones muertos** en Configuración: «Cambiar foto» y «Cambiar logo»
+   responden «próximamente».
+5. **Doc drift**: §1 decía 48 módulos conmutables; el registro tiene 59.
 
 ## 5. Pendiente (todo requiere decisión o proveedor externo)
 

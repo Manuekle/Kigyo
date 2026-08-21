@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { scoped } from './shared'
+import { todayIn } from '@/lib/domain'
 
 /**
  * Veterinaria: mascotas, vacunas y hospitalización.
@@ -160,8 +161,10 @@ export async function getVeterinaria(): Promise<VeterinariaData> {
   }))
 
   // El conteo de refuerzos por mascota: vencidos o por vencer en 30 días.
-  const in30 = new Date()
-  in30.setDate(in30.getDate() + 30)
+  // Thirty days out from the company's today, not the server's.
+  const today = todayIn(member.orgTimezone)
+  const in30 = new Date(`${today}T00:00:00Z`)
+  in30.setUTCDate(in30.getUTCDate() + 30)
   const in30Iso = in30.toISOString().slice(0, 10)
   for (const v of vaccineRows) {
     if (!v.next_due_on) continue

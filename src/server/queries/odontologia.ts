@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { scoped } from './shared'
+import { todayIn } from '@/lib/domain'
 
 /**
  * Odontograma, planes de tratamiento y laboratorio dental.
@@ -98,12 +99,7 @@ export interface OdontologiaData {
   canWrite: boolean
 }
 
-/** Hoy en ISO local, para los vencimientos del laboratorio. */
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-export function daysUntil(date: string, from = today()): number {
+export function daysUntil(date: string, from: string): number {
   const a = new Date(`${from}T00:00:00`).getTime()
   const b = new Date(`${date}T00:00:00`).getTime()
   return Math.round((b - a) / 86_400_000)
@@ -112,6 +108,7 @@ export function daysUntil(date: string, from = today()): number {
 export async function getOdontologia(): Promise<OdontologiaData> {
   const member = await requirePermission('pacientes:read')
   const supabase = await createClient()
+  const today = todayIn(member.orgTimezone)
 
   const [chartsResult, plansResult, labResult, patientsResult] = await Promise.all([
     scoped(supabase, member, 'dental_charts')
@@ -276,7 +273,7 @@ export async function getOdontologia(): Promise<OdontologiaData> {
     notes: row.notes,
     // Solo cuenta mientras no haya vuelto: un trabajo recibido tarde ya no es
     // un problema, y dejarlo en rojo entrena a ignorar el rojo.
-    daysLeft: row.due_on && !row.received_on ? daysUntil(row.due_on) : null,
+    daysLeft: row.due_on && !row.received_on ? daysUntil(row.due_on, today) : null,
   }))
 
   const accepted = plans.filter((p) => p.status === 'Aceptado' || p.status === 'En curso')

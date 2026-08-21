@@ -345,6 +345,7 @@ export default function Client({ companies }: { companies: AccountCompany[] }) {
 
         <label className="flabel" htmlFor="co-role">Rol con el que entras</label>
         <Select
+          id="co-role"
           value={joinRole}
           onChange={setJoinRole}
           options={[

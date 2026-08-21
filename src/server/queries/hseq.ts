@@ -11,6 +11,7 @@ import {
   type ProjectRef,
   type RosterEntry,
 } from './shared'
+import { todayIn } from '@/lib/domain'
 
 /**
  * HSEQ reports, read through RLS.
@@ -151,7 +152,7 @@ function toReport(row: ReportRecord, today: string): HseqRow {
 export async function getHseqPage(offset = 0): Promise<Page<HseqRow>> {
   const member = await requirePermission('hseq:read')
   const supabase = await createClient()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayIn(member.orgTimezone)
   const [from, to] = pageRange(offset)
 
   const { data, error, count } = await supabase
@@ -176,7 +177,7 @@ export async function getHseqPage(offset = 0): Promise<Page<HseqRow>> {
 export async function getHseq(): Promise<HseqData> {
   const member = await requirePermission('hseq:read')
   const supabase = await createClient()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayIn(member.orgTimezone)
 
   const [reportsResult, roster, proyectos] = await Promise.all([
     supabase

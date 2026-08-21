@@ -404,6 +404,7 @@ const Veterinaria = forwardRef<VeterinariaHandle, Props>(function Veterinaria({ 
       >
         <label className="flabel" htmlFor="vet-pet-owner">Propietario</label>
         <Select
+          id="vet-pet-owner"
           value={petForm.ownerId}
           onChange={(v) => setPetForm({ ...petForm, ownerId: v })}
           options={[{ value: '', label: 'Elige…' }, ...ownerOpts]}

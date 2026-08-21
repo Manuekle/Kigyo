@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can } from '@/lib/auth/permissions'
 import { pageRange, rosterFor, scoped, totalOf, type Page, type RosterEntry } from './shared'
+import { todayIn } from '@/lib/domain'
 
 /**
  * Socios, membresías, clases y entradas.
@@ -126,11 +127,6 @@ interface SubscriptionRecord {
 const MEMBER_COLUMNS =
   'id, code, full_name, document_id, email, phone, status, joined_on, notes'
 
-/** Hoy en ISO local, que es como están guardadas las fechas `date`. */
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
 /**
  * Días entre hoy y una fecha, negativo si ya pasó.
  *
@@ -138,7 +134,7 @@ function today(): string {
  * y «venció hace 3» son el mismo cálculo con el signo distinto, y escribirlo
  * dos veces es como se llega a que la lista diga una cosa y el detalle otra.
  */
-export function daysUntil(date: string, from = today()): number {
+export function daysUntil(date: string, from: string): number {
   const a = new Date(`${from}T00:00:00`).getTime()
   const b = new Date(`${date}T00:00:00`).getTime()
   return Math.round((b - a) / 86_400_000)
@@ -161,7 +157,7 @@ function latestOf(rows: SubscriptionRecord[]): SubscriptionRecord | null {
   return best
 }
 
-function toSocio(row: MemberRecord, subscription: SubscriptionRecord | null): SocioRow {
+function toSocio(row: MemberRecord, subscription: SubscriptionRecord | null, today: string): SocioRow {
   return {
     id: row.id,
     code: row.code,
@@ -177,7 +173,7 @@ function toSocio(row: MemberRecord, subscription: SubscriptionRecord | null): So
     endsOn: subscription?.ends_on ?? null,
     creditsLeft: subscription?.credits_left ?? null,
     paid: subscription?.paid ?? false,
-    daysLeft: subscription ? daysUntil(subscription.ends_on) : null,
+    daysLeft: subscription ? daysUntil(subscription.ends_on, today) : null,
   }
 }
 
@@ -234,7 +230,7 @@ export async function getSociosPage(offset = 0): Promise<Page<SocioRow>> {
   const subscriptions = await latestSubscriptions(supabase, rows.map((r) => r.id))
 
   return {
-    rows: rows.map((row) => toSocio(row, subscriptions.get(row.id) ?? null)),
+    rows: rows.map((row) => toSocio(row, subscriptions.get(row.id) ?? null, todayIn(member.orgTimezone))),
     total: totalOf(count, rows.length, from),
   }
 }
@@ -242,7 +238,7 @@ export async function getSociosPage(offset = 0): Promise<Page<SocioRow>> {
 export async function getSocios(): Promise<SociosData> {
   const member = await requirePermission('socios:read')
   const supabase = await createClient()
-  const now = today()
+  const now = todayIn(member.orgTimezone)
 
   const [membersResult, plansResult, classesResult] = await Promise.all([
     scoped(supabase, member, 'fitness_members')
@@ -263,7 +259,7 @@ export async function getSocios(): Promise<SociosData> {
 
   const memberRows = (membersResult.data ?? []) as MemberRecord[]
   const subscriptions = await latestSubscriptions(supabase, memberRows.map((r) => r.id))
-  const socios = memberRows.map((row) => toSocio(row, subscriptions.get(row.id) ?? null))
+  const socios = memberRows.map((row) => toSocio(row, subscriptions.get(row.id) ?? null, now))
 
   const planRows = (plansResult.data ?? []) as Array<{
     id: string; name: string; description: string; price_cents: number

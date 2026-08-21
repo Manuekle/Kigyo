@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import {
   LEASE_STATUSES, PAYMENT_METHODS, PROPERTY_KINDS, PROPERTY_STATUSES,
+  todayIn,
 } from '@/lib/domain'
 import { getInmobiliario, type InmobiliarioData } from '@/server/queries/inmobiliario'
 
@@ -465,7 +466,7 @@ export async function registrarArriendo(
         amount_cents: amount,
         paid_cents: parsed.data.paidCents,
         due_on: dueOn,
-        paid_on: settled ? new Date().toISOString().slice(0, 10) : null,
+        paid_on: settled ? todayIn(member.orgTimezone) : null,
         method: parsed.data.method,
         reference: parsed.data.reference,
       },

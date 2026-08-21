@@ -1190,6 +1190,7 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
           <>
             <label className="flabel" htmlFor="tbl-site">Sucursal</label>
             <Select
+          id="tbl-site"
               value={tableForm.siteId}
               onChange={(v) => setTableForm({ ...tableForm, siteId: v })}
               options={[
@@ -1404,7 +1405,8 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
           onChange={(e) => setCobroForm({ ...cobroForm, tip: e.target.value })} />
 
         <label className="flabel" htmlFor="co-method">Medio de pago</label>
-        <Select value={cobroForm.method}
+        <Select
+          id="co-method" value={cobroForm.method}
           onChange={(v) => setCobroForm({ ...cobroForm, method: v })}
           options={[...PAYMENT_METHODS]} />
 

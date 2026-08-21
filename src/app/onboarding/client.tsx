@@ -1,14 +1,14 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useCallback, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Check, Building2, Plus, MapPin, Mail, Users } from '@/lib/icons'
 import Select from '@/components/ui/Select'
 import Toggle from '@/components/ui/Toggle'
-import { modulesByGroup } from '@/lib/modules'
+import { modulesByGroup, moduleDef } from '@/lib/modules'
 import { CORE_MODULES, dependenciesOf, missingHardDependencies } from '@/lib/modules/registry'
-import { presetFromCatalogue, type SectorCatalogue } from '@/lib/sectors'
-import { planFor, planModules, type PlanKey } from '@/lib/plans'
+import { proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
+import { lowestPlanWith, planFor, planModules, type PlanKey } from '@/lib/plans'
 import { createSite } from '@/server/mutations/sites'
 import { inviteMember } from '@/server/mutations/settings'
 import {
@@ -113,10 +113,46 @@ export default function Client({
     timezone: 'America/Bogota',
   })
 
+  const allowed = useMemo(() => planModules(plan), [plan])
+  const planDef = planFor(plan)
+
+  /**
+   * The sector's proposal, cut down to what the subscription actually covers.
+   *
+   * A preset is a list of modules for the *business*, not for the plan: every
+   * one of the twenty-three sectors proposes modules that Starter does not
+   * carry, and eight of them propose modules only Enterprise carries. Seeding
+   * the selection with the raw preset therefore produced a set the server
+   * refuses — `updateSector` rejects any key outside the plan and saves
+   * nothing — so «Continuar» on the module step failed for every Starter
+   * customer, on every sector, with an error naming modules that were not even
+   * on screen (the toggle list is filtered by the same plan). The wizard had no
+   * way forward but «Saltar por ahora».
+   *
+   * Filtering here instead makes the proposal and the submission the same set.
+   * What the plan leaves out is not silently dropped: `lockedBy` names it under
+   * the module list, which is the honest version of the same fact.
+   */
+  const proposeFor = useCallback(
+    (sectorKey: string | null, subKey: string | null = null) =>
+      new Set(proposalForPlan(catalogue, allowed, sectorKey, subKey).included),
+    [catalogue, allowed],
+  )
+
   const [chosenSector, setChosenSector] = useState<string | null>(sector)
   const [chosenSub, setChosenSub] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(presetFromCatalogue(catalogue, sector)),
+    () => new Set(proposalForPlan(catalogue, planModules(plan), sector).included),
+  )
+
+  /** What this sector proposes that the plan does not reach, for the note below. */
+  const lockedByPlan = useMemo(
+    () =>
+      proposalForPlan(catalogue, allowed, chosenSector, chosenSub).locked
+        .filter((k) => !CORE_MODULES.includes(k))
+        .map((k) => moduleDef(k))
+        .filter((m): m is NonNullable<typeof m> => m !== null),
+    [catalogue, chosenSector, chosenSub, allowed],
   )
 
   /** Branches created so far, seeded from the server and appended to as we go. */
@@ -130,8 +166,6 @@ export default function Client({
     role: roles.find((r) => r.label === 'Empleado')?.key ?? roles[roles.length - 1]?.key ?? '',
   })
 
-  const allowed = useMemo(() => planModules(plan), [plan])
-  const planDef = planFor(plan)
   const subsectors = chosenSector ? catalogue.subsectors[chosenSector] ?? [] : []
 
   /**
@@ -157,7 +191,7 @@ export default function Client({
     // The subsector goes with it: it belongs to exactly one sector, and the
     // database refuses the mismatched pair on save.
     setChosenSub(null)
-    setSelected(new Set(presetFromCatalogue(catalogue, next)))
+    setSelected(proposeFor(next))
   }
 
   /**
@@ -176,7 +210,7 @@ export default function Client({
   function chooseSubsector(key: string) {
     const next = key === '' ? null : key
     setChosenSub(next)
-    setSelected(new Set(presetFromCatalogue(catalogue, chosenSector, next)))
+    setSelected(proposeFor(chosenSector, next))
   }
 
   /**
@@ -353,6 +387,7 @@ export default function Client({
 
             <label className="flabel" htmlFor="onb-country">País</label>
             <Select
+          id="onb-country"
               value={profile.country}
               onChange={(v) => setProfile({
                 ...profile,
@@ -366,6 +401,7 @@ export default function Client({
 
             <label className="flabel" htmlFor="onb-currency">Moneda</label>
             <Select
+          id="onb-currency"
               value={profile.currency}
               onChange={(v) => setProfile({ ...profile, currency: v })}
               options={CURRENCIES}
@@ -377,6 +413,7 @@ export default function Client({
           <div className="onb-body">
             <label className="flabel" htmlFor="onb-sector">¿A qué se dedica?</label>
             <Select
+          id="onb-sector"
               value={chosenSector ?? ''}
               onChange={chooseSector}
               options={[
@@ -403,6 +440,7 @@ export default function Client({
           <div className="onb-body">
             <label className="flabel" htmlFor="onb-sub">¿De qué tipo?</label>
             <Select
+          id="onb-sub"
               value={chosenSub ?? ''}
               onChange={chooseSubsector}
               options={[
@@ -422,6 +460,29 @@ export default function Client({
             <p className="onb-note" style={{ marginTop: 0 }}>
               {selected.size} módulos activos. Plan {planDef.label}.
             </p>
+            {/*
+              What the sector proposes and the plan does not carry.
+
+              Named here rather than left to be discovered: for most sectors
+              this list contains the module the sector is *about* — a clinic on
+              Starter has no «Pacientes» — and a module missing from the sidebar
+              with no explanation reads as the product being broken rather than
+              as a plan that can be changed. Same rule the empty dashboard
+              states in `PrimerosPasos`; said at the moment the sector is
+              chosen, which is when it is still a decision.
+            */}
+            {lockedByPlan.length > 0 && (
+              <p className="onb-note onb-locked">
+                Tu plan {planDef.label} no incluye{' '}
+                <b>{lockedByPlan.slice(0, 3).map((m) => m.label).join(', ')}</b>
+                {lockedByPlan.length > 3 && ` y ${lockedByPlan.length - 3} módulo${lockedByPlan.length - 3 === 1 ? '' : 's'} más`}
+                {(() => {
+                  const need = lowestPlanWith(lockedByPlan[0].key)
+                  return need ? `. Se activan desde el plan ${need.label}.` : '.'
+                })()}{' '}
+                Puedes terminar la configuración igual y cambiar de plan después.
+              </p>
+            )}
             {modulesByGroup().map(({ group, modules }) => {
               const usable = modules.filter((m) => allowed.has(m.key))
               if (usable.length === 0) return null
@@ -533,6 +594,7 @@ export default function Client({
 
             <label className="flabel" htmlFor="onb-invite-role">Rol</label>
             <Select
+          id="onb-invite-role"
               value={inviteForm.role}
               onChange={(v) => setInviteForm({ ...inviteForm, role: v })}
               options={roles.map((r) => ({ value: r.key, label: r.label }))}

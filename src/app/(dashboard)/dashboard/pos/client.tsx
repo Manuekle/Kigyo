@@ -755,13 +755,15 @@ export default function PosPage({ data }: { data: PosData }) {
                   onChange={(e) => setDiscount(e.target.value)} />
 
                 <label className="flabel" htmlFor="pv-method">Medio de pago</label>
-                <Select value={paymentMethod} onChange={setPaymentMethod}
+                <Select
+          id="pv-method" value={paymentMethod} onChange={setPaymentMethod}
                   options={[...paymentMethods]} />
 
                 {state.sites.length > 1 && (
                   <>
                     <label className="flabel" htmlFor="pv-site">Sucursal</label>
                     <Select
+          id="pv-site"
                       value={siteId}
                       onChange={setSiteId}
                       options={[

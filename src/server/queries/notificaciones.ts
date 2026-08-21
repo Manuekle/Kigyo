@@ -2,6 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { getMember } from '@/lib/auth/session'
 import { can, type Permission } from '@/lib/auth/permissions'
+import { todayIn } from '@/lib/domain'
 
 /**
  * The bell, derived from real rows.
@@ -41,7 +42,7 @@ export async function getNotificaciones(): Promise<Notificacion[]> {
   if (!member) return []
 
   const supabase = await createClient()
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayIn(member.orgTimezone)
   const out: Notificacion[] = []
 
   const wants = {

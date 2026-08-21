@@ -8,8 +8,8 @@ const FAQS = [
     a: 'Una plataforma de operación para tu negocio: CRM para clientes y ventas, ERP para inventario y compras, punto de venta con pagos, documentos con firma electrónica y gestión de personas con nómina. Se adapta al sector de tu empresa.',
   },
   {
-    q: '¿Necesito tarjeta de crédito para usar Kigyo?',
-    a: 'No. Los tres planes cuestan $0 y no pedimos método de pago en ningún momento.',
+    q: '¿Necesito tarjeta de crédito para registrarme?',
+    a: 'No para registrarte: creas la cuenta y configuras tu empresa sin método de pago. Los planes Starter y Growth se pagan cuando decides continuar, con los precios que ves en la página de Planes; Enterprise se cotiza en una llamada.',
   },
   {
     q: '¿Cómo elige Kigyo qué módulos uso?',
@@ -25,15 +25,15 @@ const FAQS = [
   },
   {
     q: '¿Qué pasa si supero el número de colaboradores de mi plan?',
-    a: 'Te avisaremos antes de que esto ocurra. Puedes cambiar de plan en cualquier momento desde la configuración de tu cuenta, sin perder información y sin costo.',
+    a: 'Kigyo no te deja pasarte del límite sin avisar: al invitar a alguien más te dice que el plan está lleno. Puedes cambiar de plan en cualquier momento desde Empresas, sin perder información — pagas la diferencia del plan nuevo, no un cargo aparte.',
   },
   {
-    q: '¿Kigyo cumple con la legislación laboral colombiana?',
-    a: 'Sí. Nómina, prestaciones sociales, vacaciones y documentos siguen lo que exige el Código Sustantivo del Trabajo, incluidas cesantías, prima de servicios y los aportes a seguridad social. Se actualizan cuando la normativa cambia.',
+    q: '¿Cómo maneja Kigyo la nómina colombiana?',
+    a: 'Nómina trabaja con reglas versionadas —salario mínimo, auxilio de transporte, porcentajes de seguridad social y parafiscales— que tu empresa carga y tu contador valida, y genera el archivo PILA. Los periodos cerrados quedan inmutables y con trazabilidad. Kigyo no fija por su cuenta las cifras de cada año: quien las aprueba es tu contador, y la plataforma te avisa mientras estén sin definir.',
   },
   {
     q: '¿Puedo migrar la información de mi negocio desde otra herramienta?',
-    a: 'Sí. Puedes importar tu nómina actual desde un archivo de Excel, o nuestro equipo puede acompañarte en la migración de clientes, inventario o documentos si nos escribes.',
+    a: 'Escríbenos y nuestro equipo te acompaña en la carga inicial de clientes, empleados, inventario o documentos. La importación por autoservicio desde Excel todavía no está disponible; la exportación sí, en todos los módulos.',
   },
   {
     q: '¿Cómo protege Kigyo los datos de mi empresa?',
@@ -41,7 +41,7 @@ const FAQS = [
   },
   {
     q: '¿Puedo dejar de usar Kigyo cuando quiera?',
-    a: 'Sí, no hay contratos ni permanencia. Puedes exportar la información de tu empresa y eliminar tu cuenta desde la configuración en cualquier momento.',
+    a: 'Sí, no hay contratos ni permanencia. Puedes exportar la información de cada módulo a Excel cuando quieras, y cancelar tu suscripción desde la configuración de la cuenta. Para borrar definitivamente los datos de tu empresa, escríbenos y lo hacemos según nuestra Política de privacidad.',
   },
 ]
 

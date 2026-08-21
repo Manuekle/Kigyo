@@ -376,8 +376,17 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
             {loadingInsights && <span className="ispin" />}
           </div>
           <div className="reclist">
+            {/* To the assistant, not to Riesgos.
+
+                Every row used to open `/dashboard/riesgos` whatever it was
+                about, which is wrong twice: the recommendation rarely concerns
+                a risk, and a company without the `riesgos` module — most of
+                them — hit `requirePermission` and got an error page from a
+                card on their own dashboard. The assistant is where the
+                recommendation came from and is the one module the panel has
+                already proven is on, since it does not render otherwise. */}
             {recs.map((r) => (
-              <button className="recrow" key={r.id} onClick={() => go('riesgos')}>
+              <button className="recrow" key={r.id} onClick={openAI}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
                     <span className={`badge b-${r.tone}`}><span className="bd" />{r.prioridad}</span>

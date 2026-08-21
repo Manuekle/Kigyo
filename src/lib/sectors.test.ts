@@ -5,8 +5,9 @@ import {
   COMPANY_TYPES, MANUAL_START, MODULE_KEYS, SUBSECTOR_PRESETS,
   applySectorDelta, presetFor,
 } from '@/lib/modules'
-import { missingHardDependencies, dependentsOf } from '@/lib/modules/registry'
-import { EMPTY_CATALOGUE, presetFromCatalogue, type SectorCatalogue } from '@/lib/sectors'
+import { CORE_MODULES, missingHardDependencies, dependentsOf } from '@/lib/modules/registry'
+import { EMPTY_CATALOGUE, presetFromCatalogue, proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
+import { PLAN_KEYS, planAllows, planModules, type PlanKey } from '@/lib/plans'
 
 const MIGRATIONS_DIR = resolve(process.cwd(), 'supabase/migrations')
 
@@ -264,5 +265,44 @@ describe('the delta arithmetic', () => {
 
   it('ignores a removal of something that was never there', () => {
     expect(applySectorDelta(['a'], { add: [], remove: ['z'] })).toEqual(['a'])
+  })
+})
+
+/**
+ * The wizard must never propose a selection its own server function refuses.
+ *
+ * `updateSector` rejects the whole write if any submitted key falls outside the
+ * plan, and the module step used to seed `selected` with the raw sector preset.
+ * Every one of the twenty-three sectors proposes modules Starter does not
+ * carry, so «Continuar» failed for every Starter customer on every sector —
+ * with an error naming modules that were not even on screen, since the toggle
+ * list *was* filtered by the plan. The only way out of the wizard was «Saltar».
+ *
+ * This pins the two halves together: whatever the client seeds must survive the
+ * server's gate, for every sector and every tier.
+ */
+describe('the wizard proposes only what the plan can save', () => {
+  const planGate = (plan: PlanKey, modules: string[]) =>
+    modules.filter((key) => !planAllows(plan, key))
+
+  it.each(PLAN_KEYS)('%s: no sector proposes a module the plan refuses', (plan) => {
+    const allowed = planModules(plan)
+    for (const sector of [null, ...COMPANY_TYPES.map((t) => t.key)]) {
+      // The very function onboarding/client.tsx seeds `selected` from.
+      const proposed = proposalForPlan(EMPTY_CATALOGUE, allowed, sector).included
+      // Exactly what updateSector submits, and what its gate checks.
+      const submitted = proposed.filter((k) => !CORE_MODULES.includes(k))
+      expect(planGate(plan, submitted), `sector ${sector ?? 'manual'} on ${plan}`).toEqual([])
+      expect(submitted.length, `sector ${sector ?? 'manual'} on ${plan} saves nothing`)
+        .toBeGreaterThan(0)
+    }
+  })
+
+  it('still proposes the sector module when the plan reaches it', () => {
+    // The filter must cut by plan, not gut the proposal: Growth carries the
+    // verticals, so a clinic on Growth still starts with `pacientes`.
+    const growth = planModules('growth')
+    const salud = proposalForPlan(EMPTY_CATALOGUE, growth, 'salud').included
+    expect(salud).toContain('pacientes')
   })
 })

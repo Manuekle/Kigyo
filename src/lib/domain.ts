@@ -206,6 +206,36 @@ export type ConsultationStatus = (typeof CONSULTATION_STATUSES)[number]
  * `new Date('2026-06-01T00:00:00')` is *local*, and mixing the two makes the
  * span shift by a day either side of a timezone offset.
  */
+/**
+ * Today's date in the company's own zone, as `YYYY-MM-DD`.
+ *
+ * Every day cut in the app used to be `new Date().toISOString().slice(0, 10)`,
+ * which is the date in **UTC** — the date wherever the server happens to be,
+ * not the date the business is having. On a Vercel deployment serving Bogotá
+ * (UTC-5, no DST) that rolls over at 19:00 local, so for the last five hours of
+ * every day the product was a day ahead of its customer: "Ventas de hoy"
+ * filtered `sold_at >= tomorrow` and showed zero through a restaurant's dinner
+ * service, and every `..._on: today` write filed an evening's work under the
+ * next day's date.
+ *
+ * `en-CA` because it formats as `YYYY-MM-DD`, which is the shape Postgres
+ * `date` columns and every `.gte(...)` filter in the app already speak. An
+ * unknown zone would make `Intl` throw, and a company is not worth failing a
+ * page over — it falls back to UTC, which is what the code did before.
+ */
+export function todayIn(timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date())
+  } catch {
+    return new Date().toISOString().slice(0, 10)
+  }
+}
+
 export function dayCount(startsOn: string, endsOn: string): number {
   const from = Date.parse(`${startsOn}T00:00:00Z`)
   const to = Date.parse(`${endsOn}T00:00:00Z`)

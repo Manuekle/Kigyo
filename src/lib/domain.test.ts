@@ -1,10 +1,10 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import * as domain from './domain'
 import {
   ASSET_STATUSES, assetStatusFor, dayCount, lineTotalCents, pesosToCents,
-  projectStateError, rangesOverlap, sumLinesCents,
+  projectStateError, rangesOverlap, sumLinesCents, todayIn,
 } from './domain'
 
 /**
@@ -129,6 +129,35 @@ describe('severity and priority are kept apart on HSEQ', () => {
     expect(domain.HSEQ_SEVERITIES.length).toBeGreaterThan(domain.HSEQ_PRIORITIES.length)
     expect(domain.HSEQ_SEVERITIES).toContain('Crítica')
     expect(domain.HSEQ_PRIORITIES).not.toContain('Crítica')
+  })
+})
+
+describe('todayIn', () => {
+  const at = (iso: string, tz: string) => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(iso))
+    try {
+      return todayIn(tz)
+    } finally {
+      vi.useRealTimers()
+    }
+  }
+
+  it('is the company’s date, not the server’s', () => {
+    // 00:30 UTC on the 11th is 19:30 on the 10th in Bogotá. This is the case
+    // that made "Ventas de hoy" read zero through a restaurant's dinner
+    // service: the filter asked for sales on or after the 11th.
+    expect(at('2026-08-11T00:30:00Z', 'America/Bogota')).toBe('2026-08-10')
+    expect(at('2026-08-11T00:30:00Z', 'UTC')).toBe('2026-08-11')
+  })
+
+  it('crosses forward as well as back', () => {
+    // Madrid is ahead: 23:30 UTC is already the next day there.
+    expect(at('2026-08-10T23:30:00Z', 'Europe/Madrid')).toBe('2026-08-11')
+  })
+
+  it('falls back to UTC rather than throwing on an unknown zone', () => {
+    expect(at('2026-08-11T00:30:00Z', 'Marte/Olympus')).toBe('2026-08-11')
   })
 })
 

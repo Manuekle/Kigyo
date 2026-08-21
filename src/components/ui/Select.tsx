@@ -14,11 +14,24 @@ interface SelectProps {
   placeholder?: string
   className?: string
   style?: React.CSSProperties
+  /**
+   * Lands on the trigger, so a `<label htmlFor>` above it actually points at
+   * something.
+   *
+   * This component had no `id`, and twenty-six labels across the app were
+   * written as if it did — `<label htmlFor="onb-country">` over a `<Select>`
+   * that rendered a `<button>` with no id at all. To a sighted user the label
+   * reads fine; to a screen reader the control is an unnamed button, and
+   * clicking the label focuses nothing.
+   */
+  id?: string
+  /** For the cases with no visible label of their own. */
+  ariaLabel?: string
 }
 
 const norm = (o: Opt) => (typeof o === 'string' ? { value: o, label: o } : o)
 
-export default function Select({ value, onChange, options, placeholder = 'Seleccionar…', className = '', style }: SelectProps) {
+export default function Select({ value, onChange, options, placeholder = 'Seleccionar…', className = '', style, id, ariaLabel }: SelectProps) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
@@ -82,6 +95,8 @@ export default function Select({ value, onChange, options, placeholder = 'Selecc
       <button
         type="button"
         ref={ref}
+        id={id}
+        aria-label={ariaLabel}
         className={`nselect-trigger${open ? ' open' : ''}`}
         aria-haspopup="listbox"
         aria-expanded={open}

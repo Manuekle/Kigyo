@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import {
   ACADEMIC_ENROLLMENT_STATUSES, STUDENT_STATUSES, type AcademicEnrollmentStatus,
+  todayIn,
 } from '@/lib/domain'
 import { belongsToOrg } from '@/server/queries/shared'
 import { getEstudiantes, type EstudiantesData } from '@/server/queries/estudiantes'
@@ -159,7 +160,7 @@ export async function createEstudiante(
     const parsed = studentSchema.safeParse(input)
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
-    if (parsed.data.birthDate && parsed.data.birthDate > new Date().toISOString().slice(0, 10)) {
+    if (parsed.data.birthDate && parsed.data.birthDate > todayIn(member.orgTimezone)) {
       return fail('La fecha de nacimiento no puede estar en el futuro.')
     }
 
@@ -202,7 +203,7 @@ export async function updateEstudiante(
     const parsed = studentUpdateSchema.safeParse(input)
     if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
 
-    if (parsed.data.birthDate && parsed.data.birthDate > new Date().toISOString().slice(0, 10)) {
+    if (parsed.data.birthDate && parsed.data.birthDate > todayIn(member.orgTimezone)) {
       return fail('La fecha de nacimiento no puede estar en el futuro.')
     }
 

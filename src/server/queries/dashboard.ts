@@ -2,6 +2,8 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { can, type Permission } from '@/lib/auth/permissions'
+import { cop } from '@/lib/utils'
+import { todayIn } from '@/lib/domain'
 import type { Member } from '@/lib/auth/session'
 
 /**
@@ -25,6 +27,14 @@ export interface DashboardKpi {
   value: string
   sub: string
   tone: 'blu' | 'grn' | 'amb' | 'red' | 'neu' | 'vio'
+  /**
+   * Whether this tile is reporting nothing, as a fact rather than as a string
+   * comparison. Counts render as `'0'` and answer for themselves; a formatted
+   * amount renders as `'$ 0'` and does not, which quietly made `isEmpty` false
+   * for every company with `pos` on — precisely the shops and restaurants that
+   * most needed the getting-started panel.
+   */
+  zero?: boolean
 }
 
 export interface DashboardPendiente {
@@ -111,7 +121,7 @@ export async function getDashboard(): Promise<DashboardData> {
   const member = await requirePermission('dashboard:read')
   const supabase = await createClient()
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayIn(member.orgTimezone)
   const sixMonthsAgo = new Date()
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5)
   sixMonthsAgo.setDate(1)
@@ -253,13 +263,18 @@ export async function getDashboard(): Promise<DashboardData> {
   // decides the modules in onboarding; the dashboard then follows the modules.
   const ventasHoyRows = ((ventasHoy as { data: Array<{ total_cents: number }> | null }).data ?? [])
   if (wants.ventas) {
+    // `total_cents` is cents, and every other screen divides before formatting
+    // (`cop(row.totalCents / 100)`). This tile formatted the raw column, so a
+    // day of $250.000 in sales read as $25.000.000 on the one screen an owner
+    // looks at first.
     const hoy = ventasHoyRows.reduce((sum, s) => sum + s.total_cents, 0)
     kpis.push({
       key: 'ventas', label: 'Ventas de hoy', tone: 'grn',
-      value: new Intl.NumberFormat('es-CO', {
-        style: 'currency', currency: 'COP', maximumFractionDigits: 0,
-      }).format(hoy),
+      value: cop(Math.round(hoy / 100)),
       sub: ventasHoyRows.length === 0 ? 'aún sin ventas' : `${ventasHoyRows.length} ${ventasHoyRows.length === 1 ? 'venta' : 'ventas'}`,
+      // The formatted value is never the string '0', so `isEmpty` cannot read
+      // this tile the way it reads a count. Stated as a number instead.
+      zero: hoy === 0,
     })
   }
 
@@ -354,7 +369,7 @@ export async function getDashboard(): Promise<DashboardData> {
     // zeros on screen — the two would drift the moment a KPI changed shape.
     isEmpty:
       kpis.length > 0 &&
-      kpis.every((k) => k.value === '0') &&
+      kpis.every((k) => k.zero ?? k.value === '0') &&
       pendientes.length === 0 &&
       riesgoRows.length === 0,
   }

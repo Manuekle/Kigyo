@@ -84,6 +84,18 @@ export interface Member {
   orgId: string
   orgName: string
   orgSlug: string
+  /**
+   * The company's IANA zone, which is what "today" means for this business.
+   *
+   * Collected in onboarding (defaulted from the country) and stored since
+   * migration 30, but read by nothing until now: every day cut in the app was
+   * `new Date().toISOString().slice(0, 10)`, which is the *UTC* date. On a
+   * Vercel deployment that is the server's date, so from 19:00 in Bogotá
+   * onward every "today" in the product silently became tomorrow — "Ventas de
+   * hoy" dropped to zero for the busiest hours of a shop's day, and anything
+   * stamped with today's date during the evening was filed under the wrong one.
+   */
+  orgTimezone: string
   companyType: string | null
   /**
    * The kind of business inside the sector, when the customer named one.
@@ -198,7 +210,7 @@ export const getMember = cache(async (): Promise<Member | null> => {
       `role,
        org_id,
        organizations!inner (
-         name, slug, company_type, subsector, enabled_modules, status, setup_completed_at,
+         name, slug, company_type, subsector, enabled_modules, status, setup_completed_at, timezone,
          accounts ( id, name, plan, onboarding_completed_at )
        ),
        profiles!inner ( email, full_name, avatar_url )`,
@@ -217,6 +229,7 @@ export const getMember = cache(async (): Promise<Member | null> => {
     enabled_modules: string[] | null
     status: 'active' | 'suspended'
     setup_completed_at: string | null
+    timezone: string | null
     accounts: {
       id: string
       name: string
@@ -328,6 +341,9 @@ export const getMember = cache(async (): Promise<Member | null> => {
     orgId: active.orgId,
     orgName: org.name,
     orgSlug: org.slug,
+    // The column is `not null default 'America/Bogota'`, so the fallback only
+    // covers a row read before migration 30 landed.
+    orgTimezone: org.timezone || 'America/Bogota',
     companyType: org.company_type,
     subsector: org.subsector,
     setupCompleted: org.setup_completed_at !== null,

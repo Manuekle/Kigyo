@@ -1057,6 +1057,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
           <div>
             <label className="flabel" htmlFor="nota-kind">Tipo</label>
             <Select
+          id="nota-kind"
               value={notaForm.kind}
               onChange={(v) => setNotaForm({ ...notaForm, kind: v })}
               options={['Parcial', 'Corte', 'Quiz', 'Tarea', 'Examen final', 'Otro']}
