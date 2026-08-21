@@ -11,7 +11,7 @@ import Toggle from '@/components/ui/Toggle'
 import { useApp } from '@/lib/context/AppContext'
 import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
-import { PRODUCT_UNITS } from '@/lib/domain'
+import { PRODUCT_UNITS, netFromGross, taxWithin } from '@/lib/domain'
 import LoadMore from '@/components/ui/LoadMore'
 import type { ProductosData, ProductoRow } from '@/server/queries/productos'
 import { createProducto, deleteProducto, updateProducto } from '@/server/mutations/productos'
@@ -28,7 +28,7 @@ const margin = (priceCents: number, costCents: number) =>
 
 const EMPTY = {
   sku: '', barcode: '', name: '', category: '', description: '', unit: 'UN',
-  price: '', cost: '', stock: '', supplier: '', isActive: true, inStorefront: true,
+  price: '', taxRate: '0', cost: '', stock: '', supplier: '', isActive: true, inStorefront: true,
 }
 
 type FormState = typeof EMPTY
@@ -43,6 +43,7 @@ function toForm(p: ProductoRow): FormState {
     unit: p.unit,
     // Cents in the column, pesos in the field.
     price: String(p.priceCents / 100),
+    taxRate: String(p.taxRate ?? 0),
     cost: String((p.costCents ?? 0) / 100),
     stock: String(p.stock),
     supplier: p.supplier,
@@ -115,6 +116,7 @@ export default function CatalogosPage({ data }: { data: ProductosData }) {
       description: f.description.trim(),
       unit: f.unit as (typeof PRODUCT_UNITS)[number],
       priceCents: Math.round((Number(f.price) || 0) * 100),
+      taxRate: Math.min(100, Math.max(0, Number(f.taxRate) || 0)),
       costCents: Math.round((Number(f.cost) || 0) * 100),
       stock: Math.max(0, Math.round(Number(f.stock) || 0)),
       supplier: f.supplier.trim(),
@@ -341,13 +343,34 @@ function ProductoModal({
           </datalist>
           <div className="fg2">
             <div>
-              <div className="flabel">Precio venta (COP)</div>
+              {/* «con IVA» dicho en la etiqueta y no en un texto de ayuda: es
+                  la diferencia entre cobrar 11.900 y cobrar 14.161, y quien
+                  llena el campo lo decide en ese momento. */}
+              <div className="flabel">Precio venta con IVA (COP)</div>
               <input className="field" type="number" min={0} placeholder="0" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} />
             </div>
+            <div>
+              <div className="flabel">IVA (%)</div>
+              <input className="field" type="number" min={0} max={100} step="0.01" placeholder="0" value={form.taxRate} onChange={(e) => setForm((p) => ({ ...p, taxRate: e.target.value }))} />
+            </div>
+          </div>
+          {/* Lo que el precio deja para la empresa, calculado mientras se
+              escribe. Sin esto, «19» es un número abstracto justo donde hace
+              falta ver qué le hace al margen. */}
+          {Number(form.taxRate) > 0 && Number(form.price) > 0 && (
+            <div className="onb-note" style={{ marginTop: 6 }}>
+              De {cop(Number(form.price))} el cliente paga{' '}
+              <b>{cop(taxWithin(Number(form.price), Number(form.taxRate)))}</b>{' '}
+              de IVA; a la empresa le quedan{' '}
+              <b>{cop(netFromGross(Number(form.price), Number(form.taxRate)))}</b>.
+            </div>
+          )}
+          <div className="fg2">
             <div>
               <div className="flabel">Costo (COP)</div>
               <input className="field" type="number" min={0} placeholder="0" value={form.cost} onChange={(e) => setForm((p) => ({ ...p, cost: e.target.value }))} />
             </div>
+            <div />
           </div>
           <div className="fg2">
             <div>

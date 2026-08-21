@@ -28,6 +28,9 @@ const baseSchema = z.object({
   unit: z.enum(PRODUCT_UNITS).default('UN'),
   priceCents: z.number().int().min(0, 'El precio no puede ser negativo.').default(0),
   costCents: z.number().int().min(0, 'El costo no puede ser negativo.').default(0),
+  // El precio ya lo incluye; esto solo declara cuánto de él es impuesto, para
+  // que el POS lo pueda desglosar y la factura descontarlo. Ver migración 104.
+  taxRate: z.number().min(0, 'La tasa no puede ser negativa.').max(100, 'La tasa no puede pasar de 100.').default(0),
   stock: z.number().int().min(0, 'El stock no puede ser negativo.').default(0),
   supplier: z.string().trim().max(160).default(''),
   isActive: z.boolean().default(true),
@@ -58,6 +61,7 @@ export async function createProducto(
       unit: parsed.data.unit,
       price_cents: parsed.data.priceCents,
       cost_cents: parsed.data.costCents,
+      tax_rate: parsed.data.taxRate,
       supplier: parsed.data.supplier,
       is_active: parsed.data.isActive,
       in_storefront: parsed.data.inStorefront,
@@ -123,6 +127,7 @@ export async function updateProducto(
         unit: parsed.data.unit,
         price_cents: parsed.data.priceCents,
         cost_cents: parsed.data.costCents,
+        tax_rate: parsed.data.taxRate,
         // `stock` fuera: es derivada. El cambio de existencia que este
         // formulario proponga se convierte en un ajuste, más abajo.
         supplier: parsed.data.supplier,

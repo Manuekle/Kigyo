@@ -103,6 +103,9 @@ function printReceipt(sale: SaleRow, prefs: ReceiptPrefs, orgName: string) {
         ? `<div><span>Descuento</span><span>-${pesos(sale.discountCents)}</span></div>`
         : ''}
       <div class="grand"><span>Total</span><span>${pesos(sale.totalCents)}</span></div>
+      ${sale.taxCents > 0
+        ? `<div><span>IVA incluido</span><span>${pesos(sale.taxCents)}</span></div>`
+        : ''}
       <div><span>Pago</span><span>${esc(sale.paymentMethod)}</span></div>
     </div>
     <div class="foot">${esc(prefs.footer)}</div>

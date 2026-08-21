@@ -30,7 +30,10 @@ export interface ProductoRow {
   category: string
   description: string
   unit: string
+  /** Precio CON IVA incluido — lo que paga el cliente (migración 104). */
   priceCents: number
+  /** Cuánto de `priceCents` es impuesto, en porcentaje. */
+  taxRate: number
   /** Null in the storefront projection — never sent where it is not needed. */
   costCents: number | null
   stock: number
@@ -56,6 +59,7 @@ interface ProductRecord {
   description: string
   unit: string
   price_cents: number
+  tax_rate: number
   cost_cents?: number
   stock: number
   supplier: string
@@ -64,7 +68,7 @@ interface ProductRecord {
 }
 
 const BASE_COLUMNS =
-  'id, sku, barcode, name, category, description, unit, price_cents, stock, supplier, is_active, in_storefront'
+  'id, sku, barcode, name, category, description, unit, price_cents, tax_rate, stock, supplier, is_active, in_storefront'
 
 export type ProductScope = 'catalogos' | 'tienda'
 
@@ -78,6 +82,7 @@ function toProducto(row: ProductRecord): ProductoRow {
     description: row.description,
     unit: row.unit,
     priceCents: Number(row.price_cents),
+    taxRate: Number(row.tax_rate),
     costCents: row.cost_cents === undefined ? null : Number(row.cost_cents),
     stock: row.stock,
     supplier: row.supplier,

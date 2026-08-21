@@ -48,6 +48,8 @@ export interface SaleRow {
   code: string | null
   customerName: string
   subtotalCents: number
+  /** IVA contenido DENTRO de `totalCents`, no sumado a él. Ver migración 104. */
+  taxCents: number
   discountCents: number
   totalCents: number
   paymentMethod: string
@@ -105,6 +107,7 @@ interface SaleRecord {
   customer_name: string
   subtotal_cents: number
   discount_cents: number
+  tax_cents: number
   total_cents: number
   payment_method: string
   status: string
@@ -115,7 +118,7 @@ interface SaleRecord {
   site_id: string | null
 }
 
-const SALE_COLUMNS = `id, code, customer_name, subtotal_cents, discount_cents,
+const SALE_COLUMNS = `id, code, customer_name, subtotal_cents, discount_cents, tax_cents,
    total_cents, payment_method, status, sold_at, sold_by, notes, session_id, site_id`
 
 /**
@@ -171,6 +174,7 @@ function toSale(row: SaleRecord, items: SaleItemRow[], names: Map<string, string
     code: row.code,
     customerName: row.customer_name,
     subtotalCents: row.subtotal_cents,
+    taxCents: row.tax_cents,
     discountCents: row.discount_cents,
     totalCents: row.total_cents,
     paymentMethod: row.payment_method,

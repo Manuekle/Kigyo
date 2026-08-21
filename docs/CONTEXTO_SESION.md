@@ -26,8 +26,8 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 276/276 · tsc 0 · build verde · e2e 6/6 (`workers: 1` obligatorio).
-- Remota: migraciones 1–103 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
+- vitest 281/281 · tsc 0 · build verde · e2e 6/6 (`workers: 1` obligatorio).
+- Remota: migraciones 1–104 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
 - Working tree limpio, branch pusheada.
 - 0 residuos E2E en remota.
@@ -417,6 +417,61 @@ RESTRICTIVE» iteraba `[, body]` sobre un regex **sin grupo de captura**, así q
 todas las políticas de sucursal salían de `app.add_site_scope`. Corregido a
 `match[0]` y comprobado que ahora falla si se escribe una permissive.
 
+### Fase 4 — IVA real, y `price_cents` con un solo significado (mig 104)
+
+Dos hechos medidos: `pos_sales.tax_cents` existe desde la mig 43 y **nunca lo
+escribe nadie** (ninguna función lo menciona, las 5 ventas lo tienen en 0); y
+—lo grave— `products.price_cents` ya significaba dos cosas:
+
+```
+POS          cobra ese número tal cual   → precio CON IVA
+Facturación  lo copia a la línea y suma  → precio SIN IVA
+```
+
+`facturacion/client.tsx` escribía `product.priceCents` en `unitPrice` y
+`totalsOf()` hace `total = subtotal + tax`. **Facturar un producto a su precio
+de góndola cobraba 19% de más.** Eso es peor que lo que la auditoría anotó como
+§23-8, que además se equivocaba: dijo que la columna no existía.
+
+**La decisión:** `price_cents` es el precio CON IVA — lo que se paga en
+mostrador. Es lo que el POS ya hacía, lo que exige el etiquetado al público en
+Colombia, y la única lectura que no sube ningún precio existente. La contraria
+habría subido cada producto un 19% en silencio el día del despliegue.
+
+- POS **extrae**: `impuesto = bruto × tasa / (100 + tasa)`. El total que paga el
+  cliente es idéntico al de hoy; lo único que deja de ser 0 es `tax_cents`.
+- Factura **convierte** al copiar: `neto = bruto ÷ (1 + tasa/100)`, y arrastra la
+  tasa, así que su `total = subtotal + tax` vuelve al mismo precio de góndola.
+
+**`pos_sales` NO adopta `total = subtotal + tax`, y está escrito en la migración
+para que nadie lo «arregle»:** el recibo imprime `Subtotal − Descuento = Total`
+y un cliente lo comprueba con la vista. `tax_cents` no se suma a nada — dice
+cuánto de ese total ya era impuesto. Recibo de mostrador y factura B2B presentan
+el IVA distinto en la vida real, y forzar una sola forma es lo que produjo el
+bug del 19%.
+
+`products.tax_rate` por producto (en Colombia conviven 19%, 5% y exentos) y por
+defecto **0**, no 19: estrenar impuesto sobre catálogos que nadie revisó es
+cambiarle los números a alguien sin preguntar. `pos_sale_items` guarda `tax_rate`
+y `tax_cents` por línea — copiados, no referenciados, para que el recibo siga
+diciendo lo mismo si el producto cambia de tasa mañana, y porque el UBL de DIAN
+los pedirá por línea.
+
+El descuento se reparte proporcionalmente antes de extraer: cobrar menos y
+declarar el IVA del precio de lista sería declarar un impuesto que nadie pagó.
+Verificado: 11.900@19% → IVA 1.900; con 1.000 de descuento → IVA 1.740; carrito
+mixto 19%+exento → IVA 1.900 y la línea exenta en 0.
+
+`taxWithin()` y `netFromGross()` en `lib/domain.ts` porque la fórmula la
+necesitaban tres sitios. Pinneadas con la prueba que importa: **no** es
+`bruto × tasa/100`, que sobre un precio con IVA declara 361 de más por unidad.
+
+**Alcance corregido.** Dije que esto desbloqueaba el puente a DIAN desde
+mostrador. No existe tal puente: `dian.ts` solo lee `invoices`. Una venta POS
+tendría que convertirse en factura primero, y eso es función nueva, no
+reparación. El dato por línea se guarda ahora porque solo existe en el momento
+de la venta.
+
 ### Deuda abierta que salió de la auditoría
 
 1. **Moneda.** Onboarding ofrece 8 países y 7 monedas, las guarda, y `cop()` en
@@ -481,6 +536,18 @@ marketing) quedaron hechos 2026-08-20 — ver §4.
 ### E2e
 
 - `workers: 1` SIEMPRE — specs comparten demo user/org/DB; paralelo revienta fixtures.
+- **Nunca dos `npx playwright test` a la vez**, ni aunque cada uno lleve
+  `workers: 1`: son dos procesos contra el mismo usuario, la misma empresa y la
+  misma base. Pasó dos veces en la jornada del 21 y las dos se leyó como
+  regresión: la primera dejó a `embudo` en la pantalla de login, la segunda
+  tumbó `company-switch`. La señal para reconocerlo es el tiempo — la suite
+  entera tarda ~2,3 min; si un archivo solo marca «Slow test file: 11.9m», hay
+  otra corrida compitiendo.
+- **El dev server se degrada en sesiones largas.** Tras ~100 recompilaciones HMR
+  la suite pasó de 2,3 min a 16,8 y cayeron specs que no tocaban lo cambiado
+  (`nomina` 34s → 15,1m, con 0% de CPU en el proceso). Reiniciarlo lo devuelve a
+  la normalidad. Antes de investigar un fallo de e2e por lentitud, mirar cuánto
+  lleva vivo el servidor.
 - `test.slow()` en specs de módulo (dian ~24s, marketing ~26s, nomina ~32s, pos ~15-18s).
 - TabBar = `role="tab"`, no button. Toasts también `role=status` — selectores compuestos `.pos-warn[role=status]`.
 - Download event flaky — assert vía `waitForResponse` `/api/v1/export*` + content-disposition.

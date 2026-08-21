@@ -236,6 +236,31 @@ export function todayIn(timeZone: string): string {
   }
 }
 
+/**
+ * El IVA contenido en un precio que ya lo incluye.
+ *
+ * `products.price_cents` es el precio con impuesto (migración 104): lo que el
+ * cliente paga en el mostrador. Estas dos funciones son las dos mitades de esa
+ * decisión, y viven aquí porque tres sitios necesitan la misma aritmética —
+ * `register_pos_sale` en SQL, la nota del catálogo mientras se escribe el
+ * precio, y la conversión a neto al pasar un producto a una línea de factura.
+ *
+ * La fórmula NO es `bruto × tasa/100`. Ese es el impuesto de un precio sin IVA,
+ * y aplicarlo a uno que ya lo lleva declara de más: de 11.900 al 19% saldrían
+ * 2.261 en vez de 1.900. Sobre un precio con impuesto incluido se despeja:
+ *
+ *     bruto = neto × (1 + tasa/100)   ⟹   impuesto = bruto × tasa / (100 + tasa)
+ */
+export function taxWithin(grossCents: number, ratePercent: number): number {
+  if (ratePercent <= 0 || grossCents <= 0) return 0
+  return Math.round((grossCents * ratePercent) / (100 + ratePercent))
+}
+
+/** Lo que queda para la empresa: el bruto sin el impuesto que contiene. */
+export function netFromGross(grossCents: number, ratePercent: number): number {
+  return grossCents - taxWithin(grossCents, ratePercent)
+}
+
 export function dayCount(startsOn: string, endsOn: string): number {
   const from = Date.parse(`${startsOn}T00:00:00Z`)
   const to = Date.parse(`${endsOn}T00:00:00Z`)

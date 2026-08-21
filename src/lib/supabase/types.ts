@@ -7214,6 +7214,8 @@ export interface Database {
           quantity: number
           unit_price_cents: number
           total_cents: number
+          tax_rate: number
+          tax_cents: number
         }
         Insert: {
           id?: string
@@ -7224,6 +7226,8 @@ export interface Database {
           quantity: number
           unit_price_cents?: number
           total_cents?: number
+          tax_rate?: number
+          tax_cents?: number
         }
         Update: {
           id?: string
@@ -7234,6 +7238,8 @@ export interface Database {
           quantity?: number
           unit_price_cents?: number
           total_cents?: number
+          tax_rate?: number
+          tax_cents?: number
         }
         Relationships: [
           {
@@ -7720,6 +7726,7 @@ export interface Database {
           deleted_at: string | null
           barcode: string
           supplier_id: string | null
+          tax_rate: number
         }
         Insert: {
           id?: string
@@ -7741,6 +7748,7 @@ export interface Database {
           deleted_at?: string | null
           barcode?: string
           supplier_id?: string | null
+          tax_rate?: number
         }
         Update: {
           id?: string
@@ -7762,6 +7770,7 @@ export interface Database {
           deleted_at?: string | null
           barcode?: string
           supplier_id?: string | null
+          tax_rate?: number
         }
         Relationships: [
           {

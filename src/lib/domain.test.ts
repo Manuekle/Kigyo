@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import * as domain from './domain'
 import {
   ASSET_STATUSES, assetStatusFor, dayCount, lineTotalCents, pesosToCents,
-  projectStateError, rangesOverlap, sumLinesCents, todayIn,
+  netFromGross, projectStateError, rangesOverlap, sumLinesCents, taxWithin, todayIn,
 } from './domain'
 
 /**
@@ -312,5 +312,40 @@ describe('rangesOverlap', () => {
     for (const [aS, aE, bS, bE] of cases) {
       expect(rangesOverlap(aS, aE, bS, bE)).toBe(rangesOverlap(bS, bE, aS, aE))
     }
+  })
+})
+
+/**
+ * La convención del IVA, que es la única forma de que tres implementaciones
+ * —el RPC en SQL, el catálogo y la factura— no se contradigan.
+ */
+describe('IVA sobre precio con impuesto incluido', () => {
+  it('extrae, no suma', () => {
+    // El caso canónico: 11.900 al 19% contiene 1.900 de IVA sobre 10.000.
+    expect(taxWithin(11_900, 19)).toBe(1_900)
+    expect(netFromGross(11_900, 19)).toBe(10_000)
+    // Y el redondo vuelve: neto × 1,19 = bruto.
+    expect(Math.round(10_000 * 1.19)).toBe(11_900)
+  })
+
+  it('no confunde la fórmula con la del precio sin IVA', () => {
+    // `bruto × tasa/100` daría 2.261 y declararía 361 de más por unidad. Es el
+    // error que esta prueba existe para que no vuelva.
+    expect(taxWithin(11_900, 19)).not.toBe(Math.round(11_900 * 0.19))
+  })
+
+  it('trata exento y excluido como lo que son: cero', () => {
+    expect(taxWithin(5_000, 0)).toBe(0)
+    expect(netFromGross(5_000, 0)).toBe(5_000)
+  })
+
+  it('soporta la tasa reducida de la canasta', () => {
+    // 5% sobre 10.500 → 500 de IVA sobre 10.000.
+    expect(taxWithin(10_500, 5)).toBe(500)
+  })
+
+  it('nunca devuelve impuesto sobre un importe no positivo', () => {
+    expect(taxWithin(0, 19)).toBe(0)
+    expect(taxWithin(-100, 19)).toBe(0)
   })
 })

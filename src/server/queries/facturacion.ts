@@ -102,7 +102,10 @@ export interface ProductRef {
   id: string
   sku: string
   name: string
+  /** Precio CON IVA incluido — lo que se cobra en mostrador (migración 104). */
   priceCents: number
+  /** Tasa del producto, para poder descontarla al pasar el precio a la línea. */
+  taxRate: number
 }
 
 export interface FacturacionData {
@@ -215,7 +218,7 @@ async function productsFor(supabase: Supabase, member: Member, limit = 200): Pro
   if (!allows(member, 'catalogos:read')) return []
   const { data, error } = await supabase
     .from('products')
-    .select('id, sku, name, price_cents')
+    .select('id, sku, name, price_cents, tax_rate')
     .eq('org_id', member.orgId)
     .is('deleted_at', null)
     .order('name', { ascending: true })
@@ -226,6 +229,7 @@ async function productsFor(supabase: Supabase, member: Member, limit = 200): Pro
   }
   return (data ?? []).map((r) => ({
     id: r.id, sku: r.sku, name: r.name, priceCents: r.price_cents,
+    taxRate: Number(r.tax_rate),
   }))
 }
 

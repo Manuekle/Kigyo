@@ -13,7 +13,7 @@ import LoadMore from '@/components/ui/LoadMore'
 import { useApp } from '@/lib/context/AppContext'
 import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
-import { INVOICE_STATUSES, PAYMENT_METHODS } from '@/lib/domain'
+import { INVOICE_STATUSES, PAYMENT_METHODS, netFromGross } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import type { FacturacionData, InvoiceRow } from '@/server/queries/facturacion'
 import {
@@ -584,13 +584,31 @@ export default function FacturacionPage({ data }: { data: FacturacionData }) {
                 value={item.productId}
                 onChange={(v) => {
                   const product = data.productos.find((p) => p.id === v)
+                  /*
+                   * El precio del catálogo viene CON IVA (migración 104) y esta
+                   * línea lo lleva SIN él, porque `totalsOf()` suma el impuesto
+                   * encima. Copiarlo tal cual —que es lo que se hacía— facturaba
+                   * el precio de góndola más un 19%: al cliente se le cobraba de
+                   * más y nadie en el código lo desmentía.
+                   *
+                   * Se convierte al pasarlo: neto = bruto ÷ (1 + tasa/100), y la
+                   * tasa del producto viaja con él, así que el total de la
+                   * factura vuelve exactamente al precio de góndola.
+                   *
+                   * Sigue siendo un punto de partida y no un candado: ambos
+                   * campos quedan editables, porque una línea negociada es
+                   * normal en una factura y no lo es en el mostrador.
+                   */
+                  const rate = product ? product.taxRate : 0
+                  const netPrice = product
+                    ? netFromGross(product.priceCents, rate) / 100
+                    : null
                   setDraftItems((prev) => prev.map((row, i) => i === index ? {
                     ...row,
                     productId: v,
                     description: product ? product.name : row.description,
-                    // The catalogue price is a starting point, not a lock: a
-                    // negotiated line is normal and the field stays editable.
-                    unitPrice: product ? String(Math.round(product.priceCents / 100)) : row.unitPrice,
+                    unitPrice: netPrice !== null ? String(Math.round(netPrice)) : row.unitPrice,
+                    taxRate: product ? String(rate) : row.taxRate,
                   } : row))
                 }}
                 placeholder="Producto del catálogo (opcional)"
