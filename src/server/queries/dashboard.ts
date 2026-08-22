@@ -140,11 +140,14 @@ export async function getDashboard(): Promise<DashboardData> {
     leads: allows(member, 'leads:read'),
     cotizaciones: allows(member, 'cotizaciones:read'),
     inventario: allows(member, 'inventario:read'),
+    hoteleria: allows(member, 'hoteleria:read'),
+    pacientes: allows(member, 'pacientes:read'),
   }
 
   const [
     empleados, firmasPend, firmasHist, riesgos, tickets, proyectos, documentos, audit,
     ventasHoy, clientesAct, leadsAct, cotizAbiertas, prodActivos,
+    habVendibles, habOcupadas, pacientesAct,
   ] = await Promise.all([
     wants.empleados
       ? supabase.from('employees').select('id', { count: 'exact', head: true })
@@ -206,6 +209,25 @@ export async function getDashboard(): Promise<DashboardData> {
     wants.inventario
       ? supabase.from('products').select('id', { count: 'exact', head: true })
           .eq('org_id', member.orgId).is('deleted_at', null).eq('is_active', true)
+      : Promise.resolve({ count: null }),
+    // Rooms sellable tonight. Out-of-service rooms leave the denominator:
+    // a hotel with two rooms under repair is not running at lower occupancy,
+    // it has fewer rooms.
+    wants.hoteleria
+      ? supabase.from('hotel_rooms').select('id', { count: 'exact', head: true })
+          .eq('org_id', member.orgId).is('deleted_at', null)
+          .not('status', 'in', '(Mantenimiento,Bloqueada)')
+      : Promise.resolve({ count: null }),
+    // Reservations spanning tonight, deduplicated by room in the KPI below.
+    wants.hoteleria
+      ? supabase.from('reservations').select('room_id')
+          .eq('org_id', member.orgId).is('deleted_at', null)
+          .lte('checkin_on', today).gt('checkout_on', today)
+          .not('status', 'in', '(Cancelada,Check-out,No show)')
+      : Promise.resolve({ data: [] }),
+    wants.pacientes
+      ? supabase.from('patients').select('id', { count: 'exact', head: true })
+          .eq('org_id', member.orgId).is('deleted_at', null).eq('status', 'Activo')
       : Promise.resolve({ count: null }),
   ])
 
@@ -307,6 +329,28 @@ export async function getDashboard(): Promise<DashboardData> {
     kpis.push({
       key: 'inventario', label: 'Productos activos', tone: 'neu',
       value: String(prodCount), sub: 'en catálogo',
+    })
+  }
+
+  const habCount = (habVendibles as { count: number | null }).count
+  if (wants.hoteleria && habCount !== null && habCount > 0) {
+    const ocupadas = new Set(
+      ((habOcupadas as { data: Array<{ room_id: string }> | null }).data ?? [])
+        .map((r) => r.room_id),
+    ).size
+    kpis.push({
+      key: 'ocupacion', label: 'Ocupación de hoy', tone: 'blu',
+      value: `${Math.round((ocupadas / habCount) * 100)}%`,
+      sub: `${ocupadas} de ${habCount} ${habCount === 1 ? 'habitación' : 'habitaciones'}`,
+      zero: ocupadas === 0,
+    })
+  }
+
+  const pacienteCount = (pacientesAct as { count: number | null }).count
+  if (pacienteCount !== null) {
+    kpis.push({
+      key: 'pacientes', label: 'Pacientes activos', tone: 'vio',
+      value: String(pacienteCount), sub: 'en la historia clínica',
     })
   }
 

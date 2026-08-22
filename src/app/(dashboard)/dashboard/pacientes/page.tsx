@@ -25,7 +25,15 @@ export default function Page() {
 /** Split out so the read runs *after* the guard has answered. */
 async function Loader() {
   const member = await requirePermission('pacientes:read')
-  const dental = member.subsector === DENTAL_SUBSECTOR
+  /**
+   * Lo dental se lee para una clínica dental, y para una organización de salud
+   * que nunca eligió subsector: la alternativa es que un odontólogo que saltó
+   * la pregunta pierda el odontograma en silencio. Quien sí eligió rama —IPS,
+   * laboratorio, veterinaria— no lo ve, y eso es exacto. El guard de sector
+   * excluye a `fitness-centro`, que también lleva `pacientes` y no es salud.
+   */
+  const salud = member.companyType === 'salud'
+  const dental = salud && (member.subsector === null || member.subsector === DENTAL_SUBSECTOR)
   const vet = member.subsector === VET_SUBSECTOR
 
   /**

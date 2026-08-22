@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Users, FileCheck2, ShieldCheck, ShieldAlert, Sparkles, ChevronRight,
   AlertCircle, PenLine, Boxes, TrendingUp, Award, Info, Ticket, Kanban,
-  DollarSign, UserPlus, FileText, Package,
+  DollarSign, UserPlus, FileText, Package, Bed, Stethoscope,
 } from '@/lib/icons'
 import type { IconProps } from '@/lib/icons'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts'
@@ -42,6 +42,7 @@ const KPI_ICO: Record<string, ComponentType<IconProps>> = {
   tickets: Ticket, proyectos: Kanban,
   ventas: DollarSign, clientes: Users, leads: UserPlus,
   cotizaciones: FileText, inventario: Package,
+  ocupacion: Bed, pacientes: Stethoscope,
 }
 
 /** "hace 12 min" / "hace 3 h" — the cached insights carry a real timestamp. */

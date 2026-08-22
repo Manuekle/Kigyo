@@ -2,7 +2,7 @@
 -- 65 — Veterinaria: mascotas, vacunas y hospitalización
 --
 -- `salud-veterinaria` existe en el catálogo desde la migración 29 y su delta
--- era `+catalogos, +tienda, +pos, −consultoria, −trazabilidad`. La pantalla de
+-- era `+catalogos, +tienda, +pos, −trazabilidad`. La pantalla de
 -- `pacientes` le servía una historia clínica genérica — correcta para un
 -- consultorio humano e insuficiente para una veterinaria, cuyo trabajo se
 -- organiza alrededor de una cosa que no existía: la mascota.

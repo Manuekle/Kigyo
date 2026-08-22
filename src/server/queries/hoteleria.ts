@@ -23,7 +23,7 @@ export interface RoomRow {
   rateCents: number
   amenities: string
   notes: string
-  /** Reservations on this room that have not been cancelled or checked out. */
+  /** Live reservations on this room whose checkout has not passed yet. */
   upcoming: number
   /** Sucursal where the room is, if one is assigned. */
   siteId: string | null
@@ -147,14 +147,6 @@ export function nightsBetween(checkin: string, checkout: string): number {
   return Math.max(0, Math.round((to - from) / 86_400_000))
 }
 
-/** A reservation counts against a night when it spans it and is still live. */
-function occupiesTonight(row: ReservationRecord, today: string): boolean {
-  if (row.status === 'Cancelada' || row.status === 'No show' || row.status === 'Check-out') {
-    return false
-  }
-  return row.checkin_on <= today && row.checkout_on > today
-}
-
 export async function getHabitacionesPage(offset = 0): Promise<Page<RoomRow>> {
   const member = await requirePermission('hoteleria:read')
   const supabase = await createClient()
@@ -174,16 +166,18 @@ export async function getHabitacionesPage(offset = 0): Promise<Page<RoomRow>> {
   }
 
   const rows = data as unknown as RoomRecord[]
+  // «Upcoming» means alive *and* not yet ended: without the date filter a
+  // months-old Confirmada reservation counted toward the room forever.
   const { data: reservationRows } = await supabase
     .from('reservations')
-    .select('id, room_id, status')
+    .select('room_id')
     .eq('org_id', member.orgId)
     .is('deleted_at', null)
-    .in('room_id', rows.map((r) => r.id))
+    .gt('checkout_on', todayIn(member.orgTimezone))
+    .not('status', 'in', '(Cancelada,Check-out,No show)')
 
   const upcoming = new Map<string, number>()
   for (const row of reservationRows ?? []) {
-    if (row.status === 'Cancelada' || row.status === 'Check-out' || row.status === 'No show') continue
     upcoming.set(row.room_id, (upcoming.get(row.room_id) ?? 0) + 1)
   }
 
@@ -209,8 +203,9 @@ export async function getHabitacionesPage(offset = 0): Promise<Page<RoomRow>> {
 export async function getHoteleria(): Promise<HoteleriaData> {
   const member = await requirePermission('hoteleria:read')
   const supabase = await createClient()
+  const today = todayIn(member.orgTimezone)
 
-  const [roomsResult, reservationsResult, sitesResult] = await Promise.all([
+  const [roomsResult, reservationsResult, sitesResult, liveResult, sellableResult] = await Promise.all([
     supabase
       .from('hotel_rooms')
       .select(ROOM_COLUMNS, { count: 'exact' })
@@ -229,6 +224,24 @@ export async function getHoteleria(): Promise<HoteleriaData> {
       .select('id, name')
       .is('deleted_at', null)
       .order('name', { ascending: true }),
+    // Reservations still live past today's checkout: the source for both the
+    // per-room «upcoming» counts and tonight's occupancy, so neither depends
+    // on the display list's 500-row cut.
+    supabase
+      .from('reservations')
+      .select('room_id, checkin_on')
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+      .gt('checkout_on', today)
+      .not('status', 'in', '(Cancelada,Check-out,No show)'),
+    // The full occupancy denominator: counting only the first page broke the
+    // percentage for any hotel with more rooms than PAGE_SIZE.
+    supabase
+      .from('hotel_rooms')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', member.orgId)
+      .is('deleted_at', null)
+      .not('status', 'in', '(Mantenimiento,Bloqueada)'),
   ])
 
   if (roomsResult.error) {
@@ -243,12 +256,10 @@ export async function getHoteleria(): Promise<HoteleriaData> {
   const roomRows = roomsResult.data as unknown as RoomRecord[]
   const reservationRows = (reservationsResult.data ?? []) as unknown as ReservationRecord[]
   const numbers = new Map(roomRows.map((r) => [r.id, r.number]))
-  const today = todayIn(member.orgTimezone)
 
   const { data: taskRows, error: tasksError } = await supabase
-    .from('room_cleaning_tasks' as never)
+    .from('room_cleaning_tasks')
     .select('id, room_id, assigned_id, kind, scheduled_on, done, done_on, notes')
-    .in('room_id', roomRows.map((r) => r.id))
     .order('scheduled_on', { ascending: true })
     .order('done', { ascending: true })
 
@@ -303,17 +314,14 @@ export async function getHoteleria(): Promise<HoteleriaData> {
 
   const assignedNames = new Map((employeeRows ?? []).map((r) => [r.id, r.full_name]))
 
+  const liveRows = (liveResult.data ?? []) as Array<{ room_id: string; checkin_on: string }>
   const upcoming = new Map<string, number>()
   const occupiedRooms = new Set<string>()
-  for (const row of reservationRows) {
-    if (occupiesTonight(row, today)) occupiedRooms.add(row.room_id)
-    if (row.status === 'Cancelada' || row.status === 'Check-out' || row.status === 'No show') continue
+  for (const row of liveRows) {
     upcoming.set(row.room_id, (upcoming.get(row.room_id) ?? 0) + 1)
+    if (row.checkin_on <= today) occupiedRooms.add(row.room_id)
   }
-
-  // Rooms out of service are excluded from the denominator: a hotel with two
-  // rooms under repair is not running at lower occupancy, it has fewer rooms.
-  const sellable = roomRows.filter((r) => r.status !== 'Mantenimiento' && r.status !== 'Bloqueada')
+  const sellableCount = (sellableResult as { count: number | null }).count
 
   return {
     habitaciones: roomRows.map((row) => ({
@@ -364,8 +372,8 @@ export async function getHoteleria(): Promise<HoteleriaData> {
       doneOn: row.done_on,
       notes: row.notes,
     })),
-    occupancyPct: sellable.length > 0
-      ? Math.round((occupiedRooms.size / sellable.length) * 100)
+    occupancyPct: sellableCount !== null && sellableCount > 0
+      ? Math.round((occupiedRooms.size / sellableCount) * 100)
       : null,
     seasons,
     canWrite: can(member.permissions, 'hoteleria:write'),

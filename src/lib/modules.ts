@@ -273,7 +273,7 @@ export const COMPANY_TYPES: CompanyTypeDef[] = [
     // `caja` sin `pos`: una clínica cobra copagos y particulares en efectivo y
     // necesita cuadrar el turno, pero no vende de mostrador — lo que factura
     // sale de la consulta, no de un catálogo.
-    modules: [...PEOPLE, 'pacientes', 'riesgos', 'hseq', 'inventario', 'caja', 'facturacion', 'clientes', 'cartera', 'firmas', 'tickets', 'consultoria', 'trazabilidad', 'notificaciones', ...SPINE],
+    modules: [...PEOPLE, 'pacientes', 'riesgos', 'hseq', 'inventario', 'caja', 'facturacion', 'clientes', 'cartera', 'firmas', 'tickets', 'trazabilidad', 'notificaciones', ...SPINE],
     vertical: 'pacientes',
   },
   {
@@ -427,13 +427,13 @@ export const SUBSECTOR_PRESETS: Record<string, SectorDelta> = {
   // A clinic is a building with staff: equipment to service, people to review.
   'salud-ips':           { add: ['mantenimiento', 'desempeno'], remove: [] },
   // A lab sells a price list of tests and lives on traceability.
-  'salud-laboratorio':   { add: ['catalogos'], remove: ['consultoria'] },
+  'salud-laboratorio':   { add: ['catalogos'], remove: [] },
   // Treatment plans are quoted before they are done.
   'salud-odontologia':   { add: ['catalogos', 'cotizaciones'], remove: ['hseq', 'trazabilidad'] },
   'salud-estetica':      { add: ['catalogos', 'cotizaciones'], remove: ['hseq', 'riesgos', 'trazabilidad'] },
   // Vets sell food and medication over the counter, which is the one branch of
   // salud that really is a shop with a consulting room attached.
-  'salud-veterinaria':   { add: ['catalogos', 'tienda', 'pos'], remove: ['consultoria', 'trazabilidad'] },
+  'salud-veterinaria':   { add: ['catalogos', 'tienda', 'pos'], remove: ['trazabilidad'] },
 
   /* ─── Comercio ──────────────────────────────────────────────────────────── */
   // Over the counter: nobody quotes a shirt.

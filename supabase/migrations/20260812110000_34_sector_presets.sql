@@ -128,7 +128,7 @@ insert into public.sector_modules (sector_key, module_key, mode)
   union all
   select 'tecnologia', k, 'add' from unnest(array['empleados', 'asistencia', 'nomina', 'proyectos', 'clientes', 'cotizaciones', 'facturacion', 'contratos', 'reclutamiento', 'desempeno', 'tickets', 'canales', 'documentos', 'calendario', 'ia']) as k
   union all
-  select 'salud', k, 'add' from unnest(array['empleados', 'asistencia', 'nomina', 'pacientes', 'riesgos', 'hseq', 'inventario', 'facturacion', 'clientes', 'firmas', 'tickets', 'consultoria', 'trazabilidad', 'canales', 'documentos', 'calendario', 'ia']) as k
+  select 'salud', k, 'add' from unnest(array['empleados', 'asistencia', 'nomina', 'pacientes', 'riesgos', 'hseq', 'inventario', 'facturacion', 'clientes', 'firmas', 'tickets', 'trazabilidad', 'canales', 'documentos', 'calendario', 'ia']) as k
   union all
   select 'educacion', k, 'add' from unnest(array['empleados', 'asistencia', 'nomina', 'estudiantes', 'capacitacion', 'facturacion', 'clientes', 'inventario', 'firmas', 'contratos', 'tickets', 'canales', 'documentos', 'calendario', 'ia']) as k
   union all
@@ -180,8 +180,6 @@ insert into public.sector_modules (sector_key, module_key, mode)
   union all
   select 'salud-laboratorio', k, 'add' from unnest(array['catalogos']) as k
   union all
-  select 'salud-laboratorio', k, 'remove' from unnest(array['consultoria']) as k
-  union all
   select 'salud-odontologia', k, 'add' from unnest(array['catalogos', 'cotizaciones']) as k
   union all
   select 'salud-odontologia', k, 'remove' from unnest(array['hseq', 'trazabilidad']) as k
@@ -192,7 +190,7 @@ insert into public.sector_modules (sector_key, module_key, mode)
   union all
   select 'salud-veterinaria', k, 'add' from unnest(array['catalogos', 'tienda']) as k
   union all
-  select 'salud-veterinaria', k, 'remove' from unnest(array['consultoria', 'trazabilidad']) as k
+  select 'salud-veterinaria', k, 'remove' from unnest(array['trazabilidad']) as k
   union all
   select 'comercio-retail', k, 'remove' from unnest(array['cotizaciones']) as k
   union all
