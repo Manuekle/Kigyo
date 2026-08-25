@@ -25,6 +25,15 @@ export interface SalesOrderRow {
   taxCents: number
   totalCents: number
   items: SalesOrderItem[]
+  /**
+   * La factura que salió de este pedido, si ya salió.
+   *
+   * `invoices.sales_order_id` existe desde la migración 98 y nadie la leía ni
+   * la escribía. Sin esto la pantalla no puede decir si un pedido ya está
+   * facturado, y «Facturar» sería un botón que se puede pulsar dos veces sin
+   * que nada en la lista lo desmienta.
+   */
+  invoice: { id: string; code: string | null; status: string } | null
 }
 
 export interface SalesOrderItem {
@@ -79,6 +88,16 @@ type OrderRecord = {
     unit_price_cents: number
     subtotal_cents: number
   }>
+  // Array y no objeto: la FK vive en `invoices`, así que desde este lado la
+  // relación es uno-a-muchos aunque en la práctica sea una factura por pedido.
+  // Facturar en dos tandas es algo que las empresas hacen, y el modelo no se
+  // lo prohíbe — la pantalla enseña la primera viva.
+  invoices: Array<{
+    id: string
+    code: string | null
+    status: string
+    deleted_at: string | null
+  }> | null
 }
 
 const ORDER_COLUMNS = `
@@ -88,7 +107,8 @@ const ORDER_COLUMNS = `
   items: sales_order_items (
     id, product_id, quote_item_id, description, quantity, unit,
     unit_price_cents, subtotal_cents
-  )
+  ),
+  invoices ( id, code, status, deleted_at )
 `
 
 function toPedido(r: OrderRecord): SalesOrderRow {
@@ -118,6 +138,10 @@ function toPedido(r: OrderRecord): SalesOrderRow {
       unitPriceCents: i.unit_price_cents,
       subtotalCents: i.subtotal_cents,
     })),
+    invoice: (() => {
+      const live = (r.invoices ?? []).find((inv) => inv.deleted_at === null)
+      return live ? { id: live.id, code: live.code, status: live.status } : null
+    })(),
   }
 }
 

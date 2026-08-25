@@ -30,7 +30,7 @@ export default function FaqPage() {
       <PublicCta
         title="¿Listo para probar Kigyo?"
         subtitle="Los tres planes cuestan $0 y no piden tarjeta de crédito."
-        primary={{ href: '/register', label: 'Crear cuenta gratis' }}
+        primary={{ href: '/register', label: 'Crear cuenta' }}
         secondary={{ href: '/contact', label: 'Solicitar demo' }}
       />
     </PublicPageShell>

@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { AppProvider } from '@/lib/context/AppContext'
 import { ConfirmProvider } from '@/lib/context/ConfirmContext'
@@ -50,6 +51,29 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!member.setupCompleted && member.permissions.has('configuracion:manage')) {
     redirect('/onboarding')
   }
+
+  /**
+   * An account that has not paid does not get the product.
+   *
+   * Until migration 106 this check did not exist and neither did anything like
+   * it: signing up created a `starter` account — the tier `/pricing` charges
+   * $80.000/month for — and nothing in the product ever asked for money again.
+   * `billing_status` was written by the webhook and read by nobody.
+   *
+   * After the setup redirect, deliberately. Somebody mid-wizard has not been
+   * offered a plan yet — that is the wizard's last step — and bouncing them to
+   * a paywall before they have seen what they are buying is the wall the
+   * onboarding was designed not to be.
+   *
+   * This is the courteous half of the gate, not the load-bearing one. The rule
+   * is enforced in the database by `app.company_is_active`, which every one of
+   * the 543 RESTRICTIVE policies from migration 99 already consults — so an
+   * unpaid account cannot write a row even talking to PostgREST directly with
+   * the anon key, which is the hole a TypeScript-only paywall would leave.
+   */
+  if (member.account.accessState !== 'active') {
+    redirect('/suscripcion')
+  }
   // Derived from live rows rather than a fixture, so the bell's count is
   // something that can actually go to zero.
   const notificaciones = await getNotificaciones()
@@ -95,7 +119,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <div className="suspend-banner" role="status">
                   <strong>{member.orgName} está en modo solo lectura.</strong>{' '}
                   El plan de la cuenta no cubre esta empresa o el pago está pendiente. Tus datos
-                  siguen completos y vuelven a estar disponibles al regularizar el plan.
+                  siguen completos y vuelven a estar disponibles al regularizar el plan.{' '}
+                  {/*
+                    The banner used to end there, telling the customer to
+                    "regularizar el plan" without saying where. The screen that
+                    does it is two clicks away behind a menu, so the sentence
+                    was an instruction with no verb — and the person reading it
+                    is, by definition, the one who wants to pay.
+                  */}
+                  <Link href="/dashboard/empresas">Ver los planes</Link>
                 </div>
               )}
               <div className="content" id="contenido" tabIndex={-1}>

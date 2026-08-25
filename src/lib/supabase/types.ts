@@ -188,6 +188,7 @@ export interface Database {
           created_at: string
           updated_at: string
           billing_provider: string | null
+          access_state: "pending" | "active" | "delinquent"
         }
         Insert: {
           id?: string
@@ -200,6 +201,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           billing_provider?: string | null
+          access_state?: "pending" | "active" | "delinquent"
         }
         Update: {
           id?: string
@@ -212,6 +214,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           billing_provider?: string | null
+          access_state?: "pending" | "active" | "delinquent"
         }
         Relationships: [
         ]

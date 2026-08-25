@@ -24,6 +24,16 @@ const NOT_ALLOWED = 'Solo quien administra la cuenta puede cambiar la facturaci�
 const checkoutSchema = z.object({
   plan: z.enum(['starter', 'growth']),
   interval: z.enum(['monthly', 'yearly']),
+  /**
+   * Where Polar sends the browser back to.
+   *
+   * A path, never a URL, and matched against a fixed list rather than
+   * validated: `successUrl` is echoed by the payment provider, so anything a
+   * caller can put in it is a redirect somebody else can be handed. The three
+   * entries are the three screens that start a checkout — the wizard's last
+   * step, the plan switcher, and the paywall.
+   */
+  returnTo: z.enum(['/dashboard', '/dashboard/empresas', '/suscripcion']).default('/dashboard/empresas'),
 })
 
 /**
@@ -43,7 +53,7 @@ export async function startPolarCheckout(
 
   const parsed = checkoutSchema.safeParse(input)
   if (!parsed.success) return { ok: false, error: 'Datos inválidos.' }
-  const { plan, interval } = parsed.data
+  const { plan, interval, returnTo } = parsed.data
 
   const client = polarClient()
   const productId = polarProductId(plan, interval)
@@ -54,7 +64,7 @@ export async function startPolarCheckout(
       products: [productId],
       externalCustomerId: member.account.accountId,
       metadata: { account_id: member.account.accountId, plan },
-      successUrl: `${serverEnv().NEXT_PUBLIC_APP_URL}/dashboard/empresas?checkout=success`,
+      successUrl: `${serverEnv().NEXT_PUBLIC_APP_URL}${returnTo}?checkout=success`,
     })
     return { ok: true, url: checkout.url }
   } catch (error) {

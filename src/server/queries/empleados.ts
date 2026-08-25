@@ -179,7 +179,9 @@ export async function getEmpleados(): Promise<EmpleadosData> {
 }
 
 export interface EmpleadoSkill { skill: string; level: number }
-export interface EmpleadoEvent { occurredOn: string; event: string; tag: string }
+// `id` viaja porque la ficha ya no solo lee la trayectoria: también borra un
+// hito mal registrado, y para eso hace falta nombrarlo.
+export interface EmpleadoEvent { id: string; occurredOn: string; event: string; tag: string }
 export interface EmpleadoTicket {
   id: string
   code: string | null
@@ -247,7 +249,7 @@ export async function getEmpleadoDetail(id: string): Promise<EmpleadoDetail | nu
         .order('level', { ascending: false }),
       supabase
         .from('employee_events')
-        .select('occurred_on, event, tag')
+        .select('id, occurred_on, event, tag')
         .eq('employee_id', id)
         .order('occurred_on', { ascending: false })
         .limit(20),
@@ -275,8 +277,8 @@ export async function getEmpleadoDetail(id: string): Promise<EmpleadoDetail | nu
       .map((r) => ({ id: r.id, fullName: r.full_name, position: r.position })),
     skills: ((skillsResult.data ?? []) as Array<{ skill: string; level: number }>)
       .map((r) => ({ skill: r.skill, level: r.level })),
-    journey: ((journeyResult.data ?? []) as Array<{ occurred_on: string; event: string; tag: string }>)
-      .map((r) => ({ occurredOn: r.occurred_on, event: r.event, tag: r.tag })),
+    journey: ((journeyResult.data ?? []) as Array<{ id: string; occurred_on: string; event: string; tag: string }>)
+      .map((r) => ({ id: r.id, occurredOn: r.occurred_on, event: r.event, tag: r.tag })),
     tickets: ((ticketsResult.data ?? []) as Array<{
       id: string
       code: string | null

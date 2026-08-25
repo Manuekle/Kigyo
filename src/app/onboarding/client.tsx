@@ -2,15 +2,20 @@
 
 import { useCallback, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ArrowRight, Check, Building2, Plus, MapPin, Mail, Users } from '@/lib/icons'
 import Select from '@/components/ui/Select'
 import Toggle from '@/components/ui/Toggle'
+import TabBar from '@/components/ui/TabBar'
+import Badge from '@/components/ui/Badge'
 import { modulesByGroup, moduleDef } from '@/lib/modules'
 import { CORE_MODULES, dependenciesOf, missingHardDependencies } from '@/lib/modules/registry'
 import { proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
-import { lowestPlanWith, planFor, planModules, type PlanKey } from '@/lib/plans'
+import { isSelfServePlan, lowestPlanWith, PLANS, planFor, planModules, type PlanKey } from '@/lib/plans'
+import { CYCLES, PRICING, type Cycle } from '@/lib/pricing'
 import { createSite } from '@/server/mutations/sites'
 import { inviteMember } from '@/server/mutations/settings'
+import { startPolarCheckout } from '@/server/mutations/billing'
 import {
   finishCompanySetup, updateCompanyProfile, updateSector,
 } from '@/server/mutations/onboarding'
@@ -91,8 +96,18 @@ const TIMEZONE_FOR: Record<string, string> = {
   ES: 'Europe/Madrid', US: 'America/New_York',
 }
 
-/** The steps, as names rather than numbers. */
-type StepId = 'empresa' | 'sector' | 'tipo' | 'modulos' | 'sucursales' | 'equipo'
+/**
+ * The steps, as names rather than numbers.
+ *
+ * `plan` is last because the subscription belongs to the account, not the
+ * company — the wizard configures one company, and asking for payment before
+ * the customer has seen what that company will look like is a wall where there
+ * should be a door. The module step already named what the current plan leaves
+ * out; this step is where that decision is offered again, with the work done
+ * and the gap visible. "Saltar" keeps working: a customer who declines pays
+ * nothing and lands on Starter.
+ */
+type StepId = 'empresa' | 'sector' | 'tipo' | 'modulos' | 'sucursales' | 'equipo' | 'plan'
 
 const STEP_LABELS: Record<StepId, string> = {
   empresa: 'Empresa',
@@ -101,6 +116,7 @@ const STEP_LABELS: Record<StepId, string> = {
   modulos: 'Módulos',
   sucursales: 'Sucursales',
   equipo: 'Equipo',
+  plan: 'Plan',
 }
 
 interface Props {
@@ -119,6 +135,7 @@ export default function Client({
   const [pending, startTransition] = useTransition()
   const [step, setStep] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [cycle, setCycle] = useState<Cycle>('mensual')
 
   const [profile, setProfile] = useState({
     name: companyName,
@@ -195,10 +212,12 @@ export default function Client({
   const stepIds: StepId[] = [
     'empresa', 'sector',
     ...(subsectors.length > 0 ? (['tipo'] as StepId[]) : []),
-    'modulos', 'sucursales', 'equipo',
+    'modulos', 'sucursales', 'equipo', 'plan',
   ]
   const current = stepIds[Math.min(step, stepIds.length - 1)]
-  const isLast = step === stepIds.length - 1
+  // `isLast` se fue con el botón «Terminar»: el último paso ya no termina en un
+  // botón del pie, termina en un pago. `current === 'plan'` dice lo mismo y lo
+  // dice por su nombre.
 
   /** Picking a sector replaces the selection with its proposal. */
   function chooseSector(key: string) {
@@ -275,6 +294,56 @@ export default function Client({
     })
   }
 
+  /**
+   * Hands the browser to Polar, then stamps the company setup done.
+   *
+   * `finishCompanySetup` runs *before* the redirect because the checkout is
+   * external — once the browser leaves for `checkout.polar.sh`, this page is
+   * gone. The customer comes back on `successUrl` pointing to `/dashboard`, and
+   * the redirect from the dashboard layout to the wizard only fires when
+   * setup is unfinished. If we stamped after the redirect we would never get
+   * the chance: the webhook from Polar activates the plan, but it does not
+   * stamp the company.
+   *
+   * The checkout URL is opened with `window.location.href` rather than
+   * `router.push` because it is an external host — same reason the plan
+   * switcher in `/dashboard/empresas` does it that way.
+   *
+   * ─── Por qué recibe el plan ──────────────────────────────────────────────
+   *
+   * It used to be `upgradeToGrowth()`, with `plan: 'growth'` written into the
+   * call. The card it hung off was whichever tier was not the account's
+   * current one, so on an account already on Growth the Starter card offered
+   * "Subir a Starter" and charged for Growth. Nobody had hit it because a new
+   * account is always Starter, and the second company an account configures is
+   * exactly the case that is not.
+   */
+  function checkoutTier(tier: PlanKey) {
+    if (!isSelfServePlan(tier)) return
+    setError(null)
+    startTransition(async () => {
+      const finished = await finishCompanySetup()
+      if (!finished.ok) {
+        setError(finished.error)
+        return
+      }
+      const result = await startPolarCheckout({
+        plan: tier,
+        interval: cycle === 'anual' ? 'yearly' : 'monthly',
+        returnTo: '/dashboard',
+      })
+      if (!result.ok) {
+        // Setup is already stamped, so the wizard will not take them back.
+        // The dashboard bounces an unpaid account to `/suscripcion`, which is
+        // the same choice as this step with none of the wizard around it —
+        // the right place to land when the checkout could not be opened.
+        setError(result.error)
+        return
+      }
+      window.location.href = result.url
+    })
+  }
+
   /** Saves the current step, if it has anything to save, then moves on. */
   function advance() {
     const next = () => setStep(step + 1)
@@ -318,6 +387,9 @@ export default function Client({
         next()
         return
       case 'equipo':
+        next()
+        return
+      case 'plan':
         done()
         return
       // `sector`, `tipo` and `sucursales` hold nothing unsaved of their own:
@@ -632,21 +704,124 @@ export default function Client({
           </div>
         )}
 
+        {current === 'plan' && (
+          <div className="onb-body">
+            <p className="onb-note" style={{ marginTop: 0 }}>
+              Configuraste tu empresa. Elige el plan con el que va a funcionar.
+              {lockedByPlan.length > 0 && (
+                <>
+                  {' '}
+                  {lockedByPlan.length} módulo{lockedByPlan.length === 1 ? '' : 's'} de tu sector
+                  {lockedByPlan.length === 1 ? ' queda' : ' quedan'} fuera de {planDef.label}.
+                </>
+              )}
+            </p>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+              <TabBar items={CYCLES} value={cycle} onChange={(key) => setCycle(key as Cycle)} />
+              {cycle === 'anual' && <span className="muted" style={{ fontSize: 12 }}>2 meses gratis</span>}
+            </div>
+
+            {PLANS.map((tier) => {
+              const pricing = PRICING[tier.key]
+              const isCurrent = tier.key === plan
+              const price = cycle === 'anual' ? pricing.priceAnnual : pricing.priceMonthly
+              const lockedCount = tier.key === 'growth'
+                ? lockedByPlan.length
+                : 0
+              return (
+                <div
+                  key={tier.key}
+                  className="card"
+                  style={{
+                    padding: 14, marginBottom: 10, display: 'flex',
+                    alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <strong style={{ fontSize: 14.5 }}>{tier.label}</strong>
+                      {isCurrent && <Badge st="Preseleccionado" tone="blu" />}
+                      {pricing.featured && !isCurrent && <Badge st="Recomendado" tone="vio" />}
+                    </div>
+                    <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>{tier.description}</div>
+                    {lockedCount > 0 && (
+                      <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+                        Activa tus {lockedCount} módulo{lockedCount === 1 ? '' : 's'} de {lockedByPlan[0]?.label ?? 'sector'}
+                        {lockedByPlan.length > 1 && ` y ${lockedByPlan.length - 1} más`}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {price}
+                      <span className="muted" style={{ fontSize: 12, fontWeight: 400 }}>
+                        {cycle === 'anual' ? '/año' : '/mes'}
+                      </span>
+                    </div>
+                    {/*
+                      Every self-serve tier gets a checkout, including the one
+                      the account already carries. That card used to say
+                      "Continuar con Starter" and simply finish the wizard —
+                      which is how a plan billed at $80.000/month was handed
+                      out free to everybody who signed up. The tier on the
+                      account is a default, not a purchase.
+                    */}
+                    {isSelfServePlan(tier.key) ? (
+                      <button
+                        className={isCurrent ? 'btn dark' : 'btn'}
+                        style={{ marginTop: 6 }}
+                        disabled={pending}
+                        aria-busy={pending}
+                        onClick={() => checkoutTier(tier.key)}
+                      >
+                        <ArrowRight size={14} />Pagar {tier.label}
+                      </button>
+                    ) : (
+                      <Link href={pricing.href} className="btn" style={{ marginTop: 6 }}>
+                        Contactar ventas
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/*
+          El pie cambia en el último paso, y es el cambio que convierte el
+          asistente en un embudo de venta.
+
+          «Saltar por ahora» y «Terminar» existían también en el paso de plan, y
+          los dos hacían lo mismo: `done()`, que estampa la configuración y
+          manda al panel. Con eso, la pantalla que enseña tres precios tenía dos
+          botones para no pagar ninguno — y era el camino que tomaba todo el
+          mundo, porque era el único que no salía de la aplicación.
+
+          En los pasos anteriores «Saltar» se queda: son preguntas de
+          configuración, todas opcionales, y obligar a contestarlas antes de
+          enseñar el producto es la clase de muro que este asistente evita a
+          propósito. El plan no es una de esas preguntas.
+        */}
         <div className="onb-foot">
-          <button className="btn" onClick={done} disabled={pending}>
-            Saltar por ahora
-          </button>
+          {current !== 'plan' && (
+            <button className="btn" onClick={done} disabled={pending}>
+              Saltar por ahora
+            </button>
+          )}
           <div style={{ flex: 1 }} />
           {step > 0 && (
             <button className="btn" onClick={() => setStep(step - 1)} disabled={pending}>
               Atrás
             </button>
           )}
-          <button className="btn dark" disabled={pending} onClick={advance}>
-            {isLast
-              ? <><Check size={15} />Terminar</>
-              : <>Continuar<ArrowRight size={15} /></>}
-          </button>
+          {current !== 'plan' && (
+            <button className="btn dark" disabled={pending} onClick={advance}>
+              Continuar<ArrowRight size={15} />
+            </button>
+          )}
         </div>
       </div>
     </div>

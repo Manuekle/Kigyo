@@ -31,7 +31,7 @@ const baseSchema = z.object({
   // El precio ya lo incluye; esto solo declara cuánto de él es impuesto, para
   // que el POS lo pueda desglosar y la factura descontarlo. Ver migración 104.
   taxRate: z.number().min(0, 'La tasa no puede ser negativa.').max(100, 'La tasa no puede pasar de 100.').default(0),
-  stock: z.number().int().min(0, 'El stock no puede ser negativo.').default(0),
+  stock: z.number().min(0, 'El stock no puede ser negativo.').default(0),
   supplier: z.string().trim().max(160).default(''),
   isActive: z.boolean().default(true),
   inStorefront: z.boolean().default(true),

@@ -148,14 +148,42 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
   function submit() {
     if (!form.client.trim()) { addToast('El cliente es obligatorio', 'err'); return }
 
-    const items = form.items
-      .filter((i) => i.description.trim() && Number(i.quantity) > 0)
-      .map((i) => ({
-        productId: i.productId,
-        description: i.description.trim(),
-        quantity: Number(i.quantity),
-        unitPriceCents: pesosToCents(i.price),
-      }))
+    /**
+     * Una línea vacía se descarta; una línea a medias se reclama.
+     *
+     * El filtro era uno solo —`description && quantity > 0`— y descartaba las
+     * dos cosas por igual, en silencio. El resultado era una pérdida de datos
+     * en la pantalla que decide cuánto se cobra: el editor muestra el total en
+     * vivo con `lineTotal`, que solo mira cantidad × precio, así que alguien
+     * que escribía 250.000 sin descripción veía «Total $250.000» en el cajón,
+     * pulsaba Guardar, y la cotización quedaba en $0 sin que nada lo dijera.
+     * Peor todavía río abajo: esa cotización se acepta, se convierte en pedido
+     * y el pedido nace sin una sola línea.
+     *
+     * La línea del formulario vacío sí se descarta, y debe: siempre hay una
+     * abierta y obligar a llenarla para guardar una cotización sin desglose
+     * sería pedir un dato que nadie quiso dar.
+     */
+    const touched = form.items.filter(
+      (i) => i.description.trim() || i.productId || pesosToCents(i.price) > 0,
+    )
+    const incomplete = touched.find((i) => !i.description.trim() || !(Number(i.quantity) > 0))
+    if (incomplete) {
+      addToast(
+        !incomplete.description.trim()
+          ? 'Cada línea con precio necesita una descripción.'
+          : 'Cada línea necesita una cantidad mayor que cero.',
+        'err',
+      )
+      return
+    }
+
+    const items = touched.map((i) => ({
+      productId: i.productId,
+      description: i.description.trim(),
+      quantity: Number(i.quantity),
+      unitPriceCents: pesosToCents(i.price),
+    }))
 
     startTransition(async () => {
       const payload = {

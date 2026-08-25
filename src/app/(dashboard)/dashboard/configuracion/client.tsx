@@ -43,7 +43,9 @@ import {
   updateOrganization,
   updateProfile,
   updateRole,
+  uploadAvatar,
   type ActionResult,
+  uploadLogo,
 } from '@/server/mutations/settings'
 
 /* ------------------------------------------------------------------ */
@@ -100,10 +102,17 @@ function passwordStrength(pw: string): { level: number; label: string; color: st
 /* ------------------------------------------------------------------ */
 /*  Page-local primitives                                              */
 /* ------------------------------------------------------------------ */
-function Avatar({ name, size = 34 }: { name: string; size?: number }) {
+function Avatar({ name, size = 34, src }: { name: string; size?: number; src?: string | null }) {
   const [c1, c2] = AV_GRADS[avHash(name)]
   return (
-    <div className="av" style={{ width: size, height: size, fontSize: size * 0.36, background: `linear-gradient(145deg,${c1},${c2})`, boxShadow: `0 4px 10px -4px ${c2}88` }}>{initials(name)}</div>
+    <div className="av" style={{ width: size, height: size, fontSize: size * 0.36, background: `linear-gradient(145deg,${c1},${c2})`, boxShadow: `0 4px 10px -4px ${c2}88` }}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+      ) : (
+        initials(name)
+      )}
+    </div>
   )
 }
 
@@ -143,6 +152,11 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
    * writes, and would leave no moment to change your mind.
    */
   const member = useMember()
+
+  /* ---- avatar: optimistic URL from the session, replaced on upload ---- */
+  const [avatarUrl, setAvatarUrl] = useState(member.avatarUrl)
+  /* ---- logo: misma mecánica optimista que el avatar ---- */
+  const [logoUrl, setLogoUrl] = useState(data.organization.logoUrl)
   const [companyTypeKey, setCompanyTypeKey] = useState(data.organization.companyType)
   /**
    * The subsector, when the chosen sector has any.
@@ -297,6 +311,78 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
     }
     setErrors(e)
     return Object.keys(e).length === 0
+  }
+
+  /* ---- avatar upload ---- */
+  function onAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = '' // reset so picking the same file again still fires
+
+    if (!file.type.startsWith('image/')) {
+      addToast('El archivo no es una imagen.', 'err')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      addToast('La imagen supera los 2 MB.', 'err')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      startTransition(async () => {
+        const result = await uploadAvatar({ dataUrl, mimeType: file.type })
+        if (!result.ok) {
+          addToast(result.error, 'err')
+          return
+        }
+        setAvatarUrl(dataUrl) // optimistic: the real signed URL arrives on router.refresh
+        addToast('Foto actualizada', 'ok')
+        router.refresh()
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  /**
+   * Subida del logo.
+   *
+   * Gemela de `onAvatarChange`. El botón que había aquí contestaba
+   * `addToast('Selector de logo próximamente')` — era el último control muerto
+   * del producto, y lo era por falta de bucket, no de idea: `branding.logo_url`
+   * existe desde la migración 30 y `updateBranding` ya sabía escribirlo.
+   */
+  function onLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    if (!file.type.startsWith('image/')) {
+      addToast('El archivo no es una imagen.', 'err')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      addToast('La imagen supera los 2 MB.', 'err')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      startTransition(async () => {
+        const result = await uploadLogo({ dataUrl, mimeType: file.type })
+        if (!result.ok) {
+          addToast(result.error, 'err')
+          return
+        }
+        // Optimista: la URL firmada de verdad llega con el router.refresh.
+        setLogoUrl(dataUrl)
+        addToast('Logo actualizado', 'ok')
+        router.refresh()
+      })
+    }
+    reader.readAsDataURL(file)
   }
 
   /* ---- save ---- */
@@ -579,10 +665,18 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
           <>
             <div className="ctitle" style={{ marginBottom: 6 }}>Información personal</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '16px 0' }}>
-              <Avatar name={name} size={64} />
+              <Avatar name={name} size={64} src={avatarUrl} />
               <div>
-                <button className="btn" onClick={() => addToast('Selector de foto próximamente', 'info')}><Upload size={14} />Cambiar foto</button>
-                <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 6 }}>PNG o JPG · máx. 4 MB</div>
+                <label className="btn" style={{ cursor: 'pointer' }}>
+                  <Upload size={14} />Cambiar foto
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={onAvatarChange}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+                <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 6 }}>PNG o JPG · máx. 2 MB</div>
               </div>
             </div>
             <div className="flabel">Nombre completo</div>
@@ -792,12 +886,41 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
             <div style={{ fontSize: 13, color: 'var(--ink3)', marginBottom: 10 }}>Estos datos se usan en reportes, facturación y comunicaciones oficiales.</div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6 }}>
-              <div style={{ width: 56, height: 56, borderRadius: 'var(--r)', background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 400, color: '#fff', flexShrink: 0, boxShadow: '0 4px 14px rgba(59,130,246,.30)' }}>
-                {company.charAt(0)}
-              </div>
+              {logoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element --
+                   la fuente es una URL firmada de Supabase Storage que caduca,
+                   así que no hay una ruta estable que `next/image` pueda
+                   optimizar, y su loader tampoco puede firmarla. Mismo caso que
+                   los dos SVG locales documentados en la fase 7. */
+                <img
+                  src={logoUrl}
+                  alt={`Logo de ${company}`}
+                  width={56}
+                  height={56}
+                  style={{ width: 56, height: 56, borderRadius: 'var(--r)', objectFit: 'contain', background: 'var(--bg2)', flexShrink: 0 }}
+                />
+              ) : (
+                <div style={{ width: 56, height: 56, borderRadius: 'var(--r)', background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 400, color: '#fff', flexShrink: 0, boxShadow: '0 4px 14px rgba(59,130,246,.30)' }}>
+                  {company.charAt(0)}
+                </div>
+              )}
               <div>
-                <button className="btn" onClick={() => addToast('Selector de logo próximamente', 'info')}><Upload size={14} />Cambiar logo</button>
-                <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 6 }}>PNG con fondo transparente</div>
+                {data.canManage ? (
+                  <label className="btn" style={{ cursor: 'pointer' }}>
+                    <Upload size={14} />Cambiar logo
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={onLogoChange}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                ) : (
+                  <div className="muted" style={{ fontSize: 12.5 }}>
+                    Solo quien administra la empresa puede cambiar el logo.
+                  </div>
+                )}
+                <div style={{ fontSize: 11.5, color: 'var(--ink3)', marginTop: 6 }}>PNG, JPG o WebP · máx. 2 MB</div>
               </div>
             </div>
             <div className="flabel">Nombre de la empresa</div>
@@ -805,9 +928,17 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
             {fe('company')}
             <div className="flabel">Industria</div>
             <input className="field" value={industry} onChange={(e) => { setIndustry(e.target.value); mark() }} />
+            {/*
+              Decía «Próximamente», que es una promesa y no una descripción.
+              Kigyo es colombiano por dentro: 67 archivos fijan `es-CO`, la
+              nómina, la DIAN y el PILA son de Colombia, y las tasas de IVA de la
+              migración 104 también. La fase 5 ya retiró el selector de moneda
+              justo por esto — ofrecer un ajuste que no hace nada. Anunciar el
+              cambio de región es la misma promesa, dicha en el mismo sitio.
+            */}
             <div className="acc" style={{ marginTop: 6 }}><span className="acico"><Globe size={16} /></span>
               <div style={{ flex: 1 }}><div className="act">Idioma y región</div><div className="acs">Español (Colombia) · COP</div></div>
-              <div style={{ fontSize: 11.5, color: 'var(--ink3)', fontWeight: 400 }}>Próximamente</div></div>
+              <div style={{ fontSize: 11.5, color: 'var(--ink3)', fontWeight: 400 }}>Fijo</div></div>
             <button className="btn dark" style={{ marginTop: 18 }} onClick={save}><Check size={15} />Guardar cambios</button>
           </>
         )}

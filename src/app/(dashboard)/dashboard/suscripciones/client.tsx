@@ -240,7 +240,25 @@ export default function SuscripcionesPage({ data }: { data: SuscripcionesData })
           <div className="ctitle">Suscripciones</div>
         </div>
 
+        {/*
+          «Próximo cobro» es una fecha, no un cobro.
+
+          Nada la ejecuta y nada la adelanta: no hay proceso programado en el
+          repositorio, así que la fecha se queda quieta cuando pasa y la
+          suscripción no genera factura por su cuenta. Lo que sí hace, y hace
+          bien, es avisar: `notif-panel` la lee y la saca en la campana y en
+          Notificaciones con la antelación que digan las reglas.
+
+          Sin esta línea, la columna se lee como una promesa de domiciliación —
+          el usuario cierra el mes esperando facturas que nadie emitió.
+        */}
         <div className="cpad" style={{ paddingBottom: 0 }}>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 0, marginBottom: 12, lineHeight: 1.55 }}>
+            «Próximo cobro» es un recordatorio: aparece en la campana y en
+            Notificaciones cuando se acerca. Kigyo no cobra ni factura solo — cuando
+            llegue la fecha, emites la factura desde Facturación y actualizas aquí la
+            siguiente.
+          </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 160px', minWidth: 130 }}>
               <div className="flabel" style={{ marginTop: 0 }}>Cliente</div>

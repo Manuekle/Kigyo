@@ -39,6 +39,22 @@ export type PlanKey = (typeof PLAN_KEYS)[number]
  */
 export const DEFAULT_PLAN: PlanKey = 'starter'
 
+/**
+ * The tiers sold through a self-serve checkout.
+ *
+ * Enterprise is not one: it needs a conversation first, so its action is the
+ * demo form and its account is activated by hand. Lives here rather than in
+ * `lib/billing/polar.ts` — which it did until the paywall arrived — because
+ * that file is `server-only` and the paywall screen is a client component that
+ * has to know which cards get a Pay button.
+ */
+export const SELF_SERVE_PLANS = ['starter', 'growth'] as const
+export type SelfServePlan = (typeof SELF_SERVE_PLANS)[number]
+
+export function isSelfServePlan(plan: string): plan is SelfServePlan {
+  return (SELF_SERVE_PLANS as readonly string[]).includes(plan)
+}
+
 export interface PlanDef {
   key: PlanKey
   label: string

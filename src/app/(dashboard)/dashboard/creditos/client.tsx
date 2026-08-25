@@ -11,7 +11,7 @@ import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { CreditosData } from '@/server/queries/creditos'
-import { addLoan, deleteLoan, payInstallment } from '@/server/mutations/creditos'
+import { addLoan, deleteLoan, payInstallment, setLoanStatus } from '@/server/mutations/creditos'
 
 const DAY = new Intl.DateTimeFormat('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
 const fmtDate = (iso: string | null) => (iso ? DAY.format(new Date(`${iso}T00:00:00`)) : '—')
@@ -39,6 +39,12 @@ function pesos(cents: number): string {
 const EMPTY_LOAN = {
   clientId: '', amount: '', rate: '0', term: '', startDate: todayIso(), notes: '',
 }
+
+const LOAN_STATUS_OPTS = [
+  { value: 'activo', label: 'Activo' },
+  { value: 'pagado', label: 'Pagado' },
+  { value: 'castigado', label: 'Castigado' },
+]
 
 export default function CreditosPage({ data }: { data: CreditosData }) {
   const { addToast } = useApp()
@@ -92,6 +98,32 @@ export default function CreditosPage({ data }: { data: CreditosData }) {
       if (!result.ok) { addToast(result.error, 'err'); return }
       setState(result.data)
       addToast('Cuota pagada', 'ok')
+    })
+  }
+
+  /**
+   * Cierra el préstamo: pagado o castigado.
+   *
+   * `setLoanStatus` existía desde que existe el módulo y **ninguna pantalla lo
+   * llamaba**, así que un préstamo nacía «activo» y se quedaba activo para
+   * siempre: la cartera de créditos no se podía cerrar ni dar de baja, y los
+   * totales de arriba contaban como vivo todo lo que alguna vez se prestó.
+   *
+   * Castigar se confirma y pagar no: dar por perdido un préstamo es una
+   * decisión contable que alguien firma, marcarlo pagado es registrar algo que
+   * ya ocurrió.
+   */
+  async function changeLoanStatus(id: string, status: 'activo' | 'pagado' | 'castigado', who: string) {
+    if (status === 'castigado' && !(await confirm({
+      title: `¿Castigar el préstamo de ${who}?`,
+      description: 'Queda registrado como pérdida. Puedes devolverlo a activo si te equivocas.',
+      tone: 'danger',
+    }))) return
+    startTransition(async () => {
+      const result = await setLoanStatus(id, status)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      addToast(`Préstamo marcado ${status}`, 'ok')
     })
   }
 
@@ -237,9 +269,21 @@ export default function CreditosPage({ data }: { data: CreditosData }) {
                   <td className="muted mono" style={{ fontSize: 12 }}>{fmtDate(l.startDate)}</td>
                   <td><Badge st={cap(l.status)} tone={loanTone(l.status)} /></td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {/* El selector es lo que convierte el estado en algo que se
+                        puede cambiar. Antes era una etiqueta de solo lectura
+                        clavada en «activo» de por vida. */}
+                    <div style={{ display: 'inline-block', minWidth: 130, verticalAlign: 'middle' }}>
+                      <Select
+                        value={l.status}
+                        ariaLabel={`Estado del préstamo de ${l.clientName ?? 'sin cliente'}`}
+                        disabled={pending}
+                        onChange={(v) => changeLoanStatus(l.id, v as 'activo' | 'pagado' | 'castigado', l.clientName ?? 'sin cliente')}
+                        options={LOAN_STATUS_OPTS}
+                      />
+                    </div>
                     <button
                       className="ibtn"
-                      style={{ width: 28, height: 28, color: 'var(--redd)' }}
+                      style={{ width: 28, height: 28, color: 'var(--redd)', marginLeft: 6, verticalAlign: 'middle' }}
                       data-tip="Eliminar"
                       disabled={pending}
                       onClick={() => removeLoan(l.id)}

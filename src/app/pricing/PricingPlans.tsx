@@ -113,7 +113,18 @@ export default function PricingPlans() {
                   {pricing.cta}
                 </Link>
               )}
-              <p className="pricing-trial-note">Prueba 30 días gratis si solicitas una demo</p>
+              {/*
+                Decía «Prueba 30 días gratis si solicitas una demo». No existe
+                tal prueba: no hay columna que la cuente, ni vencimiento, ni
+                nada que la conceda — es la misma clase de afirmación que el FAQ
+                traía en el primer commit. Lo que la demo sí hace, y hace de
+                verdad desde `/api/demo/request`, es devolver las credenciales de
+                un entorno de ejemplo ya cargado con datos.
+              */}
+              <p className="pricing-trial-note">
+                <Link href="/contact">Solicita una demo</Link> y te damos acceso a un
+                entorno de ejemplo para mirarlo por dentro
+              </p>
             </div>
           )
 

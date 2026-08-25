@@ -75,6 +75,16 @@ export interface SettingsData {
      * array behind it.
      */
     modules: string[]
+    /**
+     * URL firmada del logo, o null.
+     *
+     * Firmada y no pública: `logos` es un bucket privado (migración 107), por el
+     * mismo motivo que `avatars` — un bucket abierto sería la lista de los logos
+     * de todos los clientes de Kigyo servida sin autenticación. La URL caduca,
+     * y esta consulta corre en cada carga de la pantalla, así que siempre hay
+     * una fresca. El coste es condicional: una empresa sin logo no paga nada.
+     */
+    logoUrl: string | null
   }
   profile: { fullName: string; email: string; avatarUrl: string | null; role: RoleKey }
   /**
@@ -103,7 +113,7 @@ export async function getSettings(): Promise<SettingsData> {
   const [orgResult, roles, grantsResult, membersResult, invitationsResult, factorsResult, sectorLock] = await Promise.all([
     supabase
       .from('organizations')
-      .select('id, name, industry, slug, company_type, subsector, enabled_modules')
+      .select('id, name, industry, slug, company_type, subsector, enabled_modules, branding')
       .eq('id', member.orgId)
       .single(),
     getRoles(member.orgId),
@@ -172,6 +182,22 @@ export async function getSettings(): Promise<SettingsData> {
 
   const org = orgResult.data
 
+  /**
+   * El logo, firmado si lo hay.
+   *
+   * `branding` es jsonb y su clave es `logo_url` — la escribe `updateBranding`
+   * y guarda la *ruta* dentro del bucket, no una URL. Ese fue el diseño desde
+   * la migración 30; lo que faltaba era el bucket y quien subiera el archivo.
+   */
+  const brandingLogo = (org.branding as { logo_url?: string } | null)?.logo_url ?? null
+  let logoUrl: string | null = null
+  if (brandingLogo) {
+    const { data: signed } = await supabase.storage
+      .from('logos')
+      .createSignedUrl(brandingLogo, 3600)
+    logoUrl = signed?.signedUrl ?? null
+  }
+
   return {
     catalogue: await getSectors(),
     organization: {
@@ -191,6 +217,7 @@ export async function getSettings(): Promise<SettingsData> {
       // toggle list: they are not switchable, and rendering them as switches
       // that cannot move is worse than not rendering them.
       modules: [...resolveModules(org.enabled_modules, org.company_type)].filter(isModuleKey),
+      logoUrl,
     },
     profile: {
       fullName: member.fullName,

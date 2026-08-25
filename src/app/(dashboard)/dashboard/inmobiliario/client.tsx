@@ -15,9 +15,10 @@ import {
   LEASE_STATUSES, PAYMENT_METHODS, PROPERTY_KINDS, PROPERTY_STATUSES,
 } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { InmobiliarioData, PropertyRow } from '@/server/queries/inmobiliario'
+import type { InmobiliarioData, LeaseRow, PropertyRow } from '@/server/queries/inmobiliario'
 import {
   createContratoArriendo, createInmueble, deleteInmueble, registrarArriendo,
+  updateContratoArriendo,
   setContratoArriendoStatus, setInmuebleStatus, updateInmueble,
 } from '@/server/mutations/inmobiliario'
 import { fetchMoreInmuebles } from '@/server/actions/inmobiliario'
@@ -72,6 +73,15 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [propertyOpen, setPropertyOpen] = useState(false)
   const [leaseOpen, setLeaseOpen] = useState(false)
+  /**
+   * Qué contrato se está corrigiendo.
+   *
+   * `updateContratoArriendo` existía y nada la llamaba: un canon mal tecleado o
+   * un día de pago equivocado solo se arreglaban borrando el contrato, y borrar
+   * un contrato se lleva su historial de pagos. En arriendos eso no es una
+   * molestia, es perder la contabilidad del inmueble.
+   */
+  const [editingLease, setEditingLease] = useState<string | null>(null)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null)
   const [propertyForm, setPropertyForm] = useState(EMPTY_PROPERTY)
@@ -189,9 +199,30 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
     })
   }
 
+  function editLease(c: LeaseRow) {
+    setEditingLease(c.id)
+    setLeaseForm({
+      propertyId: c.propertyId,
+      tenantName: c.tenantName,
+      tenantDocument: c.tenantDocument ?? '',
+      tenantEmail: c.tenantEmail ?? '',
+      tenantPhone: c.tenantPhone ?? '',
+      // El formulario habla pesos y la fila viene en centavos: `toCents` va a
+      // la ida, así que la vuelta divide. Sin esto, editar un canon de
+      // $1.500.000 lo reabriría en $150.000.000.
+      rent: String(c.rentCents / 100),
+      deposit: String(c.depositCents / 100),
+      dueDay: String(c.dueDay),
+      startsOn: c.startsOn,
+      endsOn: c.endsOn ?? '',
+      notes: c.notes ?? '',
+    })
+    setLeaseOpen(true)
+  }
+
   function submitLease() {
     startTransition(async () => {
-      const result = await createContratoArriendo({
+      const payload = {
         propertyId: leaseForm.propertyId,
         tenantName: leaseForm.tenantName,
         tenantDocument: leaseForm.tenantDocument,
@@ -203,12 +234,16 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
         startsOn: leaseForm.startsOn || TODAY(),
         endsOn: orNull(leaseForm.endsOn),
         notes: leaseForm.notes,
-      })
+      }
+      const result = editingLease
+        ? await updateContratoArriendo({ id: editingLease, ...payload })
+        : await createContratoArriendo(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setLeaseForm(EMPTY_LEASE)
+      setEditingLease(null)
       setLeaseOpen(false)
-      addToast('Contrato de arriendo creado', 'ok')
+      addToast(editingLease ? 'Contrato actualizado' : 'Contrato de arriendo creado', 'ok')
     })
   }
 
@@ -444,11 +479,23 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
                     </td>
                     <td>
                       {data.canWrite ? (
-                        <Select
-                          value={c.status}
-                          onChange={(next) => { if (next !== c.status) changeLease(c.id, next) }}
-                          options={[...LEASE_STATUSES]}
-                        />
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <Select
+                            value={c.status}
+                            onChange={(next) => { if (next !== c.status) changeLease(c.id, next) }}
+                            options={[...LEASE_STATUSES]}
+                          />
+                          <button
+                            className="ibtn"
+                            style={{ width: 28, height: 28, flexShrink: 0 }}
+                            data-tip="Editar contrato"
+                            disabled={pending}
+                            onClick={() => editLease(c)}
+                            aria-label={`Editar el contrato de ${c.tenantName}`}
+                          >
+                            <PenLine size={13} />
+                          </button>
+                        </div>
                       ) : (
                         <Badge st={c.status}
                           tone={c.status === 'Activo' ? 'grn'
@@ -617,11 +664,11 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
 
       <FormDrawer
         open={leaseOpen}
-        onClose={() => setLeaseOpen(false)}
-        title="Nuevo contrato de arriendo"
+        onClose={() => { setLeaseOpen(false); setEditingLease(null); setLeaseForm(EMPTY_LEASE) }}
+        title={editingLease ? 'Editar contrato de arriendo' : 'Nuevo contrato de arriendo'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitLease}>
-            <Check size={15} />Crear contrato
+            <Check size={15} />{editingLease ? 'Guardar cambios' : 'Crear contrato'}
           </button>
         }
       >

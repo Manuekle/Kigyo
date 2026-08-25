@@ -804,3 +804,163 @@ export async function revokeInvitation(id: string): Promise<ActionResult> {
     return { ok: false, error: 'No tienes permiso para gestionar invitaciones.' }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Avatar
+ *
+ * The `avatars` bucket is private (migration 07). Object keys are
+ * `{user_id}/avatar`, so RLS lets a user manage only their own. The storage
+ * path is saved to `profiles.avatar_url`; `session.ts` generates a signed URL
+ * on each login so the browser can render it without a public bucket.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+const AVATAR_MAX = 2 * 1024 * 1024 // 2 MB — matches the bucket limit
+const AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp']
+
+export type AvatarResult = { ok: true } | { ok: false; error: string }
+
+/**
+ * Uploads an avatar image for the caller and saves the storage path.
+ *
+ * The file arrives as a base64 data URL — the only way `FormData` with a
+ * `File` survives the Server Function boundary without a separate route
+ * handler. The path is always `{userId}/avatar`, so uploading a new one
+ * overwrites the old: no orphans, no stale URLs.
+ */
+export async function uploadAvatar(input: {
+  dataUrl: string
+  mimeType: string
+}): Promise<AvatarResult> {
+  try {
+    const member = await requireMember()
+
+    if (!AVATAR_TYPES.includes(input.mimeType)) {
+      return { ok: false, error: 'Formato no permitido. Usa PNG, JPG o WebP.' }
+    }
+
+    const base64 = input.dataUrl.split(',')[1]
+    if (!base64) return { ok: false, error: 'Imagen inválida.' }
+
+    const bytes = Buffer.from(base64, 'base64')
+    if (bytes.byteLength > AVATAR_MAX) {
+      return { ok: false, error: 'La imagen supera los 2 MB.' }
+    }
+
+    const path = `${member.userId}/avatar`
+    const supabase = await createClient()
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(path, bytes, {
+        contentType: input.mimeType,
+        upsert: true,
+      })
+
+    if (uploadError) {
+      console.error('[settings] uploadAvatar upload', uploadError)
+      return { ok: false, error: 'No se pudo subir la imagen.' }
+    }
+
+    const { error: dbError } = await supabase
+      .from('profiles')
+      .update({ avatar_url: path })
+      .eq('id', member.userId)
+
+    if (dbError) {
+      console.error('[settings] uploadAvatar db', dbError)
+      return { ok: false, error: 'No se pudo guardar el avatar.' }
+    }
+
+    revalidatePath('/dashboard', 'layout')
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No tienes permiso para esta acción.' }
+  }
+}
+
+/**
+ * Sube el logo de la empresa y lo deja escrito en `organizations.branding`.
+ *
+ * Gemela de `uploadAvatar` y por las mismas razones: el archivo llega como data
+ * URL en base64 —la única forma de que un `File` sobreviva al límite de una
+ * Server Function sin montar una ruta aparte— y la ruta es siempre
+ * `{orgId}/logo`, así que subir uno nuevo pisa el anterior y no quedan
+ * huérfanos ni URLs viejas resolviendo.
+ *
+ * Lo que la distingue del avatar es el permiso. El avatar es de la persona y
+ * basta con tener sesión; el logo es la identidad de la empresa y va con
+ * `configuracion:manage`, el mismo que ya decide quién le cambia el nombre o el
+ * NIT — y es también el que exige la política de storage de la migración 107,
+ * así que un llamante sin él es rechazado dos veces.
+ *
+ * Cierra el último control muerto del producto: hasta ahora el botón contestaba
+ * `addToast('Selector de logo próximamente')`. El sitio donde guardarlo existía
+ * desde la migración 30 y `updateBranding` sabía escribirlo; faltaban el bucket
+ * y esta función.
+ */
+export async function uploadLogo(input: {
+  dataUrl: string
+  mimeType: string
+}): Promise<AvatarResult> {
+  try {
+    const member = await requirePermission('configuracion:manage')
+
+    if (!AVATAR_TYPES.includes(input.mimeType)) {
+      return { ok: false, error: 'Formato no permitido. Usa PNG, JPG o WebP.' }
+    }
+
+    const base64 = input.dataUrl.split(',')[1]
+    if (!base64) return { ok: false, error: 'Imagen inválida.' }
+
+    const bytes = Buffer.from(base64, 'base64')
+    if (bytes.byteLength > AVATAR_MAX) {
+      return { ok: false, error: 'La imagen supera los 2 MB.' }
+    }
+
+    const path = `${member.orgId}/logo`
+    const supabase = await createClient()
+
+    const { error: uploadError } = await supabase.storage
+      .from('logos')
+      .upload(path, bytes, { contentType: input.mimeType, upsert: true })
+
+    if (uploadError) {
+      console.error('[settings] uploadLogo upload', uploadError)
+      return { ok: false, error: 'No se pudo subir el logo.' }
+    }
+
+    /**
+     * La marca se mezcla, no se reemplaza.
+     *
+     * `branding` es un jsonb que también guarda `accent`. Escribir
+     * `{ logo_url }` a secas borraría el color que el asistente dejó puesto —
+     * el mismo tipo de pérdida silenciosa que este repaso viene cerrando.
+     */
+    const { data: current } = await supabase
+      .from('organizations')
+      .select('branding')
+      .eq('id', member.orgId)
+      .maybeSingle()
+
+    const branding = {
+      ...((current?.branding as Record<string, unknown> | null) ?? {}),
+      logo_url: path,
+    }
+
+    const { error: dbError } = await supabase
+      .from('organizations')
+      .update({ branding })
+      .eq('id', member.orgId)
+
+    if (dbError) {
+      console.error('[settings] uploadLogo db', dbError)
+      return { ok: false, error: 'No se pudo guardar el logo.' }
+    }
+
+    revalidatePath('/dashboard', 'layout')
+    revalidatePath('/dashboard/configuracion')
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'No tienes permiso para cambiar el logo.' }
+  }
+}

@@ -38,6 +38,15 @@ export interface CompanyRef {
 }
 
 /**
+ * What the money says about an account.
+ *
+ * `pending` — never subscribed. Every account starts here since migration 106.
+ * `active`  — the provider says the subscription is running (or trialing).
+ * `delinquent` — it subscribed and stopped paying.
+ */
+export type AccountAccessState = 'pending' | 'active' | 'delinquent'
+
+/**
  * The commercial account above the active company.
  *
  * `role` is the caller's standing on the account, and it is `null` for most
@@ -58,6 +67,21 @@ export interface AccountRef {
    * for the rest of the account's life, would be a poor trade.
    */
   onboardingCompleted: boolean
+  /**
+   * Whether this account is paid up, and therefore whether its companies may
+   * be used at all.
+   *
+   * `pending` is an account that has never subscribed, `delinquent` one whose
+   * subscription stopped. Both are refused the dashboard and sent to
+   * `/suscripcion`; neither loses a single row — the same rule migration 106
+   * enforces in the database, where `app.company_is_active` reads the very
+   * same column and every RESTRICTIVE policy reads that function.
+   *
+   * Read here rather than where it is needed for the reason the other two
+   * flags are: the dashboard layout redirects on it, and an extra round trip
+   * on every page load to answer a one-word question would be a poor trade.
+   */
+  accessState: AccountAccessState
 }
 
 export interface Member {
@@ -211,7 +235,7 @@ export const getMember = cache(async (): Promise<Member | null> => {
        org_id,
        organizations!inner (
          name, slug, company_type, subsector, enabled_modules, status, setup_completed_at, timezone,
-         accounts ( id, name, plan, onboarding_completed_at )
+         accounts ( id, name, plan, onboarding_completed_at, access_state )
        ),
        profiles!inner ( email, full_name, avatar_url )`,
     )
@@ -235,6 +259,7 @@ export const getMember = cache(async (): Promise<Member | null> => {
       name: string
       plan: PlanKey
       onboarding_completed_at: string | null
+      access_state: AccountAccessState
     } | null
   }
 
@@ -331,13 +356,37 @@ export const getMember = cache(async (): Promise<Member | null> => {
      * asked again next time.
      */
     onboardingCompleted: org.accounts ? org.accounts.onboarding_completed_at !== null : true,
+    /**
+     * Treated as paid when the account row is unreadable.
+     *
+     * Same direction as `onboardingCompleted` above, and for a stronger
+     * reason: a transient read failure must never lock a paying customer out
+     * of their own product. Failing open here is safe because it is not the
+     * only gate — `app.company_is_active` reads the column directly inside
+     * the database, where RLS cannot filter it away, so a customer who is
+     * genuinely unpaid still cannot write a row.
+     */
+    accessState: org.accounts?.access_state ?? 'active',
+  }
+
+  // If the user has an avatar, it lives in the private `avatars` bucket keyed by
+  // `{user_id}/avatar`. A signed URL is minted here so the browser can render it
+  // without making the bucket public — the URL expires, but `requireMember()`
+  // runs on every page load, so a fresh one is always in hand. The extra call
+  // is conditional: users without an avatar pay nothing.
+  let avatarUrl: string | null = null
+  if (profile.avatar_url) {
+    const { data: signed } = await supabase.storage
+      .from('avatars')
+      .createSignedUrl(profile.avatar_url, 3600)
+    avatarUrl = signed?.signedUrl ?? null
   }
 
   return {
     userId: user.id,
     email: profile.email,
     fullName: profile.full_name || profile.email.split('@')[0],
-    avatarUrl: profile.avatar_url,
+    avatarUrl,
     orgId: active.orgId,
     orgName: org.name,
     orgSlug: org.slug,

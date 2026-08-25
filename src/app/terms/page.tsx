@@ -53,10 +53,23 @@ export default function TermsPage() {
 
           <h2>5. Costo del Servicio</h2>
           <p>
-            El Servicio se presta actualmente sin costo y no requiere método de
-            pago. Si en el futuro se introducen planes pagos, lo informaremos con
-            anticipación y ninguna función que hoy uses se cobrará de forma
-            retroactiva.
+            El Servicio se presta mediante suscripción. Los planes y sus precios
+            vigentes están publicados en la página de precios; el cobro lo procesa
+            Polar, nuestro proveedor de pagos, y la suscripción se renueva por el
+            periodo contratado hasta que la canceles.
+          </p>
+          <p>
+            Configurar tu empresa es gratuito. Para usarla hace falta un plan
+            activo. Si la suscripción se interrumpe, tu cuenta pasa a solo lectura:
+            conservas el acceso a todos tus datos y puedes exportarlos, y las
+            funciones de escritura vuelven en cuanto el plan se reactive. No
+            borramos tu información por falta de pago.
+          </p>
+          <p>
+            Las cuentas creadas antes de la introducción de la suscripción
+            obligatoria conservan el acceso que ya tenían. Cualquier cambio de
+            precio se informará con anticipación y no se aplicará de forma
+            retroactiva al periodo ya pagado.
           </p>
 
           <h2>6. Propiedad de los datos</h2>

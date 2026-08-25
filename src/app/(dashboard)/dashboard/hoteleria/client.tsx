@@ -14,11 +14,12 @@ import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { RESERVATION_STATUSES, ROOM_KINDS, ROOM_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { HoteleriaData, LimpiezaRow, RoomRow, SeasonRow } from '@/server/queries/hoteleria'
+import type { HoteleriaData, LimpiezaRow, ReservationRow, RoomRow, SeasonRow } from '@/server/queries/hoteleria'
 import {
   createHabitacion, createReserva, createSeason, createTareaLimpieza, deleteHabitacion,
   deleteSeason, deleteTarea, getRateFor, saveSeasonRate,
   setHabitacionStatus, setReservaStatus, setTareaDone, setTareaFecha, updateHabitacion,
+  updateReserva,
 } from '@/server/mutations/hoteleria'
 import { fetchMoreHabitaciones } from '@/server/actions/hoteleria'
 
@@ -79,6 +80,16 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
   const [roomForm, setRoomForm] = useState(EMPTY_ROOM)
   const [reservationForm, setReservationForm] = useState(EMPTY_RESERVATION)
   const [editingRoom, setEditingRoom] = useState<RoomRow | null>(null)
+  /**
+   * Qué reserva se está corrigiendo.
+   *
+   * `updateReserva` existía desde que existe el módulo y ninguna pantalla la
+   * llamaba: una reserva se creaba y ya. Cambiar una fecha, sumar un huésped o
+   * corregir el nombre del titular obligaba a eliminarla y volver a escribirla,
+   * y eso en un hotel significa perder el código de la reserva que el huésped
+   * ya tiene en el correo.
+   */
+  const [editingReserva, setEditingReserva] = useState<string | null>(null)
   const [tareaOpen, setTareaOpen] = useState(false)
   const [tareaForm, setTareaForm] = useState(EMPTY_TAREA)
   const [seasonOpen, setSeasonOpen] = useState(false)
@@ -222,9 +233,31 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
     })
   }
 
+  function editReserva(r: ReservationRow) {
+    setEditingReserva(r.id)
+    setReservationForm({
+      roomId: r.roomId,
+      guestName: r.guestName,
+      guestDocument: r.guestDocument ?? '',
+      guestEmail: r.guestEmail ?? '',
+      guestPhone: r.guestPhone ?? '',
+      guests: String(r.guests),
+      checkinOn: r.checkinOn,
+      checkoutOn: r.checkoutOn,
+      // Los formularios trabajan en pesos y la base en centavos: `toCents` va a
+      // la ida, así que la vuelta divide. Sin esto, editar una reserva de
+      // $200.000 la reabriría en $20.000.000.
+      nightlyRate: String(r.nightlyRateCents / 100),
+      paid: String(r.paidCents / 100),
+      channel: r.channel ?? '',
+      notes: r.notes ?? '',
+    })
+    setReservationOpen(true)
+  }
+
   function submitReservation() {
     startTransition(async () => {
-      const result = await createReserva({
+      const payload = {
         roomId: reservationForm.roomId,
         guestName: reservationForm.guestName,
         guestDocument: reservationForm.guestDocument,
@@ -237,12 +270,16 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
         paidCents: toCents(reservationForm.paid),
         channel: reservationForm.channel,
         notes: reservationForm.notes,
-      })
+      }
+      const result = editingReserva
+        ? await updateReserva({ id: editingReserva, ...payload })
+        : await createReserva(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setReservationForm(EMPTY_RESERVATION)
+      setEditingReserva(null)
       setReservationOpen(false)
-      addToast('Reserva creada', 'ok')
+      addToast(editingReserva ? 'Reserva actualizada' : 'Reserva creada', 'ok')
     })
   }
 
@@ -501,11 +538,23 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                       </td>
                       <td>
                         {data.canWrite ? (
-                          <Select
-                            value={r.status}
-                            onChange={(next) => { if (next !== r.status) changeReservation(r.id, next) }}
-                            options={[...RESERVATION_STATUSES]}
-                          />
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <Select
+                              value={r.status}
+                              onChange={(next) => { if (next !== r.status) changeReservation(r.id, next) }}
+                              options={[...RESERVATION_STATUSES]}
+                            />
+                            <button
+                              className="ibtn"
+                              style={{ width: 28, height: 28, flexShrink: 0 }}
+                              data-tip="Editar reserva"
+                              disabled={pending}
+                              onClick={() => editReserva(r)}
+                              aria-label={`Editar la reserva de ${r.guestName}`}
+                            >
+                              <PenLine size={13} />
+                            </button>
+                          </div>
                         ) : (
                           <Badge st={r.status}
                             tone={r.status === 'Check-in' ? 'grn'
@@ -804,11 +853,11 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
 
       <FormDrawer
         open={reservationOpen}
-        onClose={() => setReservationOpen(false)}
-        title="Nueva reserva"
+        onClose={() => { setReservationOpen(false); setEditingReserva(null); setReservationForm(EMPTY_RESERVATION) }}
+        title={editingReserva ? 'Editar reserva' : 'Nueva reserva'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitReservation}>
-            <Check size={15} />Crear reserva
+            <Check size={15} />{editingReserva ? 'Guardar cambios' : 'Crear reserva'}
           </button>
         }
       >

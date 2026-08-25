@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Truck, Check, Clock, Package, Plus, Trash2, ChevronRight } from '@/lib/icons'
+import Link from 'next/link'
+import { Truck, Check, Clock, Package, Plus, Trash2, ChevronRight, FileText } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import DatePicker from '@/components/ui/DatePicker'
 import Stat from '@/components/ui/Stat'
@@ -12,7 +13,7 @@ import { useConfirm } from '@/lib/context/ConfirmContext'
 import { cop } from '@/lib/utils'
 import type { StatusTone } from '@/lib/types'
 import type { PedidosData, SalesOrderRow, OrderStatus } from '@/server/queries/pedidos'
-import { createOrderFromQuote, deletePedido, updateOrderStatus } from '@/server/mutations/pedidos'
+import { createOrderFromQuote, deletePedido, facturarPedido, updateOrderStatus } from '@/server/mutations/pedidos'
 
 const STATUS_TONE: Record<OrderStatus, StatusTone> = {
   'Borrador': 'neu',
@@ -107,6 +108,29 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
     })
   }
 
+  /**
+   * El pedido se convierte en factura.
+   *
+   * Confirmado antes de escribir porque una factura no es un estado que se
+   * revierte pulsando otra vez: nace en Borrador, pero nace, y la lista de
+   * facturación la enseña desde ese momento.
+   */
+  async function facturar(p: SalesOrderRow) {
+    if (!(await confirm({
+      title: `¿Facturar el pedido ${p.code ?? ''}?`,
+      description:
+        'Se crea una factura en Borrador con las líneas del pedido. Los precios del ' +
+        'pedido llevan el IVA incluido; en la factura se separan la base y el impuesto, ' +
+        'así que el total que paga el cliente no cambia.',
+    }))) return
+    startTransition(async () => {
+      const result = await facturarPedido(p.id)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      apply(result.data)
+      addToast('Factura creada desde el pedido', 'ok')
+    })
+  }
+
   async function remove(p: SalesOrderRow) {
     if (!(await confirm({ title: `¿Eliminar el pedido ${p.code ?? ''}?`, tone: 'danger' }))) return
     startTransition(async () => {
@@ -197,12 +221,30 @@ export default function PedidosPage({ data }: { data: PedidosData }) {
                     <td style={{ textAlign: 'right' }}>
                       <div className="cename">{pesos(p.totalCents)}</div>
                       <div className="ceid">{p.dueOn ? `vence ${p.dueOn}` : 'sin vencimiento'}</div>
+                      {/*
+                        El eslabón, ahora visible. `invoices.sales_order_id`
+                        existía desde la migración 98 sin que nada la leyera, así
+                        que un pedido facturado y uno sin facturar se veían
+                        exactamente igual en esta lista.
+                      */}
+                      {p.invoice && (
+                        <div className="ceid" style={{ marginTop: 2 }}>
+                          <Link href="/dashboard/facturacion">
+                            Factura {p.invoice.code ?? 'creada'} · {p.invoice.status}
+                          </Link>
+                        </div>
+                      )}
                     </td>
                     {data.canWrite && (
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {NEXT_STATUS[p.status] && (
                           <button className="btn" onClick={() => advance(p)} disabled={pending}>
                             Avanzar<ChevronRight size={13} />
+                          </button>
+                        )}
+                        {p.status !== 'Cancelado' && !p.invoice && (
+                          <button className="btn" onClick={() => facturar(p)} disabled={pending}>
+                            <FileText size={13} />Facturar
                           </button>
                         )}
                         {p.status !== 'Cancelado' && (

@@ -1,11 +1,12 @@
 'use client'
 
 import { Fragment, useState, useTransition } from 'react'
-import { Plus, Send, Star, Trash2, UserCheck, XCircle, FileText, Filter } from '@/lib/icons'
+import { Download, FileText, Filter, Plus, Send, Star, Trash2, UserCheck, XCircle } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import Select from '@/components/ui/Select'
 import Stat from '@/components/ui/Stat'
 import { useApp } from '@/lib/context/AppContext'
+import { useExport } from '@/lib/hooks/use-export'
 import { useConfirm } from '@/lib/context/ConfirmContext'
 import type { StatusTone } from '@/lib/types'
 import type { MarketingData, CampaignChannel, TemplateRow } from '@/server/queries/marketing'
@@ -57,6 +58,7 @@ const KIND_OPTS = [
 
 export default function MarketingPage({ data }: { data: MarketingData }) {
   const { addToast } = useApp()
+  const { runExport, exporting } = useExport()
   const confirm = useConfirm()
   const [pending, startTransition] = useTransition()
 
@@ -176,6 +178,27 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
     })
   }
 
+  /**
+   * La lista, en un archivo.
+   *
+   * Sin esto el módulo terminaba en un callejón: se segmenta la audiencia, se
+   * guarda, y no hay forma de hacer nada con ella — no hay envío conectado y
+   * tampoco había salida. Exportarla es lo que convierte «armar la lista» en
+   * trabajo aprovechable hoy, con la herramienta de correo o WhatsApp que la
+   * empresa ya use, sin fingir que Kigyo la manda.
+   */
+  function exportRecipients(campaign: { id: string; name: string; channel: string }) {
+    const rows = state.recipients
+      .filter((r) => r.campaignId === campaign.id)
+      .map((r) => ({
+        Nombre: r.contactName,
+        Contacto: r.contactAddress,
+        Canal: CHANNEL_LABELS[campaign.channel as CampaignChannel] ?? campaign.channel,
+        Campaña: campaign.name,
+      }))
+    void runExport(rows, `destinatarios-${campaign.name}`, 'marketing')
+  }
+
   return (
     <>
       <div className="g3 g3--few" style={{ marginBottom: 16 }}>
@@ -257,6 +280,23 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
           <div className="ctitle">Campañas</div>
         </div>
 
+        {/*
+          Kigyo arma la lista; no la manda.
+
+          «Marcar enviada» hace exactamente lo que dice —cambia el estado y
+          fecha los destinatarios— y no envía ni un mensaje: no hay proveedor de
+          correo ni de WhatsApp conectado, y sin recibos de entrega tampoco
+          habría con qué medir la conversión. Decirlo aquí es más barato que
+          dejar que alguien lo descubra cuando su cliente no reciba nada.
+        */}
+        <div className="cpad" style={{ paddingBottom: 0 }}>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 0, lineHeight: 1.55 }}>
+            Kigyo arma y guarda la lista de destinatarios; el envío lo haces con tu
+            herramienta de correo o WhatsApp. Descarga la lista con el botón de cada
+            campaña y marca la campaña como enviada cuando la hayas mandado.
+          </p>
+        </div>
+
         <div className="tblwrap">
           <table className="tbl">
             <thead>
@@ -294,6 +334,18 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
                     <td className="mono">{c.sentCount}</td>
                     <td><Badge st={cap(c.status)} tone={CAMPAIGN_TONE[c.status]} /></td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {c.audienceCount > 0 && (
+                        <button
+                          className="ibtn"
+                          style={{ width: 28, height: 28 }}
+                          data-tip="Descargar destinatarios"
+                          disabled={pending || exporting}
+                          onClick={() => exportRecipients(c)}
+                          aria-label={`Descargar los destinatarios de ${c.name}`}
+                        >
+                          <Download size={13} />
+                        </button>
+                      )}
                       {c.status === 'borrador' && (
                         <>
                           <button

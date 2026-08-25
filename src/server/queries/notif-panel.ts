@@ -65,22 +65,28 @@ const DAY_MS = 86_400_000
  * Días hasta la fecha, nunca negativo. **No** es `daysUntil` de lib/domain.ts.
  *
  * Se dejó aparte a propósito, y conviene decir por qué para que nadie las
- * fusione: aquella resta dos fechas y devuelve el signo; esta redondea hacia
- * arriba, acota en cero y recibe una columna que mezcla dos tipos —
- * `patient_appointments.scheduled_for` es `timestamptz`, mientras que
- * `contracts.due_on` y `subscriptions.next_charge_on` son `date`.
+ * fusione: aquella resta dos fechas y devuelve el signo; esta acota en cero y
+ * recibe una columna que mezcla dos tipos — `patient_appointments.scheduled_for`
+ * es `timestamptz`, mientras que `contracts.due_on` y
+ * `subscriptions.next_charge_on` son `date`.
  *
- * Esa mezcla es un problema real y sin resolver: para una cita de hoy a las
- * 15:00, `ceil` sobre el timestamp da 1 y la pantalla dice «en 1 día» de algo
- * que es hoy. Arreglarlo cambia lo que un usuario lee, así que es una decisión
- * de producto y no una limpieza — se anota en vez de cambiarse de paso.
+ * La mezcla se resuelve aquí, no en la pantalla: para `timestamptz` se convierte
+ * a la zona horaria de la empresa antes de extraer la fecha (una cita a las
+ * 22:00 de Bogotá es 03:00 UTC del día siguiente — sin conversión diría «en 1
+ * día» de algo que es hoy); para `date` se usa la fecha directamente, porque
+ * `new Date('2026-08-21')` interpreta UTC medianoche y al convertir a la zona
+ * puede saltar al día anterior.
  *
- * Lo que sí se corrige aquí es la parte que no admite discusión: el «hoy» ya no
- * sale del reloj del servidor (UTC en Vercel) sino de la zona de la empresa.
+ * Comparar fecha contra fecha a medianoche, no fracciones de día: una cita de
+ * hoy a las 15:00 dice «hoy» (0), no «en 1 día».
  */
-function daysUntil(when: string, hoy: string): number {
+function daysUntil(when: string, hoy: string, timezone: string): number {
+  const whenDate = when.includes('T')
+    ? new Date(when).toLocaleDateString('sv-SE', { timeZone: timezone })
+    : when.slice(0, 10)
   const today = new Date(`${hoy}T00:00:00`)
-  return Math.max(0, Math.ceil((new Date(when).getTime() - today.getTime()) / DAY_MS))
+  const target = new Date(`${whenDate}T00:00:00`)
+  return Math.max(0, Math.round((target.getTime() - today.getTime()) / DAY_MS))
 }
 
 export async function getNotifPanel(): Promise<NotifPanelData> {
@@ -171,7 +177,7 @@ export async function getNotifPanel(): Promise<NotifPanelData> {
 
   const upcoming: UpcomingRow[] = (citas as UpcomingRecord[])
     .concat(vencimientos, renovaciones)
-    .map((r) => ({ kind: r.kind, subject: r.subject ?? '', when: r.when, daysLeft: daysUntil(r.when, todayIn(member.orgTimezone)) }))
+    .map((r) => ({ kind: r.kind, subject: r.subject ?? '', when: r.when, daysLeft: daysUntil(r.when, todayIn(member.orgTimezone), member.orgTimezone) }))
     .sort((a, b) => a.when.localeCompare(b.when))
     .slice(0, 30)
 

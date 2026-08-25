@@ -46,10 +46,44 @@ export default function CarteraPage({ data }: { data: CarteraData }) {
     { value: '', label: 'Sin cliente' },
     ...state.clients.map((c) => ({ value: c.id, label: c.name })),
   ]
+  // El saldo va en la etiqueta: elegir «FAC-0007» sin saber cuánto queda
+  // debiendo obliga a irse a Facturación y volver, que es exactamente el viaje
+  // en el que alguien teclea otra cifra.
   const invoiceOpts = [
     { value: '', label: 'Sin factura' },
-    ...state.invoices.map((i) => ({ value: i.id, label: i.code })),
+    ...state.invoices.map((i) => ({
+      value: i.id,
+      label: `${i.code} · ${i.clientName} · ${pesos(i.balanceCents)} por cobrar`,
+    })),
   ]
+
+  /**
+   * Elegir la factura rellena la deuda desde la factura.
+   *
+   * Cartera y Facturación llevaban dos contabilidades separadas de lo mismo:
+   * `receivable_agreements` se escribía a mano y el envejecimiento de cartera de
+   * Facturación se derivaba de `invoices`, y nada las ataba. El selector de
+   * factura existía y no hacía nada más que guardar el `invoice_id`, así que el
+   * monto, el cliente y el vencimiento se volvían a teclear — y bastaba un dedo
+   * torcido para que las dos pantallas dijeran cosas distintas del mismo dinero.
+   *
+   * Solo prellena; nada queda bloqueado. Un acuerdo de pago por una parte de la
+   * factura es normal, y el usuario puede bajar el monto o mover la fecha.
+   */
+  function pickInvoice(invoiceId: string) {
+    const invoice = state.invoices.find((i) => i.id === invoiceId)
+    setDeudaForm((f) => ({
+      ...f,
+      invoiceId,
+      ...(invoice
+        ? {
+          clientId: invoice.clientId ?? f.clientId,
+          amount: String(invoice.balanceCents / 100),
+          dueDate: invoice.dueOn ?? f.dueDate,
+        }
+        : {}),
+    }))
+  }
 
   function submitDeuda() {
     startTransition(async () => {
@@ -119,7 +153,7 @@ export default function CarteraPage({ data }: { data: CarteraData }) {
               <div className="flabel">Factura</div>
               <Select
                 value={deudaForm.invoiceId}
-                onChange={(v) => setDeudaForm((f) => ({ ...f, invoiceId: v }))}
+                onChange={pickInvoice}
                 options={invoiceOpts}
               />
             </div>

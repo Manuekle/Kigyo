@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { ChevronDown, ChevronUp, Construction, Plus, Trash2 } from '@/lib/icons'
+import { ChevronDown, ChevronUp, Construction, PenLine, Plus, Trash2 } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import DatePicker from '@/components/ui/DatePicker'
 import Stat from '@/components/ui/Stat'
@@ -20,6 +20,7 @@ import {
   deleteCapitulo,
   deletePresupuesto,
   setPresupuestoEstado,
+  setPresupuestoValor,
 } from '@/server/mutations/obra'
 
 // La fecha llega como 'YYYY-MM-DD' (columna date). Se formatea en UTC para que
@@ -79,6 +80,7 @@ export default function ObraPage({ data }: { data: ObraData }) {
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
+  const [valorEdit, setValorEdit] = useState<{ id: string; value: string } | null>(null)
   const [presForm, setPresForm] = useState(EMPTY_PRES)
   const [capForms, setCapForms] = useState<Record<string, CapForm>>({})
   const [apuForms, setApuForms] = useState<Record<string, ApuForm>>({})
@@ -221,6 +223,27 @@ export default function ObraPage({ data }: { data: ObraData }) {
     }
   }
 
+  /**
+   * El valor presupuestado deja de ser inmutable.
+   *
+   * `setPresupuestoValor` existía y ninguna pantalla la llamaba, así que la
+   * cifra que se escribía al crear el presupuesto era la cifra para siempre.
+   * En obra eso no se sostiene ni una semana: el presupuesto se ajusta contra
+   * los capítulos que se van cargando, y la única salida era borrar el
+   * presupuesto entero y volver a crearlo, perdiendo capítulos, APU y avances.
+   */
+  function saveValor() {
+    if (!valorEdit) return
+    const { id, value } = valorEdit
+    startTransition(async () => {
+      const result = await setPresupuestoValor(id, value)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      setValorEdit(null)
+      addToast('Valor presupuestado actualizado', 'ok')
+    })
+  }
+
   return (
     <>
       <div className="g3" style={{ marginBottom: 16 }}>
@@ -361,7 +384,43 @@ export default function ObraPage({ data }: { data: ObraData }) {
 
           <div className="cpad" style={{ paddingTop: 0 }}>
             <div className="muted" style={{ fontSize: 13, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <span>Presupuestado: <strong>{cop(p.valorPresupuestado)}</strong></span>
+              {valorEdit?.id === p.id ? (
+                <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                  Presupuestado:
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className="field"
+                    style={{ width: 150 }}
+                    autoFocus
+                    value={valorEdit.value}
+                    onChange={(e) => setValorEdit({ id: p.id, value: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveValor()
+                      if (e.key === 'Escape') setValorEdit(null)
+                    }}
+                    aria-label={`Valor presupuestado de ${p.name}`}
+                  />
+                  <button className="btn" disabled={pending} onClick={saveValor}>Guardar</button>
+                  <button className="btn" disabled={pending} onClick={() => setValorEdit(null)}>Cancelar</button>
+                </span>
+              ) : (
+                <span>
+                  Presupuestado: <strong>{cop(p.valorPresupuestado)}</strong>
+                  <button
+                    type="button"
+                    className="ibtn"
+                    style={{ width: 22, height: 22, marginLeft: 4, verticalAlign: 'middle' }}
+                    disabled={pending}
+                    onClick={() => setValorEdit({ id: p.id, value: String(p.valorPresupuestado) })}
+                    aria-label={`Cambiar el valor presupuestado de ${p.name}`}
+                    data-tip="Cambiar valor"
+                  >
+                    <PenLine size={12} />
+                  </button>
+                </span>
+              )}
               <span>Ejecutado: <strong>{cop(p.valorEjecutado)}</strong></span>
               {p.fechaInicio && <span>Inicio: {fmtDate(p.fechaInicio)}</span>}
               {p.fechaFin && <span>Fin: {fmtDate(p.fechaFin)}</span>}

@@ -5,7 +5,7 @@ import PricingPlans from './PricingPlans'
 
 export const metadata: Metadata = {
   title: 'Precios',
-  description: 'Planes de Kigyo desde $80.000/mes, o $800.000/año. Sin tarjeta de crédito y sin contratos forzosos. Agenda una demo para verlo con tu equipo.',
+  description: 'Planes de Kigyo desde $80.000/mes, o $800.000/año. Sin permanencia: cancelas cuando quieras. Agenda una demo para verlo con tu equipo.',
 }
 
 export default function PricingPage() {
@@ -18,9 +18,15 @@ export default function PricingPage() {
             differ precisely by which functions they unlock. Nómina is not in
             Starter; saying otherwise on the pricing page is a claim the
             product contradicts on day one. */}
+        {/* "Sin tarjeta de crédito" se fue con el muro de pago. Era cierto
+            mientras nadie pagaba nunca; desde que la suscripción es obligatoria
+            para usar el producto, es lo primero que un cliente descubre que no
+            era verdad — y lo descubre al final del asistente, después de haber
+            configurado su empresa entera. */}
         <p className="pub-page-sub">
-          Sin tarjeta de crédito y sin contratos forzosos. Activas solo los
-          módulos que tu empresa usa y el resto no estorba.
+          Sin permanencia: cancelas cuando quieras y tus datos siguen siendo
+          tuyos. Activas solo los módulos que tu empresa usa y el resto no
+          estorba.
         </p>
       </div>
 

@@ -22,6 +22,7 @@ import type { MenuItemRow, OrderRow, RestauranteData } from '@/server/queries/re
 import {
   abrirCaja, abrirComanda, agregarInsumo, cerrarCaja, crearDomicilio, crearReserva,
   createMesa, createPlato, eliminarInsumo, eliminarReserva, setComandaStatus,
+  updateMesa,
   setDomicilioStatus, setMesaStatus, setPlatoDisponible, setReservaStatus, updatePlato,
 } from '@/server/mutations/restaurante'
 import { fetchMoreComandas } from '@/server/actions/restaurante'
@@ -127,6 +128,11 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
   const [dishOpen, setDishOpen] = useState(false)
   const [tableOpen, setTableOpen] = useState(false)
   const [dishEditId, setDishEditId] = useState<string | null>(null)
+  // Igual que `dishEditId`: el mismo cajón sirve para crear y para corregir.
+  // `updateMesa` existía desde que existe el módulo y nada la llamaba, así que
+  // una mesa mal escrita solo se arreglaba borrándola — y borrarla se lleva por
+  // delante las comandas y reservas que colgaban de ella.
+  const [tableEditId, setTableEditId] = useState<string | null>(null)
   const [orderForm, setOrderForm] = useState(EMPTY_ORDER)
   const [draftItems, setDraftItems] = useState<DraftItem[]>([{ ...EMPTY_ITEM }])
   const [dishForm, setDishForm] = useState(EMPTY_DISH)
@@ -442,18 +448,33 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
 
   function submitTable() {
     startTransition(async () => {
-      const result = await createMesa({
+      const payload = {
         label: tableForm.label,
         zone: tableForm.zone,
         seats: tableForm.seats || 2,
         siteId: tableForm.siteId || null,
-      })
+      }
+      const result = tableEditId
+        ? await updateMesa({ id: tableEditId, ...payload })
+        : await createMesa(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setTableForm(EMPTY_TABLE)
+      setTableEditId(null)
       setTableOpen(false)
-      addToast('Mesa creada', 'ok')
+      addToast(tableEditId ? 'Mesa actualizada' : 'Mesa creada', 'ok')
     })
+  }
+
+  function editTable(m: { id: string; label: string; zone: string; seats: number; siteId: string | null }) {
+    setTableEditId(m.id)
+    setTableForm({
+      label: m.label,
+      zone: m.zone ?? '',
+      seats: String(m.seats),
+      siteId: m.siteId ?? '',
+    })
+    setTableOpen(true)
   }
 
   const subtotalPreview = draftItems.reduce(
@@ -738,11 +759,23 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                     <td>{m.seats}</td>
                     <td>
                       {data.canWrite ? (
-                        <Select
-                          value={m.status}
-                          onChange={(next) => { if (next !== m.status) changeTable(m.id, next) }}
-                          options={[...TABLE_STATUSES]}
-                        />
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <Select
+                            value={m.status}
+                            onChange={(next) => { if (next !== m.status) changeTable(m.id, next) }}
+                            options={[...TABLE_STATUSES]}
+                          />
+                          <button
+                            className="ibtn"
+                            style={{ width: 28, height: 28, flexShrink: 0 }}
+                            data-tip="Editar mesa"
+                            disabled={pending}
+                            onClick={() => editTable(m)}
+                            aria-label={`Editar la mesa ${m.label}`}
+                          >
+                            <PenLine size={13} />
+                          </button>
+                        </div>
                       ) : (
                         <Badge st={m.status}
                           tone={m.status === 'Libre' ? 'grn'
@@ -1159,11 +1192,11 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
 
       <FormDrawer
         open={tableOpen}
-        onClose={() => setTableOpen(false)}
-        title="Nueva mesa"
+        onClose={() => { setTableOpen(false); setTableEditId(null); setTableForm(EMPTY_TABLE) }}
+        title={tableEditId ? 'Editar mesa' : 'Nueva mesa'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitTable}>
-            <Check size={15} />Crear mesa
+            <Check size={15} />{tableEditId ? 'Guardar cambios' : 'Crear mesa'}
           </button>
         }
       >

@@ -1,17 +1,15 @@
 import 'server-only'
 import { Polar } from '@polar-sh/sdk'
 import { polarEnv } from '@/lib/env'
-import type { PlanKey } from '@/lib/plans'
+import { SELF_SERVE_PLANS, type PlanKey, type SelfServePlan } from '@/lib/plans'
 
 export type BillingInterval = 'monthly' | 'yearly'
 
-/** The two tiers sold through a checkout. Enterprise goes to `/contact`. */
-export const SELF_SERVE_PLANS = ['starter', 'growth'] as const
-export type SelfServePlan = (typeof SELF_SERVE_PLANS)[number]
-
-export function isSelfServePlan(plan: string): plan is SelfServePlan {
-  return (SELF_SERVE_PLANS as readonly string[]).includes(plan)
-}
+// The catalogue moved to `lib/plans.ts` when the paywall screen — a client
+// component — needed to know which tiers have a checkout. Re-exported so the
+// billing callers that already import it from here keep working.
+export { SELF_SERVE_PLANS, isSelfServePlan } from '@/lib/plans'
+export type { SelfServePlan } from '@/lib/plans'
 
 let cachedClient: Polar | null = null
 

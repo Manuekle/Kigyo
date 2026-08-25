@@ -107,7 +107,7 @@ export default function LoginPage() {
             <p className="auth-sub">
               {factorId
                 ? 'Escribe el código de 6 dígitos de tu app de autenticación.'
-                : <>¿Primera vez por aquí? <Link href="/register">Crea tu cuenta gratis</Link></>}
+                : <>¿Primera vez por aquí? <Link href="/register">Crea tu cuenta</Link></>}
             </p>
 
             {factorId ? (

@@ -1,6 +1,6 @@
 # Kigyo — contexto maestro (estado, historia y pendientes)
 
-Único archivo de sesión. Actualizado: 2026-08-20. Rama `main`, push al día con origin.
+Único archivo de sesión. Actualizado: 2026-08-25. Rama `main`.
 
 ---
 
@@ -26,8 +26,12 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 290/290 · tsc 0 · build verde · lint 0/0 · e2e 6/6 (`workers: 1` obligatorio).
-- Remota: migraciones 1–104 aplicadas. Tipos regenerados (201 tablas) tras mig 94.
+- vitest 303/303 · tsc 0 · build verde · e2e 8/8 (`workers: 1` obligatorio).
+- **lint: 17 errores + 42 avisos, TODOS en `src/components/extend/*`** (visores
+  de `@extend-ai` sin trackear) y en los dos archivos que los usan
+  (`DocumentPreview.tsx`, `documentos/client.tsx`). Ninguno en código propio.
+  Entraron con esos componentes, no con la jornada del 25.
+- Remota: migraciones 1–108 aplicadas. Tipos regenerados (203 tablas) tras mig 106.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
 - Working tree limpio, branch pusheada.
 - 0 residuos E2E en remota.
@@ -668,15 +672,28 @@ la auditoría que corría en paralelo. Lo que sí sigue en rojo es `npm run lint
    `cop` en helpers de módulo o subcomponentes. Y antes que eso están los 67
    archivos con `es-CO`, la nómina colombiana, DIAN y PILA — la moneda es lo
    último que haría falta, no lo primero.
-2. **Cobertura e2e.** 5 specs para 62 páginas. Ninguna cubre el onboarding, que
-   es donde estaba el bloqueante.
+2. **Cobertura e2e.** ~~5 specs para 62 páginas.~~ 8 el 2026-08-25, y las dos
+   nuevas cubren justo lo que el hueco escondía: el muro de pago entero
+   (`suscripcion.spec.ts`) y la subida de logo bajo RLS real (`logo.spec.ts`).
+   `embudo.spec.ts` llega ahora hasta la factura **y mira importes**, que es lo
+   que destapó las líneas de cotización descartadas en silencio. Sigue siendo
+   deuda: 8 para 62.
 3. ~~**`daysUntil` ×6**~~ RESUELTO en fase 6: una sola en `lib/domain.ts`, con
-   el «hoy» por parámetro. Queda `notif-panel` aparte a propósito, y con un bug
+   el «hoy» por parámetro. ~~Queda `notif-panel` aparte a propósito, y con un bug
    abierto suyo: mezcla `timestamptz` y `date` en la misma columna, así que una
    cita de hoy a las 15:00 se anuncia «en 1 día». Arreglarlo cambia lo que el
-   usuario lee — decisión de producto.
-4. **Botones muertos** en Configuración: «Cambiar foto» y «Cambiar logo»
-   responden «próximamente».
+   usuario lee — decisión de producto.~~ RESUELTO 2026-08-21 (tarde):
+   `daysUntil` de notif-panel convierte timestamptz a la zona de la empresa
+   antes de comparar fecha contra fecha; `date` se usa directo. Cita de hoy
+   a las 15:00 dice «hoy» (0), no «en 1 día».
+4. ~~**Botones muertos** en Configuración.~~ RESUELTO 2026-08-25, y el
+   diagnóstico de esta entrada era medio falso: **«Cambiar foto» ya
+   funcionaba** —bucket, política, mutación y UI, todo hecho— y solo «Cambiar
+   logo» estaba muerto. Cerrado con las migraciones 107 (bucket `logos` + 4
+   políticas) y 108 (`valid_branding` admite una ruta de storage, no solo una
+   URL https), más `uploadLogo` y su control. Verificado con
+   `e2e/logo.spec.ts`, que va por navegador porque psql entra como `postgres`
+   y no evalúa políticas de storage.
 5. ~~**Doc drift**~~ corregido en la primera jornada.
 
 6. **`sector_modules` y `plan_limits.seats` estaban mal listados como deuda.**
@@ -688,13 +705,371 @@ la auditoría que corría en paralelo. Lo que sí sigue en rojo es `npm run lint
    aplicación: la cola sobrevive, pero el navegador no carga el bundle sin red.
    Es función, no limpieza.
 
+8. **Añadido 2026-08-25 — no hay puente POS → factura.** `dian.ts` solo lee
+   `invoices`, así que una venta de mostrador no llega nunca a la DIAN. La
+   migración 104 dejó el IVA por línea guardado en `pos_sale_items` justo para
+   el día que se construya, pero el puente es función nueva. Con el módulo
+   Facturación ya conectado al pedido, es el eslabón que queda suelto de la
+   cadena comercial.
+
+9. **Añadido 2026-08-25 — `npm run lint` volvió a rojo, y no por código
+   propio.** 17 errores y 42 avisos, todos en `src/components/extend/*` (los
+   visores de `@extend-ai`, sin trackear) y en los dos archivos que los
+   consumen. Decidir si se vendorizan con su propia configuración o se excluyen
+   del lint; arreglarlos a mano es mantener un fork de una dependencia.
+
+### Jornada 2026-08-21 (tarde) — onboarding: paso de plan al final
+
+El wizard terminaba en Equipo → `finishCompanySetup` → `/dashboard`. El plan
+inicial es siempre `starter` (`DEFAULT_PLAN` en `plans.ts`); el pago solo vivía
+en `/dashboard/empresas` → drawer «Cambiar de plan». Quien configuraba su
+empresa veía qué módulos le faltaban (`lockedByPlan` en el paso Módulos) pero
+no tenía la opción de subir de plan en el momento — había que ir a otra
+pantalla después.
+
+**Decisión: plan al final, no al inicio.** El plan es de la cuenta, no de la
+empresa; el wizard es per-empresa. Pedir pago antes de configurar = muro.
+El paso de Módulos ya nombra qué queda fuera; el paso de Plan conecta:
+«configuraste todo, ¿quieres subir?». «Saltar» sigue disponible → dashboard
+con Starter.
+
+Cambios en `src/app/onboarding/client.tsx` (sin migración, sin backend nuevo):
+- `StepId` incluye `plan` (7 pasos: empresa → sector → tipo → módulos →
+  sucursales → equipo → plan).
+- `advance()`: `equipo` pasa de `done()` a `next()`; `plan` hace `done()`.
+- `upgradeToGrowth()`: `finishCompanySetup` **antes** de redirect a Polar —
+  el checkout es externo, y al volver (`successUrl` → `/dashboard`) el flag ya
+  está stamped. Si Polar falla, dashboard con error (no trampa en wizard
+  terminado).
+- Paso `plan`: 3 planes con precios (reutiliza `PRICING`, `PLANS`, `CYCLES`).
+  Starter = «Continuar con Starter» (`done()`). Growth = checkout Polar
+  (`upgradeToGrowth`). Enterprise = link a `/contact`. Muestra cuántos
+  módulos del sector quedaron bloqueados por el plan actual.
+- `startPolarCheckout` reutilizado tal cual de `mutations/billing.ts`.
+
+Verificado: tsc 0 · vitest 290/290 · lint 0/0.
+
+### notif-panel — mezcla timestamptz + date resuelta
+
+`daysUntil` de `queries/notif-panel.ts` redondeaba `ceil` sobre el timestamp
+crudo, así que una cita de hoy a las 15:00 decía «en 1 día». La mezcla de
+tipos en la columna `when` (`patient_appointments.scheduled_for` es
+`timestamptz`, `contracts.due_on` y `subscriptions.next_charge_on` son
+`date`) se resuelve en la función, no en la pantalla:
+
+- `timestamptz` → `toLocaleDateString('sv-SE', { timeZone })` extrae la
+  fecha en la zona de la empresa antes de comparar (22:00 Bogotá = 03:00
+  UTC del día siguiente; sin conversión decía «en 1 día» de algo que es
+  hoy).
+- `date` → se usa la fecha directamente (`new Date('2026-08-21')` interpreta
+  UTC medianoche y al convertir a la zona puede saltar al día anterior).
+- Comparación fecha contra fecha a medianoche, no fracciones de día.
+  `round` en vez de `ceil`: una cita de hoy siempre da 0.
+
+La firma cambió: `daysUntil(when, hoy, timezone)`. Verificado: tsc 0 ·
+vitest 290/290.
+
+### Botones muertos y inventario sin decimales — analizados, no codeables de paso
+
+**«Cambiar foto» / «Cambiar logo»** en Configuración. Ambos responden
+`addToast('... próximamente', 'info')`. No existe infra de avatares (0
+referencias a `avatars` en el repo); `logo_url` solo se referencia en
+`updateBranding` (mutation de onboarding). Implementar upload real =
+Storage + mutation + UI. Es función nueva, no deuda de limpieza.
+
+**Inventario sin decimales — RESUELTO (mig 105).** `inventory_movements.qty`,
+`product_stock.qty`, `products.stock`, `pos_sale_items.quantity` e
+`inventory_orders.quantity` pasaron de `integer` a `numeric(12,2)`. Una compra
+de 2,5 kg ya no se redondea al entrar al libro.
+
+Cambios:
+- Mig 105: alter type en 5 columnas + check constraints. Trigger
+  `apply_inventory_movement` (`v_saldo integer` → `numeric`). RPCs
+  `register_pos_sale` y `place_storefront_order` (`v_quantities int[]` →
+  `numeric[]`, `(e ->> 'quantity')::int` → `::numeric(12,2)`, check `q < 1` →
+  `q <= 0`, `order_quantity integer` → `numeric`). `void_pos_sale` sin cambios
+  (lee `i.quantity` de `pos_sale_items`, que ya es numeric). Comprobación
+  final: saldo derivado cuadra con `products.stock`.
+- `mutations/productos.ts`: `stock` Zod `z.number().int()` → `z.number()`.
+- `sync_product_stock_total` sin tocar: ya usa `sum(qty)` que sobre numeric
+  devuelve numeric.
+- Tipos TS (`number`) ya compatibles — `numeric` se mapea a `number`.
+
+**Pendiente:** aplicar mig 105 en remota + regenerar tipos. Validar primero en
+`begin; … rollback;`.
+
+Ambos quedan en la deuda abierta como función, no como bug.
+
+### Jornada 2026-08-25 — auditoría de flujos: el producto no cobraba
+
+Encargo: revisar los **flujos**, no la interfaz. La pregunta que lo abrió —«en
+el onboarding, ¿dónde paga el usuario?»— resultó tener la peor respuesta
+posible: en ninguna parte, nunca.
+
+**Bloqueante — Kigyo se regalaba entero.** Registrarse creaba una cuenta
+`starter`, que es el plan que `/pricing` cobra a **$80.000/mes**, sin
+suscripción, sin vencimiento y sin ninguna pantalla que volviera a pedir dinero.
+`billing_status` se escribía desde el webhook y **no lo leía nadie** (0 lectores
+en `src/`; solo los tipos generados y un test que comprueba que no está
+concedida). El checkout de Polar estaba construido, cableado y correcto —lo
+único que faltaba era que algo mandara a alguien hacia él—. El paso «Plan» del
+asistente enseñaba los tres precios y ofrecía dos botones para no pagar ninguno
+(«Saltar por ahora» y «Terminar»), que eran además los únicos que no sacaban al
+usuario de la aplicación.
+
+Ninguna de las 290 pruebas verdes podía verlo: cada una comprobaba una pieza que
+sí funcionaba. El defecto no era un fallo, era una **ausencia**.
+
+**Decisión (del dueño):** pago obligatorio al registrarse. No se entra al panel
+sin suscripción activa.
+
+#### Migración 106 — el muro, en la base y no solo en TypeScript
+
+- `accounts.access_state`: `pending | active | delinquent`. Columna nueva y no
+  `billing_status` porque aquella habla el idioma del proveedor y las
+  migraciones 26 y 38 decidieron NO concedérsela a `authenticated` junto a los
+  dos identificadores de la pasarela. Esa decisión sigue en pie: `access_state`
+  es la proyección de tres valores que sí se puede leer, y el test
+  «never names a billing column in any grant» sigue verde sin tocarlo.
+- **Se extiende `app.company_is_active`, y no se crea ni una política.** Esa
+  función es el predicado de las 543 políticas RESTRICTIVE de la migración 99,
+  así que enseñarle `access_state` las enseñó a las 543 a la vez — sin lista que
+  mantener y sin tabla que se pueda olvidar mañana.
+- La condición es «la cuenta está al día **o** la empresa sigue configurándose»
+  (`setup_completed_at is null`). Sin esa segunda mitad el paso de sucursales
+  —que escribe `sites`, tabla con `org_id` y por tanto con guardia— fallaría
+  para toda cuenta nueva, y el cliente se toparía con el muro antes de ver qué
+  compra.
+- Grandfathering: todo lo que ya existía pasa a `active`. La regla aplica desde
+  la siguiente cuenta.
+- `apply_subscription` escribe `access_state`; `trialing` cuenta como al día.
+
+#### App
+
+- `/suscripcion`, fuera del grupo `(dashboard)` por el mismo motivo que
+  `/onboarding`: ese layout redirige aquí. Dos pantallas según quién mire —
+  quien gobierna la cuenta ve los planes con checkout, el resto ve por qué no
+  puede hacer nada y a quién pedírselo.
+- El layout del panel redirige **después** del asistente, nunca antes.
+- El paso «Plan» pierde las dos salidas gratis; Starter también cobra. El botón
+  «Subir a {tier}» tenía `plan: 'growth'` escrito dentro: en una cuenta que ya
+  fuera Growth, la tarjeta de Starter decía «Subir a Starter» y cobraba Growth.
+- El banner de suspensión decía «regulariza el plan» sin decir dónde. Ahora
+  lleva enlace.
+
+#### Copy comercial que dejó de ser cierto el día del muro
+
+Cuatro afirmaciones, todas corregidas: «Prueba 30 días gratis» (no existe
+ninguna prueba: ni columna, ni vencimiento, ni nada que la conceda), «Crear
+cuenta gratis» ×2, y —la peor, porque es el documento legal— **los Términos
+decían «El Servicio se presta actualmente sin costo y no requiere método de
+pago»**. También «Sin tarjeta de crédito» en `/pricing`. Pineado en
+`paywall.test.ts`, que además comprueba que no aparezca una columna de trial sin
+que el copy vuelva a prometerla.
+
+### Jornada 2026-08-25 — la cadena comercial llegaba hasta el pedido
+
+**`invoices.sales_order_id` existía desde la migración 98 —con su FK y su
+guardia anti-cruce de empresa— y ni un solo archivo del repositorio la
+nombraba.** Cero lecturas, cero escrituras. Quien vendía por pedido reescribía
+la factura línea a línea en otra pantalla.
+
+`facturarPedido` en `mutations/pedidos.ts`. Lo que hay que saber para no
+romperlo:
+
+```
+cotización / pedido   unit_price_cents = precio CON IVA, sin desglose
+factura               unit_price_cents = precio SIN IVA + tax_rate
+```
+
+Copiar la línea sin convertir cobra el 19% dos veces: es exactamente el error
+que encontró la migración 104, entrando por la puerta de al lado. Se convierte
+con `netFromGross`, y la tasa sale del producto del catálogo (0 en una línea de
+texto libre — suponerle 19% sería inventarle un impuesto). `invoiceTotals` sale
+de `mutations/facturacion.ts` a `lib/domain.ts` el día que tuvo dos llamadores.
+
+### Jornada 2026-08-25 — nueve funciones que existían y no llamaba nadie
+
+Barrido: para cada `export async function` de `src/server/mutations/`, ¿la
+importa alguna pantalla? Nueve no.
+
+| Mutación | Lo que era imposible hacer |
+|---|---|
+| `creditos.setLoanStatus` | cerrar un préstamo: nacía activo y moría activo |
+| `calidad.setNonconformityAction` | registrar la acción correctiva (el campo se mostraba y no se podía llenar) |
+| `obra.setPresupuestoValor` | cambiar el valor presupuestado sin borrar el presupuesto entero |
+| `hoteleria.updateReserva` | corregir una reserva sin perder su código |
+| `inmobiliario.updateContratoArriendo` | corregir un contrato sin perder su historial de pagos |
+| `estudiantes.updatePrograma` | cambiar matrícula o duración de un programa con alumnos |
+| `agro.updateCiclo` | mover la fecha de cosecha o el costo de insumos |
+| `restaurante.updateMesa` | editar una mesa sin arrastrar sus comandas |
+| `onboarding.updateBranding` | poner el logo (ver más abajo) |
+
+Los tres de `pos` (`cobrarVenta`, `cobrarConQr`, `prepararPagoSimulado`) son un
+falso positivo del barrido: los despacha `cobrarPago`.
+
+**Dos secciones condenadas a estar vacías.** `employee_skills` y
+`employee_events` tienen tabla, RLS y unicidad desde la migración 02, la ficha
+del empleado las leía desde entonces, y **no existía un solo `insert` en el
+repositorio** — ni en código, ni en migración, ni en trigger. «Habilidades» y
+«Trayectoria» decían «todavía no hay nada» en todas las empresas y no había
+forma de llenarlas. Es el peor de los defectos de esta auditoría porque no
+falla: se ve igual que una empresa que aún no ha cargado datos. Cuatro
+mutaciones nuevas y sus formularios.
+
+### Jornada 2026-08-25 — tres módulos que ofrecían algo que no ocurría
+
+Decisión del dueño: **honestos ahora, entrega después.**
+
+- **Notificaciones.** Una regla activa no envía nada: no hay proceso programado
+  en el repositorio —ni cron, ni edge function, ni `vercel.json`— y
+  `notification_log` no tiene un solo escritor, así que la Bitácora está vacía
+  por construcción. Lo que la regla sí hace es decidir la antelación con la que
+  algo aparece en «Próximos» y en la campana. Dicho arriba y en la tabla vacía.
+- **Marketing.** «Marcar enviada» hace lo que dice y no manda nada. Añadida la
+  **descarga de la lista de destinatarios**, que es lo que convierte el módulo
+  en trabajo aprovechable hoy: sin ella se segmentaba la audiencia y no había
+  salida ninguna.
+- **Suscripciones.** «Próximo cobro» es un recordatorio: nada lo ejecuta y nada
+  lo adelanta. Dicho en la pantalla.
+
+### Jornada 2026-08-25 — dinero que se perdía en silencio al guardar
+
+`cotizaciones/client.tsx` filtraba las líneas con
+`description.trim() && quantity > 0` y descartaba **en silencio** tanto la línea
+del formulario vacío (correcto) como la línea a medio llenar (no). El editor
+muestra el total en vivo con `lineTotal`, que solo mira cantidad × precio, así
+que quien escribía 250.000 sin descripción veía «Total $250.000» en el cajón,
+pulsaba Guardar, y la cotización quedaba en **$0** sin que nada lo dijera. Río
+abajo: esa cotización se acepta, se convierte en pedido, y el pedido nace sin
+una sola línea.
+
+Ahora se descarta solo la línea que nadie tocó y se reclama la que quedó a
+medias. Mismo arreglo en `compras` (requisición y factura de proveedor), donde
+el `items.length === 0` de abajo tapaba el caso simple pero no el de una segunda
+línea buena que salvaba el envío.
+
+Lo encontró la ampliación de `e2e/embudo.spec.ts`, que hasta entonces no miraba
+ni un importe.
+
+### Jornada 2026-08-25 — cartera y facturación llevaban dos contabilidades
+
+`receivable_agreements` se escribía a mano y el envejecimiento de cartera de
+Facturación se derivaba de `invoices`; nada las ataba. El selector de factura de
+Cartera existía y no hacía más que guardar el `invoice_id`: el monto, el cliente
+y el vencimiento se volvían a teclear, y bastaba un dedo torcido para que las
+dos pantallas dijeran cosas distintas del mismo dinero. Ahora `getCartera` trae
+saldo, cliente y vencimiento de cada factura cobrable y elegirla prellena la
+deuda. Solo prellena: un acuerdo por una parte de la factura es normal.
+
+### Jornada 2026-08-25 — el último botón muerto (migs 107 y 108)
+
+«Cambiar logo» contestaba `addToast('Selector de logo próximamente')`.
+`organizations.branding.logo_url` existe desde la migración 30 y
+`updateBranding` sabía escribirlo; faltaban el bucket y quien subiera el
+archivo.
+
+- **Mig 107:** bucket privado `logos` + 4 políticas. Bucket propio y no
+  `documents`, que está gobernado por `documentos:read/write` — colgar de ahí la
+  marca ataría el logo a un módulo que la empresa puede apagar, y perdería su
+  propio logo del recibo. El permiso correcto es `configuracion:manage`, el
+  mismo que ya decide quién renombra la empresa. Leer solo pide
+  `configuracion:read`: el logo sale en documentos que imprime gente que no
+  administra nada.
+- **Mig 108:** `app.valid_branding` exigía `logo_url ~ '^https://\S+$'` — regla
+  de la migración 30, escrita cuando la única forma imaginada de tener logo era
+  pegar la URL de uno alojado fuera. El producto eligió otra para todo lo demás:
+  los tres buckets son privados y la columna guarda la **ruta**, que se firma al
+  leer (igual que `profiles.avatar_url`). Se añade la forma «ruta» acotada a
+  `{uuid}/logo`; la forma https se conserva, así que ninguna fila existente deja
+  de ser válida.
+
+**«Cambiar foto» sí funcionaba** — la deuda nº 4 de la lista anterior estaba a
+medias en el doc: el avatar tiene bucket, política, mutación y UI desde antes.
+
+### Jornada 2026-08-25 — dos fallos propios, y los guardias que los pinean
+
+**Un `export const` tumbó el dashboard entero.** Se exportó
+`EMPLOYEE_EVENT_TAGS` desde `mutations/empleados.ts`, que lleva `'use server'`.
+Next lo rechaza al evaluar el módulo:
+
+> A "use server" file can only export async functions, found object.
+
+Lo peligroso es dónde salta y dónde no: `tsc` calla, `eslint` calla,
+**`npm run build` pasó en verde**, y en ejecución no rompe la pantalla de
+empleados sino *toda la ruta*, porque el cargador de server actions junta los
+módulos. Se descubrió con los seis specs de e2e en rojo a la vez y una traza que
+señalaba a `company-switch`. La constante vive ahora en `lib/domain.ts` y
+`src/server/use-server-exports.test.ts` lo pinea — comprobado que falla al
+reintroducirlo.
+
+**Un teardown asimétrico le arrancó un módulo a la empresa fixture.** El seed de
+`embudo.spec.ts` encendía el módulo solo si faltaba (bien) y el teardown lo
+apagaba siempre (mal). Al añadir `facturacion` a esa prueba, la primera corrida
+se lo quitó a IPS Bogota —que ya lo tenía— y dejó `dian.spec.ts` en rojo, en
+otro archivo y sin relación aparente. El seed devuelve ahora **solo lo que
+encendió** y el teardown apaga exactamente eso.
+
+**Mig 105 nunca se había aplicado, y no por olvido: estaba rota.**
+`place_storefront_order` cambia el tipo de un parámetro OUT (`order_quantity`
+`integer` → `numeric`), y `create or replace` lo rechaza aunque la firma de
+entrada sea idéntica — «cannot change return type of existing function». Añadido
+el `drop function` y, con él, la reconcesión de permisos que el `drop` se lleva
+(sin eso PostgREST contesta «function not found» a la tienda entera, y no se
+nota hasta que alguien intenta comprar).
+
+**Fuga de credenciales en la salida de e2e.** `execFileSync` mete el comando
+entero en el mensaje de error y el comando lleva `SUPABASE_DB_URL`, contraseña
+incluida, así que un fallo de fixture imprimía las credenciales de producción en
+la salida de la suite — que es donde se copian y se pegan en un informe. Los dos
+specs nuevos relanzan solo el stderr del servidor. **`marketing.spec.ts` y
+`dian.spec.ts` siguen con la forma vieja: conviene igualarlos.** Y como la URL
+llegó a imprimirse durante esta jornada, **rotar la contraseña de la base es lo
+prudente**.
+
+### Cobertura e2e: 6 → 8 specs
+
+La deuda nº 1 de la lista anterior («6 specs para 62 pantallas; el bloqueante de
+onboarding vivía en ese hueco con todo verde») se ataca donde más valía:
+
+- `e2e/suscripcion.spec.ts` — el muro completo: cuenta al día entra, cuenta
+  `pending` aterriza en `/suscripcion`, la pantalla ofrece checkout, **la base
+  también lo impide** (`app.company_is_active` = `f`, así que no se esquiva
+  hablando con PostgREST directo), y `apply_subscription` lo deshace entero.
+- `e2e/logo.spec.ts` — la subida bajo RLS real. Va por navegador y no por psql
+  porque psql entra como `postgres`, que tiene `rolbypassrls` y no evalúa
+  ninguna política de storage.
+- `e2e/embudo.spec.ts` — ampliado hasta la factura, y ahora **mira importes**:
+  el pedido vale 250.000 con 1 línea, y la factura cobra lo mismo que el pedido.
+
 ## 5. Pendiente (todo requiere decisión o proveedor externo)
 
-1. **DIAN producción** — proveedor homologado + certificado + revisor fiscal.
-2. **Wompi en vivo** — llaves sandbox para probar loop 3.3 completo.
-3. **Polar.sh** — crear cuenta, productos (4) y access token; pegar en `.env.local` (ver `.env.example`).
-4. **Marketing conversión** — proveedor real de delivery.
-5. **Nómina** — validación contador laboral.
+1. **Polar.sh — AHORA ES BLOQUEANTE DE LANZAMIENTO, no un pendiente más.**
+   Desde la migración 106 no se entra al panel sin suscripción activa, y la
+   única forma de activarla es el checkout de Polar. Sin las 6 variables en
+   `.env.local` (`POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, los 4
+   `POLAR_PRODUCT_*`), **una cuenta nueva se queda en `/suscripcion` y no puede
+   salir**: el botón contesta «la facturación todavía no está configurada».
+   Crear la cuenta, los 4 productos (starter/growth × mensual/anual), el token,
+   y apuntar el webhook a `/api/billing/webhook`. Plantilla en `.env.example`.
+   Las cuentas que ya existían están en `active` por el grandfathering, así que
+   el entorno de demo sigue funcionando y esto **no se nota probando con el
+   usuario demo** — solo registrando una cuenta nueva.
+2. **Enterprise se activa a mano.** No tiene checkout (va a `/contact`), así que
+   una cuenta Enterprise se queda en `pending` hasta que alguien corra
+   `select public.apply_subscription('<account_id>', 'enterprise', 'active');`
+   con `service_role`. Es deliberado y está documentado; conviene una pantalla
+   interna antes de vender el primer Enterprise.
+3. **DIAN producción** — proveedor homologado + certificado + revisor fiscal.
+4. **Wompi en vivo** — llaves sandbox para probar loop 3.3 completo.
+5. **Marketing y Notificaciones: entrega** — proveedor de correo/WhatsApp más
+   un proceso programado (hoy no hay cron, ni edge function, ni `vercel.json`).
+   Las dos pantallas ya dicen en pantalla qué hacen y qué no.
+6. **Nómina** — validación contador laboral.
+7. **Rotar la contraseña de la base.** `SUPABASE_DB_URL` completo se imprimió en
+   la salida de e2e durante la jornada del 25 (ver §Jornada — fuga de
+   credenciales). Los specs nuevos ya no lo hacen; `marketing.spec.ts` y
+   `dian.spec.ts` siguen con la forma vieja y conviene igualarlos.
 
 Los dos ítems «opcional codeable» (cierres Z por sucursal; filtro ownerId en
 marketing) quedaron hechos 2026-08-20 — ver §4.
@@ -712,6 +1087,11 @@ marketing) quedaron hechos 2026-08-20 — ver §4.
 - psql `-c` multi-sentencia = una transacción; `-c` no soporta `\gset`.
 - RPC security definer: la política RLS no aplica dentro — validar site/FK explícito (KG101/KG102).
 - `drop function` antes de `create or replace` cuando cambia la firma (mig 93: 7→8 params).
+  **También cuando cambia un parámetro OUT**, aunque la firma de entrada sea
+  idéntica: «cannot change return type of existing function». Es lo que dejó la
+  mig 105 sin aplicar durante días. Y el `drop` se lleva los permisos, así que
+  hay que reconcederlos — sin eso PostgREST contesta «function not found» y no
+  se nota hasta que alguien intenta usar la pantalla.
 - `round(numeric)` devuelve numeric, no bigint — cast `::bigint` en `returns table`.
 - `REVOKE UPDATE, DELETE FROM authenticated` — verificar `pg_class.relacl`: `authenticated=arDxtm` (sin w/d).
 - BEFORE DELETE trigger que retorna `new` aborta el DELETE (NEW es NULL en DELETE) — `if tg_op='DELETE' then return old`.
@@ -721,6 +1101,13 @@ marketing) quedaron hechos 2026-08-20 — ver §4.
 ### App / Next.js
 
 - Mutations: `'use server'`, NO `'server-only'` (rompe build si client lo importa).
+- **Un archivo `'use server'` solo puede exportar funciones async.** Un
+  `export const` ahí dentro no lo ve `tsc`, no lo ve `eslint` y **el build pasa
+  en verde**; revienta al evaluar el módulo, en ejecución, y se lleva por
+  delante *toda la ruta* —no solo la pantalla— porque el cargador de server
+  actions junta los módulos. La señal es engañosa: seis specs de e2e en rojo y
+  una traza que señala a un archivo que no tiene nada que ver. Pineado en
+  `src/server/use-server-exports.test.ts`. Las constantes van a `lib/domain.ts`.
 - Client component NO importa runtime query server-only — `import type` o envolver en `actions/x.ts` `'use server'`.
 - Toda página `/dashboard/<x>/page.tsx` exige entrada en `ROUTE_MAP` (`src/lib/data/nav.ts`) — route-guard.test.
 - Toda query en `src/server/queries/` exige org-scope o `scoped()` — scope-guard.test rompe a propósito.
@@ -736,6 +1123,20 @@ marketing) quedaron hechos 2026-08-20 — ver §4.
 ### E2e
 
 - `workers: 1` SIEMPRE — specs comparten demo user/org/DB; paralelo revienta fixtures.
+- **El teardown restaura lo que el seed encontró, no lo que el seed supone.** El
+  seed de `embudo` encendía un módulo solo si faltaba y el teardown lo apagaba
+  siempre; al añadir `facturacion`, la primera corrida se lo arrancó a la
+  empresa fixture —que ya lo tenía— y dejó `dian.spec.ts` en rojo, en otro
+  archivo y sin relación aparente. El seed devuelve la lista de lo que encendió
+  y el teardown apaga exactamente eso.
+- **`psql` filtra `SUPABASE_DB_URL` al fallar.** `execFileSync` mete el comando
+  entero en el mensaje de error, contraseña incluida, y acaba en la salida de la
+  suite. `suscripcion.spec.ts` y `logo.spec.ts` capturan y relanzan solo el
+  stderr; `marketing.spec.ts` y `dian.spec.ts` todavía no.
+- **Supabase prohíbe `delete from storage.objects` por SQL**
+  (`storage.protect_delete()`), así que un teardown de storage no puede limpiar
+  el binario: hay que reutilizar una ruta fija que la siguiente corrida
+  sobrescriba.
 - **El login tiene límite de intentos y la suite lo agota.**
   `RATE_LIMITS.login` = 10 intentos por 300 s, contados por dirección **y** por
   correo. La suite hace 6 logins con el mismo usuario demo, así que una corrida
@@ -807,61 +1208,90 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL' … SQL
 
 ```
 Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (maestro) y docs/ARQUITECTURA_ACTUAL.md
-(mapa técnico, revisado y verificado contra la base remota el 2026-08-21; su §20
-dice qué se comprobó y qué salió mal).
+(mapa técnico; su §20 dice qué se comprobó y qué salió mal).
 
 ESTADO
-tsc 0 · vitest 290/290 · build verde · e2e 6/6 (workers: 1 SIEMPRE)
-Migraciones 1–104 aplicadas en remota. Base casi vacía (1 producto, 0 sucursales).
-Working tree limpio, 0 residuos E2E. Único rojo: npm run lint → 4 errores,
-24 avisos (casi todo no-unused-vars sobre `member`/`parsed`).
+tsc 0 · vitest 303/303 · build verde · e2e 8/8 (workers: 1 SIEMPRE)
+lint: 17 errores + 42 avisos, TODOS en src/components/extend/* (visores de
+@extend-ai sin trackear) y en los dos archivos que los usan. Nada propio.
+Migraciones 1–108 aplicadas en remota. Tipos regenerados (203 tablas).
 
-QUÉ SE HIZO (auditoría + 6 fases de reparación, commits 862c28f…b185faf)
-Bloqueantes cerrados: onboarding fallaba en 23/23 sectores en Starter · «Ventas
-de hoy» mostraba 100× · «hoy» era UTC en ~30 sitios · 4 afirmaciones falsas en
-el FAQ y una en el JSON-LD · un módulo nuevo no llegaba a las empresas
-existentes · pedidos y contabilidad estaban en Enterprise por descuido · el
-módulo Pedidos nunca funcionó desde la UI (subconsulta imposible en PostgREST) ·
-la suspensión por impago era un banner · el inventario era un entero editable
-sin libro · facturar a precio de góndola cobraba 19% de más · la llave de Wompi
-se guardaba y se leía con nombres distintos · la IA y el export ignoraban el
-apagado de módulos.
+QUÉ SE HIZO LA JORNADA DEL 25 — auditoría de flujos
+El encargo era revisar flujos, no interfaz, y la primera pregunta destapó el
+bloqueante: EL PRODUCTO NO COBRABA. Registrarse daba Starter ($80.000/mes en
+/pricing) gratis y para siempre; billing_status lo escribía el webhook y no lo
+leía nadie; el paso «Plan» del asistente enseñaba tres precios y dos botones
+para no pagar ninguno. Ninguna de las 290 pruebas verdes podía verlo: el
+defecto no era un fallo, era una ausencia.
 
-REGLAS VINCULANTES
+Cerrado con pago obligatorio (decisión del dueño):
+- Mig 106: accounts.access_state + se EXTIENDE app.company_is_active, que es el
+  predicado de las 543 políticas RESTRICTIVE de la 99 — así el muro es de base
+  de datos y no se esquiva hablando con PostgREST. Excepción mientras
+  setup_completed_at is null, o el asistente no podría escribir.
+- /suscripcion (fuera de (dashboard)), redirect en el layout DESPUÉS del
+  asistente, paso «Plan» sin salidas gratis, Starter también cobra.
+- 4 afirmaciones falsas corregidas, una de ellas en los Términos de servicio.
+- e2e/suscripcion.spec.ts lo prueba entero, incluida la guardia de la base.
+
+Además:
+- pedido → factura (invoices.sales_order_id existía desde la mig 98 y NADIE la
+  nombraba). Convierte el IVA con netFromGross: copiar la línea tal cual cobra
+  el 19% dos veces.
+- 9 mutaciones que existían y no llamaba ninguna pantalla, ahora con interfaz.
+- employee_skills y employee_events: tabla desde la mig 02, la ficha las leía, y
+  CERO inserts en todo el repositorio. Dos secciones vacías para siempre.
+- Notificaciones / Marketing / Suscripciones: dicen en pantalla qué hacen y qué
+  no (no hay cron ni proveedor). Marketing gana la descarga de destinatarios.
+- Cotizaciones y compras descartaban en silencio una línea con precio y sin
+  descripción: el cajón enseñaba $250.000 y se guardaba $0.
+- Cartera prellena la deuda desde la factura (antes: dos contabilidades).
+- Migs 107 y 108: bucket `logos` + valid_branding admite ruta de storage. Era el
+  último botón muerto. («Cambiar foto» ya funcionaba.)
+- Mig 105 estaba ROTA y por eso nunca se aplicó: place_storefront_order cambia
+  un tipo OUT y exige `drop function` + reconceder permisos. Arreglada y aplicada.
+
+DOS FALLOS PROPIOS DE LA JORNADA, YA PINEADOS
+- `export const` desde un archivo 'use server' tumba TODA la ruta en ejecución
+  y NI tsc NI el build lo ven. Guardia: src/server/use-server-exports.test.ts.
+- Un teardown de e2e asimétrico le arrancó un módulo a la empresa fixture y
+  dejó otro spec en rojo. El seed devuelve solo lo que encendió.
+
+REGLAS VINCULANTES (además de las de AGENTS.md)
 - org_id = empresa, nunca company_id, nunca tabla companies.
 - app.orgs_with / apply_standard_rls / apply_child_rls: CONGELADAS.
+  app.company_is_active NO lo está: es la palanca del muro de pago.
 - products.price_cents es precio CON IVA. El POS extrae, la factura convierte.
-  pos_sales NO cumple total = subtotal + tax, y es deliberado.
+  Cotización y pedido también llevan el IVA dentro: facturar convierte.
 - products.stock es DERIVADA. Todo movimiento entra por inventory_movements.
-- Mutations 'use server', nunca 'server-only'.
+- Mutations 'use server', nunca 'server-only', y SOLO exportan funciones async.
 - Ruta nueva exige entrada en ROUTE_MAP. Query nueva exige scoped() o .eq(org_id).
-- Módulo nuevo: registry.ts es la fuente; el resto se deriva.
 - Nómina y DIAN: NO inventar cifras regulatorias.
 - Supabase MCP apunta a otro proyecto: todo por psql con SUPABASE_DB_URL.
 - Migración nueva: validarla primero dentro de `begin; … rollback;`.
+- Fixture de e2e: restaurar EXACTAMENTE lo que se encontró, no lo que se supone.
 - NO lanzar dos `npx playwright test` a la vez, ni con workers:1.
 - No crear .md nuevos: actualizar CONTEXTO_SESION.md.
 
-PENDIENTE, TODO EXTERNO
-1. Nómina: validación de contador laboral colombiano. Parámetros en cero por
-   diseño; hay banner cuando minWage=0.
-2. Polar: crear cuenta, 4 productos y token; pegar 6 vars en .env.local.
-3. DIAN producción: proveedor homologado, certificado XAdES-EPES, revisor
-   fiscal, y añadir ciudad y dirección a organizations.
-4. Wompi: llaves reales (hoy WOMPI_REAL !== 'true').
-5. Marketing: proveedor de delivery receipts.
+PENDIENTE — ver §5. El nº 1 es BLOQUEANTE DE LANZAMIENTO
+1. Polar: sin las 6 variables, una cuenta NUEVA se queda encerrada en
+   /suscripcion. No se nota probando con el usuario demo, que está
+   grandfathered en `active`.
+2. Enterprise se activa a mano con apply_subscription (no tiene checkout).
+3. DIAN producción · 4. Wompi en vivo · 5. Entrega de marketing/notificaciones
+   (proveedor + cron) · 6. Nómina: contador · 7. Rotar la contraseña de la base
+   (se imprimió en la salida de e2e) e igualar marketing/dian.spec al psql que
+   no filtra.
 
-DEUDA TÉCNICA PRIORIZADA
-1. Cobertura e2e: 6 specs para 62 pantallas. Es el riesgo meta — el bloqueante
-   de onboarding vivía en ese hueco con todo verde.
-2. ~~lint en rojo~~ RESUELTO en fase 7: 0 errores, 0 avisos.
+DEUDA TÉCNICA
+1. lint en rojo por src/components/extend/* — visores de terceros sin trackear.
+   Decidir si se vendorizan con su propia config o se excluyen del lint.
+2. Cobertura e2e: 8 specs para 62 pantallas. Mejor que 6, lejos de suficiente.
 3. Service worker: sin él el POS offline es cierto en datos y falso en app.
-4. notif-panel mezcla timestamptz y date: una cita de hoy a las 15:00 dice
-   «en 1 día». Cambiarlo cambia lo que el usuario lee.
-5. Inventario sin decimales; validación de stock por sucursal llega tarde.
-6. Moneda: si algún día se internacionaliza, cablear organizations.currency
-   cuesta 41 archivos (30 con cop en helpers de módulo). Antes están los 67
-   archivos con es-CO, la nómina colombiana, DIAN y PILA.
+4. No hay flujo POS → factura, así que una venta de mostrador no llega a DIAN.
+   dian.ts solo lee invoices. Es función nueva, no reparación.
+5. Moneda: internacionalizar cuesta 41 archivos, y antes están los 67 con es-CO,
+   la nómina colombiana, DIAN y PILA.
 
 Modo caveman ultra.
 ```

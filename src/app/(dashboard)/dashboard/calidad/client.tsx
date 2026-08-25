@@ -15,6 +15,7 @@ import {
   addNonconformity,
   deleteCheck,
   deleteNonconformity,
+  setNonconformityAction,
   setNonconformityStatus,
 } from '@/server/mutations/calidad'
 
@@ -74,6 +75,8 @@ export default function CalidadPage({ data }: { data: CalidadData }) {
   const [pending, startTransition] = useTransition()
 
   const [state, setState] = useState(data)
+  // Qué no conformidad tiene el editor de acción abierto, y con qué texto.
+  const [actionEdit, setActionEdit] = useState<{ id: string; text: string } | null>(null)
   const [checkForm, setCheckForm] = useState(EMPTY_CHECK)
   const [ncForm, setNcForm] = useState(EMPTY_NC)
 
@@ -150,6 +153,28 @@ export default function CalidadPage({ data }: { data: CalidadData }) {
       if (!result.ok) { addToast(result.error, 'err'); return }
       setState(result.data)
       addToast('No conformidad eliminada', 'ok')
+    })
+  }
+
+  /**
+   * La acción correctiva, que es la mitad que le faltaba al módulo.
+   *
+   * `nonconformities.action_taken` se mostraba —«Acción: …» bajo la
+   * descripción— y `setNonconformityAction` existía, pero nada la llamaba: el
+   * campo no se podía llenar desde ninguna pantalla, así que esa línea no
+   * aparecía nunca. Una no conformidad se abría y se cerraba sin poder decir
+   * qué se hizo al respecto, que es justo lo que una auditoría de calidad pide
+   * ver.
+   */
+  function saveAction() {
+    if (!actionEdit) return
+    const { id, text } = actionEdit
+    startTransition(async () => {
+      const result = await setNonconformityAction(id, text)
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      setState(result.data)
+      setActionEdit(null)
+      addToast('Acción correctiva guardada', 'ok')
     })
   }
 
@@ -390,8 +415,39 @@ export default function CalidadPage({ data }: { data: CalidadData }) {
                   <td className="muted">{n.batch ?? '—'}</td>
                   <td>
                     <div className="cename">{n.description}</div>
-                    {n.actionTaken && (
-                      <div className="muted" style={{ fontSize: 12 }}>Acción: {n.actionTaken}</div>
+                    {actionEdit?.id === n.id ? (
+                      <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center' }}>
+                        <input
+                          className="field"
+                          style={{ flex: 1, minWidth: 140 }}
+                          maxLength={500}
+                          autoFocus
+                          placeholder="Qué se hizo para corregirlo"
+                          value={actionEdit.text}
+                          onChange={(e) => setActionEdit({ id: n.id, text: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveAction()
+                            if (e.key === 'Escape') setActionEdit(null)
+                          }}
+                          aria-label="Acción correctiva"
+                        />
+                        <button className="btn" disabled={pending} onClick={saveAction}>Guardar</button>
+                        <button className="btn" disabled={pending} onClick={() => setActionEdit(null)}>Cancelar</button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="muted"
+                        style={{
+                          fontSize: 12, marginTop: 4, background: 'none', border: 0,
+                          padding: 0, textAlign: 'left', cursor: 'pointer',
+                          textDecoration: 'underline', textUnderlineOffset: 2,
+                        }}
+                        disabled={pending}
+                        onClick={() => setActionEdit({ id: n.id, text: n.actionTaken ?? '' })}
+                      >
+                        {n.actionTaken ? `Acción: ${n.actionTaken}` : 'Registrar acción correctiva'}
+                      </button>
                     )}
                   </td>
                   <td><Badge st={n.severity} tone={severityTone(n.severity)} /></td>

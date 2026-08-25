@@ -95,6 +95,36 @@ export default function NotificacionesPage({ data }: { data: NotifPanelData }) {
 
   return (
     <>
+      {/*
+        Lo que este módulo hace y lo que no, dicho arriba y no en la letra
+        pequeña.
+
+        Una regla activa **no envía nada**: no existe proceso programado en el
+        repositorio —ni cron, ni edge function, ni `vercel.json`— y
+        `notification_log` no tiene un solo escritor, así que la Bitácora de
+        abajo está vacía por construcción y lo va a seguir estando. Lo que la
+        regla sí hace es decidir con cuánta antelación aparece cada cosa en
+        «Próximos» y en la campana.
+
+        El precedente es la fase 5, que retiró el selector de moneda por ofrecer
+        un ajuste que no hacía nada. Aquí la función sí sirve para algo real
+        —avisar dentro de la aplicación—, así que se queda; lo que se corrige es
+        la promesa de que además sale por correo o WhatsApp.
+      */}
+      <div className="card rise d1" style={{ marginBottom: 16 }}>
+        <div className="cpad">
+          <div className="cename">Los avisos ocurren dentro de Kigyo</div>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 6, lineHeight: 1.55 }}>
+            Las reglas deciden con cuánta antelación una cita, un vencimiento o una
+            renovación aparecen en <b>Próximos</b> y en la campana del menú superior.
+            El envío por correo o WhatsApp todavía no está conectado: hace falta un
+            proveedor de mensajería, y hasta entonces la <b>Bitácora</b> de abajo se
+            mantiene vacía. Elegir el canal deja registrado por dónde querrás que
+            salga cuando lo esté.
+          </p>
+        </div>
+      </div>
+
       <div className="card rise d1">
         <div className="chead">
           <div className="ctitle">Reglas</div>
@@ -252,7 +282,9 @@ export default function NotificacionesPage({ data }: { data: NotifPanelData }) {
                 <tr>
                   <td colSpan={6}>
                     <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
-                      Sin envíos registrados.
+                      Sin envíos registrados. Esta bitácora se llenará cuando se
+                      conecte un proveedor de correo o WhatsApp; hoy los avisos
+                      solo ocurren dentro de la aplicación.
                     </div>
                   </td>
                 </tr>

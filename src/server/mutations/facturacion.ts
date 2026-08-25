@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
 import { maybePostAutoEntry } from '@/server/contabilidad-auto'
-import { INVOICE_STATUSES, PAYMENT_METHODS } from '@/lib/domain'
+import { INVOICE_STATUSES, PAYMENT_METHODS, invoiceTotals } from '@/lib/domain'
 import { getFacturacion, type FacturacionData } from '@/server/queries/facturacion'
 
 export type FacturacionResult<T> = { ok: true; data: T } | { ok: false; error: string }
@@ -52,21 +52,15 @@ const invoiceSchema = z.object({
  * Totals, computed on the server from the lines.
  *
  * Never taken from the client: a browser that posts its own total is a browser
- * that can invoice a customer for zero. The rounding happens once, per line,
- * so the sum of the printed lines always equals the printed total — computing
- * tax on the subtotal instead would leave the two off by a peso or two and
- * nobody would be able to say which was right.
+ * that can invoice a customer for zero.
+ *
+ * The formula moved to `lib/domain.ts` next to `taxWithin` and `netFromGross`
+ * when facturar-un-pedido became a second caller. It was private here for as
+ * long as there was one invoice-shaped write in the product; two copies of an
+ * arithmetic that decides what a customer is charged are two totals waiting to
+ * disagree.
  */
-function totalsOf(items: z.infer<typeof itemSchema>[]) {
-  let subtotal = 0
-  let tax = 0
-  for (const item of items) {
-    const line = Math.round(item.quantity * item.unitPriceCents)
-    subtotal += line
-    tax += Math.round((line * item.taxRate) / 100)
-  }
-  return { subtotal, tax, total: subtotal + tax }
-}
+const totalsOf = (items: z.infer<typeof itemSchema>[]) => invoiceTotals(items)
 
 export async function createFactura(
   input: z.input<typeof invoiceSchema>,

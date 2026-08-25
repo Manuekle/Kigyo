@@ -7,6 +7,7 @@ import { requirePermission } from '@/lib/auth/session'
 import { DEFAULT_ROLE } from '@/lib/auth/permissions'
 import { getEmpleados, type EmpleadoRow, type EmpleadosData } from '@/server/queries/empleados'
 import { belongsToOrg } from '@/server/queries/shared'
+import { EMPLOYEE_EVENT_TAGS } from '@/lib/domain'
 
 /**
  * Server Functions for the empleados screen.
@@ -351,3 +352,187 @@ export async function searchDirectory(query: string): Promise<EmpleadoResult<Dir
 }
 
 export type { EmpleadoRow }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * La ficha: habilidades e historia
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * `employee_skills` y `employee_events` existen desde la migración 02, con su
+ * RLS, su unicidad y su check de valores. La ficha del empleado las **leía** —
+ * la barra de nivel, la línea de tiempo de la carrera— y **nadie las escribía**:
+ * cero `insert` en todo el repositorio, ni en código ni en migración ni en
+ * trigger. Las dos secciones estaban condenadas a decir «todavía no hay nada»
+ * para siempre, en cualquier empresa, hiciera lo que hiciera.
+ *
+ * Ese es el peor de los defectos que salieron de esta auditoría, porque no
+ * falla: se ve exactamente igual que una empresa que aún no ha cargado datos.
+ *
+ * Las dos son tablas hijas: no llevan `org_id` y su aislamiento lo decide el
+ * padre vía `apply_child_rls`. Aun así se comprueba el empleado con
+ * `belongsToOrg` antes de escribir, por lo mismo que hace `validManager` — RLS
+ * rechazaría la fila ajena con un error de llave foránea, y un mensaje que se
+ * entienda vale más que uno que sea correcto.
+ */
+
+const skillSchema = z.object({
+  employeeId: z.uuid(),
+  skill: z.string().trim().min(2, 'La habilidad necesita un nombre.').max(80),
+  // 1–5, que es el check de la columna. Validado aquí para que el error hable
+  // español en vez de nombrar `employee_skills_level_check`.
+  level: z.coerce.number().int().min(1, 'El nivel va de 1 a 5.').max(5, 'El nivel va de 1 a 5.'),
+})
+
+/**
+ * Añade una habilidad, o corrige su nivel si ya estaba.
+ *
+ * `upsert` sobre `(employee_id, skill)`, que es el índice único de la tabla:
+ * registrar «Excel» dos veces es lo que hace alguien que quiere subirle el
+ * nivel, no alguien que quiere dos filas.
+ */
+export async function saveEmpleadoSkill(
+  input: z.input<typeof skillSchema>,
+): Promise<EmpleadoResult<null>> {
+  try {
+    const member = await requirePermission('empleados:write')
+    const parsed = skillSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.employeeId, member.orgId))) {
+      return fail('Esa persona no está en tu empresa.')
+    }
+
+    const { error } = await supabase
+      .from('employee_skills')
+      .upsert(
+        {
+          employee_id: parsed.data.employeeId,
+          skill: parsed.data.skill,
+          level: parsed.data.level,
+        },
+        { onConflict: 'employee_id,skill' },
+      )
+
+    if (error) {
+      console.error('[empleados] saveEmpleadoSkill', error)
+      return fail('No se pudo guardar la habilidad.')
+    }
+
+    revalidatePath(`/dashboard/empleados/${parsed.data.employeeId}`)
+    return { ok: true, data: null }
+  } catch {
+    return fail('No tienes permiso para gestionar empleados.')
+  }
+}
+
+/**
+ * Quita una habilidad.
+ *
+ * El `delete` no puede filtrar por `org_id` —la tabla no lo tiene— así que se
+ * filtra por el padre, que es el patrón que el resto de las hijas ya usa. La
+ * política RESTRICTIVE de la migración 99 rechaza el borrado si la empresa
+ * está suspendida, y ahora también si la cuenta no ha pagado.
+ */
+export async function deleteEmpleadoSkill(
+  employeeId: string,
+  skill: string,
+): Promise<EmpleadoResult<null>> {
+  try {
+    const member = await requirePermission('empleados:write')
+    if (!z.uuid().safeParse(employeeId).success) return fail('Persona inválida.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', employeeId, member.orgId))) {
+      return fail('Esa persona no está en tu empresa.')
+    }
+
+    const { error } = await supabase
+      .from('employee_skills')
+      .delete()
+      .eq('employee_id', employeeId)
+      .eq('skill', skill)
+
+    if (error) {
+      console.error('[empleados] deleteEmpleadoSkill', error)
+      return fail('No se pudo quitar la habilidad.')
+    }
+
+    revalidatePath(`/dashboard/empleados/${employeeId}`)
+    return { ok: true, data: null }
+  } catch {
+    return fail('No tienes permiso para gestionar empleados.')
+  }
+}
+
+const eventSchema = z.object({
+  employeeId: z.uuid(),
+  occurredOn: z.string().date(),
+  event: z.string().trim().min(2, 'Describe qué pasó.').max(200),
+  tag: z.enum(EMPLOYEE_EVENT_TAGS).default('Otro'),
+})
+
+/** Un hito en la carrera de alguien: ingreso, ascenso, traslado, salida. */
+export async function addEmpleadoEvent(
+  input: z.input<typeof eventSchema>,
+): Promise<EmpleadoResult<null>> {
+  try {
+    const member = await requirePermission('empleados:write')
+    const parsed = eventSchema.safeParse(input)
+    if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', parsed.data.employeeId, member.orgId))) {
+      return fail('Esa persona no está en tu empresa.')
+    }
+
+    const { error } = await supabase.from('employee_events').insert({
+      employee_id: parsed.data.employeeId,
+      occurred_on: parsed.data.occurredOn,
+      event: parsed.data.event,
+      tag: parsed.data.tag,
+    })
+
+    if (error) {
+      console.error('[empleados] addEmpleadoEvent', error)
+      return fail('No se pudo registrar el hito.')
+    }
+
+    revalidatePath(`/dashboard/empleados/${parsed.data.employeeId}`)
+    return { ok: true, data: null }
+  } catch {
+    return fail('No tienes permiso para gestionar empleados.')
+  }
+}
+
+/** Borra un hito. Sin `deleted_at`: la tabla no lleva borrado suave. */
+export async function deleteEmpleadoEvent(
+  employeeId: string,
+  eventId: string,
+): Promise<EmpleadoResult<null>> {
+  try {
+    const member = await requirePermission('empleados:write')
+    if (!z.uuid().safeParse(employeeId).success) return fail('Persona inválida.')
+    if (!z.uuid().safeParse(eventId).success) return fail('Hito inválido.')
+
+    const supabase = await createClient()
+    if (!(await belongsToOrg(supabase, 'employees', employeeId, member.orgId))) {
+      return fail('Esa persona no está en tu empresa.')
+    }
+
+    const { error } = await supabase
+      .from('employee_events')
+      .delete()
+      .eq('id', eventId)
+      .eq('employee_id', employeeId)
+
+    if (error) {
+      console.error('[empleados] deleteEmpleadoEvent', error)
+      return fail('No se pudo borrar el hito.')
+    }
+
+    revalidatePath(`/dashboard/empleados/${employeeId}`)
+    return { ok: true, data: null }
+  } catch {
+    return fail('No tienes permiso para gestionar empleados.')
+  }
+}

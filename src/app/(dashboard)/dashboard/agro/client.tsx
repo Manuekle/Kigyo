@@ -14,9 +14,10 @@ import { useConfirm } from '@/lib/context/ConfirmContext'
 import { CROP_CYCLE_STATUSES, LOT_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
 import { useExport } from '@/lib/hooks/use-export'
-import type { AgroData, InsumoRow, LotRow, MaquinaRow } from '@/server/queries/agro'
+import type { AgroData, CycleRow, InsumoRow, LotRow, MaquinaRow } from '@/server/queries/agro'
 import {
   addIrrigation, addTreatment, createCiclo, createInsumo, createLote, createMaquina,
+  updateCiclo,
   deleteInsumo, deleteIrrigation, deleteLote, deleteMaquina, deleteTreatment,
   registrarCosecha, setCicloStatus, setInsumoStock, setLoteStatus,
   setMaquinaStatus, updateLote,
@@ -101,6 +102,15 @@ export default function AgroPage({ data }: { data: AgroData }) {
   const [lotOpen, setLotOpen] = useState(false)
   const [editingLot, setEditingLot] = useState<LotRow | null>(null)
   const [cycleOpen, setCycleOpen] = useState(false)
+  /**
+   * Qué ciclo se está corrigiendo.
+   *
+   * `updateCiclo` existía y nada la llamaba. Un ciclo de cultivo se corrige
+   * todo el tiempo —la fecha de cosecha esperada se mueve con el clima, el
+   * costo de insumos crece durante la campaña— y la única salida era borrarlo,
+   * que se lleva por delante riegos, tratamientos y cosechas ya registrados.
+   */
+  const [editingCycle, setEditingCycle] = useState<string | null>(null)
   const [harvestOpen, setHarvestOpen] = useState(false)
   const [insumoOpen, setInsumoOpen] = useState(false)
   const [maquinaOpen, setMaquinaOpen] = useState(false)
@@ -236,9 +246,28 @@ export default function AgroPage({ data }: { data: AgroData }) {
     })
   }
 
+  function editCycle(c: CycleRow) {
+    setEditingCycle(c.id)
+    setCycleForm({
+      lotId: c.lotId,
+      crop: c.crop,
+      variety: c.variety ?? '',
+      hectares: String(c.hectares),
+      sownOn: c.sownOn ?? '',
+      expectedHarvestOn: c.expectedHarvestOn ?? '',
+      expectedYieldKg: c.expectedYieldKg !== null ? String(c.expectedYieldKg) : '',
+      // Pesos en el formulario, centavos en la fila — `toCents` va a la ida y
+      // esta es la vuelta.
+      inputCost: String(c.inputCostCents / 100),
+      responsibleId: c.responsibleId ?? '',
+      notes: c.notes ?? '',
+    })
+    setCycleOpen(true)
+  }
+
   function submitCycle() {
     startTransition(async () => {
-      const result = await createCiclo({
+      const payload = {
         lotId: cycleForm.lotId,
         crop: cycleForm.crop,
         variety: cycleForm.variety,
@@ -249,12 +278,16 @@ export default function AgroPage({ data }: { data: AgroData }) {
         inputCostCents: toCents(cycleForm.inputCost),
         responsibleId: cycleForm.responsibleId || null,
         notes: cycleForm.notes,
-      })
+      }
+      const result = editingCycle
+        ? await updateCiclo({ id: editingCycle, ...payload })
+        : await createCiclo(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setCycleForm(EMPTY_CYCLE)
+      setEditingCycle(null)
       setCycleOpen(false)
-      addToast('Ciclo creado', 'ok')
+      addToast(editingCycle ? 'Ciclo actualizado' : 'Ciclo creado', 'ok')
     })
   }
 
@@ -552,11 +585,23 @@ export default function AgroPage({ data }: { data: AgroData }) {
                     </td>
                     <td>
                       {data.canWrite ? (
-                        <Select
-                          value={c.status}
-                          onChange={(next) => { if (next !== c.status) changeCycle(c.id, next) }}
-                          options={[...CROP_CYCLE_STATUSES]}
-                        />
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <Select
+                            value={c.status}
+                            onChange={(next) => { if (next !== c.status) changeCycle(c.id, next) }}
+                            options={[...CROP_CYCLE_STATUSES]}
+                          />
+                          <button
+                            className="ibtn"
+                            style={{ width: 28, height: 28, flexShrink: 0 }}
+                            data-tip="Editar ciclo"
+                            disabled={pending}
+                            onClick={() => editCycle(c)}
+                            aria-label={`Editar el ciclo de ${c.crop}`}
+                          >
+                            <PenLine size={13} />
+                          </button>
+                        </div>
                       ) : (
                         <Badge st={c.status}
                           tone={c.status === 'Cosechado' ? 'grn'
@@ -955,11 +1000,11 @@ export default function AgroPage({ data }: { data: AgroData }) {
 
       <FormDrawer
         open={cycleOpen}
-        onClose={() => setCycleOpen(false)}
-        title="Nuevo ciclo de cultivo"
+        onClose={() => { setCycleOpen(false); setEditingCycle(null); setCycleForm(EMPTY_CYCLE) }}
+        title={editingCycle ? 'Editar ciclo de cultivo' : 'Nuevo ciclo de cultivo'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitCycle}>
-            <Check size={15} />Crear ciclo
+            <Check size={15} />{editingCycle ? 'Guardar cambios' : 'Crear ciclo'}
           </button>
         }
       >

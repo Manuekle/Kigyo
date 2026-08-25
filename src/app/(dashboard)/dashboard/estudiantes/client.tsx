@@ -14,9 +14,10 @@ import { useConfirm } from '@/lib/context/ConfirmContext'
 import { useExport } from '@/lib/hooks/use-export'
 import { ACADEMIC_ENROLLMENT_STATUSES, STUDENT_STATUSES } from '@/lib/domain'
 import { cop } from '@/lib/utils'
-import type { AsistenciaRow, EstudiantesData, HorarioRow, StudentRow } from '@/server/queries/estudiantes'
+import type { AsistenciaRow, EstudiantesData, HorarioRow, ProgramRow, StudentRow } from '@/server/queries/estudiantes'
 import {
   calificarMateria, createEstudiante, createHorario, createPrograma,
+  updatePrograma,
   deleteAsistencia, deleteEstudiante, deleteHorario, deleteNota, marcarAsistencia,
   matricularMateria, setAsistencia, setEstudianteStatus, updateEstudiante,
   addNota,
@@ -81,6 +82,15 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [studentOpen, setStudentOpen] = useState(false)
   const [programOpen, setProgramOpen] = useState(false)
+  /**
+   * Qué programa se está corrigiendo.
+   *
+   * `updatePrograma` existía y nada la llamaba, así que la matrícula, la
+   * duración o el coordinador de un programa quedaban fijos desde el día en que
+   * se creó. Y un programa no se puede borrar y rehacer sin más: los
+   * estudiantes matriculados cuelgan de él.
+   */
+  const [editingProgram, setEditingProgram] = useState<string | null>(null)
   const [subjectOpen, setSubjectOpen] = useState(false)
   const [studentForm, setStudentForm] = useState(EMPTY_STUDENT)
   const [editingStudent, setEditingStudent] = useState<string | null>(null)
@@ -253,21 +263,41 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
     })
   }
 
+  function editProgram(p: ProgramRow) {
+    setEditingProgram(p.id)
+    setProgramForm({
+      name: p.name,
+      level: p.level ?? '',
+      durationTerms: p.durationTerms !== null ? String(p.durationTerms) : '',
+      // Pesos en el formulario, centavos en la fila: `toCents` va a la ida y
+      // aquí toca la vuelta, o una matrícula de $800.000 se reabre en 80
+      // millones.
+      tuition: String(p.tuitionCents / 100),
+      coordinatorId: p.coordinatorId ?? '',
+      description: p.description ?? '',
+    })
+    setProgramOpen(true)
+  }
+
   function submitProgram() {
     startTransition(async () => {
-      const result = await createPrograma({
+      const payload = {
         name: programForm.name,
         level: programForm.level,
         durationTerms: orNull(programForm.durationTerms),
         tuitionCents: toCents(programForm.tuition),
         coordinatorId: programForm.coordinatorId || null,
         description: programForm.description,
-      })
+      }
+      const result = editingProgram
+        ? await updatePrograma({ id: editingProgram, ...payload })
+        : await createPrograma(payload)
       if (!result.ok) { addToast(result.error, 'err'); return }
       apply(result.data)
       setProgramForm(EMPTY_PROGRAM)
+      setEditingProgram(null)
       setProgramOpen(false)
-      addToast('Programa creado', 'ok')
+      addToast(editingProgram ? 'Programa actualizado' : 'Programa creado', 'ok')
     })
   }
 
@@ -580,12 +610,13 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                   <th scope="col">Duración</th>
                   <th scope="col">Matrícula</th>
                   <th scope="col">Estudiantes</th>
+                  {data.canWrite && <th scope="col" aria-label="Acciones" />}
                 </tr>
               </thead>
               <tbody>
                 {programas.length === 0 ? (
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={data.canWrite ? 6 : 5}>
                       <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
                         No hay programas académicos creados.
                       </div>
@@ -601,6 +632,20 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                     <td>{p.durationTerms !== null ? `${p.durationTerms} periodos` : '—'}</td>
                     <td>{p.tuitionCents > 0 ? pesos(p.tuitionCents) : '—'}</td>
                     <td>{p.students}</td>
+                    {data.canWrite && (
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="ibtn"
+                          style={{ width: 28, height: 28 }}
+                          data-tip="Editar programa"
+                          disabled={pending}
+                          onClick={() => editProgram(p)}
+                          aria-label={`Editar el programa ${p.name}`}
+                        >
+                          <PenLine size={13} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -908,11 +953,11 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
 
       <FormDrawer
         open={programOpen}
-        onClose={() => setProgramOpen(false)}
-        title="Nuevo programa"
+        onClose={() => { setProgramOpen(false); setEditingProgram(null); setProgramForm(EMPTY_PROGRAM) }}
+        title={editingProgram ? 'Editar programa' : 'Nuevo programa'}
         footer={
           <button className="btn dark" disabled={pending} onClick={submitProgram}>
-            <Check size={15} />Crear programa
+            <Check size={15} />{editingProgram ? 'Guardar cambios' : 'Crear programa'}
           </button>
         }
       >

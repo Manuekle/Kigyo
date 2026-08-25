@@ -180,15 +180,37 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
   }
 
   function submit() {
-    const items = form.items
-      .filter((i) => i.description.trim() && Number(i.quantity) > 0)
-      .map((i) => ({
-        productId: i.productId,
-        description: i.description.trim(),
-        quantity: Number(i.quantity),
-        unit: i.unit,
-        unitCostCents: pesosToCents(i.cost),
-      }))
+    /**
+     * Se descarta la línea que nadie tocó; se reclama la que quedó a medias.
+     *
+     * El filtro descartaba las dos por igual y en silencio, así que una línea
+     * con costo y sin descripción desaparecía sin avisar y la requisición se
+     * guardaba por menos de lo que su autor acababa de ver en pantalla. Aquí no
+     * llegaba a $0 —el `items.length === 0` de abajo lo impedía— pero sí
+     * ocurría en cuanto hubiera una segunda línea buena que salvara el envío.
+     * Mismo arreglo que en cotizaciones, y por el mismo motivo.
+     */
+    const touched = form.items.filter(
+      (i) => i.description.trim() || i.productId || pesosToCents(i.cost) > 0,
+    )
+    const incomplete = touched.find((i) => !i.description.trim() || !(Number(i.quantity) > 0))
+    if (incomplete) {
+      addToast(
+        !incomplete.description.trim()
+          ? 'Cada línea con costo necesita una descripción.'
+          : 'Cada línea necesita una cantidad mayor que cero.',
+        'err',
+      )
+      return
+    }
+
+    const items = touched.map((i) => ({
+      productId: i.productId,
+      description: i.description.trim(),
+      quantity: Number(i.quantity),
+      unit: i.unit,
+      unitCostCents: pesosToCents(i.cost),
+    }))
 
     if (items.length === 0) { addToast('Agrega al menos una línea', 'err'); return }
 
@@ -292,13 +314,28 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
   }
 
   function submitInvoice() {
-    const items = invoiceForm.items
-      .filter((i) => i.description.trim() && Number(i.quantity) > 0)
-      .map((i) => ({
-        description: i.description.trim(),
-        quantity: Number(i.quantity),
-        unitPriceCents: Math.round(Number(i.unitPriceCents) || 0),
-      }))
+    // Misma regla que arriba: la línea intacta se va, la línea a medias se
+    // reclama. En una factura de proveedor descartar en silencio una línea con
+    // importe es registrar una deuda por menos de lo que el proveedor cobra.
+    const touched = invoiceForm.items.filter(
+      (i) => i.description.trim() || Math.round(Number(i.unitPriceCents) || 0) > 0,
+    )
+    const incomplete = touched.find((i) => !i.description.trim() || !(Number(i.quantity) > 0))
+    if (incomplete) {
+      addToast(
+        !incomplete.description.trim()
+          ? 'Cada línea con importe necesita una descripción.'
+          : 'Cada línea necesita una cantidad mayor que cero.',
+        'err',
+      )
+      return
+    }
+
+    const items = touched.map((i) => ({
+      description: i.description.trim(),
+      quantity: Number(i.quantity),
+      unitPriceCents: Math.round(Number(i.unitPriceCents) || 0),
+    }))
     if (items.length === 0) { addToast('Agrega al menos una línea', 'err'); return }
 
     startTransition(async () => {

@@ -35,12 +35,33 @@ export interface CarteraData {
   debts: DeudaRow[]
   /** Clientes vivos, para el selector de cliente. */
   clients: Array<{ id: string; name: string }>
-  /** Facturas vivas, para el selector de factura. */
-  invoices: Array<{ id: string; code: string }>
+  /**
+   * Facturas vivas, para el selector de factura.
+   *
+   * Con su saldo, su cliente y su vencimiento, y no solo el código. Antes eran
+   * `{ id, code }` a secas, y eso convertía el selector en un adorno: quien
+   * registraba una deuda elegía «FAC-0007» y tenía que ir a Facturación, mirar
+   * cuánto quedaba debiendo y volver a teclearlo aquí. Dos lecturas de la misma
+   * verdad escritas a mano son dos verdades: Facturación calcula su cartera
+   * vencida desde `invoices` y esta pantalla desde `receivable_agreements`, así
+   * que un dedo torcido las separa para siempre.
+   */
+  invoices: InvoiceOption[]
   /** Suma pendiente de cobro (pendiente + vencida + mora), en centavos. */
   pendienteCents: number
   /** Suma ya vencida (solo estado vencida), en centavos. */
   vencidaCents: number
+}
+
+/** Una factura como candidata a deuda: lo que hace falta para prellenar. */
+export interface InvoiceOption {
+  id: string
+  code: string
+  clientId: string | null
+  clientName: string
+  /** `total_cents - paid_cents`, la misma resta que hace Facturación. */
+  balanceCents: number
+  dueOn: string | null
 }
 
 interface DeudaRecord {
@@ -90,7 +111,7 @@ export async function getCartera(): Promise<CarteraData> {
       .is('deleted_at', null)
       .order('name', { ascending: true }),
     scoped(supabase, member, 'invoices')
-      .select('id, code')
+      .select('id, code, client_id, client_name, due_on, total_cents, paid_cents, status')
       .is('deleted_at', null)
       .order('code', { ascending: true }),
   ])
@@ -100,7 +121,29 @@ export async function getCartera(): Promise<CarteraData> {
   return {
     debts,
     clients: (clientsResult.data ?? []) as unknown as Array<{ id: string; name: string }>,
-    invoices: (invoicesResult.data ?? []) as unknown as Array<{ id: string; code: string }>,
+    invoices: ((invoicesResult.data ?? []) as unknown as Array<{
+      id: string
+      code: string | null
+      client_id: string | null
+      client_name: string
+      due_on: string | null
+      total_cents: number
+      paid_cents: number
+      status: string
+    }>)
+      // Un borrador no se cobra y una factura saldada tampoco: ofrecer
+      // cualquiera de las dos como origen de una deuda es invitar a registrar
+      // una que no existe. Misma regla que usa el envejecimiento de cartera en
+      // Facturación (`collectable && balance > 0`).
+      .filter((r) => r.status !== 'Borrador' && r.total_cents - r.paid_cents > 0)
+      .map((r) => ({
+        id: r.id,
+        code: r.code ?? '',
+        clientId: r.client_id,
+        clientName: r.client_name,
+        balanceCents: r.total_cents - r.paid_cents,
+        dueOn: r.due_on,
+      })),
     pendienteCents: debts.reduce((sum, d) => (EN_MORA.has(d.status) ? sum + d.amountCents : sum), 0),
     vencidaCents: debts.reduce((sum, d) => (d.status === 'vencida' ? sum + d.amountCents : sum), 0),
   }

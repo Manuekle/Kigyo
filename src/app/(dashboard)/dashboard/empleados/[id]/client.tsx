@@ -1,11 +1,20 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, MapPin, Shield, Users, AlertTriangle } from '@/lib/icons'
+import { useState, useTransition } from 'react'
+import { ArrowLeft, MapPin, Shield, Users, AlertTriangle, Plus, Trash2 } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
 import Badge from '@/components/ui/Badge'
+import DatePicker from '@/components/ui/DatePicker'
+import Select from '@/components/ui/Select'
 import { activatable } from '@/lib/a11y'
+import { useApp } from '@/lib/context/AppContext'
+import { useConfirm } from '@/lib/context/ConfirmContext'
 import type { EmpleadoDetail } from '@/server/queries/empleados'
+import { EMPLOYEE_EVENT_TAGS } from '@/lib/domain'
+import {
+  addEmpleadoEvent, deleteEmpleadoEvent, deleteEmpleadoSkill, saveEmpleadoSkill,
+} from '@/server/mutations/empleados'
 
 const DAY = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -21,7 +30,70 @@ const TAG_TONE: Record<string, string> = {
 
 export default function EmpleadoDetailPage({ data }: { data: EmpleadoDetail }) {
   const router = useRouter()
+  const { addToast } = useApp()
+  const confirm = useConfirm()
+  const [pending, startTransition] = useTransition()
   const { empleado: emp, managerName, reports, skills, journey, tickets } = data
+
+  const [skillForm, setSkillForm] = useState({ skill: '', level: '3' })
+  const [eventForm, setEventForm] = useState({ occurredOn: '', event: '', tag: 'Otro' })
+
+  /**
+   * Las dos secciones se escriben desde aquí por primera vez.
+   *
+   * `employee_skills` y `employee_events` tienen tabla, RLS y unicidad desde la
+   * migración 02, y la ficha las leía desde entonces. No existía ni un `insert`
+   * en el repositorio, así que «Habilidades» y «Trayectoria» estaban vacías en
+   * todas las empresas y no había forma de llenarlas.
+   *
+   * `router.refresh()` en vez de estado local: la ficha es un server component
+   * que ya trae estos datos, y duplicar la lista en el cliente es cómo dos
+   * copias se van separando.
+   */
+  function run(fn: () => Promise<{ ok: true } | { ok: false; error: string }>, ok: string) {
+    startTransition(async () => {
+      const result = await fn()
+      if (!result.ok) { addToast(result.error, 'err'); return }
+      addToast(ok, 'ok')
+      router.refresh()
+    })
+  }
+
+  function submitSkill() {
+    if (skillForm.skill.trim().length < 2) { addToast('La habilidad necesita un nombre.', 'err'); return }
+    run(
+      () => saveEmpleadoSkill({
+        employeeId: emp.id, skill: skillForm.skill, level: Number(skillForm.level),
+      }),
+      'Habilidad guardada',
+    )
+    setSkillForm({ skill: '', level: '3' })
+  }
+
+  async function removeSkill(skill: string) {
+    if (!(await confirm({ title: `¿Quitar «${skill}»?`, tone: 'danger' }))) return
+    run(() => deleteEmpleadoSkill(emp.id, skill), 'Habilidad quitada')
+  }
+
+  function submitEvent() {
+    if (eventForm.event.trim().length < 2) { addToast('Describe qué pasó.', 'err'); return }
+    if (!eventForm.occurredOn) { addToast('Elige la fecha del hito.', 'err'); return }
+    run(
+      () => addEmpleadoEvent({
+        employeeId: emp.id,
+        occurredOn: eventForm.occurredOn,
+        event: eventForm.event,
+        tag: eventForm.tag as (typeof EMPLOYEE_EVENT_TAGS)[number],
+      }),
+      'Hito registrado',
+    )
+    setEventForm({ occurredOn: '', event: '', tag: 'Otro' })
+  }
+
+  async function removeEvent(id: string, label: string) {
+    if (!(await confirm({ title: `¿Borrar «${label}»?`, tone: 'danger' }))) return
+    run(() => deleteEmpleadoEvent(emp.id, id), 'Hito borrado')
+  }
 
   return (
     <div>
@@ -70,15 +142,59 @@ export default function EmpleadoDetailPage({ data }: { data: EmpleadoDetail }) {
           ) : (
             skills.map((s) => (
               <div key={s.skill} style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
                   <span style={{ fontSize: 12.5, fontWeight: 400 }}>{s.skill}</span>
-                  <span style={{ fontSize: 12, color: 'var(--ink3)' }}>{s.level}/5</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 12, color: 'var(--ink3)' }}>{s.level}/5</span>
+                    {data.canWrite && (
+                      <button
+                        className="ibtn"
+                        style={{ width: 22, height: 22, color: 'var(--redd)' }}
+                        disabled={pending}
+                        onClick={() => removeSkill(s.skill)}
+                        aria-label={`Quitar la habilidad ${s.skill}`}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </span>
                 </div>
                 <div className="bartrack">
                   <div className="barfill" style={{ width: `${(s.level / 5) * 100}%` }} />
                 </div>
               </div>
             ))
+          )}
+
+          {data.canWrite && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 14, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 140px', minWidth: 120 }}>
+                <label className="flabel" style={{ marginTop: 0 }} htmlFor="emp-skill">Habilidad</label>
+                <input
+                  id="emp-skill"
+                  className="field"
+                  maxLength={80}
+                  placeholder="Excel avanzado, soldadura…"
+                  value={skillForm.skill}
+                  onChange={(e) => setSkillForm((f) => ({ ...f, skill: e.target.value }))}
+                />
+              </div>
+              <div style={{ flex: '0 0 78px' }}>
+                <label className="flabel" style={{ marginTop: 0 }} htmlFor="emp-level">Nivel</label>
+                <input
+                  id="emp-level"
+                  type="number"
+                  className="field"
+                  min={1}
+                  max={5}
+                  value={skillForm.level}
+                  onChange={(e) => setSkillForm((f) => ({ ...f, level: e.target.value }))}
+                />
+              </div>
+              <button className="btn" disabled={pending} onClick={submitSkill}>
+                <Plus size={14} />Añadir
+              </button>
+            </div>
           )}
         </div>
 
@@ -119,29 +235,94 @@ export default function EmpleadoDetailPage({ data }: { data: EmpleadoDetail }) {
             )}
           </div>
 
-          {/* Career journey, from `employee_events`. */}
-          {journey.length > 0 && (
+          {/*
+            Career journey, from `employee_events`.
+
+            La tarjeta se ocultaba cuando la lista estaba vacía —y estaba vacía
+            siempre, porque nada escribía en la tabla—. Ahora se muestra a quien
+            puede escribir aunque no haya nada: es el único sitio desde el que
+            se puede empezar.
+          */}
+          {(journey.length > 0 || data.canWrite) && (
             <div className="card cpad">
               <div className="ctitle" style={{ marginBottom: 14 }}>Trayectoria</div>
-              <div className="tl">
-                {journey.map((ev, i) => {
-                  const tone = TAG_TONE[ev.tag] ?? 'neu'
-                  return (
-                    <div key={`${ev.occurredOn}-${i}`} className={`tli${i === journey.length - 1 ? ' last' : ''}`}>
-                      <div className="tlrail"><div className={`tlnode ${tone}`} /></div>
-                      <div className="tlbody">
-                        <div className="tltop">
-                          <span className="tltxt">{ev.event}</span>
-                          <span className="tltime">{DAY.format(new Date(ev.occurredOn))}</span>
+              {journey.length === 0 ? (
+                <p className="psub">
+                  Sin hitos todavía. Registra el ingreso, un ascenso o un traslado para
+                  construir la historia de esta persona.
+                </p>
+              ) : (
+                <div className="tl">
+                  {journey.map((ev, i) => {
+                    const tone = TAG_TONE[ev.tag] ?? 'neu'
+                    return (
+                      <div key={ev.id} className={`tli${i === journey.length - 1 ? ' last' : ''}`}>
+                        <div className="tlrail"><div className={`tlnode ${tone}`} /></div>
+                        <div className="tlbody">
+                          <div className="tltop">
+                            <span className="tltxt">{ev.event}</span>
+                            <span className="tltime">
+                              {DAY.format(new Date(`${ev.occurredOn}T00:00:00`))}
+                              {data.canWrite && (
+                                <button
+                                  className="ibtn"
+                                  style={{ width: 22, height: 22, marginLeft: 6, color: 'var(--redd)' }}
+                                  disabled={pending}
+                                  onClick={() => removeEvent(ev.id, ev.event)}
+                                  aria-label={`Borrar el hito ${ev.event}`}
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
+                            </span>
+                          </div>
+                          <span className={`badge b-${tone}`} style={{ marginTop: 4, display: 'inline-flex' }}>
+                            <span className="bd" />{ev.tag}
+                          </span>
                         </div>
-                        <span className={`badge b-${tone}`} style={{ marginTop: 4, display: 'inline-flex' }}>
-                          <span className="bd" />{ev.tag}
-                        </span>
                       </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {data.canWrite && (
+                <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div>
+                    <label className="flabel" style={{ marginTop: 0 }} htmlFor="emp-event">Qué pasó</label>
+                    <input
+                      id="emp-event"
+                      className="field"
+                      maxLength={200}
+                      placeholder="Ascenso a Coordinadora de Operaciones"
+                      value={eventForm.event}
+                      onChange={(e) => setEventForm((f) => ({ ...f, event: e.target.value }))}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+                      <label className="flabel" style={{ marginTop: 0 }} htmlFor="emp-event-date">Fecha</label>
+                      <DatePicker
+                        ariaLabel="Fecha del hito"
+                        value={eventForm.occurredOn}
+                        onChange={(v) => setEventForm((f) => ({ ...f, occurredOn: v }))}
+                      />
                     </div>
-                  )
-                })}
-              </div>
+                    <div style={{ flex: '1 1 130px', minWidth: 120 }}>
+                      <label className="flabel" style={{ marginTop: 0 }} htmlFor="emp-event-tag">Tipo</label>
+                      <Select
+                        id="emp-event-tag"
+                        value={eventForm.tag}
+                        onChange={(v) => setEventForm((f) => ({ ...f, tag: v }))}
+                        options={EMPLOYEE_EVENT_TAGS.map((t) => ({ value: t, label: t }))}
+                      />
+                    </div>
+                    <button className="btn" disabled={pending} onClick={submitEvent}>
+                      <Plus size={14} />Registrar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

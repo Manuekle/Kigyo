@@ -88,6 +88,21 @@ export const PRODUCT_UNITS = ['UN', 'KIT', 'RL', 'KW', 'SERV', 'M', 'HR'] as con
 export type ProductUnit = (typeof PRODUCT_UNITS)[number]
 
 /* ─── quotes ───────────────────────────────────────────────────────────── */
+/**
+ * Las etiquetas del check de `employee_events.tag`, palabra por palabra.
+ *
+ * Aquí y no en `mutations/empleados.ts`, que es donde estaba: un archivo
+ * `'use server'` solo puede exportar funciones async, y exportar este array
+ * desde allí tumbaba el módulo entero en tiempo de ejecución —«A "use server"
+ * file can only export async functions, found object»— con el dashboard
+ * completo detrás. El build pasaba; el error solo aparecía al evaluar el
+ * módulo. Es el mismo motivo por el que el resto de vocabularios del dominio
+ * viven en este archivo.
+ */
+export const EMPLOYEE_EVENT_TAGS = [
+  'Ingreso', 'Ascenso', 'Traslado', 'Reconocimiento', 'Salida', 'Otro',
+] as const
+
 export const QUOTE_KINDS = ['Comercial', 'Rural', 'Industrial', 'Residencial'] as const
 export type QuoteKind = (typeof QUOTE_KINDS)[number]
 
@@ -259,6 +274,37 @@ export function taxWithin(grossCents: number, ratePercent: number): number {
 /** Lo que queda para la empresa: el bruto sin el impuesto que contiene. */
 export function netFromGross(grossCents: number, ratePercent: number): number {
   return grossCents - taxWithin(grossCents, ratePercent)
+}
+
+/**
+ * Lo que suma una factura, a partir de sus líneas.
+ *
+ * `unitPriceCents` aquí es el precio **sin** IVA y `taxRate` la tasa que se le
+ * añade — la convención de `invoice_items`, que es la contraria a la del POS y
+ * a la de cotizaciones/pedidos (allí el precio ya lleva el IVA dentro). Las dos
+ * conviven a propósito desde la migración 104; confundirlas es lo que hacía que
+ * facturar a precio de góndola cobrara un 19% de más.
+ *
+ * El redondeo es **por línea**, no sobre el subtotal. Así la suma de lo que se
+ * imprime es siempre igual al total que se imprime; calcular el impuesto sobre
+ * el subtotal deja las dos cifras separadas por un peso o dos y nadie puede
+ * decir cuál de las dos es la buena.
+ *
+ * Sale de `mutations/facturacion.ts`, donde era una función privada, el día en
+ * que un segundo sitio —facturar un pedido— tuvo que dar el mismo resultado.
+ * Dos copias de una fórmula de dinero son dos totales distintos esperando.
+ */
+export function invoiceTotals(
+  items: Array<{ quantity: number; unitPriceCents: number; taxRate: number }>,
+): { subtotal: number; tax: number; total: number } {
+  let subtotal = 0
+  let tax = 0
+  for (const item of items) {
+    const line = Math.round(item.quantity * item.unitPriceCents)
+    subtotal += line
+    tax += Math.round((line * item.taxRate) / 100)
+  }
+  return { subtotal, tax, total: subtotal + tax }
 }
 
 /**
