@@ -48,11 +48,15 @@ export default function AboutPage() {
         <div className="about-values">
           {VALUES.map((v, i) => (
             <TiltCard key={v.title} className="card l-feature" data-reveal data-reveal-delay={String(i + 1)}>
-              <div className="l-feature-icon">
-                <v.icon size={22} />
+              <div className="l-feature-media">
+                <div className="l-feature-icon">
+                  <v.icon size={22} />
+                </div>
               </div>
-              <h3 className="l-feature-title">{v.title}</h3>
-              <p className="l-feature-desc">{v.desc}</p>
+              <div className="l-feature-body">
+                <h3 className="l-feature-title">{v.title}</h3>
+                <p className="l-feature-desc">{v.desc}</p>
+              </div>
             </TiltCard>
           ))}
         </div>

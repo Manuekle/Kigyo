@@ -354,6 +354,26 @@
   --grad-chip-accent:   linear-gradient(135deg, rgb(var(--ink-rgb) / 1), rgb(var(--ink-rgb) / .84));
   --grad-chip-success:  linear-gradient(135deg, rgb(var(--ink-rgb) / .24), rgb(var(--ink-rgb) / .16));
 
+  /* ═══ metal — the ink-filled badge/button finish ═══
+     Every solid `--grad-primary` surface (icon badges, `.btn.ink`, the quote
+     avatar) gets the same two layers on top of it: a sheen that catches light
+     at the top edge, and a shadow stack that reads as one continuous piece —
+     a bright top rim, a soft dark underside (the inner shadow that gives the
+     fill its curvature), then the cast shadow in the *same* ink colour as the
+     fill itself, so the shadow always looks like it belongs to the thing
+     casting it rather than a generic dark smudge underneath. */
+  --metal-sheen: linear-gradient(180deg, rgb(var(--bg-rgb) / .20), rgb(var(--bg-rgb) / 0) 46%);
+  --metal-shadow:
+    inset 0 1px 0 rgb(var(--bg-rgb) / .20),
+    inset 0 -1px 1px rgb(var(--shadow-rgb) / .18),
+    0 1px 2px rgb(var(--ink-rgb) / .08),
+    0 12px 22px -10px rgb(var(--ink-rgb) / .5);
+  --metal-shadow-hover:
+    inset 0 1px 0 rgb(var(--bg-rgb) / .22),
+    inset 0 -1px 1px rgb(var(--shadow-rgb) / .20),
+    0 1px 2px rgb(var(--ink-rgb) / .08),
+    0 16px 28px -10px rgb(var(--ink-rgb) / .55);
+
   /* ═══ shadows — extremely subtle ═══
      Always cast in black; --shadow-a scales every alpha so light mode can
      lean harder on shadow, which is its only elevation cue. */
@@ -1272,14 +1292,15 @@ button.notifitem:hover { background: var(--hover); cursor: pointer; }
    from `.pri`, which is the blue action fill used inside the app; this one is
    for surfaces that are already monochrome, like the auth screens. */
 .btn.ink {
+  position: relative;
   border: none;
   color: var(--bg);
-  background: var(--grad-primary);
-  box-shadow: 0 2px 10px rgb(var(--shadow-rgb) / calc(.18 * var(--shadow-a)));
+  background: var(--metal-sheen), var(--grad-primary);
+  box-shadow: var(--metal-shadow);
 }
 .btn.ink:hover:not(:disabled) {
-  background: var(--grad-primary-h);
-  box-shadow: 0 4px 16px rgb(var(--shadow-rgb) / calc(.24 * var(--shadow-a)));
+  background: var(--metal-sheen), var(--grad-primary-h);
+  box-shadow: var(--metal-shadow-hover);
 }
 .btn.ink:active { transform: scale(.96); }
 .btn.ink:focus-visible {
@@ -5408,7 +5429,9 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   bottom: 40px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1;
+  /* Above `.l-hero-fade` (z-index 1) on purpose — the cue has to stay
+     readable through the blur band it physically sits inside. */
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -5421,6 +5444,161 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 @keyframes l-bob {
   0%, 100% { transform: translateX(-50%) translateY(0); }
   50% { transform: translateX(-50%) translateY(6px); }
+}
+
+/* ─── progressive blur — hero → stats bar ───
+   One `backdrop-filter: blur()` with a hard mask edge still reads as a pane
+   of glass dropped onto the page. Real progressive blur is several panes,
+   each a little blurrier and masked a little lower than the last, so the
+   *rate* of blur increases toward the seam instead of switching on at one
+   line. Four steps is the usual floor for the eye to read it as continuous;
+   the final colour wash underneath is what actually closes the seam, since
+   backdrop-filter alone never fully hides what's behind it. */
+.l-hero-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 240px;
+  z-index: 1;
+  pointer-events: none;
+}
+.l-hero-fade i {
+  position: absolute;
+  inset: 0;
+  display: block;
+  font-style: normal;
+}
+.l-hero-fade i:nth-child(1) {
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 42%, #000 58%, transparent 74%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 42%, #000 58%, transparent 74%);
+}
+.l-hero-fade i:nth-child(2) {
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 24%, #000 58%, #000 72%, transparent 88%);
+  mask-image: linear-gradient(to bottom, transparent 24%, #000 58%, #000 72%, transparent 88%);
+}
+.l-hero-fade i:nth-child(3) {
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 46%, #000 72%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 46%, #000 72%, #000 88%, transparent 100%);
+}
+.l-hero-fade i:nth-child(4) {
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 66%, #000 88%, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 66%, #000 88%, #000 100%);
+}
+.l-hero-fade::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 55%, var(--bg) 97%);
+}
+
+/* ─── hero live cards ───
+   Two small "product is running" cards flanking the headline — Kigyo's own
+   take on a floating hero widget, built from the same badge/card language as
+   the rest of the page (metal icon, double border) rather than a one-off.
+   Hidden below the width where they'd collide with the centred text; motion
+   is float + crossfade, both skipped under reduced motion. */
+.l-hero-live {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  animation: l-hero-live-float 7s ease-in-out infinite;
+}
+.l-hero-live-a { left: max(28px, calc(50% - 540px)); transform: translateY(-130%); }
+.l-hero-live-b { right: max(28px, calc(50% - 540px)); transform: translateY(30%); animation-delay: -3.5s; }
+@media (max-width: 1180px) {
+  .l-hero-live { display: none; }
+}
+@keyframes l-hero-live-float {
+  0%, 100% { margin-top: 0; }
+  50% { margin-top: -10px; }
+}
+.l-hero-live-card {
+  position: relative;
+  width: 230px;
+  height: 54px;
+  border-radius: var(--r-lg);
+  background: rgb(var(--bg-rgb) / .62);
+  border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+  box-shadow: var(--e3);
+  overflow: hidden;
+}
+/* Concentric inset border: radius = outer radius − inset, same rule as the
+   quote/CTA card frames. */
+.l-hero-live-card::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgb(var(--ink-rgb) / .06);
+  border-radius: calc(var(--r-lg) - 5px);
+  pointer-events: none;
+}
+.l-hero-live-item {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  opacity: 0;
+  animation: l-hero-live-cycle 9s ease-in-out infinite;
+}
+.l-hero-live-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--metal-sheen), var(--grad-primary);
+  color: var(--bg);
+  box-shadow: var(--metal-shadow);
+}
+.l-hero-live-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+  min-width: 0;
+}
+.l-hero-live-copy b {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.l-hero-live-copy em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@keyframes l-hero-live-cycle {
+  0%, 100% { opacity: 0; transform: translateY(6px); }
+  6%, 27% { opacity: 1; transform: translateY(0); }
+  33% { opacity: 0; transform: translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .l-hero-live { animation: none; }
+  .l-hero-live-item {
+    animation: none;
+    opacity: 0;
+  }
+  .l-hero-live-item:first-child { opacity: 1; }
 }
 
 /* stats bar */
@@ -5457,7 +5635,23 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   font-weight: 400;
 }
 
-/* how it works */
+/* how it works
+   `.l-steps` gets a faint dot-grid behind the whole row — the one place on
+   the page that hints at a system running underneath, without repeating the
+   card-level pattern used in the features grid. */
+.l-steps { position: relative; }
+.l-steps::before {
+  content: '';
+  position: absolute;
+  inset: -20px 0 0;
+  background-image: radial-gradient(circle at 1px 1px, rgb(var(--ink-rgb) / .11) 1px, transparent 0);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(55% 55% at 50% 35%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(55% 55% at 50% 35%, #000 0%, transparent 78%);
+  pointer-events: none;
+  z-index: 0;
+}
+.l-steps > * { position: relative; z-index: 1; }
 .l-steps-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -5472,14 +5666,15 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   padding-top: 8px;
 }
 .l-step-num {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: var(--r);
-  background: var(--ink);
+  background: var(--metal-sheen), var(--grad-primary);
   color: var(--bg);
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  box-shadow: var(--metal-shadow);
 }
 .l-step-title {
   font-size: 17px;
@@ -5495,9 +5690,45 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   margin: 0;
 }
 
-/* testimonial */
-.l-quote-section { padding-top: 24px; padding-bottom: 24px; }
+/* testimonial
+   The dot-grid lives on the *section*, not the card — full-bleed and fading
+   outward, so it reads as ambient page texture the card floats over rather
+   than a pattern boxed inside it. `isolation: isolate` plus the pattern's
+   negative z-index is what keeps it behind the section's own (static, non-
+   positioned) children regardless of paint order. */
+.l-quote-section {
+  position: relative;
+  isolation: isolate;
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+.l-quote-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 1px 1px, rgb(var(--ink-rgb) / .11) 1px, transparent 0);
+  background-size: 26px 26px;
+  /* A vertical fade only — no horizontal mask. The dots need to stay at full
+     strength all the way to the viewport edge, in the gutters either side of
+     the (narrower) card, or there is nothing left to see once the card's own
+     opaque fill covers the middle of the section. */
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 35%, #000 65%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 35%, #000 65%, transparent 100%);
+}
+/* `::before` draws a second, inset border a few px inside the card's own —
+   the "double border" frame, reused on `.l-cta-card` below. Concentric
+   corners: an inset ring's radius is the outer radius minus the inset
+   distance, not some larger arbitrary subtraction — get that wrong and the
+   two borders visibly stop sharing a centre. */
 .l-quote-card {
+  position: relative;
+  isolation: isolate;
   max-width: 720px;
   margin: 0 auto;
   background: var(--bg2);
@@ -5509,6 +5740,14 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   align-items: center;
   text-align: center;
   gap: 20px;
+}
+.l-quote-card::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 1px solid var(--line2);
+  border-radius: calc(var(--r-2xl) - 7px);
+  pointer-events: none;
 }
 .l-quote-stars {
   display: flex;
@@ -5535,13 +5774,14 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--active);
-  color: var(--ink);
+  background: var(--metal-sheen), var(--grad-primary);
+  color: var(--bg);
   display: grid;
   place-items: center;
   font-size: 13px;
   font-weight: 400;
   flex-shrink: 0;
+  box-shadow: var(--metal-shadow);
 }
 .l-quote-name { font-size: 13.5px; font-weight: 400; color: var(--ink); text-align: left; }
 .l-quote-role { font-size: 12px; color: var(--ink3); text-align: left; }
@@ -5579,25 +5819,65 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr));
   gap: 16px;
 }
+/* The card itself is the outer border; `.l-feature-media`'s own border-bottom
+   is the inner one — together they read as the double frame around the icon,
+   the same nested-rectangle look the rest of this pass borrows from. Padding
+   moves onto the two zones since the card is now `overflow: hidden` (the
+   media zone's pattern needs a hard edge to fade out against). */
 .l-feature {
-  padding: 28px 26px 24px;
+  padding: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  transition: border-color .2s ease-out;
+  transition: border-color .2s ease-out, box-shadow .2s ease-out;
 }
 .l-feature:hover {
-  border-color: rgb(var(--ink-rgb) / .10);
+  border-color: rgb(var(--ink-rgb) / .12);
+  box-shadow: var(--e2);
 }
-.l-feature-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--r);
-  background: rgb(var(--ink-rgb) / .05);
+.l-feature-media {
+  position: relative;
+  height: 88px;
   display: grid;
   place-items: center;
-  color: var(--ink);
   flex-shrink: 0;
+  border-bottom: 1px solid var(--line2);
+  background-color: rgb(var(--ink-rgb) / .015);
+  /* A hairline diagonal hatch, the same weight as `--line2`, faded out with a
+     mask so it reads as texture behind the icon rather than a tiled pattern
+     stopping abruptly at the card's edges. */
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgb(var(--ink-rgb) / .05) 0px,
+    rgb(var(--ink-rgb) / .05) 1px,
+    transparent 1px,
+    transparent 9px
+  );
+  mask-image: radial-gradient(80% 130% at 50% 30%, #000 35%, transparent 92%);
+  -webkit-mask-image: radial-gradient(80% 130% at 50% 30%, #000 35%, transparent 92%);
+}
+.l-feature-body {
+  padding: 22px 26px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* The icon container's shadow is cast in the container's own fill colour
+   (the ink channel), not a neutral black — in light mode that is a black
+   badge with a black shadow under it, in dark mode a white badge glowing
+   white. `--metal-sheen` + `--metal-shadow` are the same finish
+   `.l-step-num`, `.l-quote-avatar` and `.btn.ink` use, so the whole page
+   reads as one family of badges rather than four one-off treatments. */
+.l-feature-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--metal-sheen), var(--grad-primary);
+  display: grid;
+  place-items: center;
+  color: var(--bg);
+  flex-shrink: 0;
+  box-shadow: var(--metal-shadow);
 }
 .l-feature-title {
   font-size: 16px;
@@ -5670,7 +5950,28 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 
 /* ─── operations ledger ───
    A slice of the real interface rather than a picture of one: same record
-   ids, same badge vocabulary, same monospace as the dashboard. */
+   ids, same badge vocabulary, same monospace as the dashboard. The ambient
+   dot-grid sits on the *section* — page chrome behind the interface slice —
+   never inside `.l-ledger` itself, which stays an honest mock of the app. */
+.l-ledger-section {
+  position: relative;
+  isolation: isolate;
+}
+.l-ledger-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 1px 1px, rgb(var(--ink-rgb) / .11) 1px, transparent 0);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 15%, #000 85%, transparent 100%);
+}
 .l-ledger {
   border: 1px solid var(--line);
   border-radius: var(--r-xl);
@@ -5747,12 +6048,33 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   .l-row-id, .l-row-age { display: none }
 }
 
-/* cta */
+/* cta
+   The dot-grid moved off the card and onto the section itself — full-bleed,
+   fading outward from behind the card — the same ambient-texture treatment
+   as `.l-quote-section`. The card keeps only the double border. */
 .l-cta {
+  position: relative;
+  isolation: isolate;
   padding-top: 32px;
   padding-bottom: 80px;
 }
+.l-cta::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 1px 1px, rgb(var(--ink-rgb) / .11) 1px, transparent 0);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 90%, transparent 100%);
+}
 .l-cta-card {
+  position: relative;
   background: var(--bg2);
   border: 1px solid var(--line);
   border-radius: var(--r-2xl);
@@ -5762,6 +6084,14 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   flex-direction: column;
   align-items: center;
   gap: 14px;
+}
+.l-cta-card::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border: 1px solid var(--line2);
+  border-radius: calc(var(--r-2xl) - 7px);
+  pointer-events: none;
 }
 .l-cta-title {
   font-family: var(--font-display);

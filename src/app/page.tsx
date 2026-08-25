@@ -21,7 +21,30 @@ import {
   DollarSign,
   TrendingUp,
   Star,
+  CheckCircle,
+  FileSignature,
 } from '@/lib/icons'
+
+/**
+ * The two floating cards beside the headline — Kigyo's answer to the "one
+ * card mid-hero" pattern. Each cycles its own three one-line events on a
+ * CSS-only crossfade (see `l-live-cycle` in globals.css), so the pair reads
+ * as several modules working at once rather than one scripted demo. Content
+ * mirrors `Ledger`'s vocabulary (same record shape, same tone) so it feels
+ * like a glimpse of the real product rather than marketing filler — which is
+ * also why it's `aria-hidden`: nothing here is a real, timestamped event.
+ */
+const HERO_LIVE_A = [
+  { icon: CheckCircle, title: 'Venta registrada', meta: 'Café El Bosque · hace 2 min' },
+  { icon: TrendingUp, title: 'Lead calificado', meta: 'Flota comercial · Juan Pérez' },
+  { icon: DollarSign, title: 'Pago confirmado', meta: 'Wompi · $128.400' },
+] as const
+
+const HERO_LIVE_B = [
+  { icon: FileSignature, title: 'Documento firmado', meta: 'Contrato laboral · Sebastián' },
+  { icon: Package, title: 'Stock actualizado', meta: 'Grano 1kg reabastecido' },
+  { icon: Calendar, title: 'Turno asignado', meta: 'Equipo de mostrador' },
+] as const
 
 /**
  * The hero fluid is drawn as light and composited with `screen` on dark, where
@@ -62,6 +85,34 @@ export default function LandingPage() {
             mixBlendMode={theme === 'dark' ? 'screen' : 'multiply'}
           />
         </div>
+
+        <div className="l-hero-live l-hero-live-a" aria-hidden="true">
+          <div className="l-hero-live-card">
+            {HERO_LIVE_A.map((item, i) => (
+              <span className="l-hero-live-item" key={item.title} style={{ animationDelay: `${i * -3}s` }}>
+                <span className="l-hero-live-icon"><item.icon size={13} /></span>
+                <span className="l-hero-live-copy">
+                  <b>{item.title}</b>
+                  <em>{item.meta}</em>
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="l-hero-live l-hero-live-b" aria-hidden="true">
+          <div className="l-hero-live-card">
+            {HERO_LIVE_B.map((item, i) => (
+              <span className="l-hero-live-item" key={item.title} style={{ animationDuration: '9.6s', animationDelay: `${i * -3.2}s` }}>
+                <span className="l-hero-live-icon"><item.icon size={13} /></span>
+                <span className="l-hero-live-copy">
+                  <b>{item.title}</b>
+                  <em>{item.meta}</em>
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+
         <div className="l-hero-content">
           <h1 className="l-hero-title">
             CRM, ERP y Punto de Venta en un solo lugar
@@ -103,6 +154,16 @@ export default function LandingPage() {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 5v14M5 12l7 7 7-7" />
           </svg>
+        </div>
+
+        {/* Progressive blur: the fluid softens in graduated steps rather than
+            cutting hard into the stats bar below — see `.l-hero-fade` in
+            globals.css for why this takes four stacked layers instead of one. */}
+        <div className="l-hero-fade" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+          <i />
         </div>
       </section>
 
@@ -146,69 +207,93 @@ export default function LandingPage() {
 
         <div className="l-features-grid">
           <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-icon">
-              <Users size={22} />
+            <div className="l-feature-media">
+              <div className="l-feature-icon">
+                <Users size={22} />
+              </div>
             </div>
-            <h3 className="l-feature-title">CRM — clientes y ventas</h3>
-            <p className="l-feature-desc">
-              Leads, embudo, cotizaciones y cartera. Todo el ciclo comercial
-              de tu negocio en un solo lugar.
-            </p>
+            <div className="l-feature-body">
+              <h3 className="l-feature-title">CRM — clientes y ventas</h3>
+              <p className="l-feature-desc">
+                Leads, embudo, cotizaciones y cartera. Todo el ciclo comercial
+                de tu negocio en un solo lugar.
+              </p>
+            </div>
           </TiltCard>
 
           <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-icon">
-              <Package size={22} />
+            <div className="l-feature-media">
+              <div className="l-feature-icon">
+                <Package size={22} />
+              </div>
             </div>
-            <h3 className="l-feature-title">ERP — inventario y compras</h3>
-            <p className="l-feature-desc">
-              Productos, stock, compras a proveedores y contabilidad.
-              Control total de la operación interna.
-            </p>
+            <div className="l-feature-body">
+              <h3 className="l-feature-title">ERP — inventario y compras</h3>
+              <p className="l-feature-desc">
+                Productos, stock, compras a proveedores y contabilidad.
+                Control total de la operación interna.
+              </p>
+            </div>
           </TiltCard>
 
           <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-icon">
-              <DollarSign size={22} />
+            <div className="l-feature-media">
+              <div className="l-feature-icon">
+                <DollarSign size={22} />
+              </div>
             </div>
-            <h3 className="l-feature-title">POS — punto de venta</h3>
-            <p className="l-feature-desc">
-              Caja, ventas y pagos con Wompi. Emite y cobra sin salir de la
-              plataforma, en línea o en mostrador.
-            </p>
+            <div className="l-feature-body">
+              <h3 className="l-feature-title">POS — punto de venta</h3>
+              <p className="l-feature-desc">
+                Caja, ventas y pagos con Wompi. Emite y cobra sin salir de la
+                plataforma, en línea o en mostrador.
+              </p>
+            </div>
           </TiltCard>
 
           <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-icon">
-              <Sparkles size={22} />
+            <div className="l-feature-media">
+              <div className="l-feature-icon">
+                <Sparkles size={22} />
+              </div>
             </div>
-            <h3 className="l-feature-title">Documentos con IA</h3>
-            <p className="l-feature-desc">
-              Firma electrónica con trazabilidad y un asistente que responde
-              con citas a tus propios documentos.
-            </p>
+            <div className="l-feature-body">
+              <h3 className="l-feature-title">Documentos con IA</h3>
+              <p className="l-feature-desc">
+                Firma electrónica con trazabilidad y un asistente que responde
+                con citas a tus propios documentos.
+              </p>
+            </div>
           </TiltCard>
 
           <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-icon">
-              <Calendar size={22} />
+            <div className="l-feature-media">
+              <div className="l-feature-icon">
+                <Calendar size={22} />
+              </div>
             </div>
-            <h3 className="l-feature-title">Personas y nómina</h3>
-            <p className="l-feature-desc">
-              Empleados, asistencia, vacaciones y nómina. La gestión del
-              equipo, integrada a la operación.
-            </p>
+            <div className="l-feature-body">
+              <h3 className="l-feature-title">Personas y nómina</h3>
+              <p className="l-feature-desc">
+                Empleados, asistencia, vacaciones y nómina. La gestión del
+                equipo, integrada a la operación.
+              </p>
+            </div>
           </TiltCard>
 
           <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-icon">
-              <Shield size={22} />
+            <div className="l-feature-media">
+              <div className="l-feature-icon">
+                <Shield size={22} />
+              </div>
             </div>
-            <h3 className="l-feature-title">Seguridad multi-empresa</h3>
-            <p className="l-feature-desc">
-              Cada empresa con sus datos aislados y su propio plan.
-              Cumplimiento por diseño, no por parche.
-            </p>
+            <div className="l-feature-body">
+              <h3 className="l-feature-title">Seguridad multi-empresa</h3>
+              <p className="l-feature-desc">
+                Cada empresa con sus datos aislados y su propio plan.
+                Cumplimiento por diseño, no por parche.
+              </p>
+            </div>
           </TiltCard>
         </div>
       </section>

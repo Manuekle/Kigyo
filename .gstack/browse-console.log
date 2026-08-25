@@ -1,121 +1,95 @@
-[2026-08-06T02:43:04.279Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
-[2026-08-06T02:43:04.328Z] [log] [HMR] connected
-[2026-08-06T02:43:05.194Z] [log] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit
-[2026-08-06T02:43:05.194Z] [log] %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {route: /, path: /}
-[2026-08-06T02:43:05.194Z] [log] %c[Vercel Web Analytics]%c [view] http://localhost:3000/ color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/, sv: 0.1.3, sdkn: @vercel/analytics/next, sdkv: 2.0.1, ts: 1785984185194} /_vercel/insights/view
-[2026-08-06T02:43:24.174Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:43:24.397Z] [log] [Fast Refresh] done in 84ms
-[2026-08-06T02:43:24.971Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:43:25.960Z] [log] [Fast Refresh] done in 1090ms
-[2026-08-06T02:43:27.080Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:43:27.464Z] [log] [Fast Refresh] done in 485ms
-[2026-08-06T02:43:31.500Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:43:31.528Z] [log] [Fast Refresh] done in 78ms
-[2026-08-06T02:43:45.969Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:43:45.976Z] [log] [Fast Refresh] done in 107ms
-[2026-08-06T02:43:48.526Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:43:48.548Z] [log] [Fast Refresh] done in 127ms
-[2026-08-06T02:43:52.502Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:43:52.510Z] [log] [Fast Refresh] done in 110ms
-[2026-08-06T02:44:47.945Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:44:47.957Z] [log] [Fast Refresh] done in 113ms
-[2026-08-06T02:44:58.007Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:44:58.017Z] [log] [Fast Refresh] done in 111ms
-[2026-08-06T02:45:11.255Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:45:11.268Z] [log] [Fast Refresh] done in 112ms
-[2026-08-06T02:45:21.369Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:45:21.379Z] [log] [Fast Refresh] done in 112ms
-[2026-08-06T02:45:56.648Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:45:56.663Z] [log] [Fast Refresh] done in 115ms
-[2026-08-06T02:50:58.566Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:50:58.569Z] [log] [Fast Refresh] done in 105ms
-[2026-08-06T02:51:04.878Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:51:04.883Z] [log] [Fast Refresh] done in 106ms
-[2026-08-06T02:51:21.449Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:51:21.452Z] [log] [Fast Refresh] done in 107ms
-[2026-08-06T02:51:39.733Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:51:39.748Z] [log] [Fast Refresh] done in 114ms
-[2026-08-06T02:57:34.459Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T02:57:34.497Z] [log] [Fast Refresh] done in 118ms
-[2026-08-06T03:00:39.585Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:00:39.622Z] [log] [Fast Refresh] done in 105ms
-[2026-08-06T03:00:43.716Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:00:43.755Z] [log] [Fast Refresh] done in 140ms
-[2026-08-06T03:00:54.832Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:00:55.522Z] [log] [Fast Refresh] done in 790ms
-[2026-08-06T03:00:56.503Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:00:56.564Z] [log] [Fast Refresh] done in 73ms
-[2026-08-06T03:00:56.718Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:00:56.782Z] [log] [Fast Refresh] done in 163ms
-[2026-08-06T03:00:59.947Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:00.086Z] [log] [Fast Refresh] done in 110ms
-[2026-08-06T03:01:00.867Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:00.883Z] [log] [Fast Refresh] done in 116ms
-[2026-08-06T03:01:06.579Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:06.580Z] [log] [Fast Refresh] done in 101ms
-[2026-08-06T03:01:11.228Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:11.229Z] [log] [Fast Refresh] done in 102ms
-[2026-08-06T03:01:14.527Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:14.534Z] [log] [Fast Refresh] done in 111ms
-[2026-08-06T03:01:27.992Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:28.016Z] [log] [Fast Refresh] done in 73ms
-[2026-08-06T03:01:34.417Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:34.438Z] [log] [Fast Refresh] done in 82ms
-[2026-08-06T03:01:37.447Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:37.464Z] [log] [Fast Refresh] done in 83ms
-[2026-08-06T03:01:40.706Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:40.722Z] [log] [Fast Refresh] done in 93ms
-[2026-08-06T03:01:50.573Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:50.586Z] [log] [Fast Refresh] done in 114ms
-[2026-08-06T03:01:53.748Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:01:53.752Z] [log] [Fast Refresh] done in 107ms
-[2026-08-06T03:02:00.492Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:00.492Z] [log] [Fast Refresh] done in 102ms
-[2026-08-06T03:02:03.724Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:03.744Z] [log] [Fast Refresh] done in 94ms
-[2026-08-06T03:02:06.784Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:06.798Z] [log] [Fast Refresh] done in 104ms
-[2026-08-06T03:02:07.954Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:08.014Z] [log] [Fast Refresh] done in 163ms
-[2026-08-06T03:02:10.165Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:10.179Z] [log] [Fast Refresh] done in 103ms
-[2026-08-06T03:02:13.290Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:13.324Z] [log] [Fast Refresh] done in 115ms
-[2026-08-06T03:02:16.912Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:16.925Z] [log] [Fast Refresh] done in 91ms
-[2026-08-06T03:02:20.396Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:20.409Z] [log] [Fast Refresh] done in 91ms
-[2026-08-06T03:02:49.694Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:49.698Z] [log] [Fast Refresh] done in 106ms
-[2026-08-06T03:02:55.733Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:55.758Z] [log] [Fast Refresh] done in 80ms
-[2026-08-06T03:02:59.884Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:02:59.914Z] [log] [Fast Refresh] done in 75ms
-[2026-08-06T03:03:13.301Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:03:13.326Z] [log] [Fast Refresh] done in 76ms
-[2026-08-06T03:03:25.563Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:03:25.637Z] [log] [Fast Refresh] done in 151ms
-[2026-08-06T03:03:35.767Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:03:35.788Z] [log] [Fast Refresh] done in 79ms
-[2026-08-06T03:03:43.636Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:03:43.654Z] [log] [Fast Refresh] done in 118ms
-[2026-08-06T03:03:50.473Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:03:50.474Z] [log] [Fast Refresh] done in 106ms
-[2026-08-06T03:03:57.760Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:03:57.773Z] [log] [Fast Refresh] done in 115ms
-[2026-08-06T03:04:48.653Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:04:48.853Z] [log] [Fast Refresh] done in 300ms
-[2026-08-06T03:04:49.066Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:04:49.114Z] [log] [Fast Refresh] done in 149ms
-[2026-08-06T03:04:55.735Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:04:55.794Z] [log] [Fast Refresh] done in 94ms
-[2026-08-06T03:04:57.995Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:04:58.007Z] [log] [Fast Refresh] done in 91ms
-[2026-08-06T03:05:03.852Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:05:03.902Z] [log] [Fast Refresh] done in 79ms
-[2026-08-06T03:05:06.625Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:05:06.642Z] [log] [Fast Refresh] done in 106ms
-[2026-08-06T03:05:34.165Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:05:34.211Z] [log] [Fast Refresh] done in 146ms
-[2026-08-06T03:05:56.338Z] [log] [Fast Refresh] rebuilding
-[2026-08-06T03:05:56.557Z] [log] [Fast Refresh] done in 321ms
+[2026-08-25T22:29:23.630Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:29:23.686Z] [log] [HMR] connected
+[2026-08-25T22:29:24.063Z] [warning] [.WebGL-0x114004df800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[2026-08-25T22:29:24.109Z] [warning] [.WebGL-0x114004df800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[2026-08-25T22:29:24.149Z] [warning] [.WebGL-0x114004df800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels
+[2026-08-25T22:29:24.187Z] [warning] [.WebGL-0x114004df800]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)
+[2026-08-25T22:30:06.701Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:30:15.817Z] [log] [Fast Refresh] done in 9440ms
+[2026-08-25T22:31:54.436Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:31:54.543Z] [log] [Fast Refresh] done in 475ms
+[2026-08-25T22:31:54.812Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:31:54.943Z] [log] [HMR] connected
+[2026-08-25T22:31:55.151Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:31:55.894Z] [log] [Fast Refresh] done in 817ms
+[2026-08-25T22:32:08.803Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:32:08.841Z] [log] [HMR] connected
+[2026-08-25T22:32:09.053Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:32:09.136Z] [log] [Fast Refresh] done in 183ms
+[2026-08-25T22:32:25.963Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:32:26.015Z] [log] [HMR] connected
+[2026-08-25T22:34:11.626Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:34:11.667Z] [log] [HMR] connected
+[2026-08-25T22:44:24.202Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:44:27.759Z] [log] [Fast Refresh] done in 3476ms
+[2026-08-25T22:44:43.567Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:44:46.032Z] [log] [Fast Refresh] done in 2293ms
+[2026-08-25T22:45:00.826Z] [log] [Fast Refresh] done in 2293ms
+[2026-08-25T22:45:14.152Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:45:19.181Z] [log] [Fast Refresh] done in 5695ms
+[2026-08-25T22:45:32.805Z] [log] [Fast Refresh] done in 5695ms
+[2026-08-25T22:45:53.756Z] [log] [Fast Refresh] done in 5695ms
+[2026-08-25T22:45:58.349Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:46:04.242Z] [log] [Fast Refresh] done in 5297ms
+[2026-08-25T22:46:11.934Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:46:17.075Z] [log] [Fast Refresh] done in 4951ms
+[2026-08-25T22:46:35.215Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:46:39.799Z] [log] [Fast Refresh] done in 3510ms
+[2026-08-25T22:46:51.389Z] [log] [Fast Refresh] done in 3510ms
+[2026-08-25T22:46:53.601Z] [log] [Fast Refresh] done in 3510ms
+[2026-08-25T22:46:53.770Z] [log] [Fast Refresh] done in 3510ms
+[2026-08-25T22:46:54.027Z] [log] [Fast Refresh] done in 3510ms
+[2026-08-25T22:46:54.371Z] [log] [Fast Refresh] done in 3510ms
+[2026-08-25T22:46:57.554Z] [log] [Fast Refresh] done in 3510ms
+[2026-08-25T22:47:04.934Z] [log] [Fast Refresh] done in 3510ms
+[2026-08-25T22:47:15.428Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:47:20.126Z] [log] [Fast Refresh] done in 4117ms
+[2026-08-25T22:47:23.987Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:47:28.142Z] [log] [Fast Refresh] done in 3516ms
+[2026-08-25T22:48:46.334Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:48:50.111Z] [log] [Fast Refresh] done in 4598ms
+[2026-08-25T22:48:50.111Z] [log] [Fast Refresh] done in 4598ms
+[2026-08-25T22:48:50.714Z] [log] [Fast Refresh] done in 4598ms
+[2026-08-25T22:48:58.066Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:49:03.747Z] [log] [Fast Refresh] done in 6143ms
+[2026-08-25T22:49:03.747Z] [log] [Fast Refresh] done in 6143ms
+[2026-08-25T22:49:05.218Z] [log] [Fast Refresh] done in 6143ms
+[2026-08-25T22:49:09.418Z] [log] [Fast Refresh] done in 6143ms
+[2026-08-25T22:49:09.972Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:49:12.306Z] [log] [Fast Refresh] done in 2694ms
+[2026-08-25T22:49:12.306Z] [log] [Fast Refresh] done in 2694ms
+[2026-08-25T22:49:12.306Z] [log] [Fast Refresh] done in 2694ms
+[2026-08-25T22:49:12.309Z] [log] [Fast Refresh] done in 2694ms
+[2026-08-25T22:49:12.835Z] [log] [Fast Refresh] done in 2694ms
+[2026-08-25T22:49:12.835Z] [log] [Fast Refresh] done in 2694ms
+[2026-08-25T22:49:35.526Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:49:37.072Z] [log] [Fast Refresh] done in 1677ms
+[2026-08-25T22:50:04.271Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:50:04.748Z] [log] [Fast Refresh] done in 339ms
+[2026-08-25T22:50:27.851Z] [log] [Fast Refresh] done in 339ms
+[2026-08-25T22:50:28.017Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:50:28.099Z] [log] [HMR] connected
+[2026-08-25T22:53:33.678Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:53:34.212Z] [log] [Fast Refresh] done in 675ms
+[2026-08-25T22:53:47.647Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:53:48.461Z] [log] [Fast Refresh] done in 923ms
+[2026-08-25T22:54:01.435Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:54:01.829Z] [log] [Fast Refresh] done in 509ms
+[2026-08-25T22:54:12.622Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:54:12.709Z] [log] [HMR] connected
+[2026-08-25T22:55:37.263Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:55:37.511Z] [log] [Fast Refresh] done in 382ms
+[2026-08-25T22:55:52.473Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:55:52.559Z] [log] [HMR] connected
+[2026-08-25T22:56:26.510Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:56:26.644Z] [log] [HMR] connected
+[2026-08-25T22:57:16.499Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:57:16.606Z] [log] [HMR] connected
+[2026-08-25T22:57:47.712Z] [log] [Fast Refresh] rebuilding
+[2026-08-25T22:57:48.506Z] [log] [Fast Refresh] done in 330ms
+[2026-08-25T22:57:48.506Z] [log] [Fast Refresh] done in 330ms
+[2026-08-25T22:58:00.077Z] [log] [Fast Refresh] done in 330ms
+[2026-08-25T22:58:00.213Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:58:00.295Z] [log] [HMR] connected
+[2026-08-25T22:59:02.486Z] [info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[2026-08-25T22:59:02.570Z] [log] [HMR] connected
