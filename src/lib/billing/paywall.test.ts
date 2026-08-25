@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PLANS, SELF_SERVE_PLANS, isSelfServePlan } from '@/lib/plans'
-import { PRICING } from '@/lib/pricing'
+import { PRICING, trialDaysFor } from '@/lib/pricing'
 
 /**
  * The paywall, pinned.
@@ -215,37 +215,71 @@ describe('the price list says what the product does', () => {
    * A tier with a price and no checkout is a tier nobody can buy.
    *
    * Starter was exactly that: $80.000 on the page, `DEFAULT_PLAN` in the code,
-   * and no button anywhere that charged for it. Enterprise is deliberately not
-   * self-serve — it goes to `/contact` — so it is the only tier allowed to have
-   * a price and no checkout.
+   * y ningún botón que lo cobrara. Enterprise fue lo mismo durante más tiempo,
+   * por otra razón: se decidió que iba a `/contact` y esa decisión sobrevivió a
+   * la creación de su producto en Polar. Ahora los tres se pueden pagar.
    */
-  it('gives every self-serve tier a price and every priced tier a way to buy it', () => {
+  it('gives every tier a price and a way to buy it', () => {
     for (const plan of PLANS) {
       const priced = PRICING[plan.key].priceMonthly
-      expect(priced, `${plan.key} has no price`).toMatch(/\d/)
-      if (!isSelfServePlan(plan.key)) {
-        expect(PRICING[plan.key].href, `${plan.key} is not self-serve and must lead to sales`)
-          .toBe('/contact')
-      }
+      expect(priced, `${plan.key} no tiene precio`).toMatch(/\d/)
+      expect(isSelfServePlan(plan.key), `${plan.key} no se puede pagar`).toBe(true)
     }
-    expect([...SELF_SERVE_PLANS].sort()).toEqual(['growth', 'starter'])
+    expect([...SELF_SERVE_PLANS].sort()).toEqual(['enterprise', 'growth', 'starter'])
   })
 
   /**
-   * There is no trial. The page said there was.
+   * Cada plan vendible necesita sus dos ids de producto en el entorno.
    *
-   * Same family as the four false claims the FAQ carried in the first commit,
-   * and as the `price: '0'` in the JSON-LD: a promise made where nobody checks
-   * it against the code. Nothing counts trial days, nothing expires, nothing
-   * grants one.
+   * Un plan en `SELF_SERVE_PLANS` cuyo id no está en `polarSchema` es un botón
+   * «Pagar» que responde «la facturación todavía no está configurada» — el
+   * mismo callejón que este archivo entero existe para impedir, una capa más
+   * abajo.
    */
-  it('does not promise a free trial that nothing implements', () => {
-    const pricing = withoutComments(source('src/app/pricing/PricingPlans.tsx'))
-    expect(pricing).not.toMatch(/Prueba\s+\d+\s+días\s+grat/i)
+  it('exige en el entorno los dos productos de cada plan vendible', () => {
+    const env = source('src/lib/env.ts')
+    for (const plan of SELF_SERVE_PLANS) {
+      for (const interval of ['MONTHLY', 'YEARLY']) {
+        const key = `POLAR_PRODUCT_${plan.toUpperCase()}_${interval}`
+        expect(env, `${key} no está en polarSchema`).toContain(key)
+      }
+    }
+  })
 
-    const sql = migrationSql()
-    expect(sql, 'a trial column exists — the copy may say so again')
-      .not.toMatch(/trial_ends_at|trial_days/i)
+  /**
+   * La prueba gratis: la que hay, donde está, y en ningún otro sitio.
+   *
+   * Solo `STARTER_MONTHLY` la lleva —14 días, configurados en Polar y
+   * verificados contra su API—. Las dos formas de equivocarse aquí son la
+   * misma: la pantalla hablando por su cuenta del dinero. Antes se anunciaba
+   * una prueba que no existía; el riesgo ahora es anunciar en las seis tarjetas
+   * la que solo lleva una.
+   */
+  it('concede la prueba solo a Starter mensual', () => {
+    expect(trialDaysFor('starter', 'mensual')).toBe(14)
+    expect(trialDaysFor('starter', 'anual')).toBe(0)
+    for (const plan of ['growth', 'enterprise'] as const) {
+      for (const cycle of ['mensual', 'anual'] as const) {
+        expect(trialDaysFor(plan, cycle), `${plan}/${cycle} no debe tener prueba`).toBe(0)
+      }
+    }
+  })
+
+  /**
+   * La página no escribe el número de días a mano.
+   *
+   * Decía «Prueba 30 días gratis» cuando no existía ninguna prueba — de la
+   * misma familia que las cuatro afirmaciones falsas del FAQ y que el
+   * `price: '0'` del JSON-LD: una promesa hecha donde nadie la contrasta con el
+   * código. Ahora hay una prueba real de 14 días, así que la regla ya no puede
+   * ser «no menciones pruebas»; es «el número sale de `TRIAL_DAYS`». Un literal
+   * en la plantilla es lo que se queda atrás cuando cambie el trial en Polar.
+   */
+  it('deriva los días de prueba en vez de escribirlos', () => {
+    const pricing = withoutComments(source('src/app/pricing/PricingPlans.tsx'))
+    expect(pricing, 'la página escribe los días de prueba a mano')
+      .not.toMatch(/\b\d+\s+días?\s+grat/i)
+    expect(pricing, 'la página no consulta la tabla de pruebas').toContain('trialDaysFor')
   })
 
   /** The terms of service are the one place a false claim about money is not a typo. */

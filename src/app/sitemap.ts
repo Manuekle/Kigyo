@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next'
-
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://whitebox.com'
+import { SITE_URL } from '@/lib/site'
 
 const dashboardRoutes = [
   '/dashboard',
@@ -31,21 +30,21 @@ const publicRoutes = ['/about', '/pricing', '/faq', '/contact', '/terms', '/priv
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const landing = {
-    url: BASE_URL,
+    url: SITE_URL,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
     priority: 1,
   }
 
   const publicPages = publicRoutes.map((route) => ({
-    url: `${BASE_URL}${route}`,
+    url: `${SITE_URL}${route}`,
     lastModified: new Date(),
     changeFrequency: 'monthly' as const,
     priority: 0.6,
   }))
 
   const pages = dashboardRoutes.map((route) => ({
-    url: `${BASE_URL}${route}`,
+    url: `${SITE_URL}${route}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.8,

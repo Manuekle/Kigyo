@@ -38,11 +38,30 @@ const ADMIN_ID = 'eb711727-43fe-46a2-b8f5-f63b914191ea'
 const CLIENT_NAME = 'E2E DIAN Cliente'
 
 /** Corre SQL como el admin demo (RLS via request.jwt.claims, patrón psql). */
+/**
+ * `psql`, sin filtrar la cadena de conexión cuando falla.
+ *
+ * `execFileSync` mete el comando entero en el mensaje de error, y el comando
+ * lleva `SUPABASE_DB_URL` — usuario y contraseña incluidos. Un fallo de fixture
+ * acababa imprimiendo las credenciales de producción en la salida de la suite,
+ * que es exactamente donde se copian y se pegan en un informe o en un log de
+ * CI. Se vuelve a lanzar solo lo que dijo el servidor.
+ *
+ * Nótese que NO devuelve `.trim()`: varios llamantes de este archivo parten la
+ * salida por líneas y cuentan con el salto final. Cambiarlo aquí rompería los
+ * fixtures en silencio, que es peor que la fuga que se está tapando.
+ */
 function psql(sql: string): string {
-  return execFileSync('psql', ['-A', '-t', '-v', 'ON_ERROR_STOP=1', dbUrl!], {
-    input: sql,
-    encoding: 'utf8',
-  })
+  try {
+    return execFileSync('psql', ['-A', '-t', '-v', 'ON_ERROR_STOP=1', dbUrl!], {
+      input: sql,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+  } catch (error) {
+    const stderr = (error as { stderr?: string }).stderr ?? ''
+    throw new Error(`psql falló: ${stderr.trim() || 'sin detalle'}`)
+  }
 }
 
 const claims = JSON.stringify({ sub: ADMIN_ID, role: 'authenticated' })

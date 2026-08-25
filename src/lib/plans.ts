@@ -42,13 +42,18 @@ export const DEFAULT_PLAN: PlanKey = 'starter'
 /**
  * The tiers sold through a self-serve checkout.
  *
- * Enterprise is not one: it needs a conversation first, so its action is the
- * demo form and its account is activated by hand. Lives here rather than in
- * `lib/billing/polar.ts` — which it did until the paywall arrived — because
- * that file is `server-only` and the paywall screen is a client component that
- * has to know which cards get a Pay button.
+ * Los tres. Enterprise no estaba —«necesita una conversación primero», y su
+ * cuenta se activaba a mano— hasta que su producto se creó en Polar. Ahora se
+ * puede pagar como los otros dos y conserva el enlace a ventas al lado: SSO,
+ * integraciones a medida y SLA siguen mereciendo una llamada, pero obligar a
+ * esperarla para empezar a pagar es perder al cliente que ya decidió.
+ *
+ * Vive aquí y no en `lib/billing/polar.ts` —donde estaba hasta que llegó el
+ * muro de pago— porque aquel archivo es `server-only` y la pantalla de
+ * suscripción es un componente de cliente que necesita saber qué tarjetas
+ * llevan botón de pago.
  */
-export const SELF_SERVE_PLANS = ['starter', 'growth'] as const
+export const SELF_SERVE_PLANS = ['starter', 'growth', 'enterprise'] as const
 export type SelfServePlan = (typeof SELF_SERVE_PLANS)[number]
 
 export function isSelfServePlan(plan: string): plan is SelfServePlan {

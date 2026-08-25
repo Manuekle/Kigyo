@@ -6,7 +6,7 @@ import { ArrowRight, Check, Wallet, Lock } from '@/lib/icons'
 import Badge from '@/components/ui/Badge'
 import TabBar from '@/components/ui/TabBar'
 import { isSelfServePlan, PLANS, type PlanKey } from '@/lib/plans'
-import { CYCLES, PRICING, type Cycle } from '@/lib/pricing'
+import { CYCLES, PRICING, trialDaysFor, type Cycle } from '@/lib/pricing'
 import { startPolarCheckout } from '@/server/mutations/billing'
 import type { AccountAccessState } from '@/lib/auth/session'
 
@@ -116,6 +116,7 @@ export default function SuscripcionClient({
             {PLANS.map((tier) => {
               const pricing = PRICING[tier.key]
               const price = cycle === 'anual' ? pricing.priceAnnual : pricing.priceMonthly
+              const trialDays = trialDaysFor(tier.key, cycle)
               return (
                 <div
                   key={tier.key}
@@ -139,6 +140,22 @@ export default function SuscripcionClient({
                       {pricing.featured && tier.key !== plan && <Badge st="Recomendado" tone="vio" />}
                     </div>
                     <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>{tier.description}</div>
+                    {/*
+                      El número sale de `trialDaysFor`, no de la plantilla: solo
+                      Starter mensual lleva prueba, y escribirlo a mano aquí es
+                      lo que se queda atrás el día que cambie en Polar.
+                    */}
+                    {trialDays > 0 && (
+                      <div style={{ fontSize: 12, marginTop: 3, color: 'var(--grnd)' }}>
+                        {trialDays} días gratis antes del primer cobro
+                      </div>
+                    )}
+                    {pricing.sales && (
+                      <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>
+                        ¿SSO o integraciones a medida?{' '}
+                        <Link href={pricing.sales}>habla con ventas</Link>
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -148,23 +165,24 @@ export default function SuscripcionClient({
                         {cycle === 'anual' ? '/año' : '/mes'}
                       </span>
                     </div>
-                    {isSelfServePlan(tier.key) ? (
-                      <button
-                        className={tier.key === plan ? 'btn dark' : 'btn'}
-                        style={{ marginTop: 6 }}
-                        disabled={pending}
-                        aria-busy={pending && buying === tier.key}
-                        onClick={() => checkout(tier.key)}
-                      >
-                        {pending && buying === tier.key
-                          ? <>Abriendo pago…</>
-                          : <><ArrowRight size={14} />Pagar {tier.label}</>}
-                      </button>
-                    ) : (
-                      <Link href={pricing.href} className="btn" style={{ marginTop: 6 }}>
-                        Contactar ventas
-                      </Link>
-                    )}
+                    {/*
+                      Los tres llevan botón. La rama de «Contactar ventas» que
+                      había aquí cubría a Enterprise, que era el único plan que
+                      nadie podía comprar — y era el más caro. El enlace a
+                      ventas no se pierde: vive arriba, junto a la descripción,
+                      como lo que es (una oferta) y no como la única salida.
+                    */}
+                    <button
+                      className={tier.key === plan ? 'btn dark' : 'btn'}
+                      style={{ marginTop: 6 }}
+                      disabled={pending}
+                      aria-busy={pending && buying === tier.key}
+                      onClick={() => checkout(tier.key)}
+                    >
+                      {pending && buying === tier.key
+                        ? <>Abriendo pago…</>
+                        : <><ArrowRight size={14} />Pagar {tier.label}</>}
+                    </button>
                   </div>
                 </div>
               )

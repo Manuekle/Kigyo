@@ -27,6 +27,7 @@ function productMap(env: NonNullable<ReturnType<typeof polarEnv>>): Record<SelfS
   return {
     starter: { monthly: env.POLAR_PRODUCT_STARTER_MONTHLY, yearly: env.POLAR_PRODUCT_STARTER_YEARLY },
     growth: { monthly: env.POLAR_PRODUCT_GROWTH_MONTHLY, yearly: env.POLAR_PRODUCT_GROWTH_YEARLY },
+    enterprise: { monthly: env.POLAR_PRODUCT_ENTERPRISE_MONTHLY, yearly: env.POLAR_PRODUCT_ENTERPRISE_YEARLY },
   }
 }
 

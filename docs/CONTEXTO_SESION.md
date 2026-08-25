@@ -26,7 +26,7 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 303/303 · tsc 0 · build verde · e2e 8/8 (`workers: 1` obligatorio).
+- vitest 307/307 · tsc 0 · build verde · e2e 8/8 (`workers: 1` obligatorio).
 - **lint: 17 errores + 42 avisos, TODOS en `src/components/extend/*`** (visores
   de `@extend-ai` sin trackear) y en los dos archivos que los usan
   (`DocumentPreview.tsx`, `documentos/client.tsx`). Ninguno en código propio.
@@ -1041,6 +1041,79 @@ onboarding vivía en ese hueco con todo verde») se ataca donde más valía:
   ninguna política de storage.
 - `e2e/embudo.spec.ts` — ampliado hasta la factura, y ahora **mira importes**:
   el pedido vale 250.000 con 1 línea, y la factura cobra lo mismo que el pedido.
+
+### Jornada 2026-08-25 (tarde) — dominio, Enterprise vendible y la prueba real
+
+**Dominio: `kigyo.pro`, y una fuga que llevaba tiempo.** La pregunta «dónde vive
+Kigyo» se contestaba de cuatro formas y ninguna era correcta:
+
+```
+robots.ts    https://whitebox.com       ← otro producto entero
+sitemap.ts   https://whitebox.com       ← otro producto entero
+layout.tsx   https://kigyo.vercel.app   ← el dominio anterior
+layout.tsx   https://kigyo.app/pricing  ← a mano, y con otro TLD
+```
+
+Lo de `whitebox.com` es lo grave: `robots.txt` y `sitemap.xml` existen para los
+rastreadores, así que llevaban anunciándoles el sitio de otra empresa. Nadie
+abre esos dos archivos. Ahora todo sale de `src/lib/site.ts`.
+
+En Vercel: `NEXT_PUBLIC_APP_URL = https://kigyo.pro` en Production. Hubo que
+crearla **no-sensitive** — Vercel ya rechaza `NEXT_PUBLIC_*` como sensitive, y
+con razón: esa variable se inlinea en el bundle del navegador, marcarla secreta
+era comodidad falsa. Preview conserva el valor viejo a propósito: apuntarlo a
+`kigyo.pro` haría que un registro desde una preview mandara el correo de
+confirmación a producción.
+
+**Enterprise pasa a venderse solo.** Su producto existía en Polar y el código lo
+mandaba a `/contact`, así que el plan más caro era el único que nadie podía
+comprar. `SELF_SERVE_PLANS` son los tres; `polarSchema` exige los seis ids; el
+enlace a ventas se conserva **al lado** del botón (`PRICING.enterprise.sales`),
+no en su lugar. La prueba que pineaba lo contrario —«Enterprise no es
+self-serve»— habría defendido el defecto, y se cambió por una que exige que
+cada plan vendible tenga sus dos ids en el entorno.
+
+**La prueba gratis existe, y solo en un sitio.** 14 días en `STARTER_MONTHLY`,
+configurados en Polar (`trial_interval: day`, `trial_interval_count: 14`) y
+verificados contra su API, no supuestos. Ningún otro producto la lleva. La
+tabla `TRIAL_DAYS` en `lib/pricing.ts` es lo que impide que la pantalla lo
+invente: antes se anunciaba una prueba de 30 días que no existía, y el riesgo
+ahora es el simétrico —anunciar en las seis tarjetas la que solo lleva una—. Se
+comprueba en `paywall.test.ts` que la página **deriva** el número en vez de
+escribirlo. No se puede derivar de Polar: su catálogo exige el token y
+`/pricing` es anónima, así que cambiar el trial allí obliga a cambiarlo aquí.
+
+**Precios a USD.** Los importes pasaron de COP a USD para cuadrar con Polar
+($30/$300, $100/$1.000, $200/$2.000), y con ellos `monthlyUsd`,
+`lowestMonthlyUsd` y el `priceCurrency` del JSON-LD. `lowestMonthlyUsd` se
+deriva ahora de `SELF_SERVE_PLANS` en vez de una lista escrita a mano, que es
+justo la que se había quedado sin Enterprise.
+
+**Fuga de credenciales, cerrada en los cinco specs.** Se arreglaron `marketing`
+y `dian`, y la guardia nueva `src/lib/e2e-secrets.test.ts` destapó tres más que
+nadie había mirado: `embudo`, `nomina` y `pos`. Los cinco capturan el fallo y
+relanzan solo el stderr del servidor. Detalle que casi rompe los fixtures: los
+cinco devuelven la salida **sin** `.trim()` y varios llamantes parten por líneas
+contando con el salto final.
+
+### Configuración de Polar que sigue MAL — no es código
+
+Verificado contra la API de Polar el 2026-08-25:
+
+| Producto | `recurring_interval` | Cobra |
+|---|---|---|
+| STARTER_YEARLY | `month` | $300 **cada mes** |
+| GROWTH_YEARLY | `month` | $1.000 **cada mes** |
+| ENTERPRISE_YEARLY | `month` | $2.000 **cada mes** |
+
+Los tres productos anuales están creados con intervalo mensual. La página dice
+«/año» y el cobro sería mensual: **12× de más al año**. Es configuración de
+Polar y el código no puede detectarlo —crear el checkout no devuelve el
+intervalo—, así que se anota aquí y se arregla allí, recreando los tres
+productos con `recurring_interval: year`.
+
+Mientras no se arregle, el selector «Anual» de `/pricing`, `/suscripcion` y el
+asistente cobra 12× lo anunciado.
 
 ## 5. Pendiente (todo requiere decisión o proveedor externo)
 

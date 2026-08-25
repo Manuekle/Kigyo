@@ -120,12 +120,20 @@ test.describe('muro de pago', () => {
       await expect(page).toHaveURL(/\/suscripcion(\/|$)/)
 
       // ─── 3. La pantalla es una salida, no un callejón ────────────────────
-      // Los tres planes, y un botón de pago para los dos que se venden solos.
+      // Los TRES planes con botón de pago. Enterprise se añadió cuando su
+      // producto se creó en Polar: hasta entonces el plan más caro era el único
+      // que nadie podía comprar, y esta prueba comprobaba justo lo contrario
+      // —que llevara un enlace a ventas en vez de un botón—, así que habría
+      // defendido el defecto.
       await expect(page.getByRole('heading', { name: /Activa tu suscripción/i })).toBeVisible()
-      await expect(page.getByRole('button', { name: /Pagar Starter/i })).toBeVisible()
-      await expect(page.getByRole('button', { name: /Pagar Growth/i })).toBeVisible()
-      // Enterprise nunca lleva checkout: va a ventas.
-      await expect(page.getByRole('link', { name: /Contactar ventas/i })).toBeVisible()
+      for (const tier of ['Starter', 'Growth', 'Enterprise']) {
+        await expect(
+          page.getByRole('button', { name: new RegExp(`Pagar ${tier}`, 'i') }),
+          `${tier} no ofrece pago`,
+        ).toBeVisible()
+      }
+      // Y la prueba gratis se anuncia donde toca y solo ahí.
+      await expect(page.getByText(/14 días gratis/i)).toHaveCount(1)
 
       // ─── 4. La base tampoco deja escribir ────────────────────────────────
       // Esto es lo que distingue un muro de un cartel. `access_state` lo lee

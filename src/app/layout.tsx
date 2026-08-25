@@ -1,14 +1,13 @@
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
 import { THEME_INIT_SCRIPT, ThemeProvider } from '@/lib/context/ThemeContext'
-import { lowestMonthlyCop } from '@/lib/pricing'
+import { lowestMonthlyUsd } from '@/lib/pricing'
+import { SITE_URL } from '@/lib/site'
 import './globals.css'
 
 // Typography is declared in globals.css: Saans for display and Inter for text,
 // both self-hosted from /public/fonts, plus the platform's own monospace for
 // figures. No Google Fonts request.
-
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://kigyo.vercel.app'
 
 export const viewport: Viewport = {
   // One entry per scheme so the browser chrome matches the rendered theme.
@@ -24,7 +23,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL(BASE_URL),
+  metadataBase: new URL(SITE_URL),
   title: {
     template: '%s | Kigyo',
     default: 'Kigyo — People Operating System',
@@ -52,7 +51,7 @@ export const metadata: Metadata = {
     'seguridad social',
     'Kigyo',
   ],
-  authors: [{ name: 'Kigyo', url: BASE_URL }],
+  authors: [{ name: 'Kigyo', url: SITE_URL }],
   creator: 'Kigyo',
   publisher: 'Kigyo',
   applicationName: 'Kigyo — People Operating System',
@@ -82,7 +81,7 @@ export const metadata: Metadata = {
     title: 'Kigyo — People Operating System',
     description:
       'People Operating System para equipos modernos en Colombia. Nómina, prestaciones sociales, documentos, vacaciones y más.',
-    url: BASE_URL,
+    url: SITE_URL,
     locale: 'es_CO',
     images: [
       {
@@ -112,7 +111,7 @@ export const metadata: Metadata = {
     },
   },
   alternates: {
-    canonical: BASE_URL,
+    canonical: SITE_URL,
   },
 }
 
@@ -138,10 +137,15 @@ const jsonLd = {
    */
   offers: {
     '@type': 'AggregateOffer',
-    lowPrice: String(lowestMonthlyCop()),
-    priceCurrency: 'COP',
+    lowPrice: String(lowestMonthlyUsd()),
+    priceCurrency: 'USD',
     offerCount: 3,
-    url: 'https://kigyo.app/pricing',
+    // Derivada, no escrita: la copia a mano decía `kigyo.app` mientras el
+    // dominio es `kigyo.pro`, y este bloque es JSON-LD — se lo comen los
+    // buscadores y no se ve en pantalla, así que un TLD equivocado aquí puede
+    // sobrevivir años. Mismo motivo por el que `lowPrice` se deriva de
+    // lib/pricing en vez de repetir la cifra.
+    url: `${SITE_URL}/pricing`,
   },
 }
 

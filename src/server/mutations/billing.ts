@@ -22,7 +22,9 @@ const NOT_CONFIGURED = 'La facturación con Polar todavía no está configurada.
 const NOT_ALLOWED = 'Solo quien administra la cuenta puede cambiar la facturación.'
 
 const checkoutSchema = z.object({
-  plan: z.enum(['starter', 'growth']),
+  // Los tres. Enterprise entró cuando su producto se creó en Polar; antes esta
+  // enumeración era la que impedía cobrarlo aunque el resto estuviera listo.
+  plan: z.enum(['starter', 'growth', 'enterprise']),
   interval: z.enum(['monthly', 'yearly']),
   /**
    * Where Polar sends the browser back to.

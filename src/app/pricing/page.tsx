@@ -2,10 +2,11 @@ import type { Metadata } from 'next'
 import PublicPageShell from '@/components/marketing/PublicPageShell'
 import PublicCta from '@/components/marketing/PublicCta'
 import PricingPlans from './PricingPlans'
+import { PRICING } from '@/lib/pricing'
 
 export const metadata: Metadata = {
   title: 'Precios',
-  description: 'Planes de Kigyo desde $80.000/mes, o $800.000/año. Sin permanencia: cancelas cuando quieras. Agenda una demo para verlo con tu equipo.',
+  description: `Planes de Kigyo desde ${PRICING.starter.priceMonthly} USD/mes, o ${PRICING.starter.priceAnnual} USD/año. Sin permanencia: cancelas cuando quieras. Agenda una demo para verlo con tu equipo.`,
 }
 
 export default function PricingPage() {

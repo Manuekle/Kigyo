@@ -12,7 +12,7 @@ import { modulesByGroup, moduleDef } from '@/lib/modules'
 import { CORE_MODULES, dependenciesOf, missingHardDependencies } from '@/lib/modules/registry'
 import { proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
 import { isSelfServePlan, lowestPlanWith, PLANS, planFor, planModules, type PlanKey } from '@/lib/plans'
-import { CYCLES, PRICING, type Cycle } from '@/lib/pricing'
+import { CYCLES, PRICING, trialDaysFor, type Cycle } from '@/lib/pricing'
 import { createSite } from '@/server/mutations/sites'
 import { inviteMember } from '@/server/mutations/settings'
 import { startPolarCheckout } from '@/server/mutations/billing'
@@ -726,6 +726,7 @@ export default function Client({
               const pricing = PRICING[tier.key]
               const isCurrent = tier.key === plan
               const price = cycle === 'anual' ? pricing.priceAnnual : pricing.priceMonthly
+              const trialDays = trialDaysFor(tier.key, cycle)
               const lockedCount = tier.key === 'growth'
                 ? lockedByPlan.length
                 : 0
@@ -745,6 +746,18 @@ export default function Client({
                       {pricing.featured && !isCurrent && <Badge st="Recomendado" tone="vio" />}
                     </div>
                     <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>{tier.description}</div>
+                    {/* Solo Starter mensual. El número sale de `trialDaysFor`. */}
+                    {trialDays > 0 && (
+                      <div style={{ fontSize: 12, marginTop: 3, color: 'var(--grnd)' }}>
+                        {trialDays} días gratis antes del primer cobro
+                      </div>
+                    )}
+                    {pricing.sales && (
+                      <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>
+                        ¿SSO o integraciones a medida?{' '}
+                        <Link href={pricing.sales}>habla con ventas</Link>
+                      </div>
+                    )}
                     {lockedCount > 0 && (
                       <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
                         Activa tus {lockedCount} módulo{lockedCount === 1 ? '' : 's'} de {lockedByPlan[0]?.label ?? 'sector'}
@@ -768,21 +781,18 @@ export default function Client({
                       out free to everybody who signed up. The tier on the
                       account is a default, not a purchase.
                     */}
-                    {isSelfServePlan(tier.key) ? (
-                      <button
-                        className={isCurrent ? 'btn dark' : 'btn'}
-                        style={{ marginTop: 6 }}
-                        disabled={pending}
-                        aria-busy={pending}
-                        onClick={() => checkoutTier(tier.key)}
-                      >
-                        <ArrowRight size={14} />Pagar {tier.label}
-                      </button>
-                    ) : (
-                      <Link href={pricing.href} className="btn" style={{ marginTop: 6 }}>
-                        Contactar ventas
-                      </Link>
-                    )}
+                    {/* Los tres se pagan desde que Enterprise tiene producto
+                        en Polar. El enlace a ventas está arriba, junto a la
+                        descripción, en vez de sustituir al botón. */}
+                    <button
+                      className={isCurrent ? 'btn dark' : 'btn'}
+                      style={{ marginTop: 6 }}
+                      disabled={pending}
+                      aria-busy={pending}
+                      onClick={() => checkoutTier(tier.key)}
+                    >
+                      <ArrowRight size={14} />Pagar {tier.label}
+                    </button>
                   </div>
                 </div>
               )

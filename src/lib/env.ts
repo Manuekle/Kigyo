@@ -91,9 +91,17 @@ const demoSchema = z.object({
  * succeeded, or a webhook with no way to send a customer to pay, are each
  * half a feature — so this is one group, not two optional getters.
  *
- * The four product ids are one per self-serve tier × interval. Enterprise is
- * not here: `/pricing` sends it to `/contact` rather than a checkout, and
- * that does not change by adding a processor.
+ * Seis ids de producto: uno por plan × intervalo. Eran cuatro, y el comentario
+ * decía que Enterprise no estaba aquí porque «`/pricing` lo manda a `/contact`
+ * y eso no cambia por tener procesador». Cambió: el producto se creó en Polar y
+ * Enterprise pasa a venderse solo, conservando el enlace a ventas al lado — un
+ * plan con SSO, integraciones a medida y SLA sigue mereciendo una conversación,
+ * pero no obliga a esperarla para empezar a pagarlo.
+ *
+ * Los seis van juntos, como el token y el secreto: si `polarEnv()` devuelve
+ * null porque falta uno, se cae el checkout de los tres planes, no el de uno.
+ * Es deliberado — media configuración de cobro es peor que ninguna, porque
+ * falla en el momento en que alguien intenta pagar.
  */
 const polarSchema = z.object({
   POLAR_ACCESS_TOKEN: z.string().min(20),
@@ -103,6 +111,8 @@ const polarSchema = z.object({
   POLAR_PRODUCT_STARTER_YEARLY: z.string().min(1),
   POLAR_PRODUCT_GROWTH_MONTHLY: z.string().min(1),
   POLAR_PRODUCT_GROWTH_YEARLY: z.string().min(1),
+  POLAR_PRODUCT_ENTERPRISE_MONTHLY: z.string().min(1),
+  POLAR_PRODUCT_ENTERPRISE_YEARLY: z.string().min(1),
 })
 
 export type PolarEnv = z.infer<typeof polarSchema>

@@ -8,8 +8,11 @@ export const metadata: Metadata = {
   description: 'Solicita una demo de Kigyo o escríbenos si necesitas soporte con tu cuenta.',
 }
 
-// The form is the only contact channel — there is no mailbox to publish while
-// the product lives on a vercel.app domain.
+// The form is the only contact channel. The reason written here was "there is
+// no mailbox to publish while the product lives on a vercel.app domain", and
+// that stopped being true with kigyo.pro — but the form stays as the only
+// channel on purpose: it records the lead in `demo_requests` and hands back the
+// demo credentials, which a mailto: does neither of.
 const INFO = [
   {
     icon: Mail,

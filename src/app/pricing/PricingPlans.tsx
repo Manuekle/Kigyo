@@ -11,7 +11,7 @@ import TextSwap from '@/components/ui/TextSwap'
 import { Check } from '@/lib/icons'
 import { PLANS } from '@/lib/plans'
 import { modulesByGroup } from '@/lib/modules'
-import { CYCLES, PRICING, type Cycle } from '@/lib/pricing'
+import { CYCLES, PRICING, trialDaysFor, type Cycle } from '@/lib/pricing'
 
 /**
  * What each tier costs lives in `@/lib/pricing`, shared with the in-dashboard
@@ -77,6 +77,7 @@ export default function PricingPlans() {
       <div className="pricing-grid">
         {PLANS.map((plan, i) => {
           const pricing = PRICING[plan.key]
+          const trialDays = trialDaysFor(plan.key, cycle)
           const card = (
             <div className={`card pricing-card${pricing.featured ? ' featured' : ''}`}>
               {pricing.featured && <span className="pricing-badge">Más popular</span>}
@@ -114,17 +115,32 @@ export default function PricingPlans() {
                 </Link>
               )}
               {/*
-                Decía «Prueba 30 días gratis si solicitas una demo». No existe
-                tal prueba: no hay columna que la cuente, ni vencimiento, ni
-                nada que la conceda — es la misma clase de afirmación que el FAQ
-                traía en el primer commit. Lo que la demo sí hace, y hace de
-                verdad desde `/api/demo/request`, es devolver las credenciales de
-                un entorno de ejemplo ya cargado con datos.
+                La nota de abajo dijo, en este orden: «Prueba 30 días gratis si
+                solicitas una demo» —falso, no existía ninguna prueba— y luego
+                el ofrecimiento de la demo, que sí es real. Ahora hay una prueba
+                de verdad, y el riesgo se invierte: anunciarla en las seis
+                tarjetas cuando solo la lleva Starter mensual. Por eso el número
+                sale de `trialDaysFor` y la nota cambia por tarjeta y por ciclo.
               */}
-              <p className="pricing-trial-note">
-                <Link href="/contact">Solicita una demo</Link> y te damos acceso a un
-                entorno de ejemplo para mirarlo por dentro
-              </p>
+              {trialDays > 0 ? (
+                <p className="pricing-trial-note">
+                  <strong>{trialDays} días gratis</strong> — solo en el plan mensual
+                </p>
+              ) : (
+                <p className="pricing-trial-note">
+                  {pricing.sales ? (
+                    <>
+                      ¿Necesitas SSO o una integración a medida?{' '}
+                      <Link href={pricing.sales}>Habla con ventas</Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link href="/contact">Solicita una demo</Link> y te damos acceso a un
+                      entorno de ejemplo para mirarlo por dentro
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           )
 
