@@ -1145,67 +1145,39 @@ Comprobado también que el checkout se crea y **trae la prueba**: `allow_trial:
 true`, `active_trial_interval_count: 14`, con su `trial_end`. Los 14 días de
 Starter mensual funcionan de punta a punta.
 
-### Configuración de Polar que sigue MAL — no es código
+### Configuración de Polar — RESUELTA el 2026-08-25
 
-Verificado contra la API de Polar el 2026-08-25:
+Los tres productos anuales estaban creados con `recurring_interval: month`, así
+que «$2.000/año» se habría cobrado **cada mes**: 12× de más. El código no podía
+detectarlo —crear un checkout no devuelve el intervalo— y la página decía «/año»
+mientras el cobro habría sido mensual.
 
-| Producto | `recurring_interval` | Cobra |
-|---|---|---|
-| STARTER_YEARLY | `month` | $300 **cada mes** |
-| GROWTH_YEARLY | `month` | $1.000 **cada mes** |
-| ENTERPRISE_YEARLY | `month` | $2.000 **cada mes** |
+Recreados con `recurring_interval: year`, con ids nuevos, y los viejos
+archivados. Verificado contra la API creando un checkout de cada uno:
 
-Los tres productos anuales están creados con intervalo mensual. La página dice
-«/año» y el cobro sería mensual: **12× de más al año**. Es configuración de
-Polar y el código no puede detectarlo —crear el checkout no devuelve el
-intervalo—, así que se anota aquí y se arregla allí, recreando los tres
-productos con `recurring_interval: year`.
+| Producto | interval | total | prueba |
+|---|---|---|---|
+| STARTER_MONTHLY | `month` | $30 | **14 días** |
+| STARTER_YEARLY | `year` | $300 | no |
+| GROWTH_MONTHLY | `month` | $100 | no |
+| GROWTH_YEARLY | `year` | $1.000 | no |
+| ENTERPRISE_MONTHLY | `month` | $200 | no |
+| ENTERPRISE_YEARLY | `year` | $2.000 | no |
 
-Mientras no se arregle, el selector «Anual» de `/pricing`, `/suscripcion` y el
-asistente cobra 12× lo anunciado.
+Los seis ids están en `.env.local` y en Vercel producción, y la variable se
+comprobó contra el catálogo de Polar uno por uno. **Cambiar un producto en Polar
+obliga a actualizar la variable**: el id es la única atadura entre los dos lados
+y nada avisa si se desincroniza.
 
-## 5. Pendiente (todo requiere decisión o proveedor externo)
+### Webhook: apuntado a `www`, y ahí sí llega
 
-1. **Polar.sh — AHORA ES BLOQUEANTE DE LANZAMIENTO, no un pendiente más.**
-   Desde la migración 106 no se entra al panel sin suscripción activa, y la
-   única forma de activarla es el checkout de Polar. Sin las 6 variables en
-   `.env.local` (`POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, los 4
-   `POLAR_PRODUCT_*`), **una cuenta nueva se queda en `/suscripcion` y no puede
-   salir**: el botón contesta «la facturación todavía no está configurada».
-   Crear la cuenta, los 4 productos (starter/growth × mensual/anual), el token,
-   y apuntar el webhook a `/api/billing/webhook`. Plantilla en `.env.example`.
-   Las cuentas que ya existían están en `active` por el grandfathering, así que
-   el entorno de demo sigue funcionando y esto **no se nota probando con el
-   usuario demo** — solo registrando una cuenta nueva.
-2. **Enterprise se activa a mano.** No tiene checkout (va a `/contact`), así que
-   una cuenta Enterprise se queda en `pending` hasta que alguien corra
-   `select public.apply_subscription('<account_id>', 'enterprise', 'active');`
-   con `service_role`. Es deliberado y está documentado; conviene una pantalla
-   interna antes de vender el primer Enterprise.
-3. **DIAN producción** — proveedor homologado + certificado + revisor fiscal.
-4. **Wompi en vivo** — llaves sandbox para probar loop 3.3 completo.
-5. **Marketing y Notificaciones: entrega** — proveedor de correo/WhatsApp más
-   un proceso programado (hoy no hay cron, ni edge function, ni `vercel.json`).
-   Las dos pantallas ya dicen en pantalla qué hacen y qué no.
-6. **Nómina** — validación contador laboral.
-7. **El canónico es `www.kigyo.pro`, y `NEXT_PUBLIC_APP_URL` dice el apex.**
-   Vercel sirve `kigyo.pro` con un 308 hacia `www`, así que hoy el `successUrl`
-   de Polar y el `emailRedirectTo` del registro cruzan un redirect antes de
-   llegar, y el `canonical` y el sitemap apuntan a una URL que redirige. Se
-   arregla eligiendo uno: o el apex pasa a primario en Vercel —que es lo que
-   pidió el dueño: «el link es kigyo.pro»— o la variable pasa a
-   `https://www.kigyo.pro`. Verificado en vivo el 2026-08-25: el sitio responde
-   200 y sirve la versión nueva.
+`https://www.kigyo.pro/api/billing/webhook`, formato `raw` —imprescindible: la
+firma se calcula sobre los bytes, y un formato que reserialice el JSON la
+invalida— y suscrito a los diez eventos `subscription.*`.
 
-8. **Rotar la contraseña de la base.** `SUPABASE_DB_URL` completo se imprimió en
-   la salida de e2e durante la jornada del 25 (ver §Jornada — fuga de
-   credenciales). Los specs nuevos ya no lo hacen; `marketing.spec.ts` y
-   `dian.spec.ts` siguen con la forma vieja y conviene igualarlos.
-
-Los dos ítems «opcional codeable» (cierres Z por sucursal; filtro ownerId en
-marketing) quedaron hechos 2026-08-20 — ver §4.
-
-## 6. Gotchas vigentes
+El apex sigue devolviendo 308 hacia `www`. Para el navegador da igual (sigue
+redirects en GET), pero un emisor de webhooks no los sigue en POST, y por eso
+`billing_events` estuvo en cero mientras la URL fue el apex.
 
 ### Base de datos / Supabase
 
