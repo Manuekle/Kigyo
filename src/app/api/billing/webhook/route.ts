@@ -120,10 +120,25 @@ export async function POST(request: Request) {
       .eq('id', eventRowId)
   }
 
-  // Nothing to apply is a normal event, not a failure: processors send plenty
-  // that carry no subscription change at all.
+  /**
+   * Un evento que no habla de suscripciones se registra y ya.
+   *
+   * Polar manda muchos más de los que cambian un plan —`organization.updated`,
+   * `checkout.created`, `benefit.granted`— y la versión anterior de este bloque
+   * los anotaba todos con el error «el evento no nombra una cuenta de Kigyo».
+   * Era falso y además caro: la bitácora se llena de errores que no lo son, y
+   * el error de verdad —un evento de suscripción que nombra una cuenta que no
+   * existe— queda enterrado entre ellos justo el día que hay que encontrarlo.
+   */
+  if (!event.aboutSubscription) {
+    await settle(null)
+    return Response.json({ ok: true, applied: false })
+  }
+
+  // Este sí habla de una suscripción, y aun así no dice de quién. Eso es un
+  // problema real: hay dinero moviéndose que no se puede atribuir.
   if (!event.accountId) {
-    await settle('el evento no nombra una cuenta de Kigyo')
+    await settle('el evento de suscripción no nombra una cuenta de Kigyo')
     return Response.json({ ok: true, applied: false })
   }
   if (!event.plan && !event.status) {

@@ -1096,6 +1096,55 @@ relanzan solo el stderr del servidor. Detalle que casi rompe los fixtures: los
 cinco devuelven la salida **sin** `.trim()` y varios llamantes parten por líneas
 contando con el salto final.
 
+### Webhooks de Polar: llegaban cero, y el motivo era el redirect
+
+Comprobado el 2026-08-25 con `select count(*) from billing_events` → **0**.
+Polar estaba enviando eventos y ninguno aterrizaba. La causa:
+
+```
+POST https://kigyo.pro/api/billing/webhook      → 308 hacia www
+POST https://www.kigyo.pro/api/billing/webhook  → 401 (firma inválida: correcto)
+```
+
+El apex redirige a `www` y **Polar no sigue redirects en POST**, como casi
+ningún emisor de webhooks. El endpoint funciona —contesta 401 a un cuerpo sin
+firmar, que es exactamente lo que debe— pero nunca lo alcanzaba nada.
+
+Es la misma discrepancia apex/www anotada en el pendiente §7, y esta es su
+consecuencia cara: **un cliente paga y nunca se le desbloquea la cuenta**,
+porque `access_state` solo lo mueve `apply_subscription` y a esa función solo la
+llama el webhook.
+
+Se arregla eligiendo un canónico: o el apex pasa a primario en Vercel, o la URL
+del webhook en Polar (y `NEXT_PUBLIC_APP_URL`) pasan a `www`.
+
+### La bitácora marcaba como error todo evento que no fuera de suscripción
+
+El primer `organization.updated` real destapó que el registro anotaba
+«el evento no nombra una cuenta de Kigyo» en cualquier evento sin suscripción —
+y Polar manda muchos: `organization.updated`, `checkout.created`,
+`benefit.granted`. Con eso la bitácora se llena de errores inventados y el error
+de verdad —un evento de suscripción que nombra una cuenta inexistente— queda
+enterrado justo el día que hay que encontrarlo.
+
+`BillingEvent` gana `aboutSubscription`, y la ruta separa los dos casos. Pineado
+en `provider.test.ts` con el payload real que envió Polar, incluida la trampa
+que tenía dentro: ese cuerpo trae `data.status = "created"`, que es el estado de
+la **organización**. Si la función lo leyera sin comprobar antes de qué habla el
+evento, entraría en `apply_subscription` como estado de plan y **suspendería las
+empresas del cliente** por un evento que solo decía que se editó un perfil.
+
+### Polar aprobó la organización
+
+El payload de las 21:06 traía `status: "created"` y `checkout_payments: false`
+—foto durante el onboarding—. Verificado después contra la API: `status:
+active`, y `checkout_payments`, `subscription_renewals`, `payouts` y `refunds`
+en `true`. Se puede cobrar.
+
+Comprobado también que el checkout se crea y **trae la prueba**: `allow_trial:
+true`, `active_trial_interval_count: 14`, con su `trial_end`. Los 14 días de
+Starter mensual funcionan de punta a punta.
+
 ### Configuración de Polar que sigue MAL — no es código
 
 Verificado contra la API de Polar el 2026-08-25:

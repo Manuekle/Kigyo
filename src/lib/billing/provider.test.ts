@@ -155,6 +155,59 @@ describe('polarProvider', () => {
   })
 
   /**
+   * Un evento que no va de suscripciones no es un error.
+   *
+   * El cuerpo de abajo es un `organization.updated` real, tal como Polar lo
+   * envió el 2026-08-25 (recortado a lo que la función mira). La versión
+   * anterior lo marcaba en la bitácora con el error «el evento no nombra una
+   * cuenta de Kigyo», que es falso y además caro: los procesadores mandan
+   * muchos más eventos de los que cambian un plan, así que la bitácora se
+   * llenaba de errores inventados y el error de verdad —un evento de
+   * suscripción que nombra una cuenta inexistente— quedaba enterrado entre
+   * ellos justo el día que hay que encontrarlo.
+   */
+  it('marca como ajeno a suscripciones un organization.updated', () => {
+    const body = JSON.stringify({
+      type: 'organization.updated',
+      data: {
+        id: '8e199cab-80e8-4982-95a5-e9d090be73d0',
+        name: 'kigyo',
+        status: 'created',
+        country: 'CO',
+        capabilities: { checkout_payments: false, api_access: true },
+      },
+    })
+    const event = provider.parse(body, polarHeaders('msg_org', body))
+    expect(event).toMatchObject({
+      kind: 'organization.updated',
+      aboutSubscription: false,
+      accountId: null,
+      plan: null,
+      status: null,
+    })
+  })
+
+  /**
+   * `data.status` de una organización NO es el estado de una suscripción.
+   *
+   * El payload real trae `"status": "created"` en la raíz de `data`. Si la
+   * función mirara el estado sin comprobar antes de qué habla el evento, ese
+   * valor entraría en `apply_subscription` como si fuera el estado de un plan —
+   * y `created` no es `active`, así que habría suspendido las empresas de
+   * alguien por un evento que solo decía que se editó el perfil de la
+   * organización.
+   */
+  it('no confunde el status de la organización con el de una suscripción', () => {
+    const body = JSON.stringify({
+      type: 'organization.updated',
+      data: { status: 'created', customer: { external_id: 'cuenta-1' } },
+    })
+    const event = provider.parse(body, polarHeaders('msg_org2', body))
+    expect(event?.status, 'el status de la organización se coló').toBeNull()
+    expect(event?.accountId, 'se atribuyó una cuenta a un evento que no es de suscripción').toBeNull()
+  })
+
+  /**
    * `data.customer.external_id` is set once, on the customer, and every later
    * event for that subscriber carries it — including renewals, where the
    * checkout's own metadata is long gone. Checked first for that reason.

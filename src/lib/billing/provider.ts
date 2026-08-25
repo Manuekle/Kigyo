@@ -49,6 +49,20 @@ export interface BillingEvent {
    * never deleted. See `app.apply_subscription`.
    */
   status: string | null
+  /**
+   * Si el evento habla de una suscripción siquiera.
+   *
+   * Un procesador manda muchos más eventos de los que cambian un plan:
+   * `organization.updated`, `checkout.created`, `benefit.granted`… Sin este
+   * campo, el registro no distingue «este evento no iba de una suscripción»
+   * —normal, no pasa nada— de «este evento iba de una suscripción y nombra una
+   * cuenta que no tenemos», que es un problema de verdad que alguien debe mirar.
+   *
+   * La primera vez que llegó un `organization.updated` real, la bitácora lo
+   * anotó como error. Con eso, el día que llegue el error verdadero estará
+   * enterrado entre cien falsos.
+   */
+  aboutSubscription: boolean
   /** The untouched body, kept for the log so a mistake here is recoverable. */
   raw: unknown
 }
@@ -149,6 +163,9 @@ export function manualProvider(secret: string): BillingProvider {
         accountId: typeof b.account_id === 'string' ? b.account_id : null,
         plan,
         status: typeof b.status === 'string' ? b.status : null,
+        // El proveedor manual solo existe para mover suscripciones: cualquier
+        // cuerpo que llegue aquí pretende cambiar un plan o un estado.
+        aboutSubscription: true,
         raw: body,
       }
     },
@@ -227,7 +244,10 @@ export function polarProvider(
         : null
 
       if (!kind.startsWith('subscription.') || !data) {
-        return { eventId, kind, accountId: null, plan: null, status: null, raw: body }
+        return {
+          eventId, kind, accountId: null, plan: null, status: null,
+          aboutSubscription: false, raw: body,
+        }
       }
 
       const metadata = typeof data.metadata === 'object' && data.metadata !== null
@@ -253,6 +273,7 @@ export function polarProvider(
         accountId,
         plan: productId ? planForProduct(productId) : null,
         status: typeof data.status === 'string' ? data.status : null,
+        aboutSubscription: true,
         raw: body,
       }
     },
