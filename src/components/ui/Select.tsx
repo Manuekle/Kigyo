@@ -27,11 +27,13 @@ interface SelectProps {
   id?: string
   /** For the cases with no visible label of their own. */
   ariaLabel?: string
+  /** Bloquea trigger y menú (p. ej. zoom mientras carga un documento). */
+  disabled?: boolean
 }
 
 const norm = (o: Opt) => (typeof o === 'string' ? { value: o, label: o } : o)
 
-export default function Select({ value, onChange, options, placeholder = 'Seleccionar…', className = '', style, id, ariaLabel }: SelectProps) {
+export default function Select({ value, onChange, options, placeholder = 'Seleccionar…', className = '', style, id, ariaLabel, disabled = false }: SelectProps) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
@@ -97,6 +99,7 @@ export default function Select({ value, onChange, options, placeholder = 'Selecc
         ref={ref}
         id={id}
         aria-label={ariaLabel}
+        disabled={disabled}
         className={`nselect-trigger${open ? ' open' : ''}`}
         aria-haspopup="listbox"
         aria-expanded={open}

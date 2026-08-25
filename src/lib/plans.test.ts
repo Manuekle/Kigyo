@@ -6,7 +6,7 @@ import {
   planAllows, planFor, planModules, seatsAvailable,
 } from './plans'
 import { CORE_MODULES, MODULE_KEYS, resolveModules } from './modules'
-import { lowestMonthlyCop, monthlyCop } from './pricing'
+import { lowestMonthlyUsd, monthlyUsd } from './pricing'
 
 /**
  * The plan is the outermost of the three access gates, so a mistake here is
@@ -224,19 +224,19 @@ describe('el salto de Growth a Enterprise es deliberado', () => {
  */
 describe('los datos estructurados no contradicen la página de precios', () => {
   it('el precio de entrada sale de PRICING y no es cero', () => {
-    expect(lowestMonthlyCop()).toBe(80_000)
-    expect(lowestMonthlyCop()).toBe(monthlyCop('starter'))
-    expect(lowestMonthlyCop()).toBeGreaterThan(0)
+    expect(lowestMonthlyUsd()).toBe(30)
+    expect(lowestMonthlyUsd()).toBe(monthlyUsd('starter'))
+    expect(lowestMonthlyUsd()).toBeGreaterThan(0)
   })
 
   it('Growth cuesta más que Starter, o el «desde» miente', () => {
-    expect(monthlyCop('growth')).toBeGreaterThan(monthlyCop('starter'))
+    expect(monthlyUsd('growth')).toBeGreaterThan(monthlyUsd('starter'))
   })
 
   it('cada plan con checkout tiene un precio legible como número', () => {
     for (const key of ['starter', 'growth'] as const) {
-      expect(Number.isFinite(monthlyCop(key)), `${key} no parsea`).toBe(true)
-      expect(monthlyCop(key)).toBeGreaterThan(0)
+      expect(Number.isFinite(monthlyUsd(key)), `${key} no parsea`).toBe(true)
+      expect(monthlyUsd(key)).toBeGreaterThan(0)
     }
   })
 })
