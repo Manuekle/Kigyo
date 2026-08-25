@@ -1282,6 +1282,147 @@ redirects en GET), pero un emisor de webhooks no los sigue en POST, y por eso
 - `'Habilitada'` es substring de `'Deshabilitada'` — match exacto en badges.
 - Backticks en template literals dentro de heredoc psql — escape o `String.raw`.
 
+## 5. Pendiente (todo requiere decisión o proveedor externo)
+
+1. ~~**Polar.sh**~~ RESUELTO el 2026-08-25. Cuenta creada y aprobada
+   (`status: active`, `checkout_payments: true`), seis productos, las nueve
+   variables en `.env.local` y en Vercel producción, y el webhook en
+   `https://www.kigyo.pro/api/billing/webhook`. Verificado creando un checkout
+   de cada producto. Lo que queda vivo de este punto: **el id de producto es la
+   única atadura entre Polar y la aplicación**, así que recrear un producto
+   —como pasó con los tres anuales— obliga a actualizar la variable, y nada
+   avisa si se desincroniza.
+2. **Enterprise se activa a mano.** No tiene checkout (va a `/contact`), así que
+   una cuenta Enterprise se queda en `pending` hasta que alguien corra
+   `select public.apply_subscription('<account_id>', 'enterprise', 'active');`
+   con `service_role`. Es deliberado y está documentado; conviene una pantalla
+   interna antes de vender el primer Enterprise.
+3. **DIAN producción** — proveedor homologado + certificado + revisor fiscal.
+4. **Wompi en vivo** — llaves sandbox para probar loop 3.3 completo.
+5. **Marketing y Notificaciones: entrega** — proveedor de correo/WhatsApp más
+   un proceso programado (hoy no hay cron, ni edge function, ni `vercel.json`).
+   Las dos pantallas ya dicen en pantalla qué hacen y qué no.
+6. **Nómina** — validación contador laboral.
+7. **El canónico servido es `www.kigyo.pro` y `NEXT_PUBLIC_APP_URL` dice el
+   apex.** Ya no rompe nada —el webhook apunta a `www` desde el 2026-08-25 y los
+   demás usos son navegaciones GET, que sí siguen el 308— pero deja el
+   `canonical`, el `sitemap` y el JSON-LD apuntando a una URL que redirige, que
+   es señal de contenido duplicado. Se cierra eligiendo uno: o el apex pasa a
+   primario en Vercel —lo que pidió el dueño: «el link es kigyo.pro»— o la
+   variable pasa a `https://www.kigyo.pro`.
+8. **Rotar la contraseña de la base.** `SUPABASE_DB_URL` completo se imprimió en
+   la salida de e2e durante la jornada del 25 (ver §Jornada — fuga de
+   credenciales). Los specs nuevos ya no lo hacen; `marketing.spec.ts` y
+   `dian.spec.ts` siguen con la forma vieja y conviene igualarlos.
+
+Los dos ítems «opcional codeable» (cierres Z por sucursal; filtro ownerId en
+marketing) quedaron hechos 2026-08-20 — ver §4.
+
+## 6. Gotchas vigentes
+
+### Base de datos / Supabase
+
+- Supabase MCP apunta a otro proyecto — TODO por psql con `SUPABASE_DB_URL` de `.env.local`.
+- Migraciones ya aplicadas a remota NO se re-aplican: cambios → SQL manual a remota + editar archivo local (patrón 57/58/90–95).
+- Tipos a mano en bloque `Functions` de `types.ts`: el generador solo pone tablas + check-constraints.
+- RPCs de módulos en `public`, no en `app` (PostgREST expone schemas públicos).
+- `auth.uid()` en psql NO lee `request.jwt.claims` plural — usar `request.jwt.claim.sub` + `request.jwt.claim.role` DENTRO de `begin;…commit;` (autocommit descarta settings). Seeds RLS sí funcionan con claims plural (postgres bypass).
+- Data-modifying CTE: un RAISE revierte TODO el statement.
+- psql `-c` multi-sentencia = una transacción; `-c` no soporta `\gset`.
+- RPC security definer: la política RLS no aplica dentro — validar site/FK explícito (KG101/KG102).
+- `drop function` antes de `create or replace` cuando cambia la firma (mig 93: 7→8 params).
+  **También cuando cambia un parámetro OUT**, aunque la firma de entrada sea
+  idéntica: «cannot change return type of existing function». Es lo que dejó la
+  mig 105 sin aplicar durante días. Y el `drop` se lleva los permisos, así que
+  hay que reconcederlos — sin eso PostgREST contesta «function not found» y no
+  se nota hasta que alguien intenta usar la pantalla.
+- `round(numeric)` devuelve numeric, no bigint — cast `::bigint` en `returns table`.
+- `REVOKE UPDATE, DELETE FROM authenticated` — verificar `pg_class.relacl`: `authenticated=arDxtm` (sin w/d).
+- BEFORE DELETE trigger que retorna `new` aborta el DELETE (NEW es NULL en DELETE) — `if tg_op='DELETE' then return old`.
+- Guard de nómina corre para cualquier rol — borrar periodos E2E: `disable trigger` → delete → `enable`.
+- `enabled_modules` explícito pisa el preset: probes usan `enabled_modules || array['<key>']`.
+
+### App / Next.js
+
+- Mutations: `'use server'`, NO `'server-only'` (rompe build si client lo importa).
+- **Un archivo `'use server'` solo puede exportar funciones async.** Un
+  `export const` ahí dentro no lo ve `tsc`, no lo ve `eslint` y **el build pasa
+  en verde**; revienta al evaluar el módulo, en ejecución, y se lleva por
+  delante *toda la ruta* —no solo la pantalla— porque el cargador de server
+  actions junta los módulos. La señal es engañosa: seis specs de e2e en rojo y
+  una traza que señala a un archivo que no tiene nada que ver. Pineado en
+  `src/server/use-server-exports.test.ts`. Las constantes van a `lib/domain.ts`.
+- Client component NO importa runtime query server-only — `import type` o envolver en `actions/x.ts` `'use server'`.
+- Toda página `/dashboard/<x>/page.tsx` exige entrada en `ROUTE_MAP` (`src/lib/data/nav.ts`) — route-guard.test.
+- Toda query en `src/server/queries/` exige org-scope o `scoped()` — scope-guard.test rompe a propósito.
+- `account-scope.test.ts` pinea tablas con site — añadir `add_site_scope` exige actualizar el expect.
+- `scoped()` retorna FilterBuilder sin `.update()/.delete()` — writes directos con `.eq('org_id')`.
+- `.delete()` en child sin org_id: filtrar por padre (`campaign_id`).
+- **`const { error } = builder` sin `await` compila con client loose-typed (`rawClient` cast)** — runtime error siempre `undefined`, fallos silenciosos. Grep: `grep -n "= rawClient" src/server/mutations/*.ts | grep -v await`.
+- Export module name ≠ permiso: `ROUTE_PERMISSIONS` debe tener la clave (bug PILA 403, fix módulo `'nomina'`).
+- `navigator.onLine` falso positivo — defense-in-depth capturando fetch fallido.
+- PostgREST "function not found without parameters" = payload undefined o falta grant.
+- `Select` component no acepta `id` prop.
+
+### E2e
+
+- **Un commit parcial se verifica en un worktree, no en el árbol de trabajo.**
+  Tres commits de esta jornada se armaron listando archivos a mano para separar
+  la auditoría del trabajo de visores que ya estaba en el árbol. La separación
+  era correcta y **no compilaba**: `creditos/client.tsx` usaba `<Select
+  disabled>` y `plans.test.ts` importaba `lowestMonthlyCop`, y las dos
+  dependencias se quedaron sin subir. `git status` no puede delatarlo —en el
+  árbol está todo y compila— y el despliegue de producción falló dos veces antes
+  de que nadie lo mirara. La comprobación que sí sirve:
+
+  ```
+  git worktree add --detach /tmp/check origin/main
+  ln -s "$PWD/node_modules" /tmp/check/node_modules
+  cd /tmp/check && npx tsc --noEmit && npm test
+  ```
+
+- `workers: 1` SIEMPRE — specs comparten demo user/org/DB; paralelo revienta fixtures.
+- **El teardown restaura lo que el seed encontró, no lo que el seed supone.** El
+  seed de `embudo` encendía un módulo solo si faltaba y el teardown lo apagaba
+  siempre; al añadir `facturacion`, la primera corrida se lo arrancó a la
+  empresa fixture —que ya lo tenía— y dejó `dian.spec.ts` en rojo, en otro
+  archivo y sin relación aparente. El seed devuelve la lista de lo que encendió
+  y el teardown apaga exactamente eso.
+- **`psql` filtra `SUPABASE_DB_URL` al fallar.** `execFileSync` mete el comando
+  entero en el mensaje de error, contraseña incluida, y acaba en la salida de la
+  suite. `suscripcion.spec.ts` y `logo.spec.ts` capturan y relanzan solo el
+  stderr; `marketing.spec.ts` y `dian.spec.ts` todavía no.
+- **Supabase prohíbe `delete from storage.objects` por SQL**
+  (`storage.protect_delete()`), así que un teardown de storage no puede limpiar
+  el binario: hay que reutilizar una ruta fija que la siguiente corrida
+  sobrescriba.
+- **El login tiene límite de intentos y la suite lo agota.**
+  `RATE_LIMITS.login` = 10 intentos por 300 s, contados por dirección **y** por
+  correo. La suite hace 6 logins con el mismo usuario demo, así que una corrida
+  sola cabe (6 ≤ 10) y **dos dentro de la misma ventana de cinco minutos no**
+  (12 > 10). Las últimas specs se quedan en `/login` y falla
+  `expect(page).not.toHaveURL(/\/login/)`. La firma que lo distingue del
+  servidor degradado: los tiempos son normales (~2,2 min) y **las specs que
+  fallan cambian de una corrida a otra**; la que falló, corrida sola, pasa en
+  8 s. No se toca el límite —es una defensa real— se espera cinco minutos.
+- **Nunca dos `npx playwright test` a la vez**, ni aunque cada uno lleve
+  `workers: 1`: son dos procesos contra el mismo usuario, la misma empresa y la
+  misma base. Pasó dos veces en la jornada del 21 y las dos se leyó como
+  regresión: la primera dejó a `embudo` en la pantalla de login, la segunda
+  tumbó `company-switch`. La señal para reconocerlo es el tiempo — la suite
+  entera tarda ~2,3 min; si un archivo solo marca «Slow test file: 11.9m», hay
+  otra corrida compitiendo.
+- **El dev server se degrada en sesiones largas.** Tras ~100 recompilaciones HMR
+  la suite pasó de 2,3 min a 16,8 y cayeron specs que no tocaban lo cambiado
+  (`nomina` 34s → 15,1m, con 0% de CPU en el proceso). Reiniciarlo lo devuelve a
+  la normalidad. Antes de investigar un fallo de e2e por lentitud, mirar cuánto
+  lleva vivo el servidor.
+- `test.slow()` en specs de módulo (dian ~24s, marketing ~26s, nomina ~32s, pos ~15-18s).
+- TabBar = `role="tab"`, no button. Toasts también `role=status` — selectores compuestos `.pos-warn[role=status]`.
+- Download event flaky — assert vía `waitForResponse` `/api/v1/export*` + content-disposition.
+- `'Habilitada'` es substring de `'Deshabilitada'` — match exacto en badges.
+- Backticks en template literals dentro de heredoc psql — escape o `String.raw`.
+
 ## 7. Recetas
 
 ### Módulo nuevo
