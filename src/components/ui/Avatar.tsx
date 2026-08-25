@@ -16,9 +16,11 @@ interface AvatarProps {
   name: string
   size?: number
   className?: string
+  /** Optional image URL. When present, the image renders instead of the initials. */
+  src?: string | null
 }
 
-export default function Avatar({ name, size = 32, className = '' }: AvatarProps) {
+export default function Avatar({ name, size = 32, className = '', src }: AvatarProps) {
   const bg = pickColor(name)
   const fontSize = Math.round(size * 0.36)
   return (
@@ -27,7 +29,18 @@ export default function Avatar({ name, size = 32, className = '' }: AvatarProps)
       style={{ width: size, height: size, background: bg, fontSize }}
       title={name}
     >
-      {initials(name)}
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={name}
+          width={size}
+          height={size}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
+        />
+      ) : (
+        initials(name)
+      )}
     </span>
   )
 }

@@ -36,7 +36,13 @@ function securityHeaders(nonce: string, isDev: boolean): Record<string, string> 
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.supabase.in",
+    // blob: — EmbedPDF/PDFium hace fetch del PDF vía object URL local.
+    // worker-src blob: — motor PDFium corre en Web Worker (inline/blob).
+    "connect-src 'self' blob: https://*.supabase.co wss://*.supabase.co https://*.supabase.in",
+    "worker-src 'self' blob:",
+    // PDF nativo (iframe) + signed URLs de Storage si EmbedPDF no arranca.
+    "frame-src 'self' blob: https://*.supabase.co",
+    "child-src 'self' blob:",
     "frame-ancestors 'none'",
     "form-action 'self'",
     "base-uri 'self'",

@@ -248,7 +248,7 @@ export default function Sidebar() {
             className="suser"
             onClick={() => setUserMenuOpen((v) => !v)}
           >
-            <Avatar name={member.fullName} size={36} />
+            <Avatar name={member.fullName} size={36} src={member.avatarUrl} />
             <div className="suser-info" style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
               <div style={{ fontWeight: 400, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.fullName}</div>
               <div style={{ fontSize: 11.5, color: 'var(--ink3)' }}>{member.role}</div>

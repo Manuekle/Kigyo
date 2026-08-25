@@ -296,12 +296,46 @@ export interface DocumentoPreview {
   truncated?: boolean
 }
 
+/** MIME/ext que el cliente pinta con Extend o media nativa vía URL firmada. */
+function clientViewerUrl(mimeType: string | null, storagePath: string): boolean {
+  const mime = mimeType?.split(';', 1)[0].trim().toLowerCase() ?? ''
+  const ext = storagePath.split('.').pop()?.toLowerCase() ?? ''
+  if (
+    mime.startsWith('image/') ||
+    mime.startsWith('video/') ||
+    mime.startsWith('audio/') ||
+    mime === 'application/pdf' ||
+    mime === 'application/msword' ||
+    mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    mime === 'application/vnd.ms-excel' ||
+    mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    mime === 'application/vnd.ms-powerpoint' ||
+    mime === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+    mime === 'text/csv' ||
+    mime === 'text/tab-separated-values' ||
+    mime === 'application/csv'
+  ) {
+    return true
+  }
+  return ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv', 'tsv', 'odt', 'ods', 'odp'].includes(ext)
+}
+
 function browserRenders(mimeType: string | null): boolean {
   if (!mimeType) return false
   mimeType = mimeType.split(';', 1)[0].trim().toLowerCase()
-  // Un CSV dentro de un `iframe` es una pared de comas, o directamente una
-  // descarga. Va por la vía del texto, que lo enseña como tabla.
-  if (mimeType === 'text/csv') return false
+  // CSV/office van por URL firmada al viewer Extend, no por iframe genérico.
+  if (
+    mimeType === 'text/csv' ||
+    mimeType === 'text/tab-separated-values' ||
+    mimeType.includes('wordprocessingml') ||
+    mimeType.includes('spreadsheetml') ||
+    mimeType.includes('presentationml') ||
+    mimeType === 'application/msword' ||
+    mimeType === 'application/vnd.ms-excel' ||
+    mimeType === 'application/vnd.ms-powerpoint'
+  ) {
+    return false
+  }
   return (
     mimeType.startsWith('image/') ||
     mimeType.startsWith('video/') ||
@@ -344,10 +378,8 @@ export async function documentoPreview(
       return { ok: true, data: { ...base, mode: 'none' } }
     }
 
-    const isPdf = doc.storage_path.toLowerCase().endsWith('.pdf')
-    if (browserRenders(doc.mime_type) || isPdf) {
-      // Cinco minutos, no sesenta segundos: una firma de un minuto caduca
-      // mientras alguien lee el PDF, y el visor se queda en negro a mitad.
+    if (browserRenders(doc.mime_type) || clientViewerUrl(doc.mime_type, doc.storage_path)) {
+      // Cinco minutos: firma corta caduca a mitad de lectura en viewers Extend.
       const { data, error } = await supabase.storage
         .from('documents')
         .createSignedUrl(doc.storage_path, 300, { download: false })

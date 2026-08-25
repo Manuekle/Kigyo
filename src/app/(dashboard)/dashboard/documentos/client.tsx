@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Sparkles, Upload, FileText, X, Check, Calendar, ChevronLeft, PenLine, Trash2, Download, Plus, Share2, FileSpreadsheet, RotateCcw, Eye, Lock, Users,
+  Sparkles, Upload, FileText, X, Check, Calendar, ChevronLeft, PenLine, Trash2, Download, Plus, Share2, FileSpreadsheet, RotateCcw, Eye, Lock,
 } from '@/lib/icons'
 import Stat from '@/components/ui/Stat'
 import LoadMore from '@/components/ui/LoadMore'
@@ -27,6 +27,7 @@ import { AttachmentUpload, type AttachmentItem } from '@/components/ui/Attachmen
 import { MorphingModal } from '@/components/ai/MorphingModal'
 import { fetchMoreDocumentos } from '@/server/actions/documentos'
 import { documentIconSrc } from '@/lib/document-icons'
+import { Liquid } from 'liquid-gooey'
 
 const MONTH = new Intl.DateTimeFormat('es-CO', { month: 'short', year: 'numeric' })
 
@@ -676,6 +677,16 @@ const AI_TONE: Record<string, string> = {
   Incompleto: 'red',
 }
 
+/** Badge SVG → etiqueta legible en la columna Tipo. */
+const TYPE_LABEL: Record<string, string> = {
+  pdf: 'PDF',
+  docx: 'Word',
+  doc: 'Word',
+  csv: 'CSV',
+  img: 'Imagen',
+  pptx: 'PPT',
+}
+
 function DocTable({
   rows, canWrite, busy, reviewing, indexing, onEdit, onPreview, onShare, onDelete, onDownload, onReview, onIndex,
 }: {
@@ -693,13 +704,15 @@ function DocTable({
   onReview: (d: DocumentoRow) => void
   onIndex: (d: DocumentoRow) => void
 }) {
+  // Id de la fila con el menú líquido abierto — uno solo en toda la tabla.
+  const [openActionsId, setOpenActionsId] = useState<string | null>(null)
   return (
     <div className="tblwrap">
       <table className="tbl">
-        <thead><tr><th scope="col">Documento</th><th scope="col">Tipo</th><th scope="col">Subido por</th><th scope="col">Responsable</th><th scope="col">Tamaño</th><th scope="col">Fecha</th><th scope="col"></th></tr></thead>
+        <thead><tr><th scope="col">Documento</th><th scope="col">Tipo</th><th scope="col">Subido por</th><th scope="col">Tamaño</th><th scope="col">Fecha</th><th scope="col"></th></tr></thead>
         <tbody>
           {rows.length === 0 ? (
-            <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+            <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
               {canWrite ? 'Todavía no hay documentos aquí. Sube el primero.' : 'Todavía no hay documentos aquí.'}
             </div></td></tr>
           ) : rows.map((d) => {
@@ -718,10 +731,6 @@ function DocTable({
                   <div style={{ minWidth: 0 }}>
                     <div className="cename">{d.name}</div>
                     <div className="ceid mono">{d.code ?? '—'}</div>
-                    <span className={`vischip ${d.visibility === 'Privada' ? 'is-private' : ''}`}>
-                      {d.visibility === 'Privada' ? <Lock size={11} /> : <Users size={11} />}
-                      {d.visibility === 'Privada' ? 'Privada' : 'Toda la empresa'}
-                    </span>
                     {/* Only shown once a review has actually run. A document with
                         no verdict says nothing, rather than "sin observaciones". */}
                     {d.aiStatus && (
@@ -735,68 +744,193 @@ function DocTable({
                   </div>
                 </div>
               </td>
-              <td className="muted">{fileType === 'generic' ? (d.mimeType?.startsWith('image/') ? 'img' : d.kind) : fileType ?? d.kind}</td>
+              {/* Tipo como chip con su badge SVG; la visibilidad vive aquí y
+                  solo cuando importa (privada), no como chip permanente bajo
+                  el nombre de cada fila. */}
+              <td>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                  <span className="typechip">
+                    {icon ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- SVG local de tamaño fijo: next/image no optimiza SVG y exigiría `dangerouslyAllowSVG`.
+                      <img src={icon} alt="" width={15} height={15} />
+                    ) : (
+                      <FileText size={13} style={{ color: 'var(--ink3)' }} />
+                    )}
+                    {TYPE_LABEL[fileType ?? ''] ?? d.kind}
+                  </span>
+                  {d.visibility === 'Privada' && (
+                    <span className="vlock" data-tip="Privada">
+                      <Lock size={12} />
+                    </span>
+                  )}
+                </div>
+              </td>
               {/* Quién lo subió es un hecho de la sesión que lo creó; el
                   responsable puede ser otra persona, o nadie. Son dos
                   columnas porque son dos preguntas distintas. */}
               <td className="muted">{d.uploaderName ?? '—'}</td>
-              <td className="muted">{d.ownerName ?? (d.department || '—')}</td>
               <td className="muted mono" style={{ fontSize: 12 }}>{humanSize(d.sizeBytes)}</td>
               <td className="muted mono" style={{ fontSize: 12 }}>{MONTH.format(new Date(d.createdAt))}</td>
               <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                  {d.storagePath && (
-                    <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Vista previa" onClick={() => onPreview(d)} aria-label={`Ver ${d.name}`}>
-                      <Eye size={13} />
-                    </button>
-                  )}
-                  {d.storagePath && (
-                    <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Descargar" onClick={() => onDownload(d)} aria-label={`Descargar ${d.name}`}>
-                      <Download size={13} />
-                    </button>
-                  )}
-                  {canWrite && (
-                    <>
-                      <button
-                        className="ibtn"
-                        style={{ width: 28, height: 28 }}
-                        data-tip={d.aiCheckedAt ? 'Revisar de nuevo con IA' : 'Revisar con IA'}
-                        disabled={busy || reviewing !== null || indexing !== null}
-                        aria-busy={reviewing === d.id}
-                        onClick={() => onReview(d)}
-                        aria-label={`Revisar ${d.name} con IA`}
-                      >
-                        <Sparkles size={13} />
-                      </button>
-                      <button
-                        className="ibtn"
-                        style={{ width: 28, height: 28 }}
-                        data-tip="Indexar para la IA"
-                        disabled={busy || reviewing !== null || indexing !== null}
-                        aria-busy={indexing === d.id}
-                        onClick={() => onIndex(d)}
-                        aria-label={`Indexar ${d.name} para la IA`}
-                      >
-                        <RotateCcw size={13} />
-                      </button>
-                      <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Editar" onClick={() => onEdit(d)} aria-label={`Editar ${d.name}`}>
-                        <PenLine size={13} />
-                      </button>
-                      <button className="ibtn" style={{ width: 28, height: 28 }} data-tip="Compartir" onClick={() => onShare(d)} aria-label={`Compartir ${d.name}`}>
-                        <Share2 size={13} />
-                      </button>
-                      <button className="ibtn" style={{ width: 28, height: 28, color: 'var(--redd)' }} data-tip="Eliminar" disabled={busy} onClick={() => onDelete(d)} aria-label={`Eliminar ${d.name}`}>
-                        <Trash2 size={13} />
-                      </button>
-                    </>
-                  )}
-                </div>
+                <LiquidRowActions
+                  name={d.name}
+                  open={openActionsId === d.id}
+                  onToggle={() => setOpenActionsId((current) => (current === d.id ? null : d.id))}
+                  actions={[
+                    ...(d.storagePath
+                      ? ([
+                          {
+                            key: 'preview',
+                            label: 'Vista previa',
+                            icon: <Eye size={13} />,
+                            run: () => onPreview(d),
+                          },
+                        ] as RowAction[])
+                      : []),
+                    ...(canWrite
+                      ? ([
+                          {
+                            key: 'review',
+                            label: d.aiCheckedAt ? 'Revisar de nuevo con IA' : 'Revisar con IA',
+                            icon: <Sparkles size={13} />,
+                            disabled: busy || reviewing !== null || indexing !== null,
+                            busy: reviewing === d.id,
+                            run: () => onReview(d),
+                          },
+                          {
+                            key: 'index',
+                            label: 'Indexar para la IA',
+                            icon: <RotateCcw size={13} />,
+                            disabled: busy || reviewing !== null || indexing !== null,
+                            busy: indexing === d.id,
+                            run: () => onIndex(d),
+                          },
+                          {
+                            key: 'edit',
+                            label: 'Editar',
+                            icon: <PenLine size={13} />,
+                            run: () => onEdit(d),
+                          },
+                          {
+                            key: 'share',
+                            label: 'Compartir',
+                            icon: <Share2 size={13} />,
+                            run: () => onShare(d),
+                          },
+                          {
+                            key: 'delete',
+                            label: 'Eliminar',
+                            icon: <Trash2 size={13} />,
+                            danger: true,
+                            disabled: busy,
+                            run: () => onDelete(d),
+                          },
+                        ] as RowAction[])
+                      : []),
+                  ]}
+                />
               </td>
             </tr>
             )
           })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Acciones líquidas por fila                                         */
+/* ------------------------------------------------------------------ */
+
+type RowAction = {
+  key: string
+  label: string
+  icon: React.ReactNode
+  danger?: boolean
+  disabled?: boolean
+  busy?: boolean
+  run: () => void
+}
+
+/**
+ * Menú gooey de acciones: cerrado es un solo botón "+"; al abrir los círculos
+ * se separan en abanico hacia la izquierda con stagger. Optimización clave:
+ * los iconos solo se montan con el menú abierto — cerrados los círculos se
+ * funden en una sola gota sin contenido apilado visible.
+ */
+function LiquidRowActions({
+  name,
+  open,
+  onToggle,
+  actions,
+}: {
+  name: string
+  /** Controlado desde la tabla: solo un menú abierto en toda la lista. */
+  open: boolean
+  onToggle: () => void
+  actions: RowAction[]
+}) {
+  return (
+    <div className={`doc-actions${open ? ' is-open' : ''}`}>
+      {/* Grupo siempre montado: cerrado es un solo círculo "+"; la librería
+          duerme en reposo, así que el costo idle es cero. */}
+      <Liquid
+        blur={5}
+        contrast={13}
+        // Superficie como los botones de la app: fondo suave sin sombra, solo
+        // el anillo interior (`inset`) que hace de borde sobre la silueta.
+        fill="var(--bg2)"
+        shadow="inset 0 0 0 1px var(--line)"
+        // El filtro vive en una caja del tamaño del grupo + padding; el abanico
+        // se estira ~260px a la izquierda y sin este margen se recorta.
+        filterPadding={320}
+        // Caja explícita: los hijos son absolutos, sin esto el grupo mide 0.
+        style={{ position: 'absolute', left: 0, top: 0, width: 30, height: 30 }}
+      >
+          {actions.map((action, index) => (
+            <Liquid.Item
+              key={action.key}
+              x={open ? -(index + 1) * 38 : 0}
+              transition="bouncy"
+              delay={open ? index * 35 : (actions.length - index) * 18}
+              style={{ position: 'absolute', left: 0, top: 0 }}
+            >
+              <button
+                type="button"
+                className={`round-btn${action.danger ? ' danger' : ''}`}
+                disabled={action.disabled}
+                aria-busy={action.busy}
+                aria-label={`${action.label} ${name}`}
+                data-tip={action.label}
+                onClick={() => {
+                  onToggle()
+                  action.run()
+                }}
+              >
+                {/* Icono montado solo abierto: cerrado la gota no enseña nada. */}
+                {open ? action.icon : null}
+              </button>
+            </Liquid.Item>
+          ))}
+          <Liquid.Item style={{ position: 'absolute', left: 0, top: 0 }}>
+            <button
+              type="button"
+              className="round-btn"
+              aria-expanded={open}
+              aria-label={open ? `Cerrar acciones de ${name}` : `Acciones de ${name}`}
+              onClick={onToggle}
+            >
+              <Plus
+                size={14}
+                style={{
+                  transform: open ? 'rotate(45deg)' : 'none',
+                  transition: 'transform .2s ease',
+                }}
+              />
+            </button>
+          </Liquid.Item>
+        </Liquid>
     </div>
   )
 }

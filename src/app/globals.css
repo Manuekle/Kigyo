@@ -40,6 +40,21 @@
   --muted: rgb(var(--ink-rgb) / .05);
   --muted-foreground: var(--ink2);
   --ring: var(--focus-ring-color);
+  --card: var(--bg2);
+  --card-foreground: var(--ink);
+  --popover: var(--elevated, var(--bg2));
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--bg);
+  --secondary: rgb(var(--ink-rgb) / .08);
+  --secondary-foreground: var(--ink);
+  --accent: rgb(var(--ink-rgb) / .08);
+  --accent-foreground: var(--ink);
+  --destructive: var(--redd, #ef4444);
+  --input: var(--line);
+  --sidebar: var(--bg2);
+  --sidebar-accent: rgb(var(--ink-rgb) / .08);
+  --sidebar-accent-foreground: var(--ink);
 }
 
 @theme inline {
@@ -49,6 +64,34 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--line);
   --color-ring: var(--ring);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-input: var(--input);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+}
+
+/* Tailwind v4 deja el color de borde en `currentColor`: cualquier `border-b`
+   pelado hereda el tinta del texto y en dark mode eso es casi blanco — los
+   visores Extend quedaban con marcos que no eran del tema. Toda utilidad de
+   borde sin color explícito usa ahora el trazo del sistema (--line), gris
+   cercano al fondo en ambos temas. */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
 }
 
 /* Scroll sin barra visible — el patrón que ya usa `.ia-msgs`, expuesto como
@@ -4505,9 +4548,38 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 .vischip.is-private { color: var(--ink2); border-color: rgb(var(--ink-rgb) / .14); }
 .vischip svg { flex-shrink: 0; }
 
+/* Chip de tipo en la tabla de documentos: badge SVG + etiqueta corta, sobre
+   fondo suave para que el icono no flote solo en la celda. */
+.typechip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--rfull);
+  background: rgb(var(--ink-rgb) / .05);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  color: var(--ink2);
+}
+.typechip img { flex-shrink: 0; }
+/* Visibilidad privada: un candado mínimo con tooltip, no un chip más. */
+.vlock {
+  display: inline-flex;
+  color: var(--ink3);
+}
+
 /* El visor ocupa lo que puede: un PDF a 440px de ancho no es una vista previa,
    es una miniatura con barras de desplazamiento. */
 .dpv { width: min(920px, 100%); max-height: 88vh; }
+/* Los viewers Extend pintan bordes con el vocabulario shadcn
+   (`border`, `border-input`). Dentro del preview esos tokens se afilan al
+   trazo de la app — una sola línea sutil, no bordes que compitan con ella. */
+.dpv {
+  --color-border: rgb(var(--ink-rgb) / .08);
+  --border: rgb(var(--ink-rgb) / .08);
+  --input: rgb(var(--ink-rgb) / .10);
+}
 .dpv-body { display: flex; flex-direction: column; gap: 12px; min-height: 320px; }
 .dpv-loading { display: grid; place-items: center; min-height: 320px; margin: 0; }
 .dpv-stage { position: relative; display: flex; align-items: center; justify-content: center; min-height: min(70vh, 720px); }
@@ -7664,3 +7736,30 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   font-size: 12px; color: var(--ink2); font-family: inherit;
 }
 .kb-open:hover { color: var(--ink); }
+/* ═══ acciones líquidas de documento — menú gooey por fila ═══
+   La silueta la pinta liquid-gooey (`fill`), así que los botones van sin fondo:
+   cerrado todo colapsa en un solo círculo "+", abierto se reparten en abanico. */
+.doc-actions {
+  position: relative;
+  display: inline-flex;
+  justify-content: flex-end;
+  width: 30px;
+  height: 30px;
+}
+.doc-actions.is-open { z-index: 6; }
+.round-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.round-btn:disabled { opacity: .45; cursor: default; }
+.round-btn.danger { color: var(--redd); }
+.round-btn:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
+
