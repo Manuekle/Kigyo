@@ -26,7 +26,7 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 307/307 · tsc 0 · build verde · e2e 8/8 (`workers: 1` obligatorio).
+- vitest 318/318 · tsc 0 · build verde · e2e 8/8 (`workers: 1` obligatorio).
 - **lint: 17 errores + 42 avisos, TODOS en `src/components/extend/*`** (visores
   de `@extend-ai` sin trackear) y en los dos archivos que los usan
   (`DocumentPreview.tsx`, `documentos/client.tsx`). Ninguno en código propio.
@@ -1139,7 +1139,16 @@ asistente cobra 12× lo anunciado.
    un proceso programado (hoy no hay cron, ni edge function, ni `vercel.json`).
    Las dos pantallas ya dicen en pantalla qué hacen y qué no.
 6. **Nómina** — validación contador laboral.
-7. **Rotar la contraseña de la base.** `SUPABASE_DB_URL` completo se imprimió en
+7. **El canónico es `www.kigyo.pro`, y `NEXT_PUBLIC_APP_URL` dice el apex.**
+   Vercel sirve `kigyo.pro` con un 308 hacia `www`, así que hoy el `successUrl`
+   de Polar y el `emailRedirectTo` del registro cruzan un redirect antes de
+   llegar, y el `canonical` y el sitemap apuntan a una URL que redirige. Se
+   arregla eligiendo uno: o el apex pasa a primario en Vercel —que es lo que
+   pidió el dueño: «el link es kigyo.pro»— o la variable pasa a
+   `https://www.kigyo.pro`. Verificado en vivo el 2026-08-25: el sitio responde
+   200 y sirve la versión nueva.
+
+8. **Rotar la contraseña de la base.** `SUPABASE_DB_URL` completo se imprimió en
    la salida de e2e durante la jornada del 25 (ver §Jornada — fuga de
    credenciales). Los specs nuevos ya no lo hacen; `marketing.spec.ts` y
    `dian.spec.ts` siguen con la forma vieja y conviene igualarlos.
@@ -1194,6 +1203,21 @@ marketing) quedaron hechos 2026-08-20 — ver §4.
 - `Select` component no acepta `id` prop.
 
 ### E2e
+
+- **Un commit parcial se verifica en un worktree, no en el árbol de trabajo.**
+  Tres commits de esta jornada se armaron listando archivos a mano para separar
+  la auditoría del trabajo de visores que ya estaba en el árbol. La separación
+  era correcta y **no compilaba**: `creditos/client.tsx` usaba `<Select
+  disabled>` y `plans.test.ts` importaba `lowestMonthlyCop`, y las dos
+  dependencias se quedaron sin subir. `git status` no puede delatarlo —en el
+  árbol está todo y compila— y el despliegue de producción falló dos veces antes
+  de que nadie lo mirara. La comprobación que sí sirve:
+
+  ```
+  git worktree add --detach /tmp/check origin/main
+  ln -s "$PWD/node_modules" /tmp/check/node_modules
+  cd /tmp/check && npx tsc --noEmit && npm test
+  ```
 
 - `workers: 1` SIEMPRE — specs comparten demo user/org/DB; paralelo revienta fixtures.
 - **El teardown restaura lo que el seed encontró, no lo que el seed supone.** El
