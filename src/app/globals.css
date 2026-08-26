@@ -142,6 +142,18 @@
   font-display: swap;
 }
 
+/* ─── Caveat @font-face — the signature hand ───
+   Self-hosted like the other two faces (no Google Fonts request at runtime).
+   Latin subset only, one weight: it is used by exactly one element, the
+   handwritten name on the hero's signing sheet. */
+@font-face {
+  font-family: 'Caveat';
+  src: url('/fonts/caveat/caveat-latin-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* ═══ theme ═══
      Dark is the default; `[data-theme="light"]` below overrides it.
@@ -400,7 +412,7 @@
 
   --ink-rgb: 22 22 22;
   --bg-rgb: 247 247 248;
-  --shadow-a: 1.7;
+  --shadow-a: 1.15;
 
   --bg:       #F7F7F8;
   --bg2:      #FFFFFF;
@@ -1997,6 +2009,78 @@ button.notifitem:hover { background: var(--hover); cursor: pointer; }
 .tag.blu, .tag.grn, .tag.amb, .tag.vio, .tag.red, .tag.ai {
   background: rgb(var(--ink-rgb) / .04);
   color: var(--ink2);
+}
+
+/* ═══ status badges — the marketing pages ═══
+   The `.tag` above is the app's chip and stays neutral: inside a dense table
+   a coloured pill on every row is a rainbow. On the public pages a status IS
+   its colour, and the pages were shipping `is-green` / `is-red` / `is-yellow`
+   class names that no rule ever answered — every badge on the ledger, the hero
+   and the feature grid rendered the same grey, which is a status system that
+   says nothing.
+
+   One shape, one weight, one hue per state, driven by a single `--tag-c`
+   channel so the tint, the label and the icon can never disagree. Scoped to
+   `.landing` so the app's own tables keep the neutral chip. */
+.landing .tag {
+  --tag-c: var(--ink-rgb);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px 4px 8px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -.005em;
+  white-space: nowrap;
+  color: rgb(var(--tag-c));
+  background: rgb(var(--tag-c) / var(--t-tint));
+  transition: background var(--hover-dur) var(--hover-ease);
+}
+/* Sized off the label rather than a fixed pixel value, so a badge set at 10px
+   in a hero card and one at 12px in the ledger keep the same optical weight. */
+.landing .tag svg {
+  width: 1.08em;
+  height: 1.08em;
+  flex-shrink: 0;
+  color: rgb(var(--tag-c));
+}
+.landing .tag.is-green  { --tag-c: var(--t-grn); }
+.landing .tag.is-indigo { --tag-c: var(--t-ind); }
+.landing .tag.is-blue   { --tag-c: var(--t-blu); }
+.landing .tag.is-orange { --tag-c: var(--t-org); }
+.landing .tag.is-pink   { --tag-c: var(--t-pnk); }
+.landing .tag.is-yellow { --tag-c: var(--t-yel); }
+.landing .tag.is-red    { --tag-c: var(--t-red); }
+/* Two states carry no hue on purpose: "nothing has happened to this yet" is
+   not a colour, and giving it one is how a badge system ends up with eleven
+   equally loud pills. */
+.landing .tag.is-muted {
+  background: rgb(var(--ink-rgb) / .06);
+  color: var(--ink2);
+}
+.landing .tag.is-muted svg { color: var(--ink3); }
+.landing .tag.is-draft {
+  background: none;
+  border: 1px dashed rgb(var(--ink-rgb) / .20);
+  padding: 3px 8px;
+  color: var(--ink3);
+}
+.landing .tag.is-draft svg { color: var(--ink3); }
+/* A live badge carries a pulsing dot instead of a glyph. */
+.landing .tag .tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  animation: tag-pulse 2.4s ease-out infinite;
+}
+@keyframes tag-pulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  70%  { box-shadow: 0 0 0 5px transparent; opacity: .75; }
+  100% { box-shadow: 0 0 0 0 transparent; opacity: 1; }
 }
 
 /* ═══ filter chips ═══ */
@@ -4779,7 +4863,101 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 .errline { display: flex; align-items: center; gap: 7px; color: var(--ink); font-size: 12.5px; font-weight: 400; margin-top: 10px; }
 
 /* ═══ landing / public pages ═══ */
+/* ═══ accent layer — public pages only ═══
+   The product is monochrome by design (see the Chinese Ink block at the top of
+   this file) and stays that way. The marketing pages are the one place that
+   carries a brand colour, so the accent tokens are declared HERE, on the
+   `.landing` scroller, rather than on `:root`. Nothing inside the dashboard
+   can reach them, which is the point: a colour that leaks into the app would
+   have to be audited against ~66 screens of monochrome surfaces.
+
+   `--acc-rgb` is the same electric blue `.btn.pri` already uses in-app, so the
+   two vocabularies agree where they meet (the auth screens sit between them).
+
+   `--sig-*` are the signal colours: green/amber/red mean *state*, never brand.
+   They exist here because the ledger's badges are a slice of the real product,
+   and a slice of the product that shows an overdue contract in the same grey
+   as a paid invoice is a worse mock than one with colour. */
 .landing {
+  /* Derived from the tag palette rather than declared again, so the page has
+     exactly one blue. `--acc-*` is what marks something as *happening now*
+     inside a product mock — the funnel rail, the assistant's scan, the pulse
+     travelling a wire. It is not brand colour and it never appears on chrome;
+     see the ink `.btn.pri` further down. */
+  --acc-rgb: var(--t-blu);
+  --acc: rgb(var(--acc-rgb));
+  --acc-deep: #2563EB;
+  /* The one accent fill left on these pages: the funnel rail inside the hero's
+     lead card. Everything that used to carry an accent gradient — buttons,
+     badges, avatars, step markers — is ink now, so the halo/glow pair that
+     went with them is gone rather than left sitting unused. */
+  --acc-grad: linear-gradient(180deg, rgb(var(--acc-rgb)), var(--acc-deep));
+
+  /* ─── specular rim ───
+     The top-edge highlight that makes a translucent panel read as glass with
+     a thickness rather than as a flat tinted rectangle.
+
+     It only exists on DARK surfaces. On white, a white inner rim is
+     white-on-white — invisible at best, and at the alphas that would show it
+     the panel gets a bright seam across its top edge that reads as a
+     rendering artifact. That is what was happening on the nav bar and the
+     hero cards in light mode. The light theme therefore substitutes an inert
+     layer instead of a second set of rules: `box-shadow` cannot take `none`
+     as one layer among several, so the no-op has to be a real shadow with
+     zero size and zero alpha. */
+  --rim: inset 0 1px 0 rgb(255 255 255 / .07);
+
+  --sig-grn: #22C55E;
+  --sig-amb: #F59E0B;
+  --sig-red: #EF4444;
+
+  /* ═══ motion ═══
+     `--stagger-ease` is `ease-in-out` globally, which is the wrong curve for
+     an entrance: it accelerates at the start, so an element that should appear
+     to arrive and settle instead appears to be pushed. Overridden here (and
+     only here) with an expo-out — almost all of the travel happens in the
+     first third, then it eases into place. That single change is most of the
+     difference between motion that reads as considered and motion that reads
+     as a default.
+
+     `--ease-float` is a sine in-out. Anything that drifts forever — the hero
+     cards — wants a curve with no flat spots and no snap at the turnaround,
+     which is exactly what a sine gives; `ease-in-out` visibly pauses at each
+     end. */
+  --stagger-ease: cubic-bezier(.16, 1, .3, 1);
+  --stagger-dur: 720ms;
+  --stagger-distance: 16px;
+  --stagger-blur: 6px;
+  --ease-float: cubic-bezier(.37, 0, .63, 1);
+  --ease-travel: cubic-bezier(.65, 0, .35, 1);
+
+  /* ═══ status tags ═══
+     A full palette, because a status IS its colour — this is the one place on
+     the public pages that is not monochrome, and it is not brand colour: blue
+     here means "publishing", not "Kigyo". Chrome (buttons, nav, cards) stays
+     ink; see the auth screens for the reference finish.
+
+     Channels rather than hex so the tint, the text and the icon all derive
+     from one value per status. */
+  --t-grn: 22 163 74;
+  --t-ind: 99 102 241;
+  --t-blu: 37 99 235;
+  --t-org: 234 88 12;
+  --t-pnk: 219 39 119;
+  --t-yel: 202 138 4;
+  --t-red: 220 38 38;
+  --t-tint: .10;
+
+  /* Elevation for floating marketing objects. The page's own `--e*` ramp is
+     tuned for flat panels inside the app; a card tilted in 3D above a lit
+     field needs a longer, softer tail or it reads as pasted on. */
+  --float-1: 0 2px 6px rgb(var(--shadow-rgb) / calc(.10 * var(--shadow-a))),
+             0 12px 28px -8px rgb(var(--shadow-rgb) / calc(.22 * var(--shadow-a)));
+  --float-2: 0 4px 10px rgb(var(--shadow-rgb) / calc(.12 * var(--shadow-a))),
+             0 26px 60px -16px rgb(var(--shadow-rgb) / calc(.34 * var(--shadow-a)));
+  --float-3: 0 6px 14px rgb(var(--shadow-rgb) / calc(.14 * var(--shadow-a))),
+             0 44px 90px -24px rgb(var(--shadow-rgb) / calc(.46 * var(--shadow-a)));
+
   width: 100%;
   height: 100vh;
   height: 100dvh;
@@ -4794,6 +4972,27 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   scrollbar-width: none;
   -ms-overflow-style: none;
   scroll-behavior: smooth;
+}
+/* On white the same blue reads lighter and the halos need less alpha, or the
+   accent surfaces bloom. Deepened one step so the fill holds its weight
+   against #F7F7F8. */
+:root[data-theme="light"] .landing {
+  --acc-deep: #1D4ED8;
+  --rim: inset 0 0 0 0 rgb(255 255 255 / 0);
+}
+/* On #161616 the saturated tag hues above are too dark to read at 12px, so the
+   dark theme lifts every one of them and leans on a slightly stronger tint.
+   Written as `:not([data-theme="light"])` rather than `[data-theme="dark"]`
+   because dark is this app's default and carries no attribute of its own. */
+:root:not([data-theme="light"]) .landing {
+  --t-grn: 74 222 128;
+  --t-ind: 129 140 248;
+  --t-blu: 96 165 250;
+  --t-org: 251 146 60;
+  --t-pnk: 244 114 182;
+  --t-yel: 250 204 21;
+  --t-red: 248 113 113;
+  --t-tint: .14;
 }
 .landing::-webkit-scrollbar { display: none; }
 @media (prefers-reduced-motion: reduce) {
@@ -4883,6 +5082,101 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   flex-shrink: 0;
 }
 .pub-nav-actions .btn, .pub-nav-mobile-actions .btn { text-decoration: none; }
+
+/* ─── the primary action ───
+   Ink, not blue. The auth screens already had the finish this whole design
+   language is built on — a 36px black pill with the metal sheen over
+   `--grad-primary` and a four-layer shadow cast in the fill's own colour — and
+   the marketing pages now use exactly that. An earlier pass made every primary
+   button blue, which put brand colour on the loudest element of every screen
+   and left the public pages speaking a different language from the product.
+
+   Blue survives on these pages in one place only: the status tags, where it
+   means "publishing" rather than "Kigyo".
+
+   `.landing .btn.pri` is kept pointing at the ink finish rather than deleted,
+   so any marketing markup still asking for `pri` gets the right thing instead
+   of the in-app blue leaking onto a public page. */
+.landing .btn.pri {
+  border: none;
+  color: var(--bg);
+  background: var(--metal-sheen), var(--grad-primary);
+  box-shadow: var(--metal-shadow);
+}
+.landing .btn.pri:hover:not(:disabled) {
+  background: var(--metal-sheen), var(--grad-primary-h);
+  box-shadow: var(--metal-shadow-hover);
+}
+.landing .btn.pri:active { transform: scale(.96); }
+.landing .btn.pri:focus-visible {
+  outline: none;
+  box-shadow: var(--metal-shadow), 0 0 0 3px rgb(var(--ink-rgb) / .25);
+}
+
+/* ─── one step above the 36px default ───
+   40px, not 48px. The auth screen sets the scale for this product: its primary
+   action is 36px at weight 400, and a marketing page is not a more important
+   moment than signing in. The hero gets one step up because it sits under a
+   72px headline and nothing else competes with it — two steps looked inflated.
+
+   The hero also used to carry a parallel `.hx-btn` system with its own height,
+   radius, padding and hover, which is how the sizes drifted apart in the first
+   place. There is one `.btn` now, and the hero asks for the large step of it. */
+.landing .btn.btn-lg {
+  height: 40px;
+  padding: 0 20px;
+  font-size: 13.5px;
+  font-weight: 400;
+}
+.landing .btn.btn-lg svg { transition: transform var(--hover-dur) var(--hover-ease); }
+.landing .btn.btn-lg:hover svg { transform: translateX(2px); }
+
+/* ─── the bar floats ───
+   Detached from the top edge and rounded into a capsule, which is what makes a
+   fixed bar read as an object above the page rather than as a strip painted
+   onto it. Desktop only: below 901px the bar owns the mobile drawer, and a
+   capsule that has to expand into a panel is a capsule with a seam in it.
+
+   `left/right: auto` cancels the full-bleed stretch from the base rule; the
+   width then comes from the content, and the translate is what centres it. */
+@media (min-width: 901px) {
+  .pub-nav {
+    top: 14px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    border: 1px solid var(--line);
+    border-radius: var(--rfull);
+    background: rgb(var(--bg-rgb) / .62);
+    box-shadow:
+      var(--rim),
+      0 2px 8px rgb(var(--shadow-rgb) / calc(.08 * var(--shadow-a))),
+      0 18px 40px -18px rgb(var(--shadow-rgb) / calc(.30 * var(--shadow-a)));
+    transition:
+      background-color 240ms ease-out,
+      border-color 240ms ease-out,
+      box-shadow 240ms ease-out;
+  }
+  .pub-nav[data-scrolled="true"] {
+    background: rgb(var(--bg-rgb) / .84);
+    border-color: rgb(var(--ink-rgb) / .12);
+    box-shadow:
+      var(--rim),
+      0 2px 10px rgb(var(--shadow-rgb) / calc(.10 * var(--shadow-a))),
+      0 24px 52px -20px rgb(var(--shadow-rgb) / calc(.38 * var(--shadow-a)));
+  }
+  .pub-nav-inner {
+    height: 56px;
+    padding: 0 8px 0 18px;
+    gap: 24px;
+  }
+  /* The links stop stretching once the bar is content-width — `flex: 1` on a
+     max-content parent would let them claim the whole viewport. */
+  .pub-nav-links { flex: 0 0 auto; }
+  .pub-nav-actions .btn { height: 34px; }
+}
 .pub-nav-burger {
   display: none;
   width: 38px;
@@ -4971,10 +5265,61 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 
 /* ═══ public page (non-hero) header spacer ═══ */
 .pub-page-head {
+  position: relative;
+  isolation: isolate;
   max-width: 760px;
   margin: 0 auto;
   padding: 156px 24px 20px;
   text-align: center;
+}
+.pub-page-head > * { position: relative; z-index: 1; }
+/* One shared block draws the field; the four rules below it change only the
+   pattern inside it, so each public page is recognisable by its texture. The
+   shared block's selector list must keep all four — an earlier pass dropped
+   the `contact-grid` tail, which left pricing, about and faq with no
+   `content` at all and therefore no pattern on screen. */
+.landing:has(.pricing-grid) .pub-page-head::before,
+.landing:has(.about-values) .pub-page-head::before,
+.landing:has(.faq-list) .pub-page-head::before,
+.landing:has(.contact-grid) .pub-page-head::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 24px;
+  width: min(100vw, 1100px);
+  height: 280px;
+  transform: translateX(-50%);
+  z-index: 0;
+  pointer-events: none;
+  mask-image: radial-gradient(55% 75% at 50% 45%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(55% 75% at 50% 45%, #000 0%, transparent 78%);
+}
+.landing:has(.pricing-grid) .pub-page-head::before {
+  background-image: repeating-radial-gradient(
+    circle at 50% 40%,
+    rgb(var(--ink-rgb) / .10) 0 1px,
+    transparent 1px 48px
+  );
+}
+.landing:has(.about-values) .pub-page-head::before {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgb(var(--ink-rgb) / .07) 0 1px,
+    transparent 1px 10px
+  );
+}
+.landing:has(.faq-list) .pub-page-head::before {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 17px,
+    rgb(var(--ink-rgb) / .08) 17px 18px
+  );
+}
+.landing:has(.contact-grid) .pub-page-head::before {
+  background-image:
+    linear-gradient(rgb(var(--ink-rgb) / .08) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--ink-rgb) / .08) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 .pub-page-eyebrow {
   display: inline-flex;
@@ -5019,24 +5364,8 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   gap: 20px;
   position: relative;
 }
-.pricing-card.featured {
-  border-color: rgb(var(--ink-rgb) / .22);
-  background: var(--elevated);
-}
-.pricing-badge {
-  position: absolute;
-  top: -12px;
-  left: 28px;
-  font-size: 10.5px;
-  font-weight: 400;
-  color: var(--bg);
-  background: var(--ink);
-  border-radius: var(--rfull);
-  padding: 4px 12px;
-}
 .pricing-name { font-size: 15px; font-weight: 500; letter-spacing: -.01em; color: var(--ink); }
 .pricing-price { display: flex; align-items: baseline; gap: 5px; }
-.pricing-amount { font-family: var(--font-display); font-size: 38px; font-weight: 500; letter-spacing: -.01em; color: var(--ink); }
 .pricing-period { font-size: 13px; color: var(--ink3); font-weight: 400; }
 .pricing-desc { font-size: 13px; color: var(--ink2); line-height: 1.55; margin: -8px 0 0; }
 .pricing-features { display: flex; flex-direction: column; gap: 11px; margin: 4px 0 0; padding: 0; list-style: none; flex: 1; }
@@ -5048,8 +5377,11 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   color: var(--ink2);
   line-height: 1.4;
 }
-.pricing-features li svg { color: var(--ink); flex-shrink: 0; margin-top: 1px; }
-.pricing-cta { width: 100%; text-decoration: none; margin-top: 4px; }
+/* 40px rather than the 36px default: this is the card's whole purpose, and it
+   sits under four lines of features at the full card width. The hero uses the
+   48px step, the nav the 34px one — three sizes, each tied to how much the
+   surrounding block is asking of the reader. */
+.pricing-cta { width: 100%; height: 40px; text-decoration: none; margin-top: 4px; }
 .pricing-trial-note { font-size: 11.5px; color: var(--ink3); text-align: center; margin: -8px 0 0; }
 
 .pricing-toggle {
@@ -5060,6 +5392,77 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   margin: 0 0 28px;
 }
 .pricing-toggle-hint { font-size: 12px; color: var(--ink3); }
+
+/* ─── the recommended plan wears the accent ───
+   Previously the featured card was distinguished only by a slightly brighter
+   border and a black badge, which is the same treatment a disabled state gets
+   in this palette. It now carries the brand colour on the three things a buyer
+   actually looks at — the badge, the ticks and the button — plus a bloom that
+   lifts it off the row. The other two stay monochrome, which is what makes the
+   contrast mean "pick this one". */
+/* The recommended plan is singled out in ink — a heavier border, a lifted
+   surface and a real shadow — and the only blue on the card is its button.
+   Tinting the whole card blue as well made the accent decorative again, and
+   decorative accent is exactly what stops a coloured button meaning "press
+   this one". */
+.pricing-card.featured {
+  border-color: rgb(var(--ink-rgb) / .20);
+  background: var(--elevated);
+  box-shadow: var(--float-2);
+}
+/* --float-2's long tail (60px blur) crosses the 20px grid gap in light mode,
+   so the next card's border ends up floating in that wash — a stray hairline
+   beside "Más popular". Dark mode reads the same tail as part of the beam
+   halo, so only light pulls the tail in. */
+:root[data-theme="light"] .pricing-card.featured {
+  box-shadow:
+    0 4px 10px rgb(var(--shadow-rgb) / calc(.12 * var(--shadow-a))),
+    0 20px 40px -20px rgb(var(--shadow-rgb) / calc(.30 * var(--shadow-a)));
+}
+.pricing-card.featured .pricing-features li svg { color: var(--ink); }
+.pricing-badge {
+  position: absolute;
+  top: -12px;
+  left: 28px;
+  font-size: 10.5px;
+  border-radius: var(--rfull);
+  padding: 4px 12px;
+  color: var(--bg);
+  background: var(--metal-sheen), var(--grad-primary);
+  border: none;
+  font-weight: 500;
+  box-shadow: var(--metal-shadow);
+}
+/* The ticks on the plain cards stay ink: a row of coloured ticks on every card
+   would make the accent mean nothing. */
+.pricing-features li svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--ink3);
+}
+.pricing-amount {
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.pricing-trial-note strong { color: var(--ink2); font-weight: 500; }
+.pricing-trial-note a { color: var(--ink); text-decoration: none; }
+.pricing-trial-note a:hover { text-decoration: underline; }
+
+/* ─── the field behind the public page headers ───
+   These pages all open on a flat band with a faint ink pattern in it. The
+   pattern stays — it is what tells the four pages apart — but it now sits on
+   an accent wash, so a visitor arriving at /pricing from the landing page
+   lands in the same light rather than in a grey room. */
+.landing:has(.pricing-grid) .pub-page-head,
+.landing:has(.about-values) .pub-page-head,
+.landing:has(.faq-list) .pub-page-head,
+.landing:has(.contact-grid) .pub-page-head {
+  position: relative;
+}
 
 /* ═══ faq accordion ═══ */
 .faq-list {
@@ -5354,8 +5757,30 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   .pub-footer-brand-col { grid-column: 1 / -1; }
 }
 
-/* hero */
-.l-hero {
+/* ═══════════════════════════════════════════════════════════════════════
+   hero — the lit field
+   ═══════════════════════════════════════════════════════════════════════
+   The previous hero was a photograph of a grey swoosh with three identical
+   KPI tiles under it. Both problems were the same problem: nothing on screen
+   was *made of the product*, so the section could have belonged to any SaaS.
+
+   What replaces it is built in three layers, and the order matters:
+
+     1. `.hx-field`  the lit ground — a dark (or pale) field with two accent
+                     auroras drifting across it on different periods, so the
+                     light never repeats a position. This is CSS, not a
+                     1.4 MB PNG: it themes, it scales, it costs nothing.
+     2. `.hx-floor`  a perspective grid receding to a horizon. It is what
+                     gives the section a *depth axis* — without it the
+                     floating cards have nothing to float above.
+     3. `.hx-scene`  the cards themselves (see HeroScene.tsx), each one a
+                     real Kigyo record mid-motion.
+
+   Everything above the field is masked or faded rather than clipped, because
+   a hard edge anywhere in this stack is what makes a scene read as pasted
+   layers instead of one space. */
+
+.hx {
   position: relative;
   width: 100%;
   min-height: 100vh;
@@ -5365,248 +5790,1045 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   justify-content: center;
   overflow: hidden;
   background: var(--bg);
+  isolation: isolate;
 }
-.l-ferro {
+
+/* ─── layer 1 — the field ───
+   Monochrome. The earlier version washed two large blue auroras across the
+   whole section, which made the brand colour the loudest thing on the page and
+   left the headline sitting in a coloured haze. The page is black-and-white;
+   the accent is spent on the primary action and on the things in the product
+   mock that are genuinely *live*.
+
+   What is left is a studio light: one soft pool from above, behind the
+   headline, plus a single low accent glow at the very bottom, under the card
+   cluster — the objects appear to be lit, rather than the room being blue.
+
+   The two themes get explicit declarations rather than one rule on the ink
+   channel, because they light in opposite directions: dark lifts a surface by
+   adding white, light lifts it by adding *more* white against an already pale
+   page. Running that off `--ink-rgb` would darken the top of the light theme,
+   which is the wrong direction for a light source. */
+.hx-field {
   position: absolute;
   inset: 0;
   z-index: 0;
-  opacity: 0.55;
+  pointer-events: none;
+  background:
+    radial-gradient(64% 44% at 50% -2%, rgb(255 255 255 / .06) 0%, transparent 72%),
+    radial-gradient(90% 34% at 50% 104%, rgb(255 255 255 / .04) 0%, transparent 68%),
+    var(--bg);
 }
-.l-hero-content {
-  position: relative;
+:root[data-theme="light"] .hx-field {
+  background:
+    radial-gradient(64% 44% at 50% -2%, rgb(255 255 255 / .85) 0%, transparent 72%),
+    radial-gradient(90% 34% at 50% 104%, rgb(255 255 255 / .55) 0%, transparent 68%),
+    var(--bg);
+}
+
+/* ─── layer 2 — the perspective floor ───
+   A flat grid rotated 74° on X. `perspective` lives on the parent so the
+   rotation actually converges instead of shearing; the mask is what turns a
+   tiled square grid into a floor with a horizon. Lines are drawn in the
+   ink at low alpha — the floor is geometry, not colour. */
+.hx-floor {
+  position: absolute;
+  left: 50%;
+  bottom: -4%;
+  width: 240vw;
+  height: 52vh;
+  z-index: 0;
+  pointer-events: none;
+  transform: translateX(-50%);
+  perspective: 230px;
+  perspective-origin: 50% 0%;
+  opacity: .45;
+}
+.hx-floor i {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform: rotateX(74deg);
+  transform-origin: 50% 0%;
+  /* Ink hairlines, the same weight as `--line` elsewhere. Drawing the floor in
+     the accent turned the whole lower half of the hero blue for a detail the
+     eye is only meant to register as geometry. */
+  background-image:
+    linear-gradient(to right, rgb(var(--ink-rgb) / .16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--ink-rgb) / .10) 1px, transparent 1px);
+  background-size: 62px 62px;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, transparent 78%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, transparent 78%);
+}
+:root[data-theme="light"] .hx-floor { opacity: .5; }
+
+/* Grain, softened from the old hero: it is texture over a lit field now, not
+   a rescue for a flat one. */
+.hx-noise {
+  position: absolute;
+  inset: -30%;
+  width: 160%;
+  height: 160%;
   z-index: 1;
-  text-align: center;
-  max-width: 600px;
-  padding: 40px 24px;
+  pointer-events: none;
+  opacity: .16;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+:root[data-theme="light"] .hx-noise { mix-blend-mode: multiply; opacity: .10; }
+
+/* ─── content ─── */
+.hx-inner {
+  position: relative;
+  /* Above `.hx-fade` (z-index 2). The fade's job is to blur the field and the
+     floor into the next section — if the content shares its layer, the
+     backdrop-filter picks up the cards too and the bottom of the hero renders
+     as a smeared card rather than as a soft horizon. */
+  z-index: 3;
+  width: 100%;
+  max-width: 1120px;
+  padding: 88px 24px 72px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0;
+  text-align: center;
 }
-.l-hero-brand {
-  display: flex;
+
+.hx-pill,
+.hx-title,
+.hx-sub,
+.hx-actions,
+.hx-scene,
+.hx-trust {
+  opacity: 0;
+  transform: translateY(var(--stagger-distance));
+  filter: blur(var(--stagger-blur));
+  animation: hx-in var(--stagger-dur) var(--stagger-ease) both;
+}
+.hx-pill    { animation-delay: 0ms; }
+.hx-title   { animation-delay: 70ms; }
+.hx-sub     { animation-delay: 150ms; }
+.hx-actions { animation-delay: 230ms; }
+.hx-scene   { animation-delay: 310ms; }
+.hx-trust   { animation-delay: 390ms; }
+@keyframes hx-in {
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+/* ─── announcement pill ───
+   A frosted capsule with a specular sweep that crosses it every 6s. The sweep
+   is a masked gradient rather than an opacity pulse: light travelling across
+   a surface reads as material, a surface changing brightness reads as a
+   flashing div. */
+.hx-pill {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 24px;
+  gap: 9px;
+  padding: 6px 8px 6px 7px;
+  margin-bottom: 20px;
+  border-radius: var(--rfull);
+  border: 1px solid var(--line);
+  background: rgb(var(--bg-rgb) / .55);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: var(--rim), var(--e2);
+  font-size: 12.5px;
+  color: var(--ink2);
+  text-decoration: none;
+  overflow: hidden;
+  transition: var(--t-state);
 }
-.l-hero-brand img {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  box-shadow: 0 4px 14px rgb(var(--shadow-rgb) / calc(.25 * var(--shadow-a)));
-}
-.l-hero-name {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: -.01em;
+.hx-pill:hover {
+  border-color: rgb(var(--ink-rgb) / .16);
   color: var(--ink);
+  box-shadow: var(--rim), var(--e3);
 }
-.l-hero-title {
-  font-family: var(--font-display);
-  font-size: clamp(32px, 6vw, 52px);
+/* The sweep is ink, not accent: it is a specular highlight crossing a glass
+   capsule, and a coloured one reads as the capsule itself being tinted. */
+.hx-pill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    rgb(var(--ink-rgb) / .10) 50%,
+    transparent 62%
+  );
+  transform: translateX(-100%);
+  animation: hx-sweep 9s var(--ease-travel) infinite;
+}
+@keyframes hx-sweep {
+  0%, 62% { transform: translateX(-100%); }
+  92%, 100% { transform: translateX(100%); }
+}
+/* Ink, like every other piece of chrome on these pages. A blue chip here put
+   brand colour immediately above the primary button and immediately below the
+   nav's, which is three competing accents in 120px of vertical space. */
+.hx-pill-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 21px;
+  padding: 0 9px;
+  border-radius: var(--rfull);
+  background: var(--metal-sheen), var(--grad-primary);
+  color: var(--bg);
+  font-size: 10.5px;
   font-weight: 500;
-  letter-spacing: -.01em;
-  line-height: 1.08;
-  color: var(--ink);
-  margin: 0 0 16px;
+  letter-spacing: .01em;
+  box-shadow: var(--metal-shadow);
 }
-.l-hero-sub {
-  font-size: 16px;
+.hx-pill-text { padding-right: 4px; }
+.hx-pill svg { color: var(--ink3); margin-right: 4px; transition: transform var(--hover-dur) var(--hover-ease); }
+.hx-pill:hover svg { transform: translateX(2px); }
+
+/* ─── title ───
+   Considerably larger than the 60px cap it replaces. At hero size the display
+   face needs negative tracking to stop the counters opening up, and a line
+   height under 1 so the two lines read as one mass. */
+.hx-title {
+  font-family: var(--font-display);
+  font-size: clamp(38px, 6.4vw, 72px);
+  font-weight: 500;
+  letter-spacing: -.035em;
+  line-height: .98;
+  color: var(--ink);
+  margin: 0 0 18px;
+  max-width: 15ch;
+  text-wrap: balance;
+}
+/* Only the colour differs from the rest of the headline: family, size,
+   weight (500) and tracking (-.035em) are all inherited from `.hx-title`.
+   The glow lives on a `::before` duplicate blurred behind the words, so the
+   visible glyphs themselves are never rasterized into a filtered layer —
+   putting the blur on the `em` directly switches its text to greyscale
+   antialiasing and it reads thinner than the ink beside it. */
+.hx-title em {
+  position: relative;
+  font-style: normal;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  background: linear-gradient(180deg, #4F8CF7 0%, #3B82F6 45%, #2563EB 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hx-title em::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: #3b82f6;
+  filter: blur(16px);
+  opacity: .5;
+}
+.hx-sub {
+  font-size: 16.5px;
   color: var(--ink2);
   line-height: 1.6;
-  max-width: 460px;
-  margin: 0 0 32px;
+  max-width: 520px;
+  margin: 0 0 28px;
+  text-wrap: pretty;
 }
-.l-hero-actions {
+
+/* ─── actions ───
+   Both are ordinary `.btn`s at the large step (`.btn-lg`). Only the primary
+   carries the accent; the secondary is the same monochrome outline the nav
+   uses, so the two ends of the page speak with one vocabulary and there is one
+   obvious winner in the pair. */
+.hx-actions {
+  animation-delay: 300ms;
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
 }
-.l-hero-scroll {
-  position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
-  /* Above `.l-hero-fade` (z-index 1) on purpose — the cue has to stay
-     readable through the blur band it physically sits inside. */
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+
+/* ─── trust line ───
+   A plain centred sentence rather than a flex row: as a row, the text node is
+   one flex item, so at phone widths it wraps to two lines and the live dot
+   ends up vertically centred against the block instead of sitting on the
+   first line. Inline-block + `vertical-align` keeps the dot on the text
+   baseline at every width. */
+.hx-trust {
+  margin-top: 14px;
+  display: block;
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.55;
   color: var(--ink3);
-  font-size: 11px;
-  font-weight: 400;
-  animation: l-bob 2.4s ease-in-out infinite;
 }
-@keyframes l-bob {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50% { transform: translateX(-50%) translateY(6px); }
+.hx-trust b { font-weight: 500; color: var(--ink2); }
+/* Signal green, the same hue the "En vivo" badge in the scene carries. The
+   hero's rule is that colour only ever reports a STATE, and this dot reports
+   one. */
+.hx-trust-dot {
+  display: inline-block;
+  vertical-align: middle;
+  margin: -1px 7px 0 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(var(--t-grn));
+  box-shadow: 0 0 0 0 rgb(var(--t-grn) / .50);
+  animation: hx-live 2.4s ease-out infinite;
+}
+@keyframes hx-live {
+  0%   { box-shadow: 0 0 0 0 rgb(var(--t-grn) / .50); }
+  70%  { box-shadow: 0 0 0 7px rgb(var(--t-grn) / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(var(--t-grn) / 0); }
 }
 
-/* ─── progressive blur — hero → stats bar ───
-   One `backdrop-filter: blur()` with a hard mask edge still reads as a pane
-   of glass dropped onto the page. Real progressive blur is several panes,
-   each a little blurrier and masked a little lower than the last, so the
-   *rate* of blur increases toward the seam instead of switching on at one
-   line. Four steps is the usual floor for the eye to read it as continuous;
-   the final colour wash underneath is what actually closes the seam, since
-   backdrop-filter alone never fully hides what's behind it. */
-.l-hero-fade {
+/* ═══ the scene — floating records ═══
+   Four cards, each one an operation the app actually performs, caught
+   mid-motion: a counter sale being paid, a contract signing itself, the day's
+   activity accumulating, a lead crossing the funnel.
+
+   The composition is a DIAMOND and that is the whole point. The sale sits on
+   the vertical axis at the top, the activity strip on the same axis at the
+   bottom, and the document / lead pair flanks them at identical offsets with
+   mirrored rotations. The four wires that connect them mirror in the same
+   axis. A cluster arranged this way reads as one deliberate object; the
+   scattered arrangement it replaces read as four cards dropped where they fit.
+
+   `perspective` is on the stage, not on the cards — one shared vanishing
+   point is what makes the group read as one space.
+
+   Colour is ink plus a single accent, and the accent only ever marks what is
+   live *right now*: the travelling pulse and the live dot. The filled green
+   and red badges that used to sit in these cards are
+   gone — inside a mock of the product, colour that does not mean "this is
+   happening" is noise. */
+
+.hx-card {
+  position: absolute;
+  border-radius: 18px;
+  /* Hairline: a .10 ink line on glass read as a heavy outline and boxed every
+     record twice over; at .06 the edge is there without drawing itself. */
+  border: 1px solid rgb(var(--ink-rgb) / .06);
+  background: var(--bg);
+  /* One edge only: the hairline border. --rim stacked an inset highlight on
+     top of it, which read as a doubled, thicker outline on these cards. */
+  box-shadow: var(--float-2);
+  padding: 15px 16px;
+  text-align: left;
+  transform-style: preserve-3d;
+  --delay: calc(var(--cycle) * (var(--phase) - 1));
+  /* Static chrome. The cards used to bob on their own ambient float, which
+      made the cluster read as four loose widgets; only the CONTENT inside a
+      card animates now — the float, its per-card duration/delay knobs and the
+      will-change hint that served it are gone with it. */
+}
+
+/* `--phase` is the card's slice of the cycle, as a fraction; `--delay` is that
+   slice shifted ONE FULL CYCLE into the past, and every animation in the card
+   uses it.
+   
+   The negative is what stops the scene loading broken. With a positive delay,
+   an element does not exist until its phase first arrives, so a drawing that
+   starts from nothing — the signature, the sparkline — would sit blank until
+   its slot first came round, and the card looked like it had failed to render. A negative delay starts the
+   animation already part-way through its own loop, so at first paint every
+   card is sitting in its resting state, mid-cycle, exactly as it will be on
+   every loop after. The ordering between the phases is unchanged: they are all
+   shifted by the same cycle. */
+.hx-card[data-slot="sale"] {
+  --phase: 0;
+  left: 50%;
+  top: 6px;
+  width: 340px;
+  /* Off-centre left AND tilted: the cluster balances on the doc↔live
+     diagonal rather than on an axis — composed without being symmetric.
+     Tilts alternate sign across the diagonal so no two neighbours lean
+     the same way. */
+  margin-left: -200px;
+  transform: rotate(-3deg);
+  z-index: 5;
+}
+.hx-card[data-slot="doc"] {
+  --phase: .20;
+  right: 30px;
+  top: 96px;
+  width: 254px;
+  transform: rotate(2.5deg);
+  z-index: 3;
+}
+.hx-card[data-slot="live"] {
+  --phase: .40;
+  left: 50%;
+  /* Anchored from the top at a coordinate the sale card can never reach, so
+     the two axis cards cannot overlap however their content resolves. */
+  top: 198px;
+  width: 310px;
+  margin-left: -120px;
+  /* The wide strip takes the smallest tilt — long edges exaggerate angle. */
+  transform: rotate(1.25deg);
+  z-index: 6;
+}
+.hx-card[data-slot="lead"] {
+  --phase: .60;
+  left: 26px;
+  top: 196px;
+  width: 254px;
+  transform: rotate(-2deg);
+  z-index: 3;
+}
+
+/* ─── card chrome ───
+   A mono id, a hairline glyph and one outline chip. The filled gradient
+   squares this replaces were the single most templated object on the page —
+   six of them across the features grid and four more in here — and in a
+   translucent glass card a solid black tile is also the heaviest thing in the
+   frame, which put the visual weight on the decoration rather than on the
+   figure the card exists to show. */
+.hx-card-top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.hx-glyph {
+  width: 21px;
+  height: 21px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid rgb(var(--ink-rgb) / .10);
+  background: rgb(var(--ink-rgb) / .03);
+  color: var(--ink3);
+}
+.hx-card-id {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .07em;
+  color: var(--ink3);
+  font-variant-numeric: tabular-nums;
+}
+.hx-card-spacer { flex: 1; }
+.hx-card-label {
+  font-size: 10px;
+  letter-spacing: .07em;
+  color: var(--ink3);
+  margin: 0;
+}
+.hx-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -.01em;
+}
+.hx-card-meta {
+  font-size: 11.5px;
+  color: var(--ink3);
+  margin: 2px 0 0;
+}
+/* The figure and its delta share a baseline. Stacked, the delta read as a
+   caption under the number; beside it, it reads as a comparison of it. */
+.hx-figure-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 3px;
+}
+.hx-delta { flex-shrink: 0; }
+.hx-card-figure {
+  font-family: var(--font-display);
+  font-size: 29px;
+  font-weight: 500;
+  letter-spacing: -.025em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+  line-height: 1.08;
+}
+.hx-card-delta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--ink3);
+}
+.hx-card-delta b { font-weight: 500; color: var(--ink2); }
+.hx-card-delta svg { color: var(--ink2); }
+.hx-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line2);
+}
+
+/* The badges in the scene are the page's own `.landing .tag`, at the hero's
+   smaller step. One badge vocabulary across the hero, the ledger and the
+   feature grid is the whole point: a reader who sees "Pagada" in green up here
+   and the same pill on the same record forty lines down is looking at one
+   product, not at three illustrations of one. */
+.hx-card .tag { font-size: 10.5px; padding: 3px 8px 3px 7px; border-radius: 7px; gap: 4px; }
+.hx-card .tag .tag-dot { width: 5px; height: 5px; }
+
+/* A raised inner surface. The cards were a stack of hairlines on one flat
+   plane, which is a wireframe; a record sitting on its own sheet inside the
+   card is what gives the scene a second layer of depth to read. One edge
+   only — --rim stacked on the border read as a doubled outline at this
+   small size, same as the outer cards. */
+.hx-panel {
+  border-radius: 10px;
+  border: 1px solid rgb(var(--ink-rgb) / .06);
+  background: var(--bg);
+  box-shadow:
+    0 1px 2px rgb(var(--shadow-rgb) / calc(.10 * var(--shadow-a)));
+}
+
+/* ═══ the cycle ═══
+   Everything inside the scene runs on ONE timeline. Before this, each card
+   looped on its own period, so at any given moment four unrelated things were
+   moving and the section read as four widgets rather than as one system.
+
+   Now a single record walks the diamond clockwise and the cards light in the
+   order it reaches them:
+
+      0–14%  the counter sale is paid          (figure counts, line draws)
+     14–20%  ── pulse travels ──▶ (east edge)
+     20–34%  the contract signs itself         (signature draws)
+     34–40%  ── pulse travels ──▶ (south-east edge)
+     40–54%  the day's activity accumulates    (ticks sweep)
+     54–60%  ── pulse travels ──▶ (south-west edge)
+     60–74%  the lead crosses the funnel       (rail walks Nuevo→Propuesta)
+     74–80%  ── pulse travels ──▶ (north-west edge)
+     80–100% rest
+
+   Every rule below therefore shares `animation-duration: var(--cycle)` and
+   expresses its phase as keyframe percentages rather than carrying its own
+   duration and drifting out of step within a minute. `--phase` shifts a
+   shared keyframe into the slot its card owns.
+
+   The cards themselves are STATIC: only what a record *does* (the sparkline,
+   the signature, the ticks, the stepper, the pulses on the wires) runs on this
+   clock — the chrome never moves. */
+.hx-scene {
+  --cycle: 18s;
+  position: relative;
+  width: min(100%, 980px);
+  /* Tall enough that the north and south cards can NEVER meet: the sale card
+     resolves to ~164px and the activity strip to ~163px, so 198 + 163 leaves a
+     guaranteed clear channel between them regardless of font metrics. The
+     south card anchors by TOP for the same reason — bottom:0 let the two grow
+     toward each other until their shadows merged into one blob. */
+  height: 372px;
+  margin-top: 36px;
+  perspective: 1600px;
+  perspective-origin: 50% 40%;
+}
+
+/* The connector layer sits behind the cards and traces the diamond the record
+   travels. Endpoints are tucked under the cards at both ends, so the pulse
+   emerges from beneath one and disappears beneath the next — a record passing
+   *through* the cluster rather than a dot skating between two boxes. */
+.hx-wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+.hx-wire {
+  fill: none;
+  stroke: rgb(var(--ink-rgb) / .12);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 6;
+  stroke-linecap: round;
+}
+.hx-wire-pulse {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px rgb(var(--ink-rgb) / .35));
+  /* A 6-unit dash chased by a 94-unit gap: what travels is one short lit
+     segment, not a marching pattern. */
+  stroke-dasharray: 6 94;
+  opacity: 0;
+  animation: hx-pulse var(--cycle) var(--ease-travel) infinite;
+}
+.hx-wire-pulse.w1 { animation-delay: calc(var(--cycle) * -.86); }
+.hx-wire-pulse.w2 { animation-delay: calc(var(--cycle) * -.66); }
+.hx-wire-pulse.w3 { animation-delay: calc(var(--cycle) * -.46); }
+.hx-wire-pulse.w4 { animation-delay: calc(var(--cycle) * -.26); }
+/* The segment crosses in the first 6% of the cycle and is dark for the rest,
+   so the delay above is what places each edge in its own phase. It fades in
+   and out rather than appearing at full brightness — a lit dot that pops into
+   existence reads as a sprite being teleported. */
+@keyframes hx-pulse {
+  0%        { stroke-dashoffset: 100; opacity: 0; }
+  1%        { stroke-dashoffset: 88;  opacity: 1; }
+  5%        { stroke-dashoffset: 6;   opacity: 1; }
+  6%, 100%  { stroke-dashoffset: -6;  opacity: 0; }
+}
+
+/* ─── phase 1 · the sale is paid ───
+   The week is drawn, not plotted: the line writes itself across the card and
+   the head lands on today. Seven grey bars and one black one — the version
+   this replaces — is a chart; a line that arrives is an event. */
+.hx-spark {
+  position: relative;
+  height: 44px;
+  margin-top: 11px;
+}
+.hx-spark svg {
+  display: block;
+  width: 100%;
+  height: 44px;
+  overflow: visible;
+}
+.hx-spark-s0 { stop-color: rgb(var(--ink-rgb) / .13); }
+.hx-spark-s1 { stop-color: rgb(var(--ink-rgb) / 0); }
+.hx-spark-area {
+  fill: url(#hxSparkFill);
+  opacity: 0;
+  animation: hx-spark-fill var(--cycle) var(--stagger-ease) infinite;
+  animation-delay: var(--delay);
+}
+@keyframes hx-spark-fill {
+  0%, 6%    { opacity: 0; }
+  17%, 88%  { opacity: 1; }
+  96%, 100% { opacity: 0; }
+}
+/* `non-scaling-stroke` is what lets the path stretch to the card's width with
+   `preserveAspectRatio: none` without the stroke stretching with it. */
+.hx-spark-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: hx-spark-draw var(--cycle) var(--stagger-ease) infinite;
+  animation-delay: var(--delay);
+}
+/* The reset windows across this scene are deliberately short — a card whose
+   content erases itself and stays blank for three seconds reads as a loading
+   state, not as a loop. Everything holds its resolved frame for roughly the
+   whole cycle and clears only just before it redraws. */
+@keyframes hx-spark-draw {
+  0%        { stroke-dashoffset: 100; }
+  12%, 88%  { stroke-dashoffset: 0; }
+  96%, 100% { stroke-dashoffset: 100; }
+}
+.hx-spark-head {
+  position: absolute;
+  right: 0;
+  top: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink);
+  box-shadow: 0 0 0 3px rgb(var(--ink-rgb) / .12);
+  opacity: 0;
+  animation: hx-spark-head var(--cycle) var(--stagger-ease) infinite;
+  animation-delay: var(--delay);
+}
+@keyframes hx-spark-head {
+  0%, 10%   { opacity: 0; transform: translate(50%, -50%) scale(.4); }
+  14%       { opacity: 1; transform: translate(50%, -50%) scale(1.25); }
+  18%, 88%  { opacity: 1; transform: translate(50%, -50%) scale(1); }
+  96%, 100% { opacity: 0; transform: translate(50%, -50%) scale(.6); }
+}
+
+/* ─── phase 2 · the contract signs itself ───
+   The signature is written on a raised sheet with a dashed rule under it. A
+   squiggle drawn straight onto the card's own surface has nothing to be a
+   signature *on*, which is why the previous pass read as a stray line. */
+.hx-sign {
+  position: relative;
+  height: 46px;
+  margin-top: 12px;
+  padding: 6px 10px 9px;
+  display: flex;
+  align-items: center;
+  /* the sheet keeps its raise but no outline of any kind — the base
+     .hx-panel border is deliberately cancelled here */
+  border: none;
+}
+/* The name is set in Caveat, a legible handwriting face — the previous
+   `signature-animation` package drew fixed SVG glyph paths that read as
+   scrawl and could not be re-fonted. The wipe runs on the scene's shared
+   cycle, in the same slice where the signature used to draw. */
+.hx-sign-name {
+  font-family: 'Caveat', 'Segoe Script', 'Bradley Hand', cursive;
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--ink);
+  display: inline-block;
+  padding-left: 4px;
+  /* a hand never meets the rule at a perfect right angle — the slight
+     tilt is what separates "handwriting" from "font" to the eye */
+  transform: rotate(-2deg);
+  animation: hx-sign-write var(--cycle) var(--stagger-ease) infinite;
+  animation-delay: var(--delay);
+}
+@keyframes hx-sign-write {
+  0%        { clip-path: inset(-20% 100% -20% 0); }
+  13%, 90%  { clip-path: inset(-20% 0 -20% 0); }
+  97%, 100% { clip-path: inset(-20% 100% -20% 0); }
+}
+.hx-sign-rule {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, rgb(var(--ink-rgb) / .22) 0 5px, transparent 5px 10px);
+}
+.hx-card-amount {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.hx-marks { display: inline-flex; gap: 5px; }
+.hx-marks i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgb(var(--ink-rgb) / .14);
+  animation: hx-mark var(--cycle) var(--stagger-ease) infinite;
+}
+.hx-marks i:nth-child(1) { animation-delay: calc(var(--delay) + .35s); }
+.hx-marks i:nth-child(2) { animation-delay: calc(var(--delay) + 1.5s); }
+@keyframes hx-mark {
+  0%, 2%    { background: rgb(var(--ink-rgb) / .14); }
+  6%, 88%   { background: var(--ink); }
+  96%, 100% { background: rgb(var(--ink-rgb) / .14); }
+}
+
+/* ─── phase 3 · the day accumulates ───
+   Two records arriving on their own raised rows, each carrying the same badge
+   the ledger below uses. Twenty-eight grey ticks — what this replaces — is an
+   abstraction of activity; a record with a name, a timestamp and a state is
+   activity. It is also the card that proves the badge system exists, which is
+   why it sits on the vertical axis where the eye lands last and lingers.
+
+   The rows are static records, permanently on the sheet: an earlier pass
+   slid them in and out on a loop, which blanked the card for seconds at a
+   time and resized it while you read. A record that vanishes mid-read is
+   worse than one that never moved — the "live" feel comes from the pulse dot
+   and from what travels the wires, not from rows blinking. */
+.hx-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hx-feed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+}
+.hx-feed-ico {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgb(var(--ink-rgb) / .05);
+  color: var(--ink3);
+}
+.hx-feed-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.hx-feed-body b {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hx-feed-body em {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--ink3);
+  margin-top: 1px;
+}
+
+/* ─── phase 4 · the lead crosses the funnel ───
+   One rail, three nodes, three labels. The tapered stack of bands this
+   replaces showed a sequence but never showed a *thing moving through* one;
+   a fill that stops at each node does. */
+.hx-lead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 16px;
+}
+.hx-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid rgb(var(--ink-rgb) / .10);
+  background: rgb(var(--ink-rgb) / .04);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .02em;
+  color: var(--ink2);
+}
+.hx-lead-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.hx-lead-body b {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -.01em;
+}
+.hx-lead-body em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--ink3);
+  margin-top: 1px;
+}
+.hx-lead-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--ink);
+  color: var(--bg);
+  opacity: 0;
+  animation: hx-lead-check var(--cycle) var(--stagger-ease) infinite;
+  animation-delay: var(--delay);
+}
+@keyframes hx-lead-check {
+  0%, 9%    { opacity: 0; transform: scale(.4); }
+  13%       { opacity: 1; transform: scale(1.2); }
+  16%, 88%  { opacity: 1; transform: scale(1); }
+  96%, 100% { opacity: 0; transform: scale(.6); }
+}
+.hx-step {
+  position: relative;
+  height: 8px;
+  margin: 0 4px;
+}
+.hx-step-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgb(var(--ink-rgb) / .10);
+  overflow: hidden;
+}
+.hx-step-rail i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  border-radius: 2px;
+  background: var(--ink);
+  animation: hx-step-fill var(--cycle) var(--stagger-ease) infinite;
+  animation-delay: var(--delay);
+}
+/* Two travels with a rest on each node, not one continuous slide: a pipeline
+   stage is a place a record *waits*, and motion that never stops shows a
+   progress bar instead. */
+@keyframes hx-step-fill {
+  0%, 3%    { width: 0; }
+  6%, 7%    { width: 50%; }
+  10%, 88%  { width: 100%; }
+  96%, 100% { width: 0; }
+}
+.hx-step-node {
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid rgb(var(--ink-rgb) / .18);
+  animation: hx-node var(--cycle) var(--stagger-ease) infinite;
+}
+.hx-step-node.n1 { left: 0; animation-delay: var(--delay); }
+.hx-step-node.n2 { left: 50%; margin-left: -4px; animation-delay: calc(var(--delay) + 1.08s); }
+.hx-step-node.n3 { right: 0; animation-delay: calc(var(--delay) + 1.8s); }
+@keyframes hx-node {
+  0%        { border-color: rgb(var(--ink-rgb) / .18); box-shadow: 0 0 0 0 rgb(var(--ink-rgb) / 0); }
+  2%, 88%   { border-color: var(--ink); box-shadow: 0 0 0 3px rgb(var(--ink-rgb) / .07); }
+  96%, 100% { border-color: rgb(var(--ink-rgb) / .18); box-shadow: 0 0 0 0 rgb(var(--ink-rgb) / 0); }
+}
+.hx-step-labels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 9px;
+  font-size: 10px;
+  letter-spacing: .02em;
+  color: var(--ink3);
+}
+.hx-step-labels span { animation: hx-node-label var(--cycle) var(--stagger-ease) infinite; }
+.hx-step-labels span:nth-child(1) { text-align: left; animation-delay: var(--delay); }
+.hx-step-labels span:nth-child(2) { text-align: center; animation-delay: calc(var(--delay) + 1.08s); }
+.hx-step-labels span:nth-child(3) { text-align: right; animation-delay: calc(var(--delay) + 1.8s); }
+@keyframes hx-node-label {
+  0%        { color: var(--ink3); }
+  2%, 88%   { color: var(--ink2); }
+  96%, 100% { color: var(--ink3); }
+}
+
+/* ─── progressive blur into the next section ───
+   Four panes, each blurrier and masked lower than the last, so the *rate* of
+   blur increases toward the seam instead of switching on at one line. The
+   colour wash underneath is what actually closes it — backdrop-filter alone
+   never fully hides what is behind it. */
+.hx-fade {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 240px;
-  z-index: 1;
+  height: 220px;
+  z-index: 2;
   pointer-events: none;
 }
-.l-hero-fade i {
+.hx-fade i {
   position: absolute;
   inset: 0;
   display: block;
-  font-style: normal;
 }
-.l-hero-fade i:nth-child(1) {
+.hx-fade i:nth-child(1) {
   -webkit-backdrop-filter: blur(1px);
   backdrop-filter: blur(1px);
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 42%, #000 58%, transparent 74%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 42%, #000 58%, transparent 74%);
 }
-.l-hero-fade i:nth-child(2) {
+.hx-fade i:nth-child(2) {
   -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   -webkit-mask-image: linear-gradient(to bottom, transparent 24%, #000 58%, #000 72%, transparent 88%);
   mask-image: linear-gradient(to bottom, transparent 24%, #000 58%, #000 72%, transparent 88%);
 }
-.l-hero-fade i:nth-child(3) {
-  -webkit-backdrop-filter: blur(7px);
-  backdrop-filter: blur(7px);
+.hx-fade i:nth-child(3) {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   -webkit-mask-image: linear-gradient(to bottom, transparent 46%, #000 72%, #000 88%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 46%, #000 72%, #000 88%, transparent 100%);
 }
-.l-hero-fade i:nth-child(4) {
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+.hx-fade i:nth-child(4) {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
   -webkit-mask-image: linear-gradient(to bottom, transparent 66%, #000 88%, #000 100%);
   mask-image: linear-gradient(to bottom, transparent 66%, #000 88%, #000 100%);
 }
-.l-hero-fade::after {
+.hx-fade::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, transparent 55%, var(--bg) 97%);
+  background: linear-gradient(to bottom, transparent 52%, var(--bg) 96%);
 }
 
-/* ─── hero live cards ───
-   Two small "product is running" cards flanking the headline — Kigyo's own
-   take on a floating hero widget, built from the same badge/card language as
-   the rest of the page (metal icon, double border) rather than a one-off.
-   Hidden below the width where they'd collide with the centred text; motion
-   is float + crossfade, both skipped under reduced motion. */
-.l-hero-live {
-  position: absolute;
-  z-index: 1;
-  top: 50%;
-  animation: l-hero-live-float 7s ease-in-out infinite;
-}
-.l-hero-live-a { left: max(28px, calc(50% - 540px)); transform: translateY(-130%); }
-.l-hero-live-b { right: max(28px, calc(50% - 540px)); transform: translateY(30%); animation-delay: -3.5s; }
-@media (max-width: 1180px) {
-  .l-hero-live { display: none; }
-}
-@keyframes l-hero-live-float {
-  0%, 100% { margin-top: 0; }
-  50% { margin-top: -10px; }
-}
-.l-hero-live-card {
-  position: relative;
-  width: 230px;
-  height: 54px;
-  border-radius: var(--r-lg);
-  background: rgb(var(--bg-rgb) / .62);
-  border: 1px solid var(--line);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);
-  box-shadow: var(--e3);
-  overflow: hidden;
-}
-/* Concentric inset border: radius = outer radius − inset, same rule as the
-   quote/CTA card frames. */
-.l-hero-live-card::before {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border: 1px solid rgb(var(--ink-rgb) / .06);
-  border-radius: calc(var(--r-lg) - 5px);
-  pointer-events: none;
-}
-.l-hero-live-item {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  opacity: 0;
-  animation: l-hero-live-cycle 9s ease-in-out infinite;
-}
-.l-hero-live-icon {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  background: var(--metal-sheen), var(--grad-primary);
-  color: var(--bg);
-  box-shadow: var(--metal-shadow);
-}
-.l-hero-live-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  text-align: left;
-  min-width: 0;
-}
-.l-hero-live-copy b {
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.l-hero-live-copy em {
-  font-style: normal;
-  font-size: 11px;
-  color: var(--ink3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-@keyframes l-hero-live-cycle {
-  0%, 100% { opacity: 0; transform: translateY(6px); }
-  6%, 27% { opacity: 1; transform: translateY(0); }
-  33% { opacity: 0; transform: translateY(-6px); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .l-hero-live { animation: none; }
-  .l-hero-live-item {
-    animation: none;
-    opacity: 0;
+/* ─── responsive ───
+   Below 900px the cluster stops being a cluster. Cards untilt, the wires go
+   away (they connect positions that no longer exist), and the stage becomes a
+   two-up then one-up stack that scrolls with the page. */
+@media (max-width: 900px) {
+  .hx-inner { padding: 96px 20px 80px; }
+  .hx-scene {
+    height: auto;
+    perspective: none;
+    margin-top: 44px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
   }
-  .l-hero-live-item:first-child { opacity: 1; }
+  .hx-wires { display: none; }
+  .hx-card {
+    position: static;
+    width: auto !important;
+    margin: 0 !important;
+    animation: none;
+    transform: none;
+  }
+  /* The activity strip is the wide one; it spans rather than being squeezed
+     into half a column, and it reads LAST — sale → document → lead → the day
+     accumulating as the closing record. */
+  .hx-card[data-slot="live"] { grid-column: 1 / -1; order: 4; }
 }
+@media (max-width: 560px) {
+  .hx-scene { grid-template-columns: 1fr; }
+  .hx-title { max-width: none; letter-spacing: -.028em; }
+  .hx-sub { font-size: 15.5px; }
+  .hx-actions .btn { width: 100%; }
+  .hx-actions { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hx-pill, .hx-title, .hx-sub, .hx-actions, .hx-scene, .hx-trust {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  .hx-noise,
+  .hx-pill::after,
+  .hx-trust-dot,
+  .hx-wire-pulse,
+  .hx-spark-area,
+  .hx-spark-line,
+  .hx-spark-head,
+  .hx-marks i,
+  .hx-lead-check,
+  .hx-step-rail i,
+  .hx-step-node,
+  .hx-step-labels span {
+    animation: none !important;
+  }
+  /* Every scene that draws itself is left at its RESOLVED state, not its
+     initial one: the sale's week is plotted, the contract is signed, the lead
+     is at Propuesta. A reader who asked for less motion should see the outcome
+     the animation exists to deliver, not four half-finished records. */
+  .hx-spark-line,
+  .hx-sign-name {
+    clip-path: none;
+    animation: none;
+  }
+  .hx-spark-area,
+  .hx-spark-head,
+  .hx-feed-row,
+  .hx-lead-check { opacity: 1; transform: none; }
+  .hx-spark-head { transform: translate(50%, -50%); }
+  .hx-marks i { background: var(--ink); }
+  .hx-step-rail i { width: 100%; }
+  .hx-step-node { border-color: var(--ink); }
+}
+
 
 /* stats bar */
-.l-stats {
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background: var(--bg2);
-}
 .l-stats-inner {
   max-width: 1100px;
   margin: 0 auto;
@@ -5615,67 +6837,13 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   grid-template-columns: repeat(4, 1fr);
   gap: 24px;
 }
-.l-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  text-align: center;
-}
-.l-stat-val {
-  font-family: var(--font-display);
-  font-size: clamp(24px, 3vw, 32px);
-  font-weight: 500;
-  letter-spacing: -.01em;
-  color: var(--ink);
-}
 .l-stat-lab {
   font-size: 12.5px;
   color: var(--ink3);
   font-weight: 400;
 }
 
-/* how it works
-   `.l-steps` gets a faint dot-grid behind the whole row — the one place on
-   the page that hints at a system running underneath, without repeating the
-   card-level pattern used in the features grid. */
 .l-steps { position: relative; }
-.l-steps::before {
-  content: '';
-  position: absolute;
-  inset: -20px 0 0;
-  background-image: radial-gradient(circle at 1px 1px, rgb(var(--ink-rgb) / .11) 1px, transparent 0);
-  background-size: 26px 26px;
-  mask-image: radial-gradient(55% 55% at 50% 35%, #000 0%, transparent 78%);
-  -webkit-mask-image: radial-gradient(55% 55% at 50% 35%, #000 0%, transparent 78%);
-  pointer-events: none;
-  z-index: 0;
-}
-.l-steps > * { position: relative; z-index: 1; }
-.l-steps-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 32px;
-}
-.l-step {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 14px;
-  position: relative;
-  padding-top: 8px;
-}
-.l-step-num {
-  width: 46px;
-  height: 46px;
-  border-radius: var(--r);
-  background: var(--metal-sheen), var(--grad-primary);
-  color: var(--bg);
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  box-shadow: var(--metal-shadow);
-}
 .l-step-title {
   font-size: 17px;
   font-weight: 500;
@@ -5690,57 +6858,35 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   margin: 0;
 }
 
-/* testimonial
-   The dot-grid lives on the *section*, not the card — full-bleed and fading
-   outward, so it reads as ambient page texture the card floats over rather
-   than a pattern boxed inside it. `isolation: isolate` plus the pattern's
-   negative z-index is what keeps it behind the section's own (static, non-
-   positioned) children regardless of paint order. */
-.l-quote-section {
-  position: relative;
-  isolation: isolate;
-  padding-top: 24px;
-  padding-bottom: 24px;
-}
+.l-quote-section { position: relative; }
+/* ─── the field behind the client quote ───
+   Same texture language as the public page headers: one masked field carrying
+   a faint ink pattern, so the testimonial sits in the same lit band the four
+   public pages open on. The card paints after this pseudo-element in tree
+   order, so it stays above the field without a z-index fight. */
 .l-quote-section::before {
   content: '';
   position: absolute;
-  top: 0;
-  bottom: 0;
   left: 50%;
-  width: 100vw;
-  transform: translateX(-50%);
-  z-index: -1;
+  top: 50%;
+  width: min(100vw, 1100px);
+  height: 420px;
+  transform: translate(-50%, -50%);
+  z-index: 0;
   pointer-events: none;
-  background-image: radial-gradient(circle at 1px 1px, rgb(var(--ink-rgb) / .11) 1px, transparent 0);
-  background-size: 26px 26px;
-  /* A vertical fade only — no horizontal mask. The dots need to stay at full
-     strength all the way to the viewport edge, in the gutters either side of
-     the (narrower) card, or there is nothing left to see once the card's own
-     opaque fill covers the middle of the section. */
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 35%, #000 65%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 35%, #000 65%, transparent 100%);
+  background-image: repeating-radial-gradient(
+    circle at 50% 50%,
+    rgb(var(--ink-rgb) / .09) 0 1px,
+    transparent 1px 44px
+  );
+  mask-image: radial-gradient(55% 70% at 50% 50%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(55% 70% at 50% 50%, #000 0%, transparent 78%);
 }
 /* `::before` draws a second, inset border a few px inside the card's own —
    the "double border" frame, reused on `.l-cta-card` below. Concentric
    corners: an inset ring's radius is the outer radius minus the inset
    distance, not some larger arbitrary subtraction — get that wrong and the
    two borders visibly stop sharing a centre. */
-.l-quote-card {
-  position: relative;
-  isolation: isolate;
-  max-width: 720px;
-  margin: 0 auto;
-  background: var(--bg2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-2xl);
-  padding: 44px 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 20px;
-}
 .l-quote-card::before {
   content: '';
   position: absolute;
@@ -5749,12 +6895,6 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   border-radius: calc(var(--r-2xl) - 7px);
   pointer-events: none;
 }
-.l-quote-stars {
-  display: flex;
-  gap: 3px;
-  color: var(--ink);
-}
-.l-quote-stars svg { fill: var(--ink); }
 .l-quote-text {
   font-family: var(--font-display);
   font-size: 18px;
@@ -5824,61 +6964,13 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
    the same nested-rectangle look the rest of this pass borrows from. Padding
    moves onto the two zones since the card is now `overflow: hidden` (the
    media zone's pattern needs a hard edge to fade out against). */
-.l-feature {
-  padding: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: border-color .2s ease-out, box-shadow .2s ease-out;
-}
-.l-feature:hover {
-  border-color: rgb(var(--ink-rgb) / .12);
-  box-shadow: var(--e2);
-}
-.l-feature-media {
-  position: relative;
-  height: 88px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  border-bottom: 1px solid var(--line2);
-  background-color: rgb(var(--ink-rgb) / .015);
-  /* A hairline diagonal hatch, the same weight as `--line2`, faded out with a
-     mask so it reads as texture behind the icon rather than a tiled pattern
-     stopping abruptly at the card's edges. */
-  background-image: repeating-linear-gradient(
-    135deg,
-    rgb(var(--ink-rgb) / .05) 0px,
-    rgb(var(--ink-rgb) / .05) 1px,
-    transparent 1px,
-    transparent 9px
-  );
-  mask-image: radial-gradient(80% 130% at 50% 30%, #000 35%, transparent 92%);
-  -webkit-mask-image: radial-gradient(80% 130% at 50% 30%, #000 35%, transparent 92%);
-}
-.l-feature-body {
-  padding: 22px 26px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+
 /* The icon container's shadow is cast in the container's own fill colour
    (the ink channel), not a neutral black — in light mode that is a black
    badge with a black shadow under it, in dark mode a white badge glowing
    white. `--metal-sheen` + `--metal-shadow` are the same finish
    `.l-step-num`, `.l-quote-avatar` and `.btn.ink` use, so the whole page
    reads as one family of badges rather than four one-off treatments. */
-.l-feature-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: var(--metal-sheen), var(--grad-primary);
-  display: grid;
-  place-items: center;
-  color: var(--bg);
-  flex-shrink: 0;
-  box-shadow: var(--metal-shadow);
-}
 .l-feature-title {
   font-size: 16px;
   font-weight: 500;
@@ -5891,6 +6983,1049 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   color: var(--ink2);
   line-height: 1.55;
   margin: 0;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   feature cards — one live visual per module
+   ═══════════════════════════════════════════════════════════════════════
+   Six cards that each carried the same black rounded square with a different
+   glyph in it is six copies of one card. What replaces the glyph is a small
+   scene showing what that module *does*: the funnel advancing, stock draining
+   past its reorder mark, a receipt printing, the assistant scanning a
+   document, an payroll run clearing name by name, an isolation boundary
+   holding.
+
+   Every one of them is transform/opacity only and runs on a long cycle with a
+   long rest, staggered per card by `--fv-delay`, so the grid reads as
+   occasionally alive rather than as six things flashing at once. */
+
+.l-feature {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-xl);
+  transition:
+    border-color .28s var(--stagger-ease),
+    box-shadow .28s var(--stagger-ease),
+    transform .28s var(--stagger-ease);
+}
+/* The accent wash only exists on hover, and it is masked to the top of the
+   card so it reads as the media zone lighting up rather than the whole card
+   changing colour. */
+.l-feature::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(120% 70% at 50% 0%, rgb(var(--ink-rgb) / .05), transparent 62%);
+  transition: opacity .28s var(--stagger-ease);
+}
+.l-feature:hover {
+  border-color: rgb(var(--ink-rgb) / .14);
+  box-shadow: var(--float-1);
+}
+.l-feature:hover::after { opacity: 1; }
+
+.l-feature-media {
+  position: relative;
+  height: 138px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line2);
+  background-color: rgb(var(--ink-rgb) / .015);
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgb(var(--ink-rgb) / .05) 0px,
+    rgb(var(--ink-rgb) / .05) 1px,
+    transparent 1px,
+    transparent 9px
+  );
+  mask-image: radial-gradient(90% 140% at 50% 30%, #000 40%, transparent 96%);
+  -webkit-mask-image: radial-gradient(90% 140% at 50% 30%, #000 40%, transparent 96%);
+}
+
+/* The badge itself. Three places use it and only one of them floats:
+   `/about` centres it inside its media zone and `/contact` sets it inline
+   beside a line of text, so the base rule has to stay an ordinary in-flow
+   badge. The floating variant below is scoped to a DIRECT child of
+   `.l-feature`, which is the only structure that has a divider to straddle. */
+.l-feature-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--metal-sheen), var(--grad-primary);
+  display: grid;
+  place-items: center;
+  color: var(--bg);
+  flex-shrink: 0;
+  box-shadow: var(--metal-shadow);
+  transition: box-shadow .28s var(--stagger-ease), transform .28s var(--stagger-ease);
+}
+/* Half in the media zone, half in the body. That single overlap is what stops
+   the card reading as two stacked rectangles, and it is why
+   `.l-feature-body` below carries the extra top padding.
+
+   Anchored from the top rather than the bottom because the card grows
+   downward with its copy, and `bottom` would drag the badge along with it:
+   138px media height minus half the 46px badge. */
+.l-feature > .l-feature-icon {
+  position: absolute;
+  left: 24px;
+  top: 115px;
+  z-index: 2;
+}
+.l-feature:hover > .l-feature-icon {
+  box-shadow: var(--metal-shadow-hover);
+  transform: translateY(-2px);
+}
+/* Only the cards whose badge floats need room for it. `/about` reuses
+   `.l-feature` with the badge inside the media zone, so its body keeps the
+   normal top padding. */
+.l-feature-body {
+  padding: 22px 26px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.l-feature:has(> .l-feature-icon) .l-feature-body { padding-top: 36px; }
+
+/* ─── the visuals ───
+   Six scenes, each of which runs a complete beginning → middle → resolution →
+   reset inside one shared `--fv-cycle`. The version this replaces looped
+   fragments — a bar that shrank, three stripes that changed colour — with no
+   start and no end, which is what made them read as generic decoration rather
+   than as the module doing its job.
+
+   Each is offset by `--fv-delay` so six cards never resolve on the same beat,
+   and the last third of every cycle is a deliberate rest: something that is
+   always mid-motion has no moment of arrival for the eye to land on. */
+.fv {
+  --fv-cycle: 9s;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 216px;
+  height: 90px;
+  animation-delay: var(--fv-delay, 0s);
+}
+.fv * { box-sizing: border-box; }
+/* One place to state the shared clock; every child inherits the delay so a
+   card's whole scene shifts together. */
+.fv > *,
+.fv > * > * {
+  animation-duration: var(--fv-cycle);
+  animation-delay: var(--fv-delay, 0s);
+  animation-iteration-count: infinite;
+}
+
+/* ═══ CRM — a deal crosses the pipeline board ═══
+   Three columns with a card that actually moves between them, waiting in each
+   one before it goes on. The tapered funnel this replaces was three heavy
+   black wedges taking turns being filled: at 138px it read as a solid dark
+   arrow rather than as a pipeline, it was the only near-black mass in a grid
+   of hairlines, and a funnel drawn as a silhouette cannot show a *record*
+   moving — only the stage colour changing. A board can, and a board is also
+   what the module's own screen looks like. */
+.fv-pipe {
+  display: grid;
+  grid-template-columns: repeat(3, 58px);
+  /* `.fv` sets `place-items: center`, which also sets `justify-items` — and on
+      a fixed-track grid that shrink-wraps each column to its content. The
+      columns' own children are auto-width blocks, so they would measure zero.
+      Stretching the tracks is what gives each column its 58px. */
+  justify-items: stretch;
+  /* `place-items` also leaves `align-items: center` behind — and centred
+      columns of DIFFERENT heights meant columns 2 and 3 sat lower than
+      column 1 (ragged header line) while the deal card, whose hop
+      coordinates assume top-aligned stacks, landed half over its slot.
+      Top-aligning every column puts each slot exactly where the hops aim. */
+  align-items: start;
+  align-content: start;
+  gap: 12px;
+  width: 198px;
+  height: 90px;
+  /* The board is optically centred by padding rather than by `align-content`,
+     because the deal card is absolutely positioned against this box: centring
+     the tracks would move the columns out from under the coordinates the hops
+     are written in, and the card would land beside its column instead of in
+     it. 9px is (90 − 72) / 2, where 72 is the tallest column plus the slot the
+     card lands in. */
+  padding-top: 9px;
+}
+.fv-pipe-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* The column header: a short rule, not a labelled chip. At this size a label
+   is unreadable, and an unreadable label is just noise with serifs. */
+.fv-pipe-col > b {
+  display: block;
+  height: 3px;
+  width: 60%;
+  border-radius: 2px;
+  background: rgb(var(--ink-rgb) / .22);
+  margin-bottom: 3px;
+}
+.fv-pipe-col > i {
+  display: block;
+  height: 16px;
+  border-radius: 5px;
+  background: rgb(var(--ink-rgb) / .07);
+  border: 1px solid rgb(var(--ink-rgb) / .05);
+}
+/* The deal. It sits at the foot of whichever column it is in, which is why the
+   hops carry a Y as well as an X: a card that slides along a straight line
+   reads as an object on rails, one that lands at the bottom of a stack reads
+   as a record being filed. */
+.fv-pipe-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 58px;
+  height: 16px;
+  border-radius: 5px;
+  background: var(--ink);
+  box-shadow: var(--e2);
+  opacity: 0;
+  animation-name: fv-pipe-move;
+  animation-timing-function: var(--stagger-ease);
+}
+@keyframes fv-pipe-move {
+  0%, 4%    { transform: translate(0, 65px); opacity: 0; }
+  9%, 28%   { transform: translate(0, 65px); opacity: 1; background: var(--ink); }
+  35%, 54%  { transform: translate(70px, 43px); opacity: 1; background: var(--ink); }
+  62%, 84%  { transform: translate(140px, 43px); opacity: 1; background: rgb(var(--t-grn)); }
+  92%, 100% { transform: translate(140px, 43px); opacity: 0; background: rgb(var(--t-grn)); }
+}
+
+/* ═══ ERP — stock crosses its reorder point ═══
+   The bar drains, crosses the dashed mark, turns red, and only then does the
+   alert dot appear on the mark. Cause, then consequence. */
+.fv-stock {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
+  height: 90px;
+  padding-bottom: 14px;
+}
+.fv-stock i {
+  width: 18px;
+  border-radius: 3px 3px 2px 2px;
+  background: rgb(var(--ink-rgb) / .12);
+  transform-origin: bottom;
+}
+.fv-stock i:nth-child(1) { height: 52px; }
+.fv-stock i:nth-child(2) { height: 66px; }
+.fv-stock i:nth-child(3) { height: 40px; }
+.fv-stock i:nth-child(5) { height: 58px; }
+.fv-stock i:nth-child(4) {
+  height: 70px;
+  background: var(--ink);
+  animation-name: fv-drain;
+  animation-timing-function: var(--stagger-ease);
+}
+@keyframes fv-drain {
+  0%, 12%   { transform: scaleY(1); background: var(--ink); }
+  38%       { transform: scaleY(.34); background: var(--ink); }
+  46%, 84%  { transform: scaleY(.2); background: var(--sig-red); }
+  96%, 100% { transform: scaleY(1); background: var(--ink); }
+}
+.fv-stock-mark {
+  position: absolute;
+  /* Spans exactly the bars (5×18px + 4×10px gaps = 130px, centred in the
+     216px scene → x43..x173), not an arbitrary inset — a threshold line wider
+     than the thing it measures reads as scenery. */
+  left: 43px;
+  right: 43px;
+  bottom: 28px;
+  height: 1px;
+  background: repeating-linear-gradient(90deg, rgb(var(--ink-rgb) / .3) 0 4px, transparent 4px 9px);
+}
+
+/* ═══ POS — a sale is rung up, then charged ═══
+   A register with an LCD: dark strip, mono digits, and the amount PUNCHED in
+   one digit per keystroke. The typed-reveal this replaces grew the number by
+   clipping a `max-width` — digits surfaced half-cut and the whole thing read
+   as a progress bar, not as a cashier entering a price. */
+.fv-pos {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 7px;
+  width: 178px;
+  height: 90px;
+}
+.fv-pos-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  height: 22px;
+  padding: 0 2px;
+  /* No dark box behind the price: an open ruled line reads as a register
+     total on paper. The digits carry the ink; the rule carries the field. */
+  border-bottom: 1px solid rgb(var(--ink-rgb) / .16);
+  /* One clock for the WHOLE strip: the display blanks itself at the cycle's
+     end so every digit clears together — the digits themselves only ever
+     enter, they never exit one by one. */
+  animation-name: fv-pos-wipe;
+  animation-timing-function: linear;
+}
+.fv-pos-display > b {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.fv-pos-display i {
+  display: flex;
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink);
+  letter-spacing: .04em;
+  font-variant-numeric: tabular-nums;
+}
+.fv-pos-display i b {
+  opacity: 0;
+  /* Third level deep, so the shared `.fv > * > *` clock does NOT reach here:
+     without an explicit duration the animation runs at 0s and the digit
+     snaps back to its base opacity:0 and never shows. */
+  animation-duration: var(--fv-cycle);
+  animation-iteration-count: infinite;
+  animation-name: fv-pos-digit;
+  animation-timing-function: var(--stagger-ease);
+  /* Lands ~140ms AFTER its key flashes (key strikes at --d - .14s), so the
+     cause visibly precedes the effect. */
+  animation-delay: calc(var(--fv-delay, 0s) + var(--d, 0s) + .14s);
+}
+/* A digit lands like a keystroke: drops in, holds. The window is short
+   because the exit is the display's job (see fv-pos-wipe). */
+@keyframes fv-pos-digit {
+  0%       { opacity: 0; transform: translateY(4px); }
+  4%, 100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes fv-pos-wipe {
+  0%, 1%    { opacity: 0; }
+  3%, 91%   { opacity: 1; }
+  94%, 100% { opacity: 0; }
+}
+.fv-pos-keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+.fv-pos-keys i {
+  display: grid;
+  place-items: center;
+  height: 16px;
+  border-radius: 5px;
+  border: 1px solid rgb(var(--ink-rgb) / .07);
+  background: rgb(var(--ink-rgb) / .05);
+  /* A keycap reads by its lower edge: a hair of shadow under the face is what
+     separates "button" from "grey rectangle". */
+  box-shadow: inset 0 -2px 0 rgb(var(--ink-rgb) / .06);
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  line-height: 1;
+  color: var(--ink3);
+  animation-name: fv-pos-press;
+  animation-timing-function: var(--stagger-ease);
+}
+/* Six of the eight keys are struck, in the order a hand would take them rather
+   than left to right — a keypad that lights in reading order is a progress bar
+   wearing a grid. */
+.fv-pos-keys i:nth-child(1) { animation-delay: calc(var(--fv-delay, 0s) + .30s); }
+.fv-pos-keys i:nth-child(6) { animation-delay: calc(var(--fv-delay, 0s) + .66s); }
+.fv-pos-keys i:nth-child(3) { animation-delay: calc(var(--fv-delay, 0s) + 1.02s); }
+.fv-pos-keys i:nth-child(8) { animation-delay: calc(var(--fv-delay, 0s) + 1.38s); }
+.fv-pos-keys i:nth-child(2) { animation-delay: calc(var(--fv-delay, 0s) + 1.74s); }
+.fv-pos-keys i:nth-child(5) { animation-delay: calc(var(--fv-delay, 0s) + 2.10s); }
+/* The two that are never struck keep the resting fill. Giving them the
+   animation with no lit window would work too, but this is one rule instead of
+   two more delays. */
+.fv-pos-keys i:nth-child(4),
+.fv-pos-keys i:nth-child(7) { animation-name: none; }
+@keyframes fv-pos-press {
+  0%       { background: rgb(var(--ink-rgb) / .05); transform: scale(1); }
+  2%       { background: rgb(var(--ink-rgb) / .20); transform: scale(.93); }
+  7%, 100% { background: rgb(var(--ink-rgb) / .05); transform: scale(1); }
+}
+/* The charge. It is the only filled element in the scene and it only fills
+   once the amount is complete, so the sale visibly *closes* rather than the
+   card carrying a permanent black bar. */
+.fv-pos-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 17px;
+  border-radius: 5px;
+  border: 1px solid rgb(var(--ink-rgb) / .09);
+  background: rgb(var(--ink-rgb) / .04);
+  color: var(--ink3);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  animation-name: fv-pos-charge;
+  animation-timing-function: var(--stagger-ease);
+}
+.fv-pos-confirm svg {
+  width: 10px;
+  height: 10px;
+  opacity: 0;
+  animation-name: fv-pos-tick;
+  animation-timing-function: var(--stagger-ease);
+}
+@keyframes fv-pos-charge {
+  0%, 34%   { border-color: rgb(var(--ink-rgb) / .09); background: rgb(var(--ink-rgb) / .04); color: var(--ink3); }
+  42%, 84%  { border-color: transparent; background: var(--ink); color: var(--bg); }
+  92%, 100% { border-color: rgb(var(--ink-rgb) / .09); background: rgb(var(--ink-rgb) / .04); color: var(--ink3); }
+}
+@keyframes fv-pos-tick {
+  0%, 38%   { opacity: 0; transform: scale(.4); }
+  46%, 84%  { opacity: 1; transform: scale(1); }
+  92%, 100% { opacity: 0; transform: scale(.6); }
+}
+
+/* ═══ IA — the assistant answers, and shows where from ═══
+   The beam sweeps the page, one line stays lit behind it, a leader is drawn
+   from that line, and the citation lands at the end of the leader. The version
+   this replaces had the right idea and no connective tissue: the chip appeared
+   under the sheet with nothing tying it to the line it supposedly came from,
+   so it read as a label on the card rather than as a reference to a source.
+   The leader is the whole point of the scene — "responde con citas" is the
+   claim, and a citation is an *edge*, not a badge. */
+.fv-doc {
+  /* Anchoring context for the leader: without it the leader resolves against
+     the OUTER `.fv` box, which centres this scene with a 5px side offset —
+     so the leader started 5px inside the sheet, lying on its border instead
+     of leaving from it. */
+  position: relative;
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  /* Same reason as the pipeline board: `.fv`'s `place-items: center` would
+      shrink-wrap the sheet to its percentage-width children, which measure
+      zero. */
+  justify-items: stretch;
+  align-items: center;
+  width: 182px;
+  height: 90px;
+}
+.fv-doc-sheet {
+  position: relative;
+  height: 84px;
+  border-radius: 6px;
+  border: 1px solid rgb(var(--ink-rgb) / .12);
+  background: var(--bg2);
+  padding: 10px 11px;
+  display: flex;
+  flex-direction: column;
+  /* Centred so the cited third line lands on the sheet's own centre line, which
+      is where the leader and the chip sit. The leader has to be horizontal or it
+      stops reading as a pointer and starts reading as a stray hairline. */
+  justify-content: center;
+  gap: 7px;
+  overflow: hidden;
+}
+.fv-doc-sheet i { display: block; height: 4px; border-radius: 2px; background: rgb(var(--ink-rgb) / .13); }
+.fv-doc-sheet i:nth-child(1) { width: 100%; }
+.fv-doc-sheet i:nth-child(2) { width: 78%; }
+.fv-doc-sheet i:nth-child(4) { width: 56%; }
+.fv-doc-sheet i:nth-child(5) { width: 84%; }
+/* The line the answer came from. */
+.fv-doc-src {
+  width: 92%;
+  animation-name: fv-doc-cited;
+  animation-timing-function: var(--stagger-ease);
+}
+/* Neutral ink emphasis: the scan's wake darkens the row like a detected
+   region, and the ONLY colour left in the scene lives on the badge itself —
+   one amber object per scene, not three. */
+@keyframes fv-doc-cited {
+  0%, 16%   { background: rgb(var(--ink-rgb) / .13); }
+  22%, 78%  { background: rgb(var(--ink-rgb) / .32); }
+  88%, 100% { background: rgb(var(--ink-rgb) / .13); }
+}
+/* The scanner. A red laser spanning the sheet's FULL width and height —
+   the track is the size of the page and slides down inside it, so the beam
+   enters above the top edge and exits below the bottom one. White core
+   inside a red glow, the way real scan UIs draw it. */
+.fv-doc-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fv-doc-laser {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+/* Full-page track: it carries the whole beam assembly down the sheet. Third
+   level deep (`.fv` → sheet → laser) and deeper, so every animation here
+   declares its own duration — the shared `.fv > * > *` clock never reaches
+   this far and a missing duration runs at 0s, an invisible scanner. */
+.fv-doc-laser-track {
+  position: absolute;
+  inset: 0;
+  transform: translateY(-103%);
+  will-change: transform;
+  animation-name: fv-doc-beam;
+  animation-duration: var(--fv-cycle);
+  animation-iteration-count: infinite;
+  animation-timing-function: var(--ease-travel);
+}
+/* The wash the beam drags across the page. */
+.fv-doc-laser-body {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 4%,
+    rgb(var(--t-red) / .04) 40%,
+    rgb(var(--t-red) / .10) 74%,
+    rgb(var(--t-red) / .20) 96%
+  );
+}
+/* Soft red bloom riding just above the line. */
+.fv-doc-laser-glow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -7px;
+  height: 14px;
+  background: linear-gradient(to bottom, transparent, rgb(var(--t-red) / .45), transparent);
+  filter: blur(5px);
+}
+.fv-doc-laser-core-blur {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2.5px;
+  height: 5px;
+  background: linear-gradient(to bottom, transparent, rgb(var(--t-red) / .95), transparent);
+  filter: blur(1.5px);
+}
+/* White hot core: a blurred halo plus one crisp hairline. */
+.fv-doc-laser-white {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: linear-gradient(to top, rgb(255 255 255 / .9), transparent);
+  filter: blur(2px);
+  opacity: .75;
+}
+.fv-doc-laser-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  transform: translateY(50%);
+  background: rgb(var(--t-red));
+  box-shadow:
+    0 0 3px rgb(var(--t-red)),
+    0 0 10px rgb(var(--t-red) / .8),
+    0 -1px 0 rgb(255 255 255 / .65);
+}
+@keyframes fv-doc-beam {
+  0%        { transform: translateY(-103%); opacity: 0; }
+  4%        { opacity: 1; }
+  /* Full pass done by 24%: with --ease-travel's decel the beam crosses the
+     cited centre line (y45) at roughly 15%, so everything downstream fires
+     JUST after the scanner physically passed that row. */
+  24%       { transform: translateY(0); opacity: 1; }
+  29%, 100% { transform: translateY(0); opacity: 0; }
+}
+/* The leader. It starts at the cited line's own height and grows toward the
+   chip, so the chip is visibly pulled out of the document rather than placed
+   beside it. `transform-origin: left` is what makes it draw outward. */
+.fv-doc-leader {
+  position: absolute;
+  left: 74px;
+  top: 45px;
+  /* Stops short of the citation pill: the pill's tint is translucent by
+     design, so a leader running underneath showed through it as a stray
+     hairline inside the badge. */
+  width: 13px;
+  height: 1px;
+  background: rgb(var(--ink-rgb) / .45);
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation-name: fv-doc-leader;
+  animation-timing-function: var(--stagger-ease);
+}
+@keyframes fv-doc-leader {
+  0%, 19%   { transform: scaleX(0); }
+  25%, 80%  { transform: scaleX(1); }
+  86%, 100% { transform: scaleX(0); }
+}
+/* The citation badge is the ledger's own `.tag` at hero scale — tinted pill,
+   no border, one hue channel. The bordered mono chip this replaces was a
+   second, unrelated badge vocabulary inside the same grid. */
+.fv-doc-cite {
+  justify-self: end;
+  align-self: center;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -.005em;
+  white-space: nowrap;
+  color: rgb(var(--t-yel));
+  /* Opaque backing under the tint: without it anything crossing behind the
+     pill (the leader, sheet edges) shows through the translucent wash. */
+  background:
+    linear-gradient(rgb(var(--t-yel) / var(--t-tint)), rgb(var(--t-yel) / var(--t-tint))),
+    linear-gradient(var(--bg), var(--bg));
+  border-radius: 7px;
+  padding: 3px 8px;
+  opacity: 0;
+  animation-name: fv-doc-cite;
+  animation-timing-function: var(--stagger-ease);
+}
+@keyframes fv-doc-cite {
+  0%, 23%   { opacity: 0; transform: translateX(-6px); }
+  29%, 80%  { opacity: 1; transform: translateX(0); }
+  87%, 100% { opacity: 0; transform: translateX(0); }
+}
+
+/* ═══ Nómina — a payroll run clears the team, one by one ═══
+   A sweep crosses the row and each person is marked as it passes them, so the
+   checks are visibly *caused* by the run.
+
+   The avatars carry initials. Empty grey discs are the placeholder state of an
+   avatar, not an avatar — four of them in a row read as a list that failed to
+   load, which is the opposite of what a payroll card should say. Two mono
+   letters is also the fallback the app itself renders for a person with no
+   photo, so this is the product's own object rather than an illustration of
+   one.
+
+   The tick is ink, not signal green. It was the same badge as the "Pagada"
+   stamp on the POS card, which meant one colour was carrying two unrelated
+   claims — "this money arrived" and "this person is cleared" — and a colour
+   that means "generically positive" ends up meaning nothing. */
+.fv-people {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+}
+/* `--p` is the person's index; every delay in the scene is derived from it, so
+   the lift and the tick can never drift out of order. */
+.fv-person {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  animation-name: fv-person-lift;
+  animation-timing-function: var(--stagger-ease);
+  animation-delay: calc(var(--fv-delay, 0s) + var(--p) * .55s);
+}
+@keyframes fv-person-lift {
+  0%, 1%   { transform: translateY(0); }
+  4%       { transform: translateY(-3px); }
+  9%, 100% { transform: translateY(0); }
+}
+.fv-person > b {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgb(var(--ink-rgb) / .05);
+  border: 1px solid rgb(var(--ink-rgb) / .12);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: .02em;
+  color: var(--ink3);
+  animation-name: fv-person-face;
+  animation-timing-function: var(--stagger-ease);
+  animation-duration: var(--fv-cycle);
+  animation-iteration-count: infinite;
+  animation-delay: calc(var(--fv-delay, 0s) + var(--p) * .55s);
+}
+@keyframes fv-person-face {
+  0%, 1%    { color: var(--ink3); border-color: rgb(var(--ink-rgb) / .12); }
+  6%, 76%   { color: var(--ink2); border-color: rgb(var(--ink-rgb) / .22); }
+  88%, 100% { color: var(--ink3); border-color: rgb(var(--ink-rgb) / .12); }
+}
+.fv-person > s {
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid var(--bg2);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  animation-name: fv-cleared;
+  animation-duration: var(--fv-cycle);
+  animation-iteration-count: infinite;
+  animation-timing-function: var(--stagger-ease);
+  animation-delay: calc(var(--fv-delay, 0s) + var(--p) * .55s);
+}
+.fv-person > s svg { width: 9px; height: 9px; color: var(--bg); }
+@keyframes fv-cleared {
+  0%        { opacity: 0; transform: scale(.3); }
+  4%        { opacity: 1; transform: scale(1.18); }
+  8%, 76%   { opacity: 1; transform: scale(1); }
+  88%, 100% { opacity: 0; transform: scale(.6); }
+}
+/* ═══ Seguridad — the boundary between two companies holds ═══
+   Two panels and the wall between them; the wall's own flash is the beat.
+   This is the only one of the six that depicts a *refusal*, which is exactly
+   what multi-company isolation is, and it replaces a lock icon with rings
+   radiating out of it — an image that said "secure" in the most generic way
+   available. */
+.fv-vault {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  /* `.fv` sets `place-items: center`, which also sets `justify-items` — and on
+     a two-column grid that shrink-wraps each column to its content. The
+     panels' own children are percentage-width, so they measure zero and both
+     sides collapse to hairlines. Stretching the columns is what gives them
+     their half of the 190px. */
+  justify-items: stretch;
+  align-items: center;
+  gap: 26px;
+  width: 190px;
+}
+.fv-vault-side {
+  height: 58px;
+  border-radius: 9px;
+  border: 1px solid rgb(var(--ink-rgb) / .12);
+  background: rgb(var(--ink-rgb) / .04);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+}
+.fv-vault-side u {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(var(--ink-rgb) / .14);
+  text-decoration: none;
+}
+.fv-vault-side u:nth-child(1) { width: 100%; }
+.fv-vault-side u:nth-child(2) { width: 62%; }
+.fv-vault-side u:nth-child(3) { width: 80%; }
+/* The wall. Full height, dead centre, and it only lights when something hits
+   it — a barrier that glows constantly is scenery, one that glows on contact
+   is doing something. */
+.fv-vault-wall {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  bottom: -6px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: rgb(var(--ink-rgb) / .18);
+  animation-name: fv-wall;
+  animation-timing-function: var(--stagger-ease);
+}
+@keyframes fv-wall {
+  0%, 30%   { background: rgb(var(--ink-rgb) / .18); box-shadow: none; }
+  36%, 46%  { background: var(--sig-red); box-shadow: 0 0 14px rgb(239 68 68 / .7); }
+  56%, 100% { background: rgb(var(--ink-rgb) / .18); box-shadow: none; }
+}
+/* The request dot is gone — the wall's own flash carries the beat. */
+
+
+/* ═══ stats bar ═══
+   The figures now sit on their own tinted band with an accent hairline on top,
+   so the strip reads as a deliberate divider between the hero and the ledger
+   rather than as a row that happened to land there. */
+.l-stats {
+  position: relative;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg2);
+}
+/* A hairline that fades out at both ends — a full-bleed accent rule would cut
+   the page in half. */
+.l-stats::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--ink-rgb) / .22), transparent);
+}
+.l-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  position: relative;
+}
+.l-stat-val {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 500;
+  letter-spacing: -.02em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.l-stat + .l-stat::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 12%;
+  bottom: 12%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--line), transparent);
+}
+@media (max-width: 760px) {
+  .l-stat + .l-stat::before { display: none; }
+}
+
+/* ═══ steps ═══
+   The three steps are one sequence, so they are drawn as one: a rail behind
+   the badges with a lit segment travelling it, and numbered badges that read
+   01/02/03 rather than three unrelated icons. */
+.l-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  position: relative;
+}
+.l-steps-rail {
+  position: absolute;
+  top: 31px;
+  /* Badges sit at the grid's outer edges (step 1 left, step 3 right), so the
+     rail runs from the first badge's centre to the last badge's centre —
+     46px / 2 = 23px — and never overshoots past the final badge. */
+  left: 23px;
+  right: 23px;
+  height: 2px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(90deg, rgb(var(--ink-rgb) / .16) 0 5px, transparent 5px 11px);
+  overflow: hidden;
+}
+.l-steps-rail::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 22%;
+  border-radius: 1px;
+  background: linear-gradient(90deg, transparent, var(--ink), transparent);
+  opacity: 0;
+  animation: l-rail-run 5.2s var(--ease-travel) infinite;
+}
+/* Same reasoning as the hero wires: eased travel, and it fades rather than
+   entering and leaving the rail at full strength. The long tail at the end is
+   a deliberate rest — a sweep with no pause reads as a loading bar. */
+@keyframes l-rail-run {
+  0%        { transform: translateX(-110%); opacity: 0; }
+  12%       { opacity: 1; }
+  58%       { opacity: 1; }
+  72%       { transform: translateX(560%); opacity: 0; }
+  100%      { transform: translateX(560%); opacity: 0; }
+}
+@media (max-width: 900px) {
+  .l-steps-rail { display: none; }
+}
+.l-step {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding-top: 8px;
+}
+/* The sequence reads left → centre → right along the rail: the first badge
+   opens the line, the middle one sits at its midpoint, and the last closes it
+   at the far edge, so the rail never runs past an unanchored end. */
+.l-steps-grid .l-step:nth-child(3) {
+  align-items: center;
+  text-align: center;
+}
+.l-steps-grid .l-step:nth-child(4) {
+  align-items: flex-end;
+  text-align: right;
+}
+.l-step-num {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--r);
+  background: var(--metal-sheen), var(--grad-primary);
+  color: var(--bg);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: var(--metal-shadow);
+}
+/* The ordinal rides the badge's corner so the icon inside keeps its whole
+   face — a number and a glyph fighting for the same 46px reads as neither. */
+.l-step-num b {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--ink2);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--rfull);
+  padding: 1px 6px;
+}
+
+/* ═══ testimonial ═══ */
+.l-quote-card {
+  position: relative;
+  isolation: isolate;
+  max-width: 720px;
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-2xl);
+  padding: 44px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+  background: var(--bg2);
+  box-shadow: var(--float-1);
+}
+/* The stars keep their colour: a five-star rating rendered in grey reads as
+   five disabled stars. This is signal, not brand. */
+.l-quote-stars {
+  display: flex;
+  gap: 3px;
+  color: var(--sig-amb);
+}
+.l-quote-stars svg {
+  fill: var(--sig-amb);
+}
+
+/* ═══ closing CTA ═══
+   The card gets an accent bloom behind it — the only place on the page other
+   than the hero where the light is that strong, which is what makes the two
+   ends of the scroll answer each other. */
+.l-cta::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  width: min(120%, 900px);
+  height: 460px;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(50% 50% at 50% 50%, rgb(255 255 255 / .05), transparent 72%);
+  filter: blur(30px);
+}
+:root[data-theme="light"] .l-cta::before {
+  background: radial-gradient(50% 50% at 50% 50%, rgb(255 255 255 / .8), transparent 72%);
+}
+
+
+/* ═══ ledger ═══
+   The badges carry real signal colour here. Everywhere else in this file the
+   semantic tokens resolve to grey, because inside the app a coloured badge
+   competes with the data next to it. On a marketing page the badge IS the
+   data, and a preview that renders "Pagada" and "Riesgo alto" in the same
+   grey is a worse preview than one that tells them apart at a glance. */
+.landing .l-ledger { box-shadow: var(--float-1); }
+.landing .l-row-state.b-grn { color: var(--sig-grn); background: rgb(34 197 94 / .09);  border-color: rgb(34 197 94 / .26); }
+.landing .l-row-state.b-amb { color: var(--sig-amb); background: rgb(245 158 11 / .09); border-color: rgb(245 158 11 / .26); }
+.landing .l-row-state.b-red { color: var(--sig-red); background: rgb(239 68 68 / .09);  border-color: rgb(239 68 68 / .26); }
+.landing .l-row-state.b-neu { color: var(--ink2);    background: rgb(var(--ink-rgb) / .05); border-color: rgb(var(--ink-rgb) / .12); }
+.landing .l-row-state.b-grn .bd,
+.landing .l-row-state.b-amb .bd,
+.landing .l-row-state.b-red .bd,
+.landing .l-row-state.b-neu .bd { background: currentColor; }
+/* The one row that is actually urgent breathes, exactly as it does in the app. */
+.landing .l-row-state.b-red .bd { animation: hx-blink 1.6s ease-in-out infinite; }
+.landing .l-row { transition: background-color var(--hover-dur) var(--hover-ease); }
+.landing .l-row:hover { background: rgb(var(--ink-rgb) / .03); }
+
+
+/* ═══ eyebrow ═══ */
+/* ═══ section eyebrow ═══
+   Set in mono: the same typographic register the product uses for record
+   identifiers, so the marketing page and the app read as one system rather
+   than two. Drawn as a capsule so it reads as a label rather than as a stray
+   line of small text floating above the heading.
+
+   This file briefly carried two `.l-eyebrow` blocks — this one and a bare-text
+   one below the reveal rules. The later block won on `display`, `color` and
+   `margin` while silently inheriting the capsule's background, border and
+   padding from here, so neither design was actually on screen. One selector,
+   one block. */
+.l-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink2);
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--rfull);
+  padding: 4px 12px;
+  margin-bottom: 16px;
+}
+.l-eyebrow::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgb(var(--ink-rgb) / .35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fv > *,
+  .fv > * > *,
+  .fv-person > s,
+  .l-steps-rail::after {
+    animation: none !important;
+  }
+  /* Each scene is parked on its RESOLVED frame — the state the cycle ends on —
+     rather than on its blank first frame, so a reader who asked for less
+     motion still sees what the module does rather than an empty card. */
+  .fv-doc-scan { display: none; }
+  .fv-pipe-card { opacity: 1; transform: translate(140px, 43px); background: rgb(var(--t-grn)); }
+  .fv-stock i:nth-child(4) { transform: scaleY(.2); background: var(--sig-red); }
+  /* The full amount sits on the LCD; no wipe, no per-digit entrance. */
+  .fv-pos-display,
+  .fv-pos-display i b { animation: none !important; opacity: 1; transform: none; }
+  .fv-pos-confirm { border-color: transparent; background: var(--ink); color: var(--bg); }
+  .fv-pos-confirm svg { opacity: 1; transform: none; }
+  .fv-doc-src { background: rgb(var(--ink-rgb) / .32); }
+  .fv-doc-leader { transform: scaleX(1); }
+  .fv-doc-cite { opacity: 1; transform: none; }
+  .fv-person, .fv-person > b { transform: none; }
+  .fv-person > s { opacity: 1; transform: none; }
 }
 
 /* ─── scroll reveal ───
@@ -5933,19 +8068,6 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   .js-reveal [data-reveal] {
     opacity: 1; transform: none; filter: none; transition: none !important;
   }
-}
-
-/* ─── section eyebrow ───
-   Set in mono: the same typographic register the product uses for record
-   identifiers, so the marketing page and the app read as one system rather
-   than two. */
-.l-eyebrow {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--ink3);
-  margin-bottom: 14px;
 }
 
 /* ─── operations ledger ───
@@ -6048,32 +8170,14 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   .l-row-id, .l-row-age { display: none }
 }
 
-/* cta
-   The dot-grid moved off the card and onto the section itself — full-bleed,
-   fading outward from behind the card — the same ambient-texture treatment
-   as `.l-quote-section`. The card keeps only the double border. */
 .l-cta {
-  position: relative;
   isolation: isolate;
-  padding-top: 32px;
+  position: relative;
+  padding-top: 48px;
   padding-bottom: 80px;
 }
-.l-cta::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 100vw;
-  transform: translateX(-50%);
-  z-index: -1;
-  pointer-events: none;
-  background-image: radial-gradient(circle at 1px 1px, rgb(var(--ink-rgb) / .11) 1px, transparent 0);
-  background-size: 24px 24px;
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 90%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 90%, transparent 100%);
-}
 .l-cta-card {
+  box-shadow: var(--float-2);
   position: relative;
   background: var(--bg2);
   border: 1px solid var(--line);
@@ -6176,9 +8280,6 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   .l-cta-card {
     padding: 36px 24px;
   }
-  .l-hero-content {
-    padding: 32px 20px;
-  }
   .l-stats-inner {
     grid-template-columns: repeat(2, 1fr);
     padding: 32px 20px;
@@ -6187,6 +8288,12 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   .l-steps-grid {
     grid-template-columns: 1fr;
     gap: 28px;
+  }
+  /* Single column: no rail, so every step returns to the left edge. */
+  .l-steps-grid .l-step:nth-child(3),
+  .l-steps-grid .l-step:nth-child(4) {
+    align-items: flex-start;
+    text-align: left;
   }
   .l-quote-card {
     padding: 32px 24px;

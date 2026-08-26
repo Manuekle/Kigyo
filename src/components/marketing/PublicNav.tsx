@@ -208,9 +208,10 @@ export default function PublicNav() {
             <Link href="/login" className="btn">
               Iniciar sesión
             </Link>
-            {/* `ink`, not `pri`: the blue fill is the in-app action colour.
-                The public pages are monochrome, so the nav CTA uses the same
-                high-contrast fill as the auth screens. */}
+            {/* `pri`, not `ink`: on the marketing pages the accent is spent
+                on the primary action and almost nothing else, and the sign-up
+                is that action. Everything decorative here — badges, avatars,
+                eyebrows — stays ink. */}
             <Link href="/register" className="btn ink">
               Comenzar
             </Link>

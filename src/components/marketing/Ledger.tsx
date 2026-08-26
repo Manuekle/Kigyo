@@ -1,3 +1,13 @@
+import type { ReactNode } from 'react'
+import {
+  CheckCircle,
+  Send,
+  AlertTriangle,
+  Clock,
+  FileText,
+  Zap,
+} from '@/lib/icons'
+
 /**
  * The one section that shows what Kigyo actually holds.
  *
@@ -8,6 +18,16 @@
  *
  * Sample records, matching the app's demo data. Presented as an interface
  * preview, which is what it is — no claim is made about real customers.
+ *
+ * `tone` names a `.tag` variant rather than a colour, so a status can never
+ * end up with an icon in one hue and a tint in another.
+ *
+ * No tone in this table is in the blue family. Blue is the one hue a reader
+ * will take for brand colour rather than for a state, and a status palette
+ * whose loudest member also means "us" stops being a status palette. "Abierto"
+ * is deliberately the neutral variant: a lead that is merely open has not had
+ * anything happen to it yet, and giving that a colour is how a badge system
+ * ends up with six equally loud pills and no hierarchy.
  */
 
 const RECORDS = [
@@ -18,7 +38,8 @@ const RECORDS = [
     age: '2',
     unit: 'ventas esta mañana',
     state: 'Pagada',
-    tone: 'grn',
+    tone: 'is-green',
+    icon: <CheckCircle size={13} />,
   },
   {
     id: 'COT-0142',
@@ -27,7 +48,8 @@ const RECORDS = [
     age: '3',
     unit: 'días sin respuesta',
     state: 'Enviada',
-    tone: 'amb',
+    tone: 'is-pink',
+    icon: <Send size={13} />,
   },
   {
     id: 'STK-031',
@@ -36,7 +58,8 @@ const RECORDS = [
     age: '6',
     unit: 'unidades restantes',
     state: 'Alerta',
-    tone: 'red',
+    tone: 'is-red',
+    icon: <AlertTriangle size={13} />,
   },
   {
     id: 'R-01',
@@ -45,7 +68,8 @@ const RECORDS = [
     age: '8',
     unit: 'días restantes',
     state: 'Riesgo alto',
-    tone: 'amb',
+    tone: 'is-orange',
+    icon: <Zap size={13} />,
   },
   {
     id: 'DOC-3201',
@@ -54,7 +78,8 @@ const RECORDS = [
     age: '2',
     unit: 'días para firmar',
     state: 'Pendiente',
-    tone: 'amb',
+    tone: 'is-yellow',
+    icon: <Clock size={13} />,
   },
   {
     id: 'LEAD-1287',
@@ -63,9 +88,19 @@ const RECORDS = [
     age: '4',
     unit: 'días en embudo',
     state: 'Abierto',
-    tone: 'neu',
+    tone: 'is-muted',
+    icon: <FileText size={13} />,
   },
-] as const
+] as const satisfies readonly {
+  id: string
+  what: string
+  who: string
+  age: string
+  unit: string
+  state: string
+  tone: string
+  icon: ReactNode
+}[]
 
 export default function Ledger() {
   return (
@@ -103,8 +138,8 @@ export default function Ledger() {
                 <span>{record.unit}</span>
               </span>
 
-              <span className={`badge b-${record.tone} l-row-state`}>
-                <span className="bd" aria-hidden="true" />
+              <span className={`tag ${record.tone} l-row-state`}>
+                {record.icon}
                 {record.state}
               </span>
             </li>

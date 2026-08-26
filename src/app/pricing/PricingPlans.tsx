@@ -10,56 +10,41 @@ import PopNumber from '@/components/ui/PopNumber'
 import TextSwap from '@/components/ui/TextSwap'
 import { Check } from '@/lib/icons'
 import { PLANS } from '@/lib/plans'
-import { modulesByGroup } from '@/lib/modules'
 import { CYCLES, PRICING, trialDaysFor, type Cycle } from '@/lib/pricing'
 
 /**
- * What each tier costs lives in `@/lib/pricing`, shared with the in-dashboard
- * plan switcher so the two screens cannot quote different numbers. What each
- * tier *includes* is `@/lib/plans`, which is also what the product enforces.
- *
- * These two used to be separate prose. The page promised Starter customers
- * "empleados, asistencia y documentos" while the app let them switch on all
- * nineteen modules, and later promised Enterprise "tienda virtual y catálogos"
- * that Growth could reach anyway. A pricing page that describes a restriction
- * nobody implements is not a description, it is a wish.
- *
- * Deriving the feature list from the same catalogue the gate reads means a
- * module moved between tiers changes this page in the same commit, with no
- * second edit to forget.
- */
-
-/**
- * The headline features for a tier: the seat allowance, then the modules this
- * tier adds over the one below it, grouped so the line reads as a sentence
- * rather than as a list of twenty-four nouns.
- *
- * Naming only the *difference* is what makes the ladder legible. Listing every
- * module in Growth would bury the six that are the actual reason to leave
- * Starter.
+ * Four lines a buyer can scan. Seats and companies come from `PLANS` so the
+ * card cannot drift from the gate; the pitch is the difference that makes
+ * someone leave the tier below, not a dump of every module name.
  */
 function featuresFor(index: number): string[] {
   const plan = PLANS[index]
   const below = index > 0 ? PLANS[index - 1] : null
-  const inherited = new Set(below?.modules ?? [])
-  const added = plan.modules.filter((key) => !inherited.has(key))
-
   const seats = plan.seats === null
     ? 'Colaboradores ilimitados'
     : `Hasta ${plan.seats} colaboradores`
+  const companies = plan.maxCompanies === null
+    ? 'Empresas ilimitadas'
+    : plan.maxCompanies === 1
+      ? '1 empresa'
+      : `Hasta ${plan.maxCompanies} empresas`
 
-  const byGroup = modulesByGroup()
-    .map(({ group, modules }) => {
-      const names = modules.filter((m) => added.includes(m.key)).map((m) => m.label)
-      return names.length > 0 ? `${group}: ${names.join(', ')}` : null
-    })
-    .filter((line): line is string => line !== null)
-
+  if (index === 0) {
+    return [seats, companies, 'Personas, clientes y documentos', ...PRICING.starter.extras]
+  }
+  if (index === 1) {
+    return [
+      `Todo lo de ${below!.label}`,
+      `${seats} · ${companies}`,
+      'Operación, ventas y módulos de sector',
+      PRICING.growth.extras[0],
+    ]
+  }
   return [
-    seats,
-    ...(below ? [`Todo lo de ${below.label}`] : []),
-    ...byGroup,
-    ...PRICING[plan.key].extras,
+    `Todo lo de ${below!.label}`,
+    companies,
+    'Tienda, ecommerce y trazabilidad',
+    PRICING.enterprise.extras[0],
   ]
 }
 
@@ -93,7 +78,7 @@ export default function PricingPlans() {
                 {/* The suffix is a word, not a figure, so it swaps rather than
                     popping character by character next to the number. */}
                 <span className="pricing-period">
-                  <TextSwap>{annual ? '/año' : '/mes'}</TextSwap>
+                  <TextSwap>{annual ? 'USD/año' : 'USD/mes'}</TextSwap>
                 </span>
               </div>
               <p className="pricing-desc">{plan.description}</p>

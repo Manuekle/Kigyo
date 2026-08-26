@@ -1,165 +1,70 @@
 'use client'
 
-import { useMemo } from 'react'
-import { useRouter } from 'next/navigation'
-import Ferrofluid from '@/components/ui/Ferrofluid'
-import BeamButton from '@/components/ui/BeamButton'
-import TiltCard from '@/components/ui/TiltCard'
-import { useTheme } from '@/lib/context/ThemeContext'
+import Link from 'next/link'
 import PublicPageShell from '@/components/marketing/PublicPageShell'
 import PublicCta from '@/components/marketing/PublicCta'
 import Ledger from '@/components/marketing/Ledger'
+import HeroScene from '@/components/marketing/HeroScene'
+import FeatureCards from '@/components/marketing/FeatureCards'
+import PricingPlans from '@/app/pricing/PricingPlans'
 import {
   ArrowRight,
-  Users,
-  Shield,
-  Sparkles,
   LayoutDashboard,
-  Calendar,
   UserPlus,
-  Package,
-  DollarSign,
   TrendingUp,
   Star,
-  CheckCircle,
-  FileSignature,
 } from '@/lib/icons'
 
-/**
- * The two floating cards beside the headline — Kigyo's answer to the "one
- * card mid-hero" pattern. Each cycles its own three one-line events on a
- * CSS-only crossfade (see `l-live-cycle` in globals.css), so the pair reads
- * as several modules working at once rather than one scripted demo. Content
- * mirrors `Ledger`'s vocabulary (same record shape, same tone) so it feels
- * like a glimpse of the real product rather than marketing filler — which is
- * also why it's `aria-hidden`: nothing here is a real, timestamped event.
- */
-const HERO_LIVE_A = [
-  { icon: CheckCircle, title: 'Venta registrada', meta: 'Café El Bosque · hace 2 min' },
-  { icon: TrendingUp, title: 'Lead calificado', meta: 'Flota comercial · Juan Pérez' },
-  { icon: DollarSign, title: 'Pago confirmado', meta: 'Wompi · $128.400' },
-] as const
-
-const HERO_LIVE_B = [
-  { icon: FileSignature, title: 'Documento firmado', meta: 'Contrato laboral · Sebastián' },
-  { icon: Package, title: 'Stock actualizado', meta: 'Grano 1kg reabastecido' },
-  { icon: Calendar, title: 'Turno asignado', meta: 'Equipo de mostrador' },
-] as const
-
-/**
- * The hero fluid is drawn as light and composited with `screen` on dark, where
- * white lifts off the near-black page. On a white page `screen` is a no-op —
- * so light mode draws it dark and composites with `multiply` instead.
- */
-const FERRO_COLORS = {
-  dark: ['#ffffff', '#f5f5f5', '#ebebeb'],
-  light: ['#1c1c1e', '#2a2a2e', '#3a3a40'],
-} as const
-
 export default function LandingPage() {
-  const router = useRouter()
-  const { theme } = useTheme()
-  const colors = useMemo(() => [...FERRO_COLORS[theme]], [theme])
-
   return (
     <PublicPageShell>
-      {/* ─── Hero ─── */}
-      <section className="l-hero">
-        <div className="l-ferro">
-          <Ferrofluid
-            colors={colors}
-            speed={0.4}
-            scale={1.8}
-            turbulence={0.8}
-            fluidity={0.08}
-            rimWidth={0.18}
-            sharpness={2.8}
-            shimmer={1.2}
-            glow={1.8}
-            flowDirection="down"
-            opacity={0.85}
-            mouseInteraction
-            mouseStrength={0.8}
-            mouseRadius={0.3}
-            mouseDampening={0.12}
-            mixBlendMode={theme === 'dark' ? 'screen' : 'multiply'}
-          />
-        </div>
+      {/* ═══ hero ═══
+          Three stacked layers — a lit field, a perspective floor and the
+          floating record cluster — rather than the flat background image this
+          replaces. All three are decorative, so all three are hidden from the
+          accessibility tree; the section's meaning is the heading, the
+          paragraph and the two links. */}
+      <section className="hx">
+        <div className="hx-field" aria-hidden="true" />
+        <div className="hx-floor" aria-hidden="true"><i /></div>
+        <div className="hx-noise" aria-hidden="true" />
 
-        <div className="l-hero-live l-hero-live-a" aria-hidden="true">
-          <div className="l-hero-live-card">
-            {HERO_LIVE_A.map((item, i) => (
-              <span className="l-hero-live-item" key={item.title} style={{ animationDelay: `${i * -3}s` }}>
-                <span className="l-hero-live-icon"><item.icon size={13} /></span>
-                <span className="l-hero-live-copy">
-                  <b>{item.title}</b>
-                  <em>{item.meta}</em>
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="l-hero-live l-hero-live-b" aria-hidden="true">
-          <div className="l-hero-live-card">
-            {HERO_LIVE_B.map((item, i) => (
-              <span className="l-hero-live-item" key={item.title} style={{ animationDuration: '9.6s', animationDelay: `${i * -3.2}s` }}>
-                <span className="l-hero-live-icon"><item.icon size={13} /></span>
-                <span className="l-hero-live-copy">
-                  <b>{item.title}</b>
-                  <em>{item.meta}</em>
-                </span>
-              </span>
-            ))}
-          </div>
-        </div>
+        <div className="hx-inner">
+          <Link href="/#features" className="hx-pill">
+            <span className="hx-pill-tag">Nuevo</span>
+            <span className="hx-pill-text">
+              El asistente responde con citas a tus documentos
+            </span>
+            <ArrowRight size={13} />
+          </Link>
 
-        <div className="l-hero-content">
-          <h1 className="l-hero-title">
-            CRM, ERP y Punto de Venta en un solo lugar
-          </h1>
-          <p className="l-hero-sub">
+          <h1 className="hx-title">El sistema operativo de <em data-text="tu negocio">tu negocio</em></h1>
+
+          <p className="hx-sub">
             Clientes, inventario, ventas, documentos y personas en una
             plataforma que se adapta al sector de tu empresa. Con IA integrada
             y más de 60 módulos activables.
           </p>
-          <div className="l-hero-actions">
-            {/* The ring is drawn on layers behind the child, so the button
-                keeps owning its own layout and text. 22px is half the 44px
-                hero control — the pill's real corner. */}
-            <BeamButton borderRadius={22}>
-              <button
-                type="button"
-                className="btn ink"
-                style={{ height: 44, fontSize: 14, fontWeight: 400, padding: '0 24px' }}
-                onClick={() => router.push('/login')}
-              >
-                Iniciar sesión
-                <ArrowRight size={16} />
-              </button>
-            </BeamButton>
-            <button
-              type="button"
-              className="btn"
-              style={{ height: 44, fontSize: 14, fontWeight: 400, padding: '0 24px' }}
-              onClick={() => {
-                document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
-              }}
-            >
-              Conocer más
-            </button>
+
+          <div className="hx-actions">
+            <Link href="/register" className="btn ink btn-lg">
+              Comenzar gratis
+              <ArrowRight size={16} />
+            </Link>
+            <Link href="/login" className="btn btn-lg">
+              Iniciar sesión
+            </Link>
           </div>
-        </div>
-        <div className="l-hero-scroll">
-          <span>Descubre más</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 5v14M5 12l7 7 7-7" />
-          </svg>
+
+          <p className="hx-trust">
+            <span className="hx-trust-dot" aria-hidden="true" />
+            <b>+60 módulos</b> activables · Sin implementación · Multi-empresa
+          </p>
+
+          <HeroScene />
         </div>
 
-        {/* Progressive blur: the fluid softens in graduated steps rather than
-            cutting hard into the stats bar below — see `.l-hero-fade` in
-            globals.css for why this takes four stacked layers instead of one. */}
-        <div className="l-hero-fade" aria-hidden="true">
+        <div className="hx-fade" aria-hidden="true">
           <i />
           <i />
           <i />
@@ -205,97 +110,7 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="l-features-grid">
-          <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-media">
-              <div className="l-feature-icon">
-                <Users size={22} />
-              </div>
-            </div>
-            <div className="l-feature-body">
-              <h3 className="l-feature-title">CRM — clientes y ventas</h3>
-              <p className="l-feature-desc">
-                Leads, embudo, cotizaciones y cartera. Todo el ciclo comercial
-                de tu negocio en un solo lugar.
-              </p>
-            </div>
-          </TiltCard>
-
-          <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-media">
-              <div className="l-feature-icon">
-                <Package size={22} />
-              </div>
-            </div>
-            <div className="l-feature-body">
-              <h3 className="l-feature-title">ERP — inventario y compras</h3>
-              <p className="l-feature-desc">
-                Productos, stock, compras a proveedores y contabilidad.
-                Control total de la operación interna.
-              </p>
-            </div>
-          </TiltCard>
-
-          <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-media">
-              <div className="l-feature-icon">
-                <DollarSign size={22} />
-              </div>
-            </div>
-            <div className="l-feature-body">
-              <h3 className="l-feature-title">POS — punto de venta</h3>
-              <p className="l-feature-desc">
-                Caja, ventas y pagos con Wompi. Emite y cobra sin salir de la
-                plataforma, en línea o en mostrador.
-              </p>
-            </div>
-          </TiltCard>
-
-          <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-media">
-              <div className="l-feature-icon">
-                <Sparkles size={22} />
-              </div>
-            </div>
-            <div className="l-feature-body">
-              <h3 className="l-feature-title">Documentos con IA</h3>
-              <p className="l-feature-desc">
-                Firma electrónica con trazabilidad y un asistente que responde
-                con citas a tus propios documentos.
-              </p>
-            </div>
-          </TiltCard>
-
-          <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-media">
-              <div className="l-feature-icon">
-                <Calendar size={22} />
-              </div>
-            </div>
-            <div className="l-feature-body">
-              <h3 className="l-feature-title">Personas y nómina</h3>
-              <p className="l-feature-desc">
-                Empleados, asistencia, vacaciones y nómina. La gestión del
-                equipo, integrada a la operación.
-              </p>
-            </div>
-          </TiltCard>
-
-          <TiltCard className="card l-feature" data-reveal>
-            <div className="l-feature-media">
-              <div className="l-feature-icon">
-                <Shield size={22} />
-              </div>
-            </div>
-            <div className="l-feature-body">
-              <h3 className="l-feature-title">Seguridad multi-empresa</h3>
-              <p className="l-feature-desc">
-                Cada empresa con sus datos aislados y su propio plan.
-                Cumplimiento por diseño, no por parche.
-              </p>
-            </div>
-          </TiltCard>
-        </div>
+        <FeatureCards />
       </section>
 
       {/* ─── How it works ─── */}
@@ -310,9 +125,15 @@ export default function LandingPage() {
         </div>
 
         <div className="l-steps-grid">
+          {/* The rail runs behind all three badges, so it belongs to the grid
+              rather than to any one step. Decorative: the order is already
+              carried by the ordinals and by the DOM. */}
+          <div className="l-steps-rail" aria-hidden="true" />
+
           <div className="l-step" data-reveal>
             <div className="l-step-num">
               <UserPlus size={20} />
+              <b>01</b>
             </div>
             <h3 className="l-step-title">Crea tu empresa</h3>
             <p className="l-step-desc">
@@ -324,6 +145,7 @@ export default function LandingPage() {
           <div className="l-step" data-reveal>
             <div className="l-step-num">
               <LayoutDashboard size={20} />
+              <b>02</b>
             </div>
             <h3 className="l-step-title">Elige tu sector</h3>
             <p className="l-step-desc">
@@ -335,6 +157,7 @@ export default function LandingPage() {
           <div className="l-step" data-reveal>
             <div className="l-step-num">
               <TrendingUp size={20} />
+              <b>03</b>
             </div>
             <h3 className="l-step-title">Opera y crece</h3>
             <p className="l-step-desc">
@@ -368,6 +191,20 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* ─── Pricing ─── */}
+      <section className="l-section">
+        <div className="l-section-head" data-reveal>
+          <span className="l-eyebrow">Precios</span>
+          <h2 className="l-section-title">Un plan para cada etapa de tu equipo</h2>
+          <p className="l-section-sub">
+            Sin permanencia: cancelas cuando quieras y tus datos siguen siendo
+            tuyos. Activas solo los módulos que tu empresa usa.
+          </p>
+        </div>
+
+        <PricingPlans />
       </section>
 
       <PublicCta
