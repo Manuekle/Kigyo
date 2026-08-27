@@ -6,6 +6,7 @@ import { Search, ArrowRight, Settings } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
 import { searchDirectory, type DirectoryHit } from '@/server/mutations/empleados'
 import { navFor, META, ROUTE_MAP } from '@/lib/data/nav'
+import { SUITES, suitesOf } from '@/lib/modules/registry'
 import { navIcon } from '@/lib/data/nav-icons'
 import { useApp } from '@/lib/context/AppContext'
 import { useMember } from '@/lib/context/MemberContext'
@@ -135,8 +136,23 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
     .slice(0, q ? 5 : 3)
     .map((e) => ({ kind: 'emp', id: e.id, name: e.fullName, role: e.position, dept: e.department }))
 
+  /**
+   * «CRM», «POS» y «ERP» buscan por segmento, no por nombre.
+   *
+   * Son las tres palabras con las que se vende el producto y con las que un
+   * cliente llega —el asistente le preguntó por ellas y el rail las lleva
+   * encima—, y sin esto la única de las tres que encontraba algo era «POS»,
+   * por «Punto de venta», y encontraba sólo esa pantalla. Ahora teclear ERP
+   * ofrece las pantallas del back office.
+   */
+  const suiteQuery = SUITES.find((s) => s.label.toLowerCase() === q.trim().toLowerCase())
+
   const pageResults: Result[] = pages
-    .filter((p) => !q || p.label.toLowerCase().includes(q.toLowerCase()))
+    .filter((p) => {
+      if (!q) return true
+      if (suiteQuery) return suitesOf(p.key).includes(suiteQuery.key)
+      return p.label.toLowerCase().includes(q.toLowerCase())
+    })
     .slice(0, q ? 6 : 8)
     .map((p) => ({ kind: 'page', key: p.key, label: p.label, icon: p.icon }))
 

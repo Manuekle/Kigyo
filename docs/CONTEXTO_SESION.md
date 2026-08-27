@@ -26,7 +26,7 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 349/349 · tsc 0 · build verde · e2e 11/11 (`workers: 1` obligatorio).
+- vitest 349/349 · tsc 0 · build verde · e2e 13/13 (`workers: 1` obligatorio).
 - **lint: 17 errores + 42 avisos, TODOS en `src/components/extend/*`** (visores
   de `@extend-ai` sin trackear) y en los dos archivos que los usan
   (`DocumentPreview.tsx`, `documentos/client.tsx`). Ninguno en código propio.
@@ -1706,16 +1706,44 @@ devuelve los 25 —ningún módulo huérfano— y la lente sobrevive la recarga.
 activa, comprueba invariantes que valen para cualquiera y se salta solo si la
 empresa usa un único segmento. No gasta cupo del plan ni deja residuo.
 
-**Verificado:** tsc 0 · vitest 349/349 (10 nuevas) · build verde · e2e 11/11 ·
+**Verificado:** tsc 0 · vitest 349/349 (10 nuevas) · build verde · e2e 13/13 ·
 lint en la línea base de siempre (17 errores y 42 avisos, todos en
 `src/components/extend/*` y los dos archivos que los usan).
 
+#### Segunda pasada: que los tres nombres lleguen a todas partes
+
+La primera pasada dejó el segmento en el asistente, el rail, Configuración y las
+landings. Faltaba la coherencia, que es lo que convierte una función en una
+forma de trabajar:
+
+- **El panel obedece la lente.** Con «POS» puesto, el rail enseñaba mostrador y
+  el panel seguía contando «Leads en embudo» y «Riesgos altos» — el rail
+  diciendo una cosa y los números otra. `DashboardKpi` gana `module` para las
+  dos casillas cuyo nombre no es su módulo (`ventas` es de `pos`, `ocupacion`
+  de `hoteleria`; derivarlo del nombre acertaría en diez de doce y fallaría en
+  esas dos). Lo que la lente esconde **se dice**, con el camino de vuelta en la
+  propia nota: «Estás viendo POS. 2 indicadores de las otras partes están
+  ocultos. Ver todo».
+- **El ⌘K entiende los tres nombres como segmentos.** Antes, de las tres
+  palabras con las que se vende el producto, la única que encontraba algo era
+  «POS» —por «Punto de venta»— y encontraba sólo esa pantalla. Ahora teclear
+  ERP ofrece las pantallas del back office.
+- **El asistente deja puesta la lente.** Quien contestó «sólo mostrador» abre su
+  rail en POS: `seedNavLens` escribe la preferencia de esa empresa antes de que
+  su rail exista. Con dos o tres partes marcadas no se pone lente, porque
+  «Todo» es exactamente eso.
+
+**Gotcha de e2e que costó media hora:** el esqueleto de carga dibuja casillas en
+`.gkpi`, así que contarlas antes de que llegue el contenido mide el placeholder
+—siete donde había tres— y la prueba concluyó que la lente escondía cosas que no
+escondía. La prueba espera ahora a `networkidle` y a que la reja sea visible.
+
 #### Dos cosas que quedan anotadas y no se tocaron
 
-- **La lente filtra navegación, no datos.** El dashboard sigue mostrando sus KPI
-  completos con una lente puesta. Hacer que los siga es una decisión de producto
-  —los KPI se renderizan en el servidor y la lente vive en `localStorage`— y no
-  una corrección.
+- **La lente llega al panel y no más allá.** Filtra la fila de indicadores, no
+  las tablas ni los paneles de abajo (firmas pendientes, actividad, la gráfica):
+  esos ya se gobiernan por módulo encendido, que es una regla de la empresa y no
+  una vista de una persona.
 - **`Toggle` añade la clase `is-init` y no existe ni una regla que la use** en
   `globals.css`. Su comentario dice que arma los keyframes en el primer cambio;
   no hay keyframes. Código muerto sin efecto visible.

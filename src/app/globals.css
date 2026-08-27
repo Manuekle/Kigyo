@@ -703,6 +703,22 @@
 /* The filter over the nav. Sits between the company switcher and the list so
    it reads as a control on the list, not as a global search — it never leaves
    the sidebar. */
+/* La nota bajo los indicadores cuando la lente esconde alguno. Discreta: es
+   una explicación, no un aviso — nada ha fallado. */
+.dash-lens-note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--ink3);
+}
+.dash-lens-clear {
+  font: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: var(--t-state);
+}
+.dash-lens-clear:hover { color: var(--ink2); }
+
 /* Las tres partes del producto como vista del rail: CRM · POS · ERP.
 
    Pastillas y no un desplegable porque el estado tiene que verse sin abrir

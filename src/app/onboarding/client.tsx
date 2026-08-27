@@ -17,6 +17,7 @@ import {
 import { focusProposal, proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
 import { isSelfServePlan, lowestPlanWith, PLANS, planFor, planModules, type PlanKey } from '@/lib/plans'
 import { CYCLES, PRICING, trialDaysFor, type Cycle } from '@/lib/pricing'
+import { seedNavLens } from '@/lib/data/nav-prefs'
 import { createSite } from '@/server/mutations/sites'
 import { inviteMember } from '@/server/mutations/settings'
 import { startPolarCheckout } from '@/server/mutations/billing'
@@ -162,6 +163,8 @@ const SUITE_ICON: Record<Suite, typeof Handshake> = {
 }
 
 interface Props {
+  /** Para dejar puesta la lente del rail de esta empresa al terminar. */
+  orgId: string
   companyName: string
   sector: string | null
   catalogue: SectorCatalogue
@@ -173,7 +176,7 @@ interface Props {
 }
 
 export default function Client({
-  companyName, sector, catalogue, plan, accountActive, roles, sites,
+  orgId, companyName, sector, catalogue, plan, accountActive, roles, sites,
 }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -418,6 +421,10 @@ export default function Client({
 
   function done() {
     run(finishCompanySetup, () => {
+      // Quien eligió una sola parte abre el rail por esa parte: contestó la
+      // pregunta hace tres pantallas y no tiene por qué repetirla. Con dos o
+      // tres marcadas no hay lente que poner — «Todo» es justamente eso.
+      if (focus.length === 1) seedNavLens(orgId, focus[0])
       router.push('/dashboard')
       router.refresh()
     })

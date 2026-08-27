@@ -24,6 +24,15 @@ import type { Member } from '@/lib/auth/session'
 
 export interface DashboardKpi {
   key: string
+  /**
+   * El módulo del que habla esta casilla, cuando no es su propia `key`.
+   *
+   * Diez de las doce se llaman como su módulo; «ventas» es de `pos` y
+   * «ocupación» es de `hoteleria`. El panel lo necesita para saber a qué
+   * segmento pertenece cada número cuando hay una lente puesta, y derivarlo del
+   * nombre acertaría en diez y fallaría justo en las dos que no coinciden.
+   */
+  module?: string
   label: string
   value: string
   sub: string
@@ -292,7 +301,7 @@ export async function getDashboard(): Promise<DashboardData> {
     // looks at first.
     const hoy = ventasHoyRows.reduce((sum, s) => sum + s.total_cents, 0)
     kpis.push({
-      key: 'ventas', label: 'Ventas de hoy', tone: 'grn',
+      key: 'ventas', module: 'pos', label: 'Ventas de hoy', tone: 'grn',
       value: cop(Math.round(hoy / 100)),
       sub: ventasHoyRows.length === 0 ? 'aún sin ventas' : `${ventasHoyRows.length} ${ventasHoyRows.length === 1 ? 'venta' : 'ventas'}`,
       // The formatted value is never the string '0', so `isEmpty` cannot read
@@ -340,7 +349,7 @@ export async function getDashboard(): Promise<DashboardData> {
         .map((r) => r.room_id),
     ).size
     kpis.push({
-      key: 'ocupacion', label: 'Ocupación de hoy', tone: 'blu',
+      key: 'ocupacion', module: 'hoteleria', label: 'Ocupación de hoy', tone: 'blu',
       value: `${Math.round((ocupadas / habCount) * 100)}%`,
       sub: `${ocupadas} de ${habCount} ${habCount === 1 ? 'habitación' : 'habitaciones'}`,
       zero: ocupadas === 0,

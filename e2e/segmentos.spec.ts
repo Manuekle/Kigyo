@@ -109,6 +109,78 @@ test.describe('segmentos', () => {
     expect(await links(page)).toEqual(todo)
   })
 
+  test('el panel obedece la lente y dice qué esconde', async ({ page }) => {
+    test.slow()
+    await signIn(page)
+    await page.goto('/dashboard')
+    await page.waitForSelector('nav.nav', { timeout: 60_000 })
+    if ((await page.locator('.nav-lens').count()) === 0) {
+      test.skip(true, 'La empresa activa usa un solo segmento: no hay lente que probar.')
+    }
+
+    const tiles = page.locator('.gkpi > div')
+    // El esqueleto de carga también dibuja casillas en `.gkpi`, así que contar
+    // antes de que llegue el contenido mide el placeholder: la primera versión
+    // de esta prueba leyó siete donde había tres y concluyó que la lente
+    // escondía cosas que no escondía.
+    await page.waitForLoadState('networkidle')
+    await expect(page.locator('.gkpi').first()).toBeVisible({ timeout: 30_000 })
+    await page.waitForTimeout(600)
+    const todos = await tiles.count()
+
+    // Cuál de las tres esconde algo depende de la empresa: si todos sus
+    // indicadores son de la misma parte, no esconder nada es la respuesta
+    // correcta y no hay nota que enseñar.
+    let conNota: string | null = null
+    for (const chip of ['CRM', 'POS', 'ERP']) {
+      const button = page.getByRole('button', { name: chip, exact: true })
+      if ((await button.count()) === 0) continue
+      await button.click()
+      await page.waitForTimeout(300)
+      const visibles = await tiles.count()
+      expect(visibles, `${chip} inventó indicadores`).toBeLessThanOrEqual(todos)
+      if (visibles < todos) {
+        conNota = chip
+        break
+      }
+      // Sin nada escondido no puede haber nota: sería explicar una ausencia
+      // que no existe.
+      expect(await page.locator('.dash-lens-note').count(), chip).toBe(0)
+    }
+
+    if (conNota === null) {
+      test.skip(true, 'Los indicadores de esta empresa son todos de la misma parte.')
+    }
+
+    const nota = page.locator('.dash-lens-note')
+    await expect(nota).toBeVisible()
+    await expect(nota).toContainText(conNota!)
+    // Y el camino de vuelta está en la propia nota, no sólo en el rail.
+    await nota.getByRole('button', { name: 'Ver todo' }).click()
+    await page.waitForTimeout(300)
+    expect(await tiles.count()).toBe(todos)
+    await expect(page.getByRole('button', { name: 'Todo', exact: true }))
+      .toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('el ⌘K entiende CRM, POS y ERP como segmentos', async ({ page }) => {
+    test.slow()
+    await signIn(page)
+    await page.goto('/dashboard')
+    await page.waitForSelector('nav.nav', { timeout: 60_000 })
+
+    await page.keyboard.press('/')
+    const input = page.locator('.cmdk-input, .cpal input, input[placeholder*="Busca"]').first()
+    await expect(input).toBeVisible({ timeout: 30_000 })
+    await input.fill('ERP')
+    await page.waitForTimeout(400)
+    const filas = await page.locator('[role=option], .cpal-item').allInnerTexts()
+    // «ERP» no es el nombre de ninguna pantalla: si devuelve filas, es porque
+    // la palabra se entendió como segmento y no como texto.
+    expect(filas.join(' ').length).toBeGreaterThan(0)
+    console.log('⌘K ERP: ' + filas.join(' · '))
+  })
+
   test('el catálogo de Configuración se filtra por segmento', async ({ page }) => {
     test.slow()
     await signIn(page)

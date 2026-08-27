@@ -42,6 +42,7 @@ export default async function Page() {
 
   return (
     <Client
+      orgId={member.orgId}
       companyName={member.orgName}
       sector={member.companyType}
       catalogue={catalogue}

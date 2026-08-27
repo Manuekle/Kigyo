@@ -99,3 +99,27 @@ export function saveNavPrefs(next: NavPrefs): void {
   }
   emit()
 }
+
+/**
+ * Deja puesta la lente de una empresa antes de que su rail exista.
+ *
+ * Lo usa el final del asistente: quien contestó «sólo mostrador» en el paso de
+ * enfoque no debería tener que volver a decirlo en el rail treinta segundos
+ * después. Escribe directamente la clave de esa empresa —no la del store, que
+ * en el asistente todavía apunta a ninguna— y conserva lo que hubiera guardado,
+ * que en una empresa recién creada es nada y en una reconfigurada puede ser
+ * secciones plegadas y fijados.
+ */
+export function seedNavLens(orgId: string, lens: Suite): void {
+  try {
+    const current = read(orgId)
+    const next: NavPrefs = { ...current, lens }
+    window.localStorage.setItem(storageKey(orgId), JSON.stringify(next))
+    if (currentOrg === orgId) {
+      prefs = next
+      emit()
+    }
+  } catch {
+    /* best-effort, igual que `saveNavPrefs`: sin almacenamiento el rail abre en «Todo». */
+  }
+}

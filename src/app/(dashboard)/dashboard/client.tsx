@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, type ComponentType } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ComponentType } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Users, FileCheck2, ShieldCheck, ShieldAlert, Sparkles, ChevronRight,
@@ -17,6 +17,10 @@ import { apiFetch, errorMessage } from '@/lib/api/client'
 import PopNumber from '@/components/ui/PopNumber'
 import PrimerosPasos from '@/components/ui/PrimerosPasos'
 import type { DashboardData } from '@/server/queries/dashboard'
+import { suiteDef, suitesOf } from '@/lib/modules/registry'
+import {
+  navPrefsServerSnapshot, navPrefsSnapshot, saveNavPrefs, subscribeNavPrefs,
+} from '@/lib/data/nav-prefs'
 
 /* ------------------------------------------------------------------ */
 /*  AI insights                                                        */
@@ -110,6 +114,31 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
   /** Whether this company runs the assistant and this person may use it. */
   const canUseAI = member.can('ia:use')
 
+  /**
+   * La lente del rail, aplicada también a los indicadores.
+   *
+   * Sin esto el panel contradice al rail: alguien que eligió «POS» ve un rail
+   * de mostrador y encima «Leads en embudo» y «Riesgos altos», que es
+   * exactamente la mezcla que la lente existe para quitar de en medio.
+   *
+   * Mismo almacén que el rail (`nav-prefs`, por empresa y por dispositivo) y
+   * leído igual, con `useSyncExternalStore`: el servidor no tiene
+   * `localStorage`, así que el primer fotograma enseña todo y la lente llega un
+   * cuadro después — sobre una fila de casillas ya en pantalla, eso no se ve.
+   */
+  const prefs = useSyncExternalStore(subscribeNavPrefs, navPrefsSnapshot, navPrefsServerSnapshot)
+  const lens = prefs.lens
+  const kpis = useMemo(() => {
+    if (!lens) return data.kpis
+    return data.kpis.filter((kpi) => {
+      const suites = suitesOf(kpi.module ?? kpi.key)
+      // Una casilla cuyo módulo no reconoce el registro se queda: esconder un
+      // número por no saber clasificarlo es peor que enseñarlo de más.
+      return suites.length === 0 || suites.includes(lens)
+    })
+  }, [data.kpis, lens])
+  const ocultos = data.kpis.length - kpis.length
+
   const [shown, setShown] = useState(false)
   const [insights, setInsights] = useState<{ title: string; desc: string; tone: string }[]>([])
   const [loadingInsights, setLoadingInsights] = useState(false)
@@ -197,9 +226,9 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
 
       {/* KPIs. Only the modules this member can actually open contribute one,
           so the row shrinks rather than showing zeros for things they cannot see. */}
-      {data.kpis.length > 0 && (
+      {kpis.length > 0 && (
         <div className="gkpi">
-          {data.kpis.map((kpi, i) => (
+          {kpis.map((kpi, i) => (
             <div className={`rise d${Math.min(i + 1, 6)}`} key={kpi.key}>
               <Kpi
                 ico={KPI_ICO[kpi.key] ?? ShieldCheck}
@@ -211,6 +240,20 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Lo que la lente deja fuera se dice, no se calla: una fila de casillas
+          más corta sin explicación se lee como un panel al que le faltan
+          números. El camino de vuelta va aquí mismo. */}
+      {lens && ocultos > 0 && (
+        <p className="dash-lens-note">
+          Estás viendo {suiteDef(lens)?.label ?? lens}.{' '}
+          {ocultos} {ocultos === 1 ? 'indicador' : 'indicadores'} de las otras partes
+          {ocultos === 1 ? ' está oculto' : ' están ocultos'}.{' '}
+          <button className="dash-lens-clear" onClick={() => saveNavPrefs({ ...prefs, lens: null })}>
+            Ver todo
+          </button>
+        </p>
       )}
 
       <div className="g2" style={{ marginTop: 16 }}>
