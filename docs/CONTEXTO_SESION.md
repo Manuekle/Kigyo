@@ -26,7 +26,7 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 351/351 · tsc 0 · build verde · e2e 14/14 (`workers: 1` obligatorio).
+- vitest 352/352 · tsc 0 · build verde · e2e 14/14 (`workers: 1` obligatorio).
 - **lint: 17 errores + 42 avisos, TODOS en `src/components/extend/*`** (visores
   de `@extend-ai` sin trackear) y en los dos archivos que los usan
   (`DocumentPreview.tsx`, `documentos/client.tsx`). Ninguno en código propio.
@@ -1811,6 +1811,25 @@ está el interruptor en vez de dárselo.
 - **Tercera clase muerta de la jornada:** `.access-denied-actions` la usaba ya
   el rechazo por plan y no existía ni una regla de CSS para ella — los dos
   botones caían pegados y sin centrar. Ahora la usan los tres y está estilada.
+
+#### Las 62 pantallas, no las 17
+
+Segunda vuelta del recorrido, esta vez el panel entero: **62/62 en 200, un `h1`
+por pantalla, ni un «Algo salió mal», y cero errores de consola propios** (el
+único 429 lo provocó esta misma sesión repitiendo logins).
+
+Lo que sí apareció es drift de nombres: cuatro pantallas se llamaban distinto en
+el rail y en su propio encabezado — «Tienda virtual» contra «Tienda Virtual»,
+«Propiedad horizontal» contra «Propiedad Horizontal», «Asistente de IA» contra
+«Asistente IA», y un alias que decía «Órdenes Compra», sin la preposición.
+Nadie decide eso: son dos campos del mismo objeto escritos con meses de
+diferencia.
+
+Corregidos, y pineado con la regla exacta: **un título que se diferencia de su
+etiqueta sólo en las mayúsculas es drift.** No «título igual a etiqueta» —hay
+diferencias queridas, como «Inmobiliario» en el rail e «Inmuebles» en la
+pantalla— porque esa versión obligaría a mantener una lista de excepciones que
+crece sola. Comprobado que falla al restaurar una de las cuatro.
 
 #### Gotcha nuevo de e2e
 

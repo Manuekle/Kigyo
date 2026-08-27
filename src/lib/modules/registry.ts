@@ -480,8 +480,8 @@ export const REGISTRY: readonly ModuleEntry[] = [
     subtitle: 'Solicitudes de compra, aprobaciones y órdenes en un solo lugar.',
     aliases: [
       {
-        key: 'ordenes-compra', label: 'Órdenes Compra', icon: 'FileCheck2',
-        route: '/dashboard/ordenes-compra', title: 'Órdenes de Compra',
+        key: 'ordenes-compra', label: 'Órdenes de compra', icon: 'FileCheck2',
+        route: '/dashboard/ordenes-compra', title: 'Órdenes de compra',
         subtitle: 'Órdenes de compra generadas desde requisiciones aprobadas.',
       },
       {
@@ -540,7 +540,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     actions: ['read', 'write'],
     shortLabel: 'Tienda',
     permissionNoun: 'tienda',
-    title: 'Tienda Virtual',
+    title: 'Tienda virtual',
     subtitle: 'Catálogo de productos, precios y carrito virtual.',
   },
   {
@@ -653,7 +653,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     route: '/dashboard/ia',
     actions: ['use'],
     permissionLabels: { use: 'Usar el asistente de IA' },
-    title: 'Asistente IA',
+    title: 'Asistente de IA',
     subtitle: 'Chat inteligente con acceso a los datos de tu organización.',
   },
   {
@@ -900,7 +900,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
       read: 'Ver propiedad horizontal',
       write: 'Gestionar propiedad horizontal',
     },
-    title: 'Propiedad Horizontal',
+    title: 'Propiedad horizontal',
     subtitle: 'Asambleas, cuotas por unidad y zonas comunes del edificio.',
   },
   {

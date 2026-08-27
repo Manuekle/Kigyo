@@ -160,6 +160,37 @@ describe('the registry is the only list', () => {
     }
   })
 
+  /**
+   * Un encabezado que sólo se diferencia del rail en las mayúsculas es drift.
+   *
+   * Encontrado recorriendo las 62 pantallas: el rail decía «Tienda virtual» y
+   * la pantalla «Tienda Virtual»; «Propiedad horizontal» contra «Propiedad
+   * Horizontal»; «Asistente de IA» contra «Asistente IA». Nadie decide eso —
+   * son dos campos del mismo objeto escritos con meses de diferencia.
+   *
+   * La regla es exactamente ésa y no «título igual a etiqueta»: hay
+   * diferencias queridas —el rail dice «Inmobiliario» y la pantalla
+   * «Inmuebles», porque el módulo se llama por el sector y la pantalla por lo
+   * que enseña— y un test que las prohibiera obligaría a mantener una lista de
+   * excepciones que crece sola. Mismas palabras con otras mayúsculas no es una
+   * decisión de nadie.
+   */
+  it('el encabezado no discrepa del rail sólo en mayúsculas', () => {
+    const entradas = [
+      ...REGISTRY.map((m) => ({ key: m.key, label: m.label, title: m.title })),
+      ...REGISTRY.flatMap((m) =>
+        (m.aliases ?? []).map((a) => ({ key: a.key, label: a.label, title: a.title })),
+      ),
+    ]
+    for (const e of entradas) {
+      if (e.label === e.title) continue
+      expect(
+        e.label.toLowerCase(),
+        `${e.key}: el rail dice «${e.label}» y la pantalla «${e.title}»`,
+      ).not.toBe(e.title.toLowerCase())
+    }
+  })
+
   it('declares at least one action per module', () => {
     for (const m of REGISTRY) {
       expect(m.actions.length, `${m.key} defines no action`).toBeGreaterThan(0)
