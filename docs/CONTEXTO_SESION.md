@@ -34,10 +34,10 @@ Account    public.accounts          — plan, billing, límites
 - Remota: migraciones 1–110 aplicadas. Tipos regenerados (203 tablas) tras mig 106.
   Las 109 y 110 no añaden tablas ni columnas, así que no hace falta regenerar.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
-- Jornada del 26 **sin commitear**: ~110 archivos tocados. Nuevos:
-  `PageHeader.tsx`, `PageSkeleton.tsx`, `nav-icons.tsx`, `nav-prefs.ts`,
-  `src/app/(mostrador)/`, `src/app/soluciones/`, 19 `loading.tsx` que faltaban y
-  las migraciones 109 y 110 (ambas ya aplicadas a la remota).
+- Jornada del 26 en `main` (`8b83d10`, 149 archivos). Nuevos: `PageHeader.tsx`,
+  `PageSkeleton.tsx`, `nav-icons.tsx`, `nav-prefs.ts`, `src/app/(mostrador)/`,
+  `src/app/soluciones/`, 19 `loading.tsx` que faltaban y las migraciones 109 y
+  110 (ambas aplicadas a la remota y comprobadas por psql).
 - 0 residuos E2E en remota.
 
 ## 3. Historia — todo lo hecho
