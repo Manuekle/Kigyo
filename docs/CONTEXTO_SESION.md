@@ -1757,7 +1757,8 @@ en dos niveles:
   una vista de una persona.
 - **`Toggle` añade la clase `is-init` y no existe ni una regla que la use** en
   `globals.css`. Su comentario dice que arma los keyframes en el primer cambio;
-  no hay keyframes. Código muerto sin efecto visible.
+  no hay keyframes. Código muerto sin efecto visible — la hermana de
+  `.access-denied-actions`, que sí se arregló porque tres pantallas la usan.
 
 #### La empresa no sabía dónde queda (migración 111)
 
@@ -1781,6 +1782,35 @@ como ciudad. Eso sí era código, y es lo único de los cuatro que lo era.
   cuatro campos son ahora editables donde ya se edita el nombre.
 - `e2e/empresa.spec.ts` lo prueba y restaura **exactamente** lo que encontró,
   vacíos incluidos.
+
+#### Auditoría de navegación de las 17 pantallas de los tres segmentos
+
+Recorrido pantalla por pantalla con la cuenta demo —clientes, leads,
+cotizaciones, pedidos, marketing, portal, pos, caja, catálogos, facturación,
+cartera, compras, inventario, contabilidad, empleados, reportes, documentos—
+midiendo estado HTTP, `h1`, vacíos, acciones disponibles y consola.
+
+**Resultado limpio en lo que podía romperse:** 17/17 en 200, un `h1` por
+pantalla, **cero errores de consola**, y las nueve apagadas mostrando su
+rechazo por módulo en vez de un error.
+
+**Y un callejón sin salida que llevaba ahí desde siempre.** La pantalla de
+«módulo no está activo» decía «Una persona administradora puede activarlo en
+Configuración → Módulos» y ofrecía un único botón: «Volver al dashboard». Quien
+lee esa frase es, casi siempre, esa misma persona administradora — el rail dice
+«Administrador» y el módulo lo apaga esa misma cuenta. Se le explicaba dónde
+está el interruptor en vez de dárselo.
+
+- Los dos rechazos que tienen arreglo —módulo apagado y permiso de rol— miran
+  ahora `configuracion:manage` y, a quien lo tiene, le dan el enlace directo:
+  «Activar en Configuración» y «Abrir Roles y permisos». A quien no lo tiene,
+  el texto de siempre: a quién pedírselo, que es lo único que puede hacer.
+- Para que ese enlace aterrice donde dice, Configuración acepta `?tab=`. Las
+  pestañas se fijan por tipo (`TabId`), así que añadir una y olvidarse de la
+  lista no compila.
+- **Tercera clase muerta de la jornada:** `.access-denied-actions` la usaba ya
+  el rechazo por plan y no existía ni una regla de CSS para ella — los dos
+  botones caían pegados y sin centrar. Ahora la usan los tres y está estilada.
 
 #### Gotcha nuevo de e2e
 

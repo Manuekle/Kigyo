@@ -32,6 +32,14 @@ export default async function RequirePermission({
 
   const moduleKey = moduleOf(permission)
   const def = MODULES.find((m) => m.key === moduleKey)
+  /**
+   * Si quien mira puede arreglarlo por sí mismo.
+   *
+   * Es `configuracion:manage`, la misma clave que gobierna la pantalla a la que
+   * apunta el enlace y la misma que `app.is_org_admin` pregunta en la base — no
+   * el nombre de un rol, que desde la migración 24 no significa nada.
+   */
+  const puedeAdministrar = can(member.permissions, 'configuracion:manage')
 
   // Checked before the enabled-modules gate, and worded for the only person
   // who can act on it. A locked module is not "switched off" — no toggle in
@@ -79,15 +87,33 @@ export default async function RequirePermission({
         <h2 className="access-denied-title">
           {def ? `${def.label} no está activo` : 'Este módulo no está activo'}
         </h2>
+        {/*
+          Dos textos, porque son dos personas.
+
+          Quien puede encenderlo casi siempre es quien está leyendo esto —el
+          rail dice «Administrador» y el módulo lo apaga esa misma cuenta—, y a
+          esa persona no se le explica dónde queda el interruptor: se le da.
+          A quien no puede, se le dice a quién pedírselo, que es lo único que
+          puede hacer con la información.
+        */}
         <p className="access-denied-body">
           {def?.description
             ? `${def.description} Tu organización no lo tiene activado.`
             : 'Tu organización no tiene este módulo activado.'}{' '}
-          Una persona administradora puede activarlo en Configuración → Módulos.
+          {puedeAdministrar
+            ? 'Puedes activarlo ahora en Configuración → Módulos.'
+            : 'Una persona administradora puede activarlo en Configuración → Módulos.'}
         </p>
-        <Link className="btn pri" href="/dashboard">
-          Volver al dashboard
-        </Link>
+        <div className="access-denied-actions">
+          {puedeAdministrar && (
+            <Link className="btn pri" href="/dashboard/configuracion?tab=modulos">
+              Activar en Configuración
+            </Link>
+          )}
+          <Link className={puedeAdministrar ? 'btn' : 'btn pri'} href="/dashboard">
+            Volver al dashboard
+          </Link>
+        </div>
       </div>
     )
   }
@@ -99,12 +125,21 @@ export default async function RequirePermission({
       <ShieldAlert size={28} aria-hidden="true" />
       <h2 className="access-denied-title">No tienes acceso a esta sección</h2>
       <p className="access-denied-body">
-        Tu rol no incluye el permiso <b>{PERMISSION_LABELS[permission]}</b>. Pide a una persona
-        administradora de tu organización que te lo asigne desde Configuración.
+        Tu rol no incluye el permiso <b>{PERMISSION_LABELS[permission]}</b>.{' '}
+        {puedeAdministrar
+          ? 'Puedes asignártelo en Configuración → Roles y permisos.'
+          : 'Pide a una persona administradora de tu organización que te lo asigne desde Configuración.'}
       </p>
-      <Link className="btn pri" href="/dashboard">
-        Volver al dashboard
-      </Link>
+      <div className="access-denied-actions">
+        {puedeAdministrar && (
+          <Link className="btn pri" href="/dashboard/configuracion?tab=roles">
+            Abrir Roles y permisos
+          </Link>
+        )}
+        <Link className={puedeAdministrar ? 'btn' : 'btn pri'} href="/dashboard">
+          Volver al dashboard
+        </Link>
+      </div>
     </div>
   )
 }

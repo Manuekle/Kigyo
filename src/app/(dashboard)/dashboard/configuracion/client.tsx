@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useOptimistic, useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Users, Bell, Lock, Building2, Shield, Check, Upload, PenLine, Ticket,
@@ -120,6 +120,18 @@ function Avatar({ name, size = 34, src }: { name: string; size?: number; src?: s
 /* ------------------------------------------------------------------ */
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
+/**
+ * Los identificadores de pestaña que la URL puede pedir.
+ *
+ * Aquí arriba y no dentro del componente porque el estado inicial los necesita
+ * antes de que `TABS` —que lleva iconos y etiquetas— llegue a existir. Fijados
+ * contra `TABS` por el propio TypeScript: las dos listas se cruzan más abajo.
+ */
+const TAB_IDS = [
+  'perfil', 'notificaciones', 'seguridad', 'empresa', 'modulos', 'sucursales', 'roles',
+] as const
+type TabId = (typeof TAB_IDS)[number]
+
 export default function ConfiguracionPage({ data, sites }: { data: SettingsData; sites: SitesData }) {
   const { addToast } = useApp()
   const confirm = useConfirm()
@@ -127,7 +139,23 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
   const [pending, startTransition] = useTransition()
 
   /* ---- tab & dirty state ---- */
-  const [tab, setTab] = useState('perfil')
+  /**
+   * La pestaña puede venir en la URL: `/dashboard/configuracion?tab=modulos`.
+   *
+   * Sin esto, cada pantalla que necesitaba mandar aquí sólo podía *describir* el
+   * camino — «una persona administradora puede activarlo en Configuración →
+   * Módulos»— y quien lo leía era, casi siempre, esa misma persona
+   * administradora. Un enlace que aterriza en la pestaña correcta convierte una
+   * instrucción en un clic.
+   *
+   * Sólo se acepta un identificador conocido: un `?tab=` inventado deja la
+   * pantalla en Perfil, que es donde estaba antes de que esto existiera.
+   */
+  const search = useSearchParams()
+  const requested = search.get('tab')
+  const [tab, setTab] = useState(
+    requested && (TAB_IDS as readonly string[]).includes(requested) ? requested : 'perfil',
+  )
   const [dirty, setDirty] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [fadeIdx, setFadeIdx] = useState(0)
@@ -651,7 +679,7 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
   const str = passwordStrength(pw.new)
 
   /* ---- tabs definition ---- */
-  const TABS: { id: string; label: string; ico: (p: IconProps) => React.ReactElement }[] = [
+  const TABS: { id: TabId; label: string; ico: (p: IconProps) => React.ReactElement }[] = [
     { id: 'perfil', label: 'Perfil', ico: Users },
     { id: 'notificaciones', label: 'Notificaciones', ico: Bell },
     { id: 'seguridad', label: 'Seguridad', ico: Lock },

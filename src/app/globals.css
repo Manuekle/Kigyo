@@ -9378,6 +9378,15 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   margin-bottom: 22px;
 }
 .access-denied-body b { color: var(--ink2); font-weight: 400; }
+/* La fila de salidas de una pantalla de rechazo. La clase la usaba ya el
+   rechazo por plan y no existía ni una regla para ella: los dos botones caían
+   uno pegado al otro, sin separación y sin centrar. Ahora la usan los tres. */
+.access-denied-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
 
 /* ═══ assistant: composer orb, proposal, warnings, errors ═══ */
 
