@@ -14,6 +14,7 @@
  */
 
 import { MANUAL_START, SUBSECTOR_PRESETS, applySectorDelta, companyType, type SectorDelta } from './modules'
+import { SUITE_KEYS, suitesOf, type Suite } from './modules/registry'
 
 export interface SectorOption {
   key: string
@@ -113,4 +114,49 @@ export function proposalForPlan(
     else locked.push(key)
   }
   return { included, locked }
+}
+
+/**
+ * La propuesta del sector, recortada además al enfoque que eligió el cliente.
+ *
+ * El sector contesta «qué negocio es» y el enfoque contesta «a qué vine»: una
+ * tienda de barrio y un distribuidor mayorista son los dos `comercio` y quieren
+ * cosas distintas —uno un mostrador, el otro compras y facturación—, y hasta
+ * que existió este paso el asistente les entregaba exactamente los mismos
+ * veinte módulos.
+ *
+ * Tres cosas que no hace, a propósito:
+ *
+ *   · **No sustituye al plan.** `locked` sigue saliendo de `proposalForPlan`
+ *     intacto: lo que el plan no cubre no es una cuestión de enfoque, y
+ *     mezclarlos haría que subir de plan pareciera no servir de nada.
+ *   · **No suelta el vertical.** Una clínica que pide sólo POS conserva
+ *     Pacientes: es el módulo por el que su sector existe, y quitarlo sería
+ *     leer «quiero cobrar en mostrador» como «no atiendo pacientes».
+ *   · **No esconde lo que descarta.** `outOfFocus` es lo que la pantalla
+ *     nombra debajo de la lista, del mismo modo que `locked` — un módulo que
+ *     desaparece sin decirlo es un módulo que el cliente cree que no existe.
+ *
+ * Elegir los tres segmentos (o ninguno) es «no filtres», que es lo que hacía
+ * el asistente antes de este paso.
+ */
+export function focusProposal(
+  catalogue: SectorCatalogue,
+  allowed: ReadonlySet<string>,
+  sector: string | null,
+  subsector: string | null,
+  suites: readonly Suite[],
+): { included: string[]; locked: string[]; outOfFocus: string[] } {
+  const { included, locked } = proposalForPlan(catalogue, allowed, sector, subsector)
+  if (suites.length === 0 || suites.length === SUITE_KEYS.length) {
+    return { included, locked, outOfFocus: [] }
+  }
+  const vertical = sector ? companyType(sector)?.vertical ?? null : null
+  const inFocus = (key: string) =>
+    key === vertical || suitesOf(key).some((s) => suites.includes(s))
+  return {
+    included: included.filter(inFocus),
+    locked,
+    outOfFocus: included.filter((k) => !inFocus(k)),
+  }
 }

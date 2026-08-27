@@ -14,6 +14,7 @@ import {
 import { useApp } from '@/lib/context/AppContext'
 import { useMember } from '@/lib/context/MemberContext'
 import { ROUTE_PERMISSIONS } from '@/lib/auth/permissions'
+import { activeSuites, suitesOf, SUITES, type Suite } from '@/lib/modules/registry'
 import { DROPDOWN_CLOSE_MS, dropdownClass, useExitTransition } from '@/lib/hooks/use-exit-transition'
 
 const DRAWER_CLOSE_MS = 200 // matches --drawer-close-dur
@@ -45,6 +46,24 @@ export default function Sidebar() {
   const scrim = useExitTransition(sidebarOpen, DRAWER_CLOSE_MS)
 
   /**
+   * Los segmentos que esta empresa usa de verdad, para ofrecer la lente.
+   *
+   * Sale de lo que tiene encendido y no de una columna: una empresa que sólo
+   * lleva mostrador no tiene tres vistas que alternar, tiene una — y tres
+   * pastillas donde dos no llevan a ninguna parte son peor que ninguna.
+   */
+  const available = useMemo(() => activeSuites(member.modules), [member.modules])
+
+  /**
+   * La lente vigente, comprobada contra lo que la empresa tiene hoy.
+   *
+   * Guardada por empresa, así que sobrevive a que alguien apague el módulo que
+   * la justificaba; sin esta comprobación el rail se quedaría filtrado por un
+   * segmento vacío, que se ve exactamente igual que un producto roto.
+   */
+  const lens = prefs.lens && available.includes(prefs.lens) ? prefs.lens : null
+
+  /**
    * The nav, shaped by the sector and narrowed to what this member can open.
    *
    * `navFor` decides the order and the headings — the vertical on top under the
@@ -56,25 +75,33 @@ export default function Sidebar() {
    * server by `RequirePermission` — without this, though, the sidebar
    * advertises twenty modules and some of them answer "no tienes acceso" when
    * clicked.
+   *
+   * Y encima de eso, la lente. Son dos filtros con naturalezas distintas y
+   * conviene no confundirlas: el permiso dice qué puede abrir esta persona —y
+   * lo impone el servidor— mientras que la lente dice qué quiere ver ahora, la
+   * decide ella misma y no cierra nada.
    */
   const sections = useMemo(() => {
     const allowed = (k: string) => {
       const permission = ROUTE_PERMISSIONS[k]
       return !permission || member.can(permission)
     }
+    // La lente filtra, no cierra: la ruta sigue abierta si la escribes, el
+    // buscador global la encuentra, y volver a «Todo» es una pastilla.
+    const inLens = (k: string) => lens === null || suitesOf(k).includes(lens)
 
     return navFor(member.companyType)
       .map((section) => ({
         ...section,
         items: section.items
-          .filter((item) => allowed(item.key))
+          .filter((item) => allowed(item.key) && inLens(item.key))
           .map((item) => ({
             ...item,
             children: (item.children ?? []).filter((c) => allowed(c.key)),
           })),
       }))
       .filter((section) => section.items.length > 0)
-  }, [member])
+  }, [member, lens])
 
   /** Every item the nav can show, flattened — what a pin has to resolve to. */
   const byKey = useMemo(() => {
@@ -153,12 +180,23 @@ export default function Sidebar() {
   function isOpen(label: string) {
     // While filtering, everything is open: a match hidden inside a folded
     // section is a search that answered nothing.
-    if (filter) return true
+    //
+    // Y con una lente puesta, lo mismo por el mismo motivo. Medido en la
+    // panadería de prueba: al elegir «POS» el rail seguía enseñando lo mismo
+    // que en «Todo», porque los tres módulos de mostrador viven bajo
+    // «Comercial» y esa sección arranca plegada. La lente ya recortó la lista
+    // —seis o siete filas— así que no hay nada que plegar, y una vista que
+    // esconde justo lo que fuiste a ver no es una vista.
+    if (filter || lens) return true
     return openOverrides[label] ?? defaultOpen.has(label)
   }
 
   function toggleSection(label: string) {
     saveNavPrefs({ ...prefs, open: { ...openOverrides, [label]: !isOpen(label) } })
+  }
+
+  function chooseLens(next: Suite | null) {
+    saveNavPrefs({ ...prefs, lens: next })
   }
 
   function togglePin(moduleKey: string) {
@@ -253,6 +291,42 @@ export default function Sidebar() {
             read as context rather than as a preference. Renders nothing at all
             for the single-company case. */}
         <CompanySwitcher />
+
+        {/*
+          Las tres partes del producto, como vista y no como partición.
+
+          Kigyo se vende «CRM · ERP · POS» —lo dice la marca dos líneas más
+          arriba— y hasta ahora esa promesa no existía dentro de la aplicación:
+          el rail sólo sabía de «Comercial», «Operación» y «Equipo», que es
+          dónde vive una pantalla y no a qué vino quien la abre. Esto no parte
+          nada: misma empresa, mismos datos, mismas cuatro compuertas. Sólo
+          decide qué mira uno ahora.
+
+          Aparece cuando la empresa usa más de un segmento. Con uno solo, tres
+          pastillas serían dos caminos a ninguna parte.
+        */}
+        {available.length > 1 && (
+          <div className="nav-lens" role="group" aria-label="Ver por segmento">
+            <button
+              className={`nav-lens-chip${lens === null ? ' on' : ''}`}
+              aria-pressed={lens === null}
+              onClick={() => chooseLens(null)}
+            >
+              Todo
+            </button>
+            {SUITES.filter((s) => available.includes(s.key)).map((suite) => (
+              <button
+                key={suite.key}
+                className={`nav-lens-chip${lens === suite.key ? ' on' : ''}`}
+                aria-pressed={lens === suite.key}
+                title={`${suite.name}: ${suite.description}`}
+                onClick={() => chooseLens(lens === suite.key ? null : suite.key)}
+              >
+                {suite.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Designed and styled since the nav was written and never rendered.
             It is a control on the list and not a global search — the command

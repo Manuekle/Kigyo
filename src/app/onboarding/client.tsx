@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowRight, Check, Building2, Plus, MapPin, Mail, Users } from '@/lib/icons'
+import { ArrowRight, Check, Building2, Plus, MapPin, Mail, Users, Handshake, Store, Factory } from '@/lib/icons'
 import Select from '@/components/ui/Select'
 import Toggle from '@/components/ui/Toggle'
 import TabBar from '@/components/ui/TabBar'
@@ -11,8 +11,10 @@ import Badge from '@/components/ui/Badge'
 import { modulesByGroup, moduleDef } from '@/lib/modules'
 import { MODULE_LABELS } from '@/lib/auth/permissions'
 import { SUGGESTED_ROLES } from '@/lib/suggested-roles'
-import { CORE_MODULES, dependenciesOf, missingHardDependencies } from '@/lib/modules/registry'
-import { proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
+import {
+  CORE_MODULES, dependenciesOf, missingHardDependencies, SUITES, SUITE_KEYS, type Suite,
+} from '@/lib/modules/registry'
+import { focusProposal, proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
 import { isSelfServePlan, lowestPlanWith, PLANS, planFor, planModules, type PlanKey } from '@/lib/plans'
 import { CYCLES, PRICING, trialDaysFor, type Cycle } from '@/lib/pricing'
 import { createSite } from '@/server/mutations/sites'
@@ -109,12 +111,13 @@ const TIMEZONE_FOR: Record<string, string> = {
  * and the gap visible. "Saltar" keeps working: a customer who declines pays
  * nothing and lands on Starter.
  */
-type StepId = 'empresa' | 'sector' | 'tipo' | 'modulos' | 'sucursales' | 'equipo' | 'plan'
+type StepId = 'empresa' | 'sector' | 'tipo' | 'enfoque' | 'modulos' | 'sucursales' | 'equipo' | 'plan'
 
 const STEP_LABELS: Record<StepId, string> = {
   empresa: 'Empresa',
   sector: 'Sector',
   tipo: 'Tipo',
+  enfoque: 'Enfoque',
   modulos: 'Módulos',
   sucursales: 'Sucursales',
   equipo: 'Equipo',
@@ -151,17 +154,26 @@ function modulesOpenedBy(
     .sort((a, b) => a.localeCompare(b, 'es'))
 }
 
+/** El icono de cada segmento, por nombre, como hace el rail con los módulos. */
+const SUITE_ICON: Record<Suite, typeof Handshake> = {
+  crm: Handshake,
+  pos: Store,
+  erp: Factory,
+}
+
 interface Props {
   companyName: string
   sector: string | null
   catalogue: SectorCatalogue
   plan: PlanKey
+  /** La cuenta ya paga: esta empresa entra en su plan y no se cobra de nuevo. */
+  accountActive: boolean
   roles: Array<{ key: string; label: string }>
   sites: Array<{ id: string; name: string; city: string | null }>
 }
 
 export default function Client({
-  companyName, sector, catalogue, plan, roles, sites,
+  companyName, sector, catalogue, plan, accountActive, roles, sites,
 }: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -199,13 +211,27 @@ export default function Client({
    * the module list, which is the honest version of the same fact.
    */
   const proposeFor = useCallback(
-    (sectorKey: string | null, subKey: string | null = null) =>
-      new Set(proposalForPlan(catalogue, allowed, sectorKey, subKey).included),
+    (sectorKey: string | null, subKey: string | null = null, suites: readonly Suite[] = SUITE_KEYS) =>
+      new Set(focusProposal(catalogue, allowed, sectorKey, subKey, suites).included),
     [catalogue, allowed],
   )
 
   const [chosenSector, setChosenSector] = useState<string | null>(sector)
   const [chosenSub, setChosenSub] = useState<string | null>(null)
+  /**
+   * A qué vino el cliente: CRM, mostrador, ERP, o varias.
+   *
+   * Abre con los tres marcados y no con una sugerencia estrecha, porque el
+   * preset del sector ya es una decisión tomada con cuidado y arrancar
+   * quitándole módulos sería contradecirla en silencio. Lo que este paso añade
+   * es la palanca contraria —la de estrechar— para quien llega buscando una
+   * cosa concreta y no un ERP entero: una tienda que sólo quiere cobrar en
+   * mostrador pasa de veinte módulos a doce sin tener que apagar ocho a mano.
+   *
+   * Nunca queda vacío: desmarcar el último no deja «ningún segmento», que es un
+   * estado sin lectura posible — deja los tres, que es «no filtres».
+   */
+  const [focus, setFocus] = useState<Suite[]>([...SUITE_KEYS])
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(proposalForPlan(catalogue, planModules(plan), sector).included),
   )
@@ -219,6 +245,37 @@ export default function Client({
         .filter((m): m is NonNullable<typeof m> => m !== null),
     [catalogue, chosenSector, chosenSub, allowed],
   )
+
+  /**
+   * Lo que el sector propone y este enfoque deja fuera.
+   *
+   * Se nombra debajo de la lista por la misma razón que `lockedByPlan`: un
+   * módulo que desaparece sin decir por qué no se lee como «lo dejé fuera yo»,
+   * se lee como que el producto no lo tiene.
+   */
+  const outOfFocus = useMemo(
+    () =>
+      focusProposal(catalogue, allowed, chosenSector, chosenSub, focus)
+        .outOfFocus.map((k) => moduleDef(k))
+        .filter((m): m is NonNullable<typeof m> => m !== null),
+    [catalogue, allowed, chosenSector, chosenSub, focus],
+  )
+
+  /** Cuántos módulos encendería cada segmento solo, con este sector y este plan. */
+  const focusCount = useCallback(
+    (suite: Suite) =>
+      focusProposal(catalogue, allowed, chosenSector, chosenSub, [suite]).included.length,
+    [catalogue, allowed, chosenSector, chosenSub],
+  )
+
+  /** Marcar o desmarcar un segmento vuelve a proponer, no sólo anota. */
+  function toggleFocus(suite: Suite) {
+    const next = focus.includes(suite) ? focus.filter((s) => s !== suite) : [...focus, suite]
+    // Ninguno marcado no es un estado con lectura: es «no filtres».
+    const resolved = next.length === 0 ? [...SUITE_KEYS] : SUITE_KEYS.filter((k) => next.includes(k))
+    setFocus(resolved)
+    setSelected(proposeFor(chosenSector, chosenSub, resolved))
+  }
 
   /** Branches created so far, seeded from the server and appended to as we go. */
   const [branches, setBranches] = useState(sites)
@@ -273,7 +330,7 @@ export default function Client({
   const stepIds: StepId[] = [
     'empresa', 'sector',
     ...(subsectors.length > 0 ? (['tipo'] as StepId[]) : []),
-    'modulos', 'sucursales', 'equipo', 'plan',
+    'enfoque', 'modulos', 'sucursales', 'equipo', 'plan',
   ]
   const current = stepIds[Math.min(step, stepIds.length - 1)]
   // `isLast` se fue con el botón «Terminar»: el último paso ya no termina en un
@@ -287,7 +344,7 @@ export default function Client({
     // The subsector goes with it: it belongs to exactly one sector, and the
     // database refuses the mismatched pair on save.
     setChosenSub(null)
-    setSelected(proposeFor(next))
+    setSelected(proposeFor(next, null, focus))
   }
 
   /**
@@ -306,7 +363,7 @@ export default function Client({
   function chooseSubsector(key: string) {
     const next = key === '' ? null : key
     setChosenSub(next)
-    setSelected(proposeFor(chosenSector, next))
+    setSelected(proposeFor(chosenSector, next, focus))
   }
 
   /**
@@ -625,6 +682,49 @@ export default function Client({
           </div>
         )}
 
+        {current === 'enfoque' && (
+          <div className="onb-body">
+            <p className="onb-note" style={{ marginTop: 0 }}>
+              Kigyo es un CRM, un POS y un ERP en la misma aplicación, sobre los
+              mismos datos. Marca por dónde empiezas: enciendes el resto cuando
+              lo necesites, sin volver a configurar nada ni mover un dato.
+            </p>
+
+            {SUITES.map((suite) => {
+              const Icon = SUITE_ICON[suite.key]
+              const on = focus.includes(suite.key)
+              const count = focusCount(suite.key)
+              return (
+                <div key={suite.key} className="onb-module">
+                  <Icon size={16} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="onb-module-name">{suite.label} · {suite.name}</div>
+                    <div className="onb-module-desc">
+                      {suite.description}{' '}
+                      {count === 0
+                        ? `Tu plan ${planDef.label} todavía no incluye módulos de esta parte.`
+                        : `${count} ${count === 1 ? 'módulo' : 'módulos'} en tu plan ${planDef.label}.`}
+                    </div>
+                  </div>
+                  <Toggle
+                    on={on}
+                    onChange={() => toggleFocus(suite.key)}
+                    ariaLabel={`${suite.label}: ${on ? 'incluido' : 'fuera'}`}
+                  />
+                </div>
+              )
+            })}
+
+            <p className="onb-note">
+              {focus.length === SUITE_KEYS.length
+                ? `Con las tres partes arrancas con ${selected.size} módulos activos.`
+                : `Arrancas con ${selected.size} ${selected.size === 1 ? 'módulo' : 'módulos'} activos` +
+                  `${outOfFocus.length > 0 ? `, ${outOfFocus.length} menos que con las tres partes` : ''}.`}
+              {' '}Puedes ajustarlos uno a uno en el paso siguiente.
+            </p>
+          </div>
+        )}
+
         {current === 'modulos' && (
           <div className="onb-body">
             <p className="onb-note" style={{ marginTop: 0 }}>
@@ -651,6 +751,14 @@ export default function Client({
                   return need ? `. Se activan desde el plan ${need.label}.` : '.'
                 })()}{' '}
                 Puedes terminar la configuración igual y cambiar de plan después.
+              </p>
+            )}
+            {outOfFocus.length > 0 && (
+              <p className="onb-note">
+                Tu enfoque deja fuera{' '}
+                <b>{outOfFocus.slice(0, 3).map((m) => m.label).join(', ')}</b>
+                {outOfFocus.length > 3 && ` y ${outOfFocus.length - 3} módulo${outOfFocus.length - 3 === 1 ? '' : 's'} más`}
+                . Están aquí abajo y los enciendes cuando quieras.
               </p>
             )}
             {modulesByGroup().map(({ group, modules }) => {
@@ -792,7 +900,40 @@ export default function Client({
           </div>
         )}
 
-        {current === 'plan' && (
+        {current === 'plan' && accountActive && (
+          <div className="onb-body">
+            <p className="onb-note" style={{ marginTop: 0 }}>
+              Tu cuenta ya tiene el plan <b>{planDef.label}</b> activo y esta empresa
+              entra en él: no se cobra otra vez. Tu plan permite{' '}
+              {planDef.maxCompanies === null
+                ? 'todas las empresas que necesites'
+                : `${planDef.maxCompanies} ${planDef.maxCompanies === 1 ? 'empresa' : 'empresas'}`}.
+            </p>
+
+            {lockedByPlan.length > 0 && (
+              <p className="onb-note onb-locked">
+                {lockedByPlan.length} módulo{lockedByPlan.length === 1 ? '' : 's'} de este sector
+                {lockedByPlan.length === 1 ? ' queda' : ' quedan'} fuera de {planDef.label}
+                {' '}—{' '}
+                <b>{lockedByPlan.slice(0, 3).map((m) => m.label).join(', ')}</b>
+                {lockedByPlan.length > 3 && ` y ${lockedByPlan.length - 3} más`}.
+                Puedes cambiar de plan cuando quieras desde Empresas.
+              </p>
+            )}
+
+            <button
+              className="btn dark"
+              style={{ marginTop: 6 }}
+              disabled={pending}
+              aria-busy={pending}
+              onClick={done}
+            >
+              <Check size={15} />Terminar y abrir {profile.name}
+            </button>
+          </div>
+        )}
+
+        {current === 'plan' && !accountActive && (
           <div className="onb-body">
             <p className="onb-note" style={{ marginTop: 0 }}>
               Configuraste tu empresa. Elige el plan con el que va a funcionar.
@@ -902,6 +1043,11 @@ export default function Client({
           configuración, todas opcionales, y obligar a contestarlas antes de
           enseñar el producto es la clase de muro que este asistente evita a
           propósito. El plan no es una de esas preguntas.
+
+          Con la cuenta ya al día el paso de plan no vende nada, así que su
+          botón de terminar vive en el cuerpo y este pie se queda sólo con
+          «Atrás». Un «Saltar por ahora» al lado de «Terminar» serían dos
+          botones para lo mismo (`done()`) con dos nombres distintos.
         */}
         <div className="onb-foot">
           {current !== 'plan' && (

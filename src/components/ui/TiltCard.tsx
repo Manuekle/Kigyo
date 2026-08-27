@@ -35,6 +35,11 @@ export default function TiltCard({
   const cardRef = useRef<HTMLDivElement>(null)
 
   function track(e: React.PointerEvent<HTMLDivElement>) {
+    // Mouse only. A finger has no hover state to preview the tilt with, and
+    // tracking it would mean this card keeps `touch-action: none` on a phone —
+    // which is how a full-width card ends up swallowing the page's scroll.
+    if (e.pointerType !== 'mouse') return
+
     const wrap = wrapRef.current
     const card = cardRef.current
     if (!wrap || !card) return

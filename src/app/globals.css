@@ -703,6 +703,35 @@
 /* The filter over the nav. Sits between the company switcher and the list so
    it reads as a control on the list, not as a global search — it never leaves
    the sidebar. */
+/* Las tres partes del producto como vista del rail: CRM · POS · ERP.
+
+   Pastillas y no un desplegable porque el estado tiene que verse sin abrir
+   nada — un rail filtrado que no dice que lo está es un rail al que le faltan
+   módulos. Encima del filtro de texto y no debajo: primero se decide de qué
+   parte del negocio se habla, después se busca dentro. */
+.nav-lens {
+  display: flex;
+  gap: 4px;
+  margin: 10px 12px 0;
+}
+.nav-lens-chip {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
+  border-radius: var(--rfull);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  color: var(--ink3);
+  background: var(--bg2);
+  transition: var(--t-state);
+}
+.nav-lens-chip:hover { color: var(--ink2); }
+.nav-lens-chip.on {
+  color: var(--bg);
+  background: var(--ink);
+}
+
 .nav-find {
   display: flex;
   align-items: center;
@@ -4106,6 +4135,18 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 .mod-sector-locked strong { color: var(--ink); font-weight: 500; }
 .mod-sector-locked a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 
+/* Las mismas pastillas del rail, dentro del panel de Configuración: allí van
+   pegadas al borde del rail, aquí respiran con el resto del formulario. */
+.mod-lens {
+  margin: 0 0 10px;
+  flex-wrap: wrap;
+}
+.mod-lens .nav-lens-chip {
+  flex: 0 1 auto;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
 .mod-summary {
   display: flex;
   align-items: center;
@@ -5573,6 +5614,27 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
    Todo lo que dibuja sale del catálogo real: `presetFor` para los módulos y
    `SUGGESTED_ROLES` para los oficios, que son las mismas dos fuentes que el
    registro usa para configurar la empresa. Ver la página para el porqué. */
+/* Las tres partes del producto, arriba de la reja de módulos: una fila de tres
+   en escritorio, apiladas en móvil. Misma caja que `.card` pero sin su padding
+   de tarjeta, porque aquí son un encabezado y no contenido. */
+.soluciones-suites {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.soluciones-suite {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line2);
+  border-radius: var(--r);
+  background: var(--bg);
+}
+.soluciones-suite strong { font-size: 13px; font-weight: 500; }
+.soluciones-suite span { font-size: 12.5px; color: var(--ink3); line-height: 1.5; }
+
 .soluciones-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
@@ -6215,7 +6277,10 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
    uses, so the two ends of the page speak with one vocabulary and there is one
    obvious winner in the pair. */
 .hx-actions {
-  animation-delay: 300ms;
+  /* No animation-delay here: the hero's entrance map lives in ONE place, at the
+     top of this block (0 / 70 / 150 / 230 / 310 / 390ms). A second declaration
+     down here won on source order and put the actions at 300ms — 10ms from the
+     scene's 310ms, which collapsed two steps of the cadence into one beat. */
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
@@ -7658,6 +7723,12 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   will-change: transform;
   animation-name: fv-doc-beam;
   animation-duration: var(--fv-cycle);
+  /* The DELAY has to be restated for the same reason the duration does. Without
+     it the beam ran at 0s while every other element in this card ran at
+     --fv-delay (-4.3s of a 9s cycle), so the scanner swept the sheet roughly
+     half a cycle away from the line it is supposed to light and the citation it
+     is supposed to pull out — the exact causal chain this scene exists to show. */
+  animation-delay: var(--fv-delay, 0s);
   animation-iteration-count: infinite;
   animation-timing-function: var(--ease-travel);
 }
@@ -8130,16 +8201,23 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
    data, and a preview that renders "Pagada" and "Riesgo alto" in the same
    grey is a worse preview than one that tells them apart at a glance. */
 .landing .l-ledger { box-shadow: var(--float-1); }
-.landing .l-row-state.b-grn { color: var(--sig-grn); background: rgb(34 197 94 / .09);  border-color: rgb(34 197 94 / .26); }
-.landing .l-row-state.b-amb { color: var(--sig-amb); background: rgb(245 158 11 / .09); border-color: rgb(245 158 11 / .26); }
-.landing .l-row-state.b-red { color: var(--sig-red); background: rgb(239 68 68 / .09);  border-color: rgb(239 68 68 / .26); }
-.landing .l-row-state.b-neu { color: var(--ink2);    background: rgb(var(--ink-rgb) / .05); border-color: rgb(var(--ink-rgb) / .12); }
-.landing .l-row-state.b-grn .bd,
-.landing .l-row-state.b-amb .bd,
-.landing .l-row-state.b-red .bd,
-.landing .l-row-state.b-neu .bd { background: currentColor; }
-/* The one row that is actually urgent breathes, exactly as it does in the app. */
-.landing .l-row-state.b-red .bd { animation: hx-blink 1.6s ease-in-out infinite; }
+/* The colour itself comes from `.landing .tag.is-*` further up — Ledger.tsx
+   renders the page's own `.tag` vocabulary, the same pills the hero scene uses.
+   This block used to restate those hues against `.b-grn` / `.b-amb` / `.b-red`
+   / `.b-neu` and a `.bd` dot, which is the DASHBOARD's badge markup: none of
+   those four classes and no `.bd` element has ever existed in this section, so
+   every rule in here matched nothing. The blink it carried pointed at a
+   `hx-blink` keyframe that was never defined anywhere in this file either. */
+
+/* The one row that is actually urgent breathes. The pulse is on the GLYPH, not
+   on the pill: a whole badge changing brightness on a marketing page reads as a
+   flashing element, whereas an alert icon with a pulse reads the way it does
+   inside the product. */
+.landing .l-row-state.is-red svg { animation: l-urgent-breathe 2.4s var(--ease-travel) infinite; }
+@keyframes l-urgent-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .42; }
+}
 .landing .l-row { transition: background-color var(--hover-dur) var(--hover-ease); }
 .landing .l-row:hover { background: rgb(var(--ink-rgb) / .03); }
 
@@ -8231,6 +8309,10 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
   opacity: 1;
   transform: none;
   filter: blur(0);
+  /* The hint is only worth paying for while the entrance is pending. Left on,
+     every revealed element on the page keeps its own compositor layer for the
+     rest of the session — and this page reveals about twenty of them. */
+  will-change: auto;
 }
 /* Ledger rows arrive in sequence — the delay encodes reading order, so the
    eye lands on the overdue record first. */
@@ -8239,6 +8321,11 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
 .js-reveal [data-reveal-delay="3"] { transition-delay: 160ms }
 .js-reveal [data-reveal-delay="4"] { transition-delay: 210ms }
 .js-reveal [data-reveal-delay="5"] { transition-delay: 260ms }
+/* Six, because the ledger has six rows. An index with no rule here falls back to
+   0ms, which does not read as "no stagger" — it reads as the LAST row arriving
+   first, ahead of the five above it. Extend this scale whenever a list that
+   uses it grows. */
+.js-reveal [data-reveal-delay="6"] { transition-delay: 310ms }
 @media (prefers-reduced-motion: reduce) {
   .js-reveal [data-reveal] {
     opacity: 1; transform: none; filter: none; transition: none !important;
@@ -9702,8 +9789,16 @@ div.acc + div.acc { border-top: 1px solid var(--line2); }
      pricing and feature rows depend on equal-height columns. */
   display: grid;
   height: 100%;
-  /* Lets a finger drag the tilt instead of scrolling the page. */
-  touch-action: none;
+}
+/* `touch-action: none` is what lets a pointer drag the tilt instead of scrolling
+   the page — and on a phone that is a trap, not a feature. These cards are the
+   feature grid, the pricing row and the values row: on a 375px screen they are
+   full-bleed and stacked, so they cover most of the scrollable page, and a thumb
+   that lands on one could not scroll at all. The tilt is a cursor affordance
+   anyway — there is no cursor to follow on a touch screen — so it is scoped to
+   devices that have one, and TiltCard ignores non-mouse pointers to match. */
+@media (hover: hover) and (pointer: fine) {
+  .t-tilt { touch-action: none; }
 }
 /* When a card carries both effects the tilt goes OUTSIDE the beam, so the halo
    rotates with the card it belongs to. Left flat, the glow stays square to the

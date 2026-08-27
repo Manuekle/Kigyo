@@ -5,8 +5,12 @@ import {
   COMPANY_TYPES, MANUAL_START, MODULE_KEYS, SUBSECTOR_PARENT, SUBSECTOR_PRESETS,
   applySectorDelta, presetFor, subsectorsOf,
 } from '@/lib/modules'
-import { CORE_MODULES, missingHardDependencies, dependentsOf } from '@/lib/modules/registry'
-import { EMPTY_CATALOGUE, presetFromCatalogue, proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
+import {
+  CORE_MODULES, missingHardDependencies, dependentsOf, SUITE_KEYS, suitesOf, type Suite,
+} from '@/lib/modules/registry'
+import {
+  EMPTY_CATALOGUE, focusProposal, presetFromCatalogue, proposalForPlan, type SectorCatalogue,
+} from '@/lib/sectors'
 import { SUGGESTED_ROLES } from '@/lib/suggested-roles'
 import { PLAN_KEYS, planAllows, planModules, type PlanKey } from '@/lib/plans'
 
@@ -381,5 +385,96 @@ describe('SUBSECTOR_PARENT es el árbol que siembra la base', () => {
     expect(subsectorsOf('salud')).toEqual(
       Object.keys(SUBSECTOR_PARENT).filter((k) => SUBSECTOR_PARENT[k] === 'salud'),
     )
+  })
+})
+
+/**
+ * El enfoque —CRM, mostrador, ERP— es el paso que el asistente no tenía: el
+ * sector contesta qué negocio es y el enfoque a qué vino el cliente.
+ *
+ * Las cuatro pruebas son las cuatro formas en que este recorte puede hacer
+ * daño: perder módulos por el camino, dejar a un sector sin el módulo que lo
+ * define, no recortar nada (un paso que no hace nada es peor que no
+ * preguntarlo) y recortar tanto que no quede producto.
+ */
+describe('el enfoque recorta la propuesta sin perder nada', () => {
+  const allowed = new Set(planModules('growth'))
+  const sectors = COMPANY_TYPES.map((t) => t.key)
+
+  it('los tres segmentos son «no filtres»', () => {
+    for (const sector of sectors) {
+      const plain = proposalForPlan(EMPTY_CATALOGUE, allowed, sector)
+      const focused = focusProposal(EMPTY_CATALOGUE, allowed, sector, null, SUITE_KEYS)
+      expect(focused.included, sector).toEqual(plain.included)
+      expect(focused.outOfFocus, sector).toEqual([])
+    }
+  })
+
+  it('lo incluido más lo descartado es exactamente la propuesta del plan', () => {
+    for (const sector of sectors) {
+      for (const suite of SUITE_KEYS) {
+        const plain = proposalForPlan(EMPTY_CATALOGUE, allowed, sector)
+        const focused = focusProposal(EMPTY_CATALOGUE, allowed, sector, null, [suite])
+        expect(
+          [...focused.included, ...focused.outOfFocus].sort(),
+          `${sector} / ${suite}`,
+        ).toEqual([...plain.included].sort())
+        // Y el plan sigue siendo asunto del plan: el enfoque no bloquea nada.
+        expect(focused.locked, `${sector} / ${suite}`).toEqual(plain.locked)
+      }
+    }
+  })
+
+  it('nunca suelta el módulo por el que existe el sector', () => {
+    for (const type of COMPANY_TYPES) {
+      if (!type.vertical) continue
+      const plain = proposalForPlan(EMPTY_CATALOGUE, allowed, type.key)
+      if (!plain.included.includes(type.vertical)) continue
+      for (const suite of SUITE_KEYS) {
+        const focused = focusProposal(EMPTY_CATALOGUE, allowed, type.key, null, [suite])
+        expect(
+          focused.included,
+          `${type.key} pierde ${type.vertical} al enfocarse en ${suite}`,
+        ).toContain(type.vertical)
+      }
+    }
+  })
+
+  it('recorta de verdad, y deja producto en pie', () => {
+    // `comercio` es el caso que motivó el paso: la tienda de barrio quiere
+    // mostrador y el mayorista quiere compras y facturación, y hasta ahora los
+    // dos recibían los mismos veinte módulos.
+    const full = proposalForPlan(EMPTY_CATALOGUE, allowed, 'comercio').included
+    const pos = focusProposal(EMPTY_CATALOGUE, allowed, 'comercio', null, ['pos']).included
+    expect(pos.length).toBeLessThan(full.length)
+    expect(pos).toContain('pos')
+    expect(pos).toContain('caja')
+    expect(pos).not.toContain('nomina')
+
+    // Y ningún sector se queda sin nada que abrir, sea cual sea el enfoque.
+    for (const sector of sectors) {
+      for (const suite of SUITE_KEYS) {
+        const focused = focusProposal(EMPTY_CATALOGUE, allowed, sector, null, [suite])
+        expect(focused.included.length, `${sector} / ${suite}`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('un módulo del enfoque nombra ese segmento, y ninguno se cuela', () => {
+    for (const sector of sectors) {
+      for (const suite of SUITE_KEYS as readonly Suite[]) {
+        const { included, outOfFocus } = focusProposal(
+          EMPTY_CATALOGUE, allowed, sector, null, [suite],
+        )
+        const vertical = COMPANY_TYPES.find((t) => t.key === sector)?.vertical
+        for (const key of included) {
+          if (key === vertical) continue
+          expect(suitesOf(key), `${key} no es de ${suite}`).toContain(suite)
+        }
+        for (const key of outOfFocus) {
+          expect(suitesOf(key), `${key} sí era de ${suite}`).not.toContain(suite)
+        }
+      }
+    }
   })
 })

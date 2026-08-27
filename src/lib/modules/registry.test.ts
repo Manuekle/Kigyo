@@ -2,8 +2,8 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  CORE_MODULES, MODULE_DEPENDENCIES, MODULE_GROUPS, REGISTRY,
-  missingHardDependencies,
+  CORE_MODULES, MODULE_DEPENDENCIES, MODULE_GROUPS, REGISTRY, SUITES, SUITE_KEYS,
+  activeSuites, missingHardDependencies, modulesInSuite, suitesOf,
 } from './registry'
 import { COMPANY_TYPES, MANUAL_START, MODULE_KEYS, MODULES } from '@/lib/modules'
 import { PERMISSIONS, ROUTE_PERMISSIONS } from '@/lib/auth/permissions'
@@ -292,6 +292,64 @@ describe('sectors agree with the database', () => {
     for (const [, key, parent] of rows) {
       expect(sectorKeys.has(parent), `${key} hangs off unknown sector ${parent}`).toBe(true)
       expect(subKeys.has(parent), `${key} hangs off another subsector`).toBe(false)
+    }
+  })
+})
+
+/**
+ * Los tres segmentos con los que se vende el producto, comprobados contra el
+ * catálogo que dicen dividir.
+ *
+ * `suites` no se deriva de `group`, así que nada salvo estas pruebas impide que
+ * un módulo nuevo nazca sin segmento —invisible para el paso de enfoque y para
+ * la lente del rail, sin que falle nada— o que un segmento se quede sin un solo
+ * módulo propio, que es una pastilla que filtra hasta dejar la nada.
+ */
+describe('los segmentos dividen el catálogo entero', () => {
+  it('cada módulo declara al menos un segmento, y todos existen', () => {
+    for (const m of REGISTRY) {
+      expect(m.suites.length, `${m.key} no dice a qué segmento sirve`).toBeGreaterThan(0)
+      expect(new Set(m.suites).size, `${m.key} repite un segmento`).toBe(m.suites.length)
+      for (const suite of m.suites) {
+        expect(SUITE_KEYS, `${m.key} nombra el segmento ${suite}`).toContain(suite)
+      }
+    }
+  })
+
+  it('cada segmento tiene módulos propios, no sólo los de todos', () => {
+    for (const suite of SUITE_KEYS) {
+      const own = modulesInSuite(suite).filter((k) => suitesOf(k).length < SUITE_KEYS.length)
+      expect(own.length, `${suite} no tiene un solo módulo propio`).toBeGreaterThan(2)
+    }
+  })
+
+  it('el catálogo de segmentos no repite claves ni deja una sin etiqueta', () => {
+    expect(new Set(SUITES.map((s) => s.key)).size).toBe(SUITES.length)
+    for (const suite of SUITES) {
+      expect(suite.label.length, suite.key).toBeGreaterThan(0)
+      expect(suite.name.length, suite.key).toBeGreaterThan(0)
+      expect(suite.description.length, suite.key).toBeGreaterThan(0)
+    }
+  })
+
+  /**
+   * Un módulo que sirve a los tres no dice nada sobre en qué anda la empresa:
+   * si contara, cualquiera que tenga Documentos «usaría» los tres segmentos y
+   * el rail ofrecería tres lentes desde el primer día.
+   */
+  it('activeSuites lee el negocio, no las herramientas compartidas', () => {
+    expect(activeSuites(['documentos', 'reportes', 'ia'])).toEqual([])
+    expect(activeSuites(['pos', 'caja'])).toEqual(['pos'])
+    expect(activeSuites(['leads'])).toEqual(['crm'])
+    expect(activeSuites(['pos', 'nomina', 'leads']).sort()).toEqual(['crm', 'erp', 'pos'])
+    expect(activeSuites([])).toEqual([])
+  })
+
+  it('modulesInSuite sólo devuelve módulos conmutables', () => {
+    for (const suite of SUITE_KEYS) {
+      for (const key of modulesInSuite(suite)) {
+        expect(MODULE_KEYS, `${key} no es conmutable`).toContain(key)
+      }
     }
   })
 })

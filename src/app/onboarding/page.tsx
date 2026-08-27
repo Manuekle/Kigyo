@@ -46,6 +46,20 @@ export default async function Page() {
       sector={member.companyType}
       catalogue={catalogue}
       plan={member.plan}
+      /*
+       * Si la cuenta ya está al día, el asistente no vuelve a vender.
+       *
+       * El paso «Plan» es el muro de pago de la migración 106 y es correcto
+       * para la primera empresa de una cuenta nueva. Para la segunda —misma
+       * cuenta, misma suscripción ya cobrada— ese paso no tenía salida:
+       * ni «Saltar» ni «Terminar», sólo tres botones de pagar. Quien creaba
+       * una empresa más se encontraba con que la única forma de terminar de
+       * configurarla era comprar un segundo plan, y sin terminarla el panel
+       * la devuelve al asistente. `maxCompanies` del plan ya es lo que cobra
+       * por tener varias empresas; cobrarlas otra vez aquí sería cobrarlas dos
+       * veces.
+       */
+      accountActive={member.account.accessState === 'active'}
       roles={roles.map((r) => ({ key: r.key, label: r.label }))}
       sites={sites.sites.map((s) => ({ id: s.id, name: s.name, city: s.city }))}
     />

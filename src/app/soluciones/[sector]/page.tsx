@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import PublicPageShell from '@/components/marketing/PublicPageShell'
 import PublicCta from '@/components/marketing/PublicCta'
 import { SECTOR_LANDINGS, moduleDef, presetFor, subsectorsOf } from '@/lib/modules'
-import { MODULE_GROUPS } from '@/lib/modules/registry'
+import { MODULE_GROUPS, SUITES, suitesOf } from '@/lib/modules/registry'
 import { moduleRankFor } from '@/lib/data/nav'
 import { SUGGESTED_ROLES } from '@/lib/suggested-roles'
 import { MODULE_LABELS } from '@/lib/auth/permissions'
@@ -107,6 +107,21 @@ export default async function SectorPage({ params }: { params: Promise<{ sector:
   /** Named out loud, not discovered later in an empty sidebar. */
   const verticalPlan = def.vertical ? lowestPlanWith(def.vertical) : null
 
+  /**
+   * Cuánto de cada segmento enciende este sector.
+   *
+   * Derivado del mismo preset que dibuja la reja de abajo, así que la página no
+   * puede prometer un mostrador a un sector al que el asistente no se lo va a
+   * encender — que es la familia de las cuatro afirmaciones falsas que tenía el
+   * FAQ. Un sector que no toca un segmento no lo nombra.
+   */
+  const bySuite = SUITES
+    .map((suite) => ({
+      suite,
+      items: modules.filter((m) => suitesOf(m.key).includes(suite.key)),
+    }))
+    .filter((s) => s.items.length > 0)
+
   const byGroup = MODULE_GROUPS
     .map((group) => ({ group, items: modules.filter((m) => m.group === group) }))
     .filter((g) => g.items.length > 0)
@@ -131,6 +146,20 @@ export default async function SectorPage({ params }: { params: Promise<{ sector:
             Al registrarte eliges «{def.label}» y Kigyo enciende estos {modules.length}{' '}
             módulos. Todo queda conmutable: enciende lo que falte, apaga lo que sobre.
           </p>
+        </div>
+
+        {/* Las tres partes del producto, con la cuenta de este sector delante.
+            El sitio dice «CRM · ERP · POS» desde la marca; esta es la única
+            página donde ese titular se puede sostener con números propios. */}
+        <div className="soluciones-suites">
+          {bySuite.map(({ suite, items }) => (
+            <div className="soluciones-suite" key={suite.key} data-reveal>
+              <strong>{suite.label} · {suite.name}</strong>
+              <span>
+                {items.length} {items.length === 1 ? 'módulo' : 'módulos'} — {suite.description}
+              </span>
+            </div>
+          ))}
         </div>
 
         <div className="soluciones-grid">

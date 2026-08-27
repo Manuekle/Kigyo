@@ -22,6 +22,7 @@ import {
   type Permission, type RoleKey,
 } from '@/lib/auth/permissions'
 import { COMPANY_TYPES, MODULE_KEYS, modulesByGroup } from '@/lib/modules'
+import { modulesInSuite, suitesOf, SUITES, type Suite } from '@/lib/modules/registry'
 import { presetFromCatalogue } from '@/lib/sectors'
 import { lowestPlanWith } from '@/lib/plans'
 import { useMember } from '@/lib/context/MemberContext'
@@ -216,6 +217,15 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
       ?.find((s) => s.key === data.organization.subsector)?.label,
   ].filter(Boolean).join(' · ') || 'Sin sector'
   const [modules, setModules] = useState<Set<string>>(new Set(data.organization.modules))
+  /**
+   * Por qué segmento se está mirando el catálogo. `null` es el catálogo entero.
+   *
+   * No se guarda: el rail sí recuerda su lente porque es la navegación de todos
+   * los días, y esto es una pantalla de administración a la que se entra a
+   * hacer una cosa concreta. Un filtro recordado aquí sería un catálogo al que
+   * le faltan módulos sin que nadie recuerde por qué.
+   */
+  const [modFilter, setModFilter] = useState<Suite | null>(null)
   /**
    * The sector's preset, narrowed to what the plan actually allows.
    *
@@ -1073,6 +1083,44 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
               </>
             )}
 
+            {/*
+              El catálogo, por la misma división con la que se vende el producto.
+
+              Cincuenta y siete módulos en una lista plana obligan a leerla
+              entera para contestar «¿tengo puesto el mostrador?». Las pastillas
+              contestan eso de un vistazo, con la cuenta al lado, y el filtro no
+              se guarda: esta pantalla se abre a hacer una cosa y se cierra.
+            */}
+            <div className="nav-lens mod-lens" role="group" aria-label="Filtrar por segmento">
+              <button
+                type="button"
+                className={`nav-lens-chip${modFilter === null ? ' on' : ''}`}
+                aria-pressed={modFilter === null}
+                onClick={() => setModFilter(null)}
+              >
+                Todo · {modules.size}/{availableCount}
+              </button>
+              {SUITES.map((suite) => {
+                // Contra el plan, no contra el catálogo entero: ofrecer «3/12»
+                // donde nueve de esos doce no se pueden encender es contar algo
+                // que no está en juego.
+                const inPlan = modulesInSuite(suite.key).filter((k) => member.planIncludes(k))
+                const on = inPlan.filter((k) => modules.has(k)).length
+                return (
+                  <button
+                    key={suite.key}
+                    type="button"
+                    className={`nav-lens-chip${modFilter === suite.key ? ' on' : ''}`}
+                    aria-pressed={modFilter === suite.key}
+                    title={`${suite.name}: ${suite.description}`}
+                    onClick={() => setModFilter(modFilter === suite.key ? null : suite.key)}
+                  >
+                    {suite.label} · {on}/{inPlan.length}
+                  </button>
+                )
+              })}
+            </div>
+
             <div className="mod-summary">
               <span>
                 {modules.size} de {availableCount} módulos activos
@@ -1093,7 +1141,12 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
               </button>
             </div>
 
-            {modulesByGroup().map(({ group, modules: defs }) => (
+            {modulesByGroup().map(({ group, modules: all }) => {
+              const defs = all.filter(
+                (m) => modFilter === null || suitesOf(m.key).includes(modFilter),
+              )
+              if (defs.length === 0) return null
+              return (
               <div key={group} style={{ marginTop: 18 }}>
                 <div className="mod-group">{group}</div>
                 {defs.map((m) => {
@@ -1140,7 +1193,8 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
                   )
                 })}
               </div>
-            ))}
+              )
+            })}
 
             {!canManage ? (
               <p style={{ fontSize: 12.5, color: 'var(--ink3)', marginTop: 18 }}>

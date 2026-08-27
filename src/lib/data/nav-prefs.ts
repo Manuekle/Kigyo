@@ -14,6 +14,8 @@
  * re-renders forever.
  */
 
+import { isSuite, type Suite } from '@/lib/modules/registry'
+
 export interface NavPrefs {
   /**
    * Only the sections the person has actually clicked.
@@ -25,10 +27,21 @@ export interface NavPrefs {
    */
   open: Record<string, boolean>
   pinned: string[]
+  /**
+   * Por qué segmento está mirando el rail: CRM, mostrador, ERP — o `null`,
+   * que es la aplicación entera.
+   *
+   * Es una lente, no un permiso: no apaga módulos ni cierra rutas, y una URL
+   * escrita a mano abre igual. Vive aquí, junto a las secciones plegadas y los
+   * fijados, porque es exactamente lo mismo que esos dos — una decisión sobre
+   * qué lista quiero ver hoy, de esta persona y en este dispositivo, no un
+   * hecho de la empresa.
+   */
+  lens: Suite | null
 }
 
 /** Frozen and shared: it is the server snapshot, and it must never change identity. */
-export const EMPTY_NAV_PREFS: NavPrefs = Object.freeze({ open: {}, pinned: [] })
+export const EMPTY_NAV_PREFS: NavPrefs = Object.freeze({ open: {}, pinned: [], lens: null })
 
 const storageKey = (orgId: string) => `kigyo:nav:${orgId}`
 
@@ -49,6 +62,10 @@ function read(orgId: string): NavPrefs {
     return {
       open: typeof parsed.open === 'object' && parsed.open ? parsed.open : {},
       pinned: Array.isArray(parsed.pinned) ? parsed.pinned.filter((k) => typeof k === 'string') : [],
+      // Validado contra el catálogo y no sólo por tipo: un valor viejo o
+      // escrito a mano en localStorage dejaría el rail filtrado por un
+      // segmento que no existe, o sea vacío y sin causa visible.
+      lens: typeof parsed.lens === 'string' && isSuite(parsed.lens) ? parsed.lens : null,
     }
   } catch {
     return EMPTY_NAV_PREFS

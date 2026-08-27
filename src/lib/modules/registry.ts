@@ -59,6 +59,69 @@ export const MODULE_GROUPS = [
 ] as const
 export type ModuleGroup = (typeof MODULE_GROUPS)[number]
 
+/**
+ * Los tres segmentos con los que se vende el producto: CRM, POS y ERP.
+ *
+ * Una empresa no compra «Comercial» ni «Operación» — eso es el vocabulario del
+ * rail, que dice *dónde vive* una pantalla. Compra una forma de trabajar:
+ * conseguir y conservar clientes (CRM), cobrarle a quien tiene enfrente (POS),
+ * o llevar el negocio por dentro (ERP). La marca del rail, el sitio público y
+ * `/pricing` dicen «CRM · ERP · POS» desde antes de que existiera esta
+ * constante, y hasta que existió el producto **no preguntaba nunca** a cuál de
+ * los tres venía el cliente: el asistente preguntaba el sector y entregaba
+ * veinte módulos.
+ *
+ * Un segmento es una **lente, no una partición**, y esa diferencia es todo el
+ * diseño:
+ *
+ *   · Una empresa, una base, las mismas cuatro compuertas. Partir Kigyo en tres
+ *     hosts se midió y se descartó (jornada 2026-08-26): las cookies son
+ *     host-only, `NEXT_PUBLIC_APP_URL` es una constante de build y la allowlist
+ *     de Supabase es de un solo valor.
+ *   · Un módulo sirve a dos segmentos, y justo los útiles lo hacen:
+ *     `inventario` es lo que descuenta el mostrador y lo que cuenta la bodega;
+ *     `facturacion` es el recibo del POS crecido. Por eso es una lista por
+ *     módulo y no un cuarto `group`.
+ *   · Las herramientas que comparte cualquier negocio —documentos, calendario,
+ *     canales, reportes— llevan los tres. Un segmento que las dejara fuera
+ *     estaría contestando «qué módulos son *sólo* de vender», que no es la
+ *     pregunta de nadie.
+ */
+export const SUITES = [
+  {
+    key: 'crm',
+    label: 'CRM',
+    name: 'Clientes y ventas',
+    description: 'Conseguir y conservar clientes: prospectos, cotizaciones, seguimiento y postventa.',
+    icon: 'Handshake',
+  },
+  {
+    key: 'pos',
+    label: 'POS',
+    name: 'Mostrador',
+    description: 'Cobrar en el punto de venta: caja, catálogo, recibo y existencias que bajan solas.',
+    icon: 'Store',
+  },
+  {
+    key: 'erp',
+    label: 'ERP',
+    name: 'Operación y finanzas',
+    description: 'El negocio por dentro: inventario, compras, facturación, contabilidad y equipo.',
+    icon: 'Factory',
+  },
+] as const
+
+export type Suite = (typeof SUITES)[number]['key']
+export const SUITE_KEYS: readonly Suite[] = SUITES.map((s) => s.key)
+
+export function isSuite(value: string): value is Suite {
+  return (SUITE_KEYS as readonly string[]).includes(value)
+}
+
+export function suiteDef(key: string): (typeof SUITES)[number] | null {
+  return SUITES.find((s) => s.key === key) ?? null
+}
+
 export type ModuleAction = 'read' | 'write' | 'manage' | 'use'
 
 /**
@@ -93,6 +156,16 @@ export interface ModuleEntry {
    * remove the only screen that could switch it back on.
    */
   group: ModuleGroup | null
+  /**
+   * Qué segmentos sirve este módulo. Al menos uno, y varios cuando toca.
+   *
+   * No se deriva de `group` a propósito: `inventario` vive en Operación y es
+   * mitad mostrador, `facturacion` vive en Comercial y es del back office. Un
+   * mapa grupo→segmento acertaría en la mayoría y mentiría justo en los
+   * módulos que dos segmentos se disputan, que son los que importan al
+   * proponer un arranque.
+   */
+  suites: readonly Suite[]
   /** Key into ICON_MAP in the sidebar. `null` for screens with no nav entry. */
   icon: string | null
   route: string
@@ -142,6 +215,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Dashboard',
     description: 'El resumen de la empresa. Parte de la carcasa, nunca conmutable.',
     group: null,
+    suites: ['crm', 'pos', 'erp'],
     icon: 'LayoutDashboard',
     route: '/dashboard',
     actions: ['read'],
@@ -153,6 +227,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Empleados',
     description: 'Directorio del equipo, perfiles y organigrama.',
     group: 'Personas',
+    suites: ['erp'],
     icon: 'Users',
     route: '/dashboard/empleados',
     actions: ['read', 'write'],
@@ -164,6 +239,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Asistencia',
     description: 'Ausencias, incapacidades, horas extra y vacaciones.',
     group: 'Personas',
+    suites: ['erp'],
     icon: 'Clock',
     route: '/dashboard/asistencia',
     actions: ['read', 'write'],
@@ -175,6 +251,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Nómina',
     description: 'Costo de nómina, desprendibles y evolución salarial.',
     group: 'Personas',
+    suites: ['erp'],
     icon: 'Wallet',
     route: '/dashboard/nomina',
     actions: ['read', 'write'],
@@ -186,6 +263,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Centro de Riesgos',
     description: 'Riesgos de personas, equipos y áreas con seguimiento.',
     group: 'Personas',
+    suites: ['erp'],
     icon: 'ShieldAlert',
     route: '/dashboard/riesgos',
     actions: ['read', 'write'],
@@ -199,6 +277,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Reclutamiento',
     description: 'Vacantes, postulantes y el embudo de selección.',
     group: 'Personas',
+    suites: ['erp'],
     icon: 'UserSearch',
     route: '/dashboard/reclutamiento',
     actions: ['read', 'write'],
@@ -210,6 +289,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Capacitación',
     description: 'Cursos, inscripciones y certificados del equipo.',
     group: 'Personas',
+    suites: ['erp'],
     icon: 'GraduationCap',
     route: '/dashboard/capacitacion',
     actions: ['read', 'write'],
@@ -221,6 +301,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Desempeño',
     description: 'Ciclos de evaluación, objetivos y calificaciones.',
     group: 'Personas',
+    suites: ['erp'],
     icon: 'Target',
     route: '/dashboard/desempeno',
     actions: ['read', 'write'],
@@ -232,6 +313,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Proyectos',
     description: 'Obras y trabajos en campo con estado, cliente y presupuesto.',
     group: 'Operación',
+    suites: ['erp'],
     icon: 'Kanban',
     route: '/dashboard/proyectos',
     actions: ['read', 'write'],
@@ -243,6 +325,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'HSEQ',
     description: 'Seguridad, calidad y ambiente con acciones correctivas.',
     group: 'Operación',
+    suites: ['erp'],
     icon: 'ShieldCheck',
     route: '/dashboard/hseq',
     actions: ['read', 'write'],
@@ -255,6 +338,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Inventario',
     description: 'Activos y existencias con asignación por persona.',
     group: 'Operación',
+    suites: ['pos', 'erp'],
     icon: 'Package',
     route: '/dashboard/inventario',
     actions: ['read', 'write'],
@@ -266,6 +350,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Mantenimiento',
     description: 'Órdenes de trabajo preventivas y correctivas sobre equipos.',
     group: 'Operación',
+    suites: ['erp'],
     icon: 'Wrench',
     route: '/dashboard/mantenimiento',
     actions: ['read', 'write'],
@@ -277,6 +362,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Flota',
     description: 'Vehículos, servicios, combustible y documentos por vencer.',
     group: 'Operación',
+    suites: ['erp'],
     icon: 'Car',
     route: '/dashboard/flota',
     actions: ['read', 'write'],
@@ -288,6 +374,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Producción',
     description: 'Órdenes de producción, avance por etapa y merma.',
     group: 'Operación',
+    suites: ['erp'],
     icon: 'Factory',
     route: '/dashboard/produccion',
     actions: ['read', 'write'],
@@ -299,6 +386,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Trazabilidad',
     description: 'Registro de auditoría de toda la actividad de la cuenta.',
     group: 'Operación',
+    suites: ['erp'],
     icon: 'Activity',
     route: '/dashboard/trazabilidad',
     actions: ['read'],
@@ -310,6 +398,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Clientes',
     description: 'Cuentas, contactos e interacciones comerciales.',
     group: 'Comercial',
+    suites: ['crm', 'pos', 'erp'],
     icon: 'Building2',
     route: '/dashboard/clientes',
     actions: ['read', 'write'],
@@ -321,6 +410,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Cotizaciones',
     description: 'Propuestas comerciales, seguimiento y pipeline.',
     group: 'Comercial',
+    suites: ['crm'],
     icon: 'Receipt',
     route: '/dashboard/cotizaciones',
     actions: ['read', 'write'],
@@ -332,6 +422,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Pedidos',
     description: 'Pedidos comerciales de clientes, con origen en cotización.',
     group: 'Comercial',
+    suites: ['crm', 'erp'],
     icon: 'Truck',
     route: '/dashboard/pedidos',
     actions: ['read', 'write'],
@@ -343,6 +434,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Leads',
     description: 'Prospectos antes de ser clientes: origen, etapa y seguimiento.',
     group: 'Comercial',
+    suites: ['crm'],
     icon: 'Target',
     route: '/dashboard/leads',
     actions: ['read', 'write'],
@@ -354,6 +446,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Contabilidad',
     description: 'Partida doble sobre PUC: asientos, mayor y reportes.',
     group: 'Comercial',
+    suites: ['erp'],
     icon: 'BookOpen',
     route: '/dashboard/contabilidad',
     actions: ['read', 'write'],
@@ -365,6 +458,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Facturación',
     description: 'Facturas, pagos recibidos y cartera vencida.',
     group: 'Comercial',
+    suites: ['pos', 'erp'],
     icon: 'DollarSign',
     route: '/dashboard/facturacion',
     actions: ['read', 'write'],
@@ -376,6 +470,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Compras y órdenes',
     description: 'Requisiciones, aprobaciones y órdenes de compra.',
     group: 'Comercial',
+    suites: ['erp'],
     icon: 'ShoppingCart',
     route: '/dashboard/compras',
     actions: ['read', 'write'],
@@ -401,6 +496,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Catálogos',
     description: 'Productos, precios, costos y fichas técnicas.',
     group: 'Comercial',
+    suites: ['pos', 'erp'],
     icon: 'Tag',
     route: '/dashboard/catalogos',
     actions: ['read', 'write'],
@@ -412,6 +508,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Caja',
     description: 'Turnos de caja, arqueo, ingresos y egresos del día.',
     group: 'Comercial',
+    suites: ['pos'],
     icon: 'Cashier',
     route: '/dashboard/caja',
     actions: ['read', 'write'],
@@ -423,6 +520,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Punto de venta',
     description: 'Venta de mostrador: cobra, descuenta existencias y da recibo.',
     group: 'Comercial',
+    suites: ['pos'],
     icon: 'Store',
     route: '/dashboard/pos',
     actions: ['read', 'write'],
@@ -436,6 +534,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Tienda virtual',
     description: 'Catálogo de venta con carrito y generación de pedido.',
     group: 'Comercial',
+    suites: ['pos'],
     icon: 'LayoutGrid',
     route: '/dashboard/tienda',
     actions: ['read', 'write'],
@@ -449,6 +548,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Ecommerce',
     description: 'Pedidos en línea, envíos y cupones de la tienda pública.',
     group: 'Comercial',
+    suites: ['pos'],
     icon: 'Truck',
     route: '/dashboard/ecommerce',
     actions: ['read', 'write'],
@@ -460,6 +560,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Canales',
     description: 'Conversaciones del equipo por tema, obra o área.',
     group: 'Equipo',
+    suites: ['crm', 'erp'],
     icon: 'MessageSquare',
     route: '/dashboard/canales',
     actions: ['read', 'write'],
@@ -471,6 +572,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Tickets',
     description: 'Solicitudes internas por área: TI, Nómina, Personas, Legal.',
     group: 'Equipo',
+    suites: ['crm', 'erp'],
     icon: 'Ticket',
     route: '/dashboard/tickets',
     actions: ['read', 'write'],
@@ -482,6 +584,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Firmas',
     description: 'Envío de documentos a firma electrónica y su seguimiento.',
     group: 'Equipo',
+    suites: ['crm', 'erp'],
     icon: 'PenLine',
     route: '/dashboard/firmas',
     actions: ['read', 'write'],
@@ -493,6 +596,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Documentos',
     description: 'Repositorio documental con análisis por IA.',
     group: 'Equipo',
+    suites: ['crm', 'pos', 'erp'],
     icon: 'FileText',
     route: '/dashboard/documentos',
     actions: ['read', 'write'],
@@ -508,6 +612,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     // conversation about it — it was under «Colaboración» because it involves
     // signatures, which is a description of one step, not of the thing.
     group: 'Comercial',
+    suites: ['crm', 'erp'],
     icon: 'Handshake',
     route: '/dashboard/contratos',
     actions: ['read', 'write'],
@@ -519,6 +624,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Calendario',
     description: 'Entrevistas, onboarding, 1:1s y sesiones de consultoría.',
     group: 'Equipo',
+    suites: ['crm', 'erp'],
     icon: 'Calendar',
     route: '/dashboard/calendario',
     actions: ['read', 'write'],
@@ -530,6 +636,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Consultoría',
     description: 'Asesoría laboral y de cumplimiento.',
     group: 'Equipo',
+    suites: ['erp'],
     icon: 'BookOpen',
     route: '/dashboard/consultoria',
     actions: ['read', 'write'],
@@ -541,6 +648,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Asistente de IA',
     description: 'Consulta en lenguaje natural sobre los datos de la cuenta.',
     group: 'Equipo',
+    suites: ['crm', 'pos', 'erp'],
     icon: 'Sparkles',
     route: '/dashboard/ia',
     actions: ['use'],
@@ -553,6 +661,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Pacientes',
     description: 'Historia clínica, consultas y seguimiento asistencial.',
     group: 'Sectoriales',
+    suites: ['crm', 'erp'],
     icon: 'Stethoscope',
     route: '/dashboard/pacientes',
     actions: ['read', 'write'],
@@ -564,6 +673,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Estudiantes',
     description: 'Matrículas, programas académicos y calificaciones.',
     group: 'Sectoriales',
+    suites: ['crm', 'erp'],
     icon: 'School',
     route: '/dashboard/estudiantes',
     actions: ['read', 'write'],
@@ -575,6 +685,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Restaurante',
     description: 'Menú, mesas y comandas del servicio en salón.',
     group: 'Sectoriales',
+    suites: ['pos'],
     icon: 'Restaurant',
     route: '/dashboard/restaurante',
     actions: ['read', 'write'],
@@ -586,6 +697,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Agro',
     description: 'Lotes, ciclos de cultivo y cosechas por hectárea.',
     group: 'Sectoriales',
+    suites: ['erp'],
     icon: 'Sprout',
     route: '/dashboard/agro',
     actions: ['read', 'write'],
@@ -597,6 +709,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Inmobiliario',
     description: 'Inmuebles, contratos de arriendo y recaudo mensual.',
     group: 'Sectoriales',
+    suites: ['crm', 'erp'],
     icon: 'Home',
     route: '/dashboard/inmobiliario',
     actions: ['read', 'write'],
@@ -609,6 +722,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Hotelería',
     description: 'Habitaciones, reservas y ocupación por noche.',
     group: 'Sectoriales',
+    suites: ['pos', 'erp'],
     icon: 'Bed',
     route: '/dashboard/hoteleria',
     actions: ['read', 'write'],
@@ -620,6 +734,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Socios',
     description: 'Socios, membresías, clases, reservas y control de entrada.',
     group: 'Sectoriales',
+    suites: ['crm', 'pos'],
     icon: 'UserCheck',
     route: '/dashboard/socios',
     actions: ['read', 'write'],
@@ -632,6 +747,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Tiempos',
     description: 'Horas facturables por persona, proyecto y tarifa.',
     group: 'Operación',
+    suites: ['erp'],
     icon: 'Clock',
     route: '/dashboard/tiempos',
     actions: ['read', 'write'],
@@ -644,6 +760,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Suscripciones',
     description: 'Cobro recurrente: mensualidades, membresías y renovaciones.',
     group: 'Comercial',
+    suites: ['crm', 'erp'],
     icon: 'RotateCcw',
     route: '/dashboard/suscripciones',
     actions: ['read', 'write'],
@@ -656,6 +773,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Cartera',
     description: 'Cuentas por cobrar, vencimientos y acuerdos de pago.',
     group: 'Comercial',
+    suites: ['erp'],
     icon: 'Receipt',
     route: '/dashboard/cartera',
     actions: ['read', 'write'],
@@ -668,6 +786,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Notificaciones',
     description: 'Recordatorios de cita, de pago y de vencimiento.',
     group: 'Equipo',
+    suites: ['crm', 'erp'],
     icon: 'MessageSquare',
     route: '/dashboard/notificaciones',
     actions: ['read', 'write'],
@@ -680,6 +799,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Reportes',
     description: 'Reportes guardados por módulo y exportación.',
     group: 'Equipo',
+    suites: ['crm', 'pos', 'erp'],
     icon: 'Activity',
     route: '/dashboard/reportes',
     actions: ['read', 'write'],
@@ -692,6 +812,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Créditos',
     description: 'Colocación, amortización, desembolsos y mora.',
     group: 'Comercial',
+    suites: ['erp'],
     icon: 'DollarSign',
     route: '/dashboard/creditos',
     actions: ['read', 'write'],
@@ -704,6 +825,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Donantes',
     description: 'Donantes, donaciones y rendición de cuentas.',
     group: 'Comercial',
+    suites: ['crm'],
     icon: 'Handshake',
     route: '/dashboard/donantes',
     actions: ['read', 'write'],
@@ -716,6 +838,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Suscriptores',
     description: 'Planes, activaciones, suspensiones y consumo.',
     group: 'Sectoriales',
+    suites: ['crm', 'erp'],
     icon: 'Activity',
     route: '/dashboard/suscriptores',
     actions: ['read', 'write'],
@@ -728,6 +851,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Puestos de servicio',
     description: 'Puestos, turnos y cobertura de vigilancia.',
     group: 'Sectoriales',
+    suites: ['erp'],
     icon: 'ShieldCheck',
     route: '/dashboard/puestos',
     actions: ['read', 'write'],
@@ -740,6 +864,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Calidad',
     description: 'Controles de calidad, lotes y no conformidades.',
     group: 'Operación',
+    suites: ['erp'],
     icon: 'ShieldAlert',
     route: '/dashboard/calidad',
     actions: ['read', 'write'],
@@ -752,6 +877,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Obra',
     description: 'Presupuestos, APU y avance por capítulo de la obra.',
     group: 'Sectoriales',
+    suites: ['erp'],
     icon: 'Construction',
     route: '/dashboard/obra',
     actions: ['read', 'write'],
@@ -765,6 +891,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Propiedad horizontal',
     description: 'Asambleas, cuotas por unidad y zonas comunes del edificio.',
     group: 'Operación',
+    suites: ['erp'],
     icon: 'Apartment',
     route: '/dashboard/ph',
     actions: ['read', 'write'],
@@ -781,6 +908,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Contratación',
     description: 'Procesos de selección, pliegos y oferentes del Estado.',
     group: 'Sectoriales',
+    suites: ['crm', 'erp'],
     icon: 'Contracts',
     route: '/dashboard/contratacion',
     actions: ['read', 'write'],
@@ -794,6 +922,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Marketing',
     description: 'Campañas a clientes y fidelización por puntos.',
     group: 'Comercial',
+    suites: ['crm'],
     icon: 'Send',
     route: '/dashboard/marketing',
     actions: ['read', 'write'],
@@ -806,6 +935,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Integraciones',
     description: 'Pasarela de pagos y WhatsApp. Llaves en el vault, no en la tabla.',
     group: 'Equipo',
+    suites: ['crm', 'pos', 'erp'],
     icon: 'Zap',
     route: '/dashboard/integraciones',
     actions: ['read', 'write'],
@@ -818,6 +948,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Portal',
     description: 'Enlaces públicos firmados y con vencimiento para clientes sin cuenta.',
     group: 'Comercial',
+    suites: ['crm'],
     icon: 'Link2',
     route: '/dashboard/portal',
     actions: ['read', 'write'],
@@ -830,6 +961,7 @@ export const REGISTRY: readonly ModuleEntry[] = [
     label: 'Configuración',
     description: 'Preferencias de la cuenta, módulos, roles y permisos.',
     group: null,
+    suites: ['crm', 'pos', 'erp'],
     // No icon: Configuración is not a nav item. It is reachable from the user
     // menu (and by direct route), while `group: null` marks it as unswitchable
     // shell — the screen that decides which modules the whole company sees and
@@ -856,6 +988,35 @@ export const SWITCHABLE = REGISTRY.filter((m) => m.group !== null)
 
 export function registryEntry(key: string): ModuleEntry | null {
   return REGISTRY.find((m) => m.key === key) ?? null
+}
+
+/** Los segmentos que sirve un módulo. Vacío si la clave no existe. */
+export function suitesOf(key: string): readonly Suite[] {
+  return registryEntry(key)?.suites ?? []
+}
+
+/** Los módulos conmutables de un segmento, en orden de catálogo. */
+export function modulesInSuite(suite: Suite): string[] {
+  return SWITCHABLE.filter((m) => m.suites.includes(suite)).map((m) => m.key)
+}
+
+/**
+ * Los segmentos que una empresa usa de verdad, leídos de lo que tiene encendido.
+ *
+ * Derivado y no guardado en una columna, por lo mismo que `products.stock` es
+ * derivada: `enabled_modules` ya contiene la respuesta, y una segunda copia se
+ * desincroniza el día que alguien enciende `pos` desde Configuración sin pasar
+ * por el asistente. Un módulo que sirve a los tres —documentos, calendario— no
+ * decide nada: si contara, toda empresa «usaría» los tres segmentos desde el
+ * primer día.
+ */
+export function activeSuites(enabled: readonly string[]): Suite[] {
+  const on = new Set(enabled)
+  return SUITE_KEYS.filter((suite) =>
+    SWITCHABLE.some(
+      (m) => on.has(m.key) && m.suites.includes(suite) && m.suites.length < SUITE_KEYS.length,
+    ),
+  )
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

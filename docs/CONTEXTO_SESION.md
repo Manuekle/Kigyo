@@ -1,6 +1,6 @@
 # Kigyo — contexto maestro (estado, historia y pendientes)
 
-Único archivo de sesión. Actualizado: 2026-08-26. Rama `main`.
+Único archivo de sesión. Actualizado: 2026-08-27. Rama `main`.
 
 ---
 
@@ -26,7 +26,7 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 332/332 · tsc 0 · build verde · e2e 8/8 (`workers: 1` obligatorio).
+- vitest 349/349 · tsc 0 · build verde · e2e 11/11 (`workers: 1` obligatorio).
 - **lint: 17 errores + 42 avisos, TODOS en `src/components/extend/*`** (visores
   de `@extend-ai` sin trackear) y en los dos archivos que los usan
   (`DocumentPreview.tsx`, `documentos/client.tsx`). Ninguno en código propio.
@@ -38,7 +38,13 @@ Account    public.accounts          — plan, billing, límites
   `PageSkeleton.tsx`, `nav-icons.tsx`, `nav-prefs.ts`, `src/app/(mostrador)/`,
   `src/app/soluciones/`, 19 `loading.tsx` que faltaban y las migraciones 109 y
   110 (ambas aplicadas a la remota y comprobadas por psql).
-- 0 residuos E2E en remota.
+- **Residuo en remota, pendiente de borrar:** la empresa «E2E Panadería La
+  Espiga» (`alimentos-panaderia`, 10 módulos) creada el 27 para probar el
+  asistente de punta a punta. Ocupa el tercer y último cupo de empresas del plan
+  Growth de la cuenta demo, así que **hasta borrarla no se puede crear otra**.
+  Se borra con
+  `delete from public.organizations where name = 'E2E Panadería La Espiga';`
+  (cascada; ver migración 39). Ningún otro residuo E2E.
 
 ## 3. Historia — todo lo hecho
 
@@ -1530,6 +1536,200 @@ como destino de vuelta del pago. Los tres pasan por `SITE_URL`.
 Lo que **no** se tocó: el apex contra `www`. Sigue abierto (§5.7) y es
 configuración de Vercel, no código — con el webhook de Polar apuntando hoy a
 `www`, cambiar el primario sin coordinarlo es romper los cobros.
+
+### Jornada 2026-08-26 (noche) — auditoría de animaciones de las landings
+
+Revisión completa del movimiento de las páginas públicas (hero, ledger, grid de
+features, reveal por scroll, tilt). Seis defectos, todos silenciosos: ninguno
+lanzaba error, ninguno salía en consola, y cinco de los seis rompían justo la
+intención que el propio comentario del bloque declaraba.
+
+**El escáner del documento iba media vuelta por delante de lo que escanea.**
+`.fv-doc-laser-track` es el único elemento del grid que cuelga cuatro niveles
+por debajo de `.fv` (`.fv` → sheet → scan → laser → track), así que el reloj
+compartido `.fv > *, .fv > * > *` no le llegaba. El bloque ya restataba
+`animation-duration` por ese motivo — con el comentario explicándolo — pero
+**no restataba `animation-delay`**. Resultado: el láser corría en `0s` mientras
+la línea citada, el guion y la píldora `DOC-3201 · L.14` corrían en `-4.3s` de
+un ciclo de `9s`. El haz barría la hoja a casi media vuelta de distancia de la
+línea que supuestamente enciende. Es exactamente la cadena causal que la escena
+existe para enseñar, y era la única de las seis tarjetas que no la contaba.
+
+**La entrada del hero tenía dos mapas y ganaba el equivocado.** El bloque de
+cabecera declara la cadencia en un sitio (0 / 70 / 150 / 230 / 310 / 390ms), y
+120 líneas más abajo `.hx-actions` volvía a declarar `animation-delay: 300ms`.
+Misma especificidad, orden de aparición: ganaba el 300. Botones y escena
+llegaban con 10ms de diferencia, o sea a la vez, y dos escalones de seis se
+fundían en uno.
+
+**La última fila del ledger llegaba la primera.** `Ledger.tsx` pinta seis
+registros con `data-reveal-delay={i + 1}`, y la escala de `globals.css` se
+paraba en `5`. El índice `6` no caía en «sin escalonar», caía en `0ms`: la fila
+`LEAD-1287` entraba por delante de las cinco de arriba. Añadida la regla 6 y
+una nota de que la escala se extiende cuando crece la lista.
+
+**Once líneas de CSS del ledger no apuntaban a nada.** El bloque
+`.landing .l-row-state.b-grn/.b-amb/.b-red/.b-neu` y sus `.bd` son el marcado de
+badge del *dashboard*; el ledger renderiza `.tag.is-*`, el vocabulario de la
+página. Ninguna de esas cuatro clases ni un solo `.bd` han existido nunca en esa
+sección. Y el parpadeo que remataba el bloque llamaba a `hx-blink`, un keyframe
+**que no está definido en ningún punto del archivo**. El color ya lo daba
+`.landing .tag.is-*`, así que no había regresión visible — sólo código muerto
+que documentaba una intención que no se cumplía. Bloque sustituido por la
+intención real: `l-urgent-breathe` sobre el glifo de la única fila roja.
+
+**Las tarjetas con tilt se comían el scroll del móvil.** `.t-tilt` llevaba
+`touch-action: none` sin condición, con el comentario «deja que un dedo arrastre
+el tilt en lugar de hacer scroll». En un teléfono eso no es una función, es una
+trampa: en 375px las seis tarjetas de features, las tres de precios y las tres
+de *Nosotros* son de ancho completo y apiladas, así que cubren casi toda la
+página, y un pulgar que aterrizara sobre una no podía desplazarla. Además el
+tilt es una respuesta al cursor, y en táctil no hay cursor que seguir. Ahora
+está dentro de `@media (hover: hover) and (pointer: fine)` y `TiltCard` ignora
+los punteros que no son `mouse`, para que las dos mitades digan lo mismo.
+
+**El `will-change` del reveal no se devolvía nunca.** `.js-reveal [data-reveal]`
+pide `transform, opacity, filter` y `is-shown` no lo soltaba, así que cada
+elemento revelado —unos veinte en la landing— se quedaba con su propia capa de
+composición para el resto de la sesión. `will-change: auto` en `.is-shown`.
+
+Verificado en navegador con las animaciones pausadas y `currentTime` fijado por
+fase: a 12% el láser va por media hoja, a 20% llega abajo, a 32% la línea está
+encendida, el guion dibujado y la cita fuera. `.hx-actions` mide `0.23s` y
+`.hx-scene` `0.31s`; las seis filas del ledger miden `0.06 → 0.31s` en orden;
+`touch-action` es `auto` a 375px y `none` a 1440px con el tilt siguiendo al
+ratón. tsc 0 · vitest 339/339 · build verde · consola limpia en las seis
+páginas públicas.
+
+Lo que **no** se tocó, y queda anotado:
+
+- **El clúster del hero se corta por la mitad en 720p.** `.hx-scene` empieza en
+  `y=521` y mide `372px`: entra justo en 900px de alto y se parte en 720px, que
+  es un portátil corriente. Es maquetación, no animación, y moverlo toca la
+  composición del diamante entero.
+- **`@media (prefers-reduced-motion: reduce) { * { animation: none !important } }`**
+  existe en la línea ~8963 y anula todo el archivo de golpe. Los ~30 bloques
+  por componente que hay repartidos siguen siendo correctos (fijan el estado
+  *resuelto*, no sólo apagan), pero el `*` los hace redundantes para la parte de
+  apagar y convierte en imposible dejar viva una animación concreta.
+
+### Jornada 2026-08-27 — CRM, POS y ERP dejan de ser un eslogan
+
+El encargo: cómo se organiza la aplicación con los tres segmentos para que una
+empresa gestione su negocio, comprobado creando una empresa de verdad.
+
+**El hueco medido antes de tocar nada.** La marca del rail dice «CRM · ERP ·
+POS», el sitio público entero se reescribió el 26 con ese titular, y **dentro de
+la aplicación esos tres nombres no existían**: el rail sabía de «Comercial»,
+«Operación» y «Equipo» —dónde vive una pantalla, no a qué vino quien la abre— y
+el asistente preguntaba el sector y entregaba veinte módulos sin preguntar
+nunca cuál de las tres partes hacía falta. Una tienda de barrio y un
+distribuidor mayorista son los dos `comercio` y recibían lo mismo.
+
+**La decisión: un segmento es una lente, no una partición.** Partir Kigyo en
+tres hosts ya se midió y se descartó el 26 (cookies host-only,
+`NEXT_PUBLIC_APP_URL` de build, allowlist de un solo valor). Aquí tampoco se
+parte el rail: se etiqueta el catálogo y se ofrece mirar por una parte.
+
+- **`suites` por módulo en el registro** (`ModuleEntry.suites`), y no derivado de
+  `group`: `inventario` vive en Operación y es mitad mostrador, `facturacion`
+  vive en Comercial y es del back office. Un mapa grupo→segmento acertaría en la
+  mayoría y mentiría en los módulos que dos segmentos se disputan, que son
+  justo los que deciden un arranque. Cinco módulos llevan los tres —clientes,
+  documentos, reportes, integraciones, ia— y son los que ningún negocio deja de
+  usar.
+- **`SUITES` con su copy** (etiqueta, nombre y una línea) vive en el registro,
+  que es el catálogo, y lo consumen las cuatro pantallas.
+- **`activeSuites(enabled)`** deriva en qué anda una empresa de lo que tiene
+  encendido, **ignorando los universales**: si contaran, cualquiera con
+  Documentos «usaría» los tres segmentos y el rail ofrecería tres lentes el día
+  uno. Derivado y no guardado en columna, por lo mismo que `products.stock`.
+
+**Paso «Enfoque» en el asistente** (empresa → sector → tipo → **enfoque** →
+módulos → sucursales → equipo → plan). Tres tarjetas con la cuenta de módulos
+que enciende cada una *en el plan que ya tiene*, abiertas en las tres —el preset
+del sector es una decisión tomada con cuidado y arrancar quitándole módulos
+sería contradecirla en silencio— y la palanca que faltaba es la de estrechar.
+`focusProposal` en `lib/sectors.ts` recorta la propuesta y **nunca suelta el
+vertical**: una clínica que pide sólo POS conserva Pacientes, porque «quiero
+cobrar en mostrador» no es «no atiendo pacientes». Lo que el enfoque descarta se
+nombra en el paso siguiente, igual que `lockedByPlan`.
+
+**Lente en el rail.** Pastillas `Todo · CRM · POS · ERP` bajo el conmutador de
+empresa, sólo cuando la empresa usa más de un segmento. Filtra la misma lista,
+no consulta otra; no cierra ninguna ruta ni toca las cuatro compuertas. La
+preferencia vive en `nav-prefs` —al lado de las secciones plegadas y los
+fijados— porque es exactamente lo mismo: una decisión de esta persona en este
+dispositivo, por empresa.
+
+**Bug propio, encontrado midiendo y no leyendo.** Con la lente puesta el rail
+enseñaba lo mismo que sin ella: los tres módulos de mostrador viven bajo
+«Comercial» y esa sección arranca plegada. `isOpen` ahora abre todo con lente,
+igual que ya hacía con el filtro de texto.
+
+**Catálogo de Configuración por segmento.** Las mismas pastillas con la cuenta
+`activos/en el plan` — `Todo · 24/54 · CRM 13/24 · POS 5/13 · ERP 20/45` en la
+empresa demo. No se guarda: el rail recuerda su lente porque es la navegación
+diaria; esta pantalla se abre a hacer una cosa.
+
+**Landings por sector.** `/soluciones/[sector]` encabeza con cuánto enciende
+cada parte, derivado del mismo preset que dibuja la reja de abajo — así la
+página no puede prometer un mostrador que el asistente no va a encender, que es
+la familia de las cuatro afirmaciones falsas del FAQ.
+
+#### El fallo de flujo que destapó crear la empresa de prueba
+
+**La segunda empresa de una cuenta que ya paga quedaba encerrada en el paso
+«Plan».** Ese paso es el muro de la migración 106 y es correcto para la primera
+empresa de una cuenta nueva: pierde «Saltar» y «Terminar» a propósito. Para la
+segunda —misma cuenta, misma suscripción ya cobrada— no había salida ninguna
+salvo comprar otro plan, y sin terminar el asistente el panel devuelve al
+asistente. `maxCompanies` ya es lo que cobra por tener varias empresas.
+`onboarding/page.tsx` pasa ahora `accountActive` y con la cuenta al día el paso
+no vende: dice en qué plan entra la empresa, cuántas permite, qué queda fuera, y
+termina.
+
+#### Verificación en navegador, con una empresa real
+
+Creada «E2E Panadería La Espiga» (`alimentos` → `alimentos-panaderia`, NIT,
+sucursal en Bogotá) con enfoque **sólo mostrador**: el asistente pasó de
+proponer **22 módulos a 10** —restaurante, pos, caja, catálogos, inventario,
+facturación, clientes, documentos, reportes, ia— y lo dijo en pantalla («12
+menos que con las tres partes»). El rail de esa empresa ofrece `Todo · POS ·
+ERP` y **no** ofrece CRM, que es correcto: su único módulo de CRM es `clientes`,
+que es universal.
+
+En la empresa demo (25 enlaces): CRM 14 · POS 6 · ERP 21, la unión de las tres
+devuelve los 25 —ningún módulo huérfano— y la lente sobrevive la recarga.
+
+`e2e/segmentos.spec.ts` (3 pruebas) fija eso sin sembrar nada: mira la empresa
+activa, comprueba invariantes que valen para cualquiera y se salta solo si la
+empresa usa un único segmento. No gasta cupo del plan ni deja residuo.
+
+**Verificado:** tsc 0 · vitest 349/349 (10 nuevas) · build verde · e2e 11/11 ·
+lint en la línea base de siempre (17 errores y 42 avisos, todos en
+`src/components/extend/*` y los dos archivos que los usan).
+
+#### Dos cosas que quedan anotadas y no se tocaron
+
+- **La lente filtra navegación, no datos.** El dashboard sigue mostrando sus KPI
+  completos con una lente puesta. Hacer que los siga es una decisión de producto
+  —los KPI se renderizan en el servidor y la lente vive en `localStorage`— y no
+  una corrección.
+- **`Toggle` añade la clase `is-init` y no existe ni una regla que la use** en
+  `globals.css`. Su comentario dice que arma los keyframes en el primer cambio;
+  no hay keyframes. Código muerto sin efecto visible.
+
+#### Gotcha nuevo de e2e
+
+**Otro Next dev server en el 3000 secuestra la suite en silencio.**
+`playwright.config.ts` tiene `webServer.url = http://localhost:3000` con
+`reuseExistingServer`, así que una app ajena escuchando ahí se toma por la
+nuestra: todas las navegaciones dan 404 y el spec se queda esperando sin decir
+por qué. Cuando esa app empezó a contestar 500, Playwright intentó levantar el
+suyo en el 3001 y Next lo rechazó («Another next dev server is already
+running»). Salida: levantar el dev en otro puerto y correr con
+`E2E_BASE_URL=http://localhost:<puerto>` y una config sin `webServer`.
 
 ## 5. Pendiente (todo requiere decisión o proveedor externo)
 
