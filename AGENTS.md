@@ -126,6 +126,15 @@ directions. `npm run db:module-sql` prints the SQL to paste into a migration.
   nothing to do with web domains; that is `src/lib/site.ts`.
 - Day boundaries use `todayIn(member.orgTimezone)`, never
   `new Date().toISOString().slice(0, 10)`. Bogotá rolls over at 19:00 UTC.
+- **Absolute URLs come from `SITE_URL` (`src/lib/site.ts`)**, never from
+  `process.env.NEXT_PUBLIC_APP_URL` directly. Reading the env raw is how one
+  builder ended up handing a customer a relative `/portal/<token>` and another
+  handed Wompi the literal string `undefined/dashboard/pos`.
+- **One canonical host.** `canonicalRedirect` in `src/proxy.ts` 308s the `www.`
+  alias to it, derived from `SITE_URL`. `/api/*` is exempt on purpose — Polar
+  does not follow redirects on POST — and it fires for that one alias only, so
+  preview deployments are never bounced to production. Pinned by
+  `src/proxy.test.ts`. Never widen it to «anything that is not canonical».
 - Never invent a regulatory figure. Payroll and DIAN parameters ship at zero on
   purpose, pending an accountant.
 

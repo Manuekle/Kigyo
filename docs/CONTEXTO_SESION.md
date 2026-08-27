@@ -1552,13 +1552,36 @@ configuración de Vercel, no código — con el webhook de Polar apuntando hoy a
    un proceso programado (hoy no hay cron, ni edge function, ni `vercel.json`).
    Las dos pantallas ya dicen en pantalla qué hacen y qué no.
 6. **Nómina** — validación contador laboral.
-7. **El canónico servido es `www.kigyo.pro` y `NEXT_PUBLIC_APP_URL` dice el
-   apex.** Ya no rompe nada —el webhook apunta a `www` desde el 2026-08-25 y los
-   demás usos son navegaciones GET, que sí siguen el 308— pero deja el
-   `canonical`, el `sitemap` y el JSON-LD apuntando a una URL que redirige, que
-   es señal de contenido duplicado. Se cierra eligiendo uno: o el apex pasa a
-   primario en Vercel —lo que pidió el dueño: «el link es kigyo.pro»— o la
-   variable pasa a `https://www.kigyo.pro`.
+7. ~~**Apex contra `www`**~~ RESUELTO el 2026-08-26 por el lado de la
+   aplicación. La descripción vieja de este punto era además **falsa**: decía
+   que el apex redirige a `www`, y medido con `curl` el 26 **los dos contestaban
+   200 con la aplicación entera y ninguno redirigía**. Como las cookies son
+   host-only, eso eran dos orígenes — iniciar sesión bajo una grafía y llegar
+   por la otra te dejaba fuera, y `kigyo_ctx` podía apuntar a empresas distintas
+   en cada una. El `canonical` ya decía el apex en ambos, que arregla al
+   rastreador y no al navegador.
+
+   `canonicalRedirect` en `src/proxy.ts` manda ahora el alias al canónico con un
+   308, derivándolo de `SITE_URL`. **`/api/*` queda exento a propósito**: el
+   webhook de Polar está registrado contra `www` y Polar no sigue redirecciones
+   en POST — es la razón por la que `billing_events` tuvo cero filas hasta el
+   25. Y dispara para **un solo alias**, no para «todo lo que no sea el
+   canónico», porque eso rebotaría cada vista previa a producción. Siete casos
+   en `src/proxy.test.ts`, incluidos el de la vista previa y el de un host
+   `kigyo.pro.evil.example`.
+
+   De paso: las tres redirecciones del proxy salían **sin cabeceras de
+   seguridad** —hacían `return` antes del bucle que las pega—, que es el defecto
+   que `ARQUITECTURA_ACTUAL.md` §Proxy tenía anotado. Ahora todas pasan por
+   `sealed()`.
+
+   Lo que queda es de infraestructura y no de código, y **no es urgente**
+   porque la aplicación ya impone el canónico:
+   - En Vercel, dejar `kigyo.pro` como dominio primario. Lo importante es
+     comprobar que **no haya una redirección configurada en sentido contrario**
+     (apex hacia `www`), que pelearía con esta.
+   - En Polar, el webhook puede pasarse a `https://kigyo.pro/api/billing/webhook`
+     cuando convenga. Sigue funcionando en `www` por la exención.
 8. **Rotar la contraseña de la base.** `SUPABASE_DB_URL` completo se imprimió en
    la salida de e2e durante la jornada del 25 (ver §Jornada — fuga de
    credenciales). Los specs nuevos ya no lo hacen; `marketing.spec.ts` y

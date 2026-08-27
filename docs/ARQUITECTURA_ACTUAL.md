@@ -40,6 +40,11 @@ y scripts. **No se proponen cambios.**
 > La cabecera de página pasó a `PageHeader`, renderizada una vez en
 > `(dashboard)/layout.tsx` desde `META`/`META_SUB`; los 62 `loading.tsx` dejaron
 > de dibujar un `.phead` que ninguna página tenía.
+>
+> Y §17 «Proxy» queda cerrado: las redirecciones ya no salen sin cabeceras de
+> seguridad (todas pasan por `sealed()`), y `src/proxy.ts` normaliza además el
+> host — `www.kigyo.pro` va al apex con un 308, con `/api/*` exento para que los
+> webhooks sigan contestando donde estén registrados.
 
 # 1. Resumen del proyecto
 
