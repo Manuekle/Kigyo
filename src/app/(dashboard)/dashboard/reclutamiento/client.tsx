@@ -335,7 +335,7 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
             </div>
 
             {openings.length === 0 ? (
-              <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+              <div className="dempty dempty-block">
                 Todavía no hay vacantes. Crea una para empezar a registrar candidatos.
               </div>
             ) : (
@@ -417,7 +417,7 @@ export default function ReclutamientoPage({ data }: { data: ReclutamientoData })
                   {visibleOpenings.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {openings.length === 0
                             ? 'Todavía no hay vacantes.'
                             : 'No hay vacantes con ese estado.'}

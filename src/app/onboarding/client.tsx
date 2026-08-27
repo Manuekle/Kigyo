@@ -9,6 +9,8 @@ import Toggle from '@/components/ui/Toggle'
 import TabBar from '@/components/ui/TabBar'
 import Badge from '@/components/ui/Badge'
 import { modulesByGroup, moduleDef } from '@/lib/modules'
+import { MODULE_LABELS } from '@/lib/auth/permissions'
+import { SUGGESTED_ROLES } from '@/lib/suggested-roles'
 import { CORE_MODULES, dependenciesOf, missingHardDependencies } from '@/lib/modules/registry'
 import { proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
 import { isSelfServePlan, lowestPlanWith, PLANS, planFor, planModules, type PlanKey } from '@/lib/plans'
@@ -17,7 +19,7 @@ import { createSite } from '@/server/mutations/sites'
 import { inviteMember } from '@/server/mutations/settings'
 import { startPolarCheckout } from '@/server/mutations/billing'
 import {
-  finishCompanySetup, updateCompanyProfile, updateSector,
+  finishCompanySetup, updateCompanyProfile, updateSector, type RoleOption,
 } from '@/server/mutations/onboarding'
 
 /**
@@ -119,6 +121,36 @@ const STEP_LABELS: Record<StepId, string> = {
   plan: 'Plan',
 }
 
+/**
+ * The modules a suggested role opens, named the way the permission matrix names
+ * them.
+ *
+ * Read off `SUGGESTED_ROLES` rather than the database, for the same reason
+ * `lib/sectors.ts` keeps the preset arithmetic pure: this screen has to answer
+ * the question while the sector is still a decision, and one implementation is
+ * the only way it and Configuración can agree about what a role means.
+ *
+ * The lookup mirrors the seed exactly — `coalesce(subsector, company_type)`, so
+ * a company that named a subsector is matched on the subsector *only*, never on
+ * its parent. Empty for the three seeded roles, which live in SQL and not here,
+ * and for a sector that exists only as a row; the caller says nothing at all in
+ * that case rather than showing an empty list, which would read as «no abre
+ * nada».
+ */
+function modulesOpenedBy(
+  roleKey: string,
+  sector: string | null,
+  subsector: string | null,
+): string[] {
+  const key = subsector || sector
+  const role = (key ? SUGGESTED_ROLES[key] ?? [] : []).find((r) => r.key === roleKey)
+  if (!role) return []
+  const modules = new Set(role.permissions.map((p) => p.split(':')[0]))
+  return [...modules]
+    .map((m) => MODULE_LABELS[m] ?? m)
+    .sort((a, b) => a.localeCompare(b, 'es'))
+}
+
 interface Props {
   companyName: string
   sector: string | null
@@ -192,14 +224,43 @@ export default function Client({
   const [branches, setBranches] = useState(sites)
   const [branchForm, setBranchForm] = useState({ name: '', city: '' })
 
+  /**
+   * The organization's roles, refreshed when the sector is saved.
+   *
+   * A prop was the wrong shape. `page.tsx` reads them once, before the sector
+   * has even been asked, so this list was always the three seeded generics —
+   * and the picker below offered a clinic's receptionist «Empleado»: eleven
+   * generic permissions, no `pacientes`, no `caja`, no `facturacion`. The
+   * sector's own roles have existed since migration 46 and the only door to
+   * them was a button in Configuración. `updateSector` seeds them and hands
+   * them back.
+   */
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>(roles)
+
   /** Invitations sent from this screen. Not read back: the row is the invite. */
   const [invited, setInvited] = useState<Array<{ email: string; role: string }>>([])
+  /**
+   * Opens on «Empleado», deliberately, and not on the sector's own lowest role.
+   *
+   * `defaultRole()` picks the highest `rank`, which across the seeded three is
+   * the narrowest access the organization defines. It stops being that once the
+   * sector's roles arrive: «Recepcionista» carries rank 50 and thirteen
+   * permissions against «Empleado»'s rank 30 and eleven, so following rank here
+   * would *widen* what an administrator grants by pressing Invitar without
+   * looking. An invitation form should open on the narrowest thing there is.
+   */
   const [inviteForm, setInviteForm] = useState({
     email: '',
     role: roles.find((r) => r.label === 'Empleado')?.key ?? roles[roles.length - 1]?.key ?? '',
   })
 
   const subsectors = chosenSector ? catalogue.subsectors[chosenSector] ?? [] : []
+
+  /** What the role in the invitation form opens, for the line underneath it. */
+  const inviteRoleOpens = useMemo(
+    () => modulesOpenedBy(inviteForm.role, chosenSector, chosenSub),
+    [inviteForm.role, chosenSector, chosenSub],
+  )
 
   /**
    * The step list, which changes shape with the answers.
@@ -275,7 +336,18 @@ export default function Client({
     setSelected(next)
   }
 
-  function run(fn: () => Promise<{ ok: true } | { ok: false; error: string }>, after: () => void) {
+  /**
+   * Generic over the result so a step can read what its own write answered.
+   *
+   * Every step used to ignore the value and just move on, which was fine while
+   * every write only saved. Saving the sector now also seeds that sector's
+   * roles, and the invitation picker two steps later has to be told about them
+   * — see the `modulos` case below.
+   */
+  function run<T extends { ok: true } | { ok: false; error: string }>(
+    fn: () => Promise<T>,
+    after: (result: Extract<T, { ok: true }>) => void,
+  ) {
     setError(null)
     startTransition(async () => {
       const result = await fn()
@@ -283,7 +355,7 @@ export default function Client({
         setError(result.error)
         return
       }
-      after()
+      after(result as Extract<T, { ok: true }>)
     })
   }
 
@@ -371,7 +443,12 @@ export default function Client({
             subsector: chosenSub,
             modules: [...selected].filter((k) => !CORE_MODULES.includes(k)),
           }),
-          next,
+          // The write also seeds this sector's roles, so the invitation step
+          // two screens on gets the list it could not have had before.
+          (result) => {
+            setRoleOptions(result.roles)
+            next()
+          },
         )
         return
       // "Configurar manualmente" means exactly that: the manual start set is
@@ -672,7 +749,7 @@ export default function Client({
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="onb-module-name">{i.email}</div>
                   <div className="onb-module-desc">
-                    {roles.find((r) => r.key === i.role)?.label ?? i.role} · invitación pendiente
+                    {roleOptions.find((r) => r.key === i.role)?.label ?? i.role} · invitación pendiente
                   </div>
                 </div>
               </div>
@@ -687,11 +764,22 @@ export default function Client({
 
             <label className="flabel" htmlFor="onb-invite-role">Rol</label>
             <Select
-          id="onb-invite-role"
+              id="onb-invite-role"
               value={inviteForm.role}
               onChange={(v) => setInviteForm({ ...inviteForm, role: v })}
-              options={roles.map((r) => ({ value: r.key, label: r.label }))}
+              options={roleOptions.map((r) => ({ value: r.key, label: r.label }))}
             />
+            {/*
+              What the role actually opens, said before the invitation goes out
+              rather than discovered by the person who receives it. Only for the
+              sector's own roles: the seeded three live in SQL, so there is
+              nothing truthful to derive for them here and the line is omitted.
+            */}
+            {inviteRoleOpens.length > 0 && (
+              <p className="onb-note" style={{ marginTop: 8 }}>
+                Abre {inviteRoleOpens.join(', ')}.
+              </p>
+            )}
 
             <button
               className="btn"

@@ -148,7 +148,7 @@ export default function ReportesPage({ data }: { data: ReportesData }) {
               {state.reports.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin reportes guardados.
                     </div>
                   </td>

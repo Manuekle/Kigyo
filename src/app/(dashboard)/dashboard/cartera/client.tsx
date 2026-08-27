@@ -220,7 +220,7 @@ export default function CarteraPage({ data }: { data: CarteraData }) {
               {state.debts.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       No hay cuentas por cobrar.
                     </div>
                   </td>

@@ -7,6 +7,9 @@ import { Menu, X } from '@/lib/icons'
 
 const LINKS = [
   { href: '/#features', label: 'Producto' },
+  // Segundo, antes que el precio: quien busca «software para clínicas» quiere
+  // ver la suya antes de ver cuánto cuesta.
+  { href: '/soluciones', label: 'Soluciones' },
   { href: '/pricing', label: 'Precios' },
   { href: '/faq', label: 'FAQ' },
   { href: '/about', label: 'Nosotros' },

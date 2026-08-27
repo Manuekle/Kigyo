@@ -39,12 +39,21 @@ export default async function RequirePermission({
   // looking for a switch that is deliberately not there.
   if (!isCoreModule(moduleKey) && !planAllows(member.plan, moduleKey)) {
     const required = lowestPlanWith(moduleKey)
+    /*
+     * `<h2>`, not `<h1>`, in all three refusals below.
+     *
+     * The page already has its heading: `PageHeader` renders the module's name
+     * above whatever this component returns, so the route is still «Nómina» and
+     * this is the section explaining why it is empty. Two `<h1>`s on one screen
+     * — one naming the page, one naming the refusal — is the shape a screen
+     * reader cannot resolve into an outline.
+     */
     return (
       <div className="access-denied" role="alert">
         <Lock size={28} aria-hidden="true" />
-        <h1 className="access-denied-title">
+        <h2 className="access-denied-title">
           {def ? `${def.label} no está en tu plan` : 'Este módulo no está en tu plan'}
-        </h1>
+        </h2>
         <p className="access-denied-body">
           {def?.description}{' '}
           {required
@@ -67,9 +76,9 @@ export default async function RequirePermission({
     return (
       <div className="access-denied" role="alert">
         <LayoutGrid size={28} aria-hidden="true" />
-        <h1 className="access-denied-title">
+        <h2 className="access-denied-title">
           {def ? `${def.label} no está activo` : 'Este módulo no está activo'}
-        </h1>
+        </h2>
         <p className="access-denied-body">
           {def?.description
             ? `${def.description} Tu organización no lo tiene activado.`
@@ -88,7 +97,7 @@ export default async function RequirePermission({
   return (
     <div className="access-denied" role="alert">
       <ShieldAlert size={28} aria-hidden="true" />
-      <h1 className="access-denied-title">No tienes acceso a esta sección</h1>
+      <h2 className="access-denied-title">No tienes acceso a esta sección</h2>
       <p className="access-denied-body">
         Tu rol no incluye el permiso <b>{PERMISSION_LABELS[permission]}</b>. Pide a una persona
         administradora de tu organización que te lo asigne desde Configuración.

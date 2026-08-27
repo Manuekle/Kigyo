@@ -314,7 +314,7 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
               {state.campaigns.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin campañas.
                     </div>
                   </td>
@@ -536,7 +536,7 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
               {state.templates.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin plantillas.
                     </div>
                   </td>
@@ -665,7 +665,7 @@ export default function MarketingPage({ data }: { data: MarketingData }) {
               {state.points.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin movimientos de puntos.
                     </div>
                   </td>

@@ -635,7 +635,7 @@ export default function Odontologia({
             {data.labOrders.length === 0 ? (
               <tr>
                 <td colSpan={6}>
-                  <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <div className="dempty dempty-block">
                     Nada en el laboratorio.
                     <div style={{ fontSize: 12.5, color: 'var(--ink3)', marginTop: 8, maxWidth: 460, margin: '8px auto 0' }}>
                       Esto es el laboratorio dental —- una corona que se manda a fabricar y

@@ -249,7 +249,7 @@ export default function CreditosPage({ data }: { data: CreditosData }) {
               {state.loans.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin préstamos.
                     </div>
                   </td>
@@ -320,7 +320,7 @@ export default function CreditosPage({ data }: { data: CreditosData }) {
               {state.installments.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin cuotas.
                     </div>
                   </td>

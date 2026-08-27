@@ -1,16 +1,38 @@
 {
-  "name": "Kigyo — People Operating System",
+  "name": "Kigyo — CRM, ERP y POS para pymes",
   "short_name": "Kigyo",
-  "description": "People Operating System para equipos modernos. Gestión de personas, nómina, documentos, vacaciones y más.",
+  "description": "CRM, ERP y punto de venta en una sola herramienta, configurada según el sector de tu negocio. Multiempresa, con nómina y facturación colombianas.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f5f6",
   "theme_color": "#e5484d",
   "icons": [
-    { "src": "/icon.svg", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

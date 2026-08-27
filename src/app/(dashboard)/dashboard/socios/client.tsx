@@ -374,7 +374,7 @@ export default function SociosPage({ data }: { data: SociosData }) {
                   {socios.length === 0 ? (
                     <tr>
                       <td colSpan={state.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {state.socios.length === 0
                             ? 'Todavía no hay socios. Crea el primero para empezar a vender membresías.'
                             : 'No hay socios con ese estado.'}
@@ -485,7 +485,7 @@ export default function SociosPage({ data }: { data: SociosData }) {
                 {state.planes.length === 0 ? (
                   <tr>
                     <td colSpan={state.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no hay planes. Un plan es lo que el centro vende: una mensualidad,
                         un bono de clases o una sesión suelta.
                       </div>
@@ -548,7 +548,7 @@ export default function SociosPage({ data }: { data: SociosData }) {
                 {state.clases.length === 0 ? (
                   <tr>
                     <td colSpan={state.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no hay clases programadas.
                       </div>
                     </td>
@@ -620,7 +620,7 @@ export default function SociosPage({ data }: { data: SociosData }) {
                 {state.checkins.length === 0 ? (
                   <tr>
                     <td colSpan={4}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no hay entradas registradas.
                       </div>
                     </td>

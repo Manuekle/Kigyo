@@ -712,7 +712,7 @@ function DocTable({
         <thead><tr><th scope="col">Documento</th><th scope="col">Tipo</th><th scope="col">Subido por</th><th scope="col">Tamaño</th><th scope="col">Fecha</th><th scope="col"></th></tr></thead>
         <tbody>
           {rows.length === 0 ? (
-            <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+            <tr><td colSpan={6}><div className="dempty dempty-block">
               {canWrite ? 'Todavía no hay documentos aquí. Sube el primero.' : 'Todavía no hay documentos aquí.'}
             </div></td></tr>
           ) : rows.map((d) => {
@@ -1077,7 +1077,7 @@ function ShareModal({ doc, canWrite, onClose }: {
           <div className="elsub" style={{ marginTop: 0 }}>{doc.name}</div>
 
           {shares === null ? (
-            <div className="dempty" style={{ padding: '14px 0' }}>Cargando accesos…</div>
+            <div className="dempty" style={{ padding: '14px 0' }} role="status">Cargando accesos…</div>
           ) : shares.length === 0 ? (
             <div className="dempty" style={{ padding: '14px 0' }}>Todavía no hay accesos compartidos.</div>
           ) : (

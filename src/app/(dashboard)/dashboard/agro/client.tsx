@@ -550,7 +550,7 @@ export default function AgroPage({ data }: { data: AgroData }) {
                 {ciclos.length === 0 ? (
                   <tr>
                     <td colSpan={7}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay ciclos de cultivo registrados.
                       </div>
                     </td>
@@ -635,7 +635,7 @@ export default function AgroPage({ data }: { data: AgroData }) {
                   {lotes.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           Todavía no hay lotes registrados.
                         </div>
                       </td>
@@ -709,7 +709,7 @@ export default function AgroPage({ data }: { data: AgroData }) {
                 {cosechas.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay cosechas registradas.
                       </div>
                     </td>
@@ -753,7 +753,7 @@ export default function AgroPage({ data }: { data: AgroData }) {
                 {insumos.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay insumos registrados.
                       </div>
                     </td>
@@ -811,7 +811,7 @@ export default function AgroPage({ data }: { data: AgroData }) {
                 {maquinaria.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 6 : 5}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay maquinaria registrada.
                       </div>
                     </td>
@@ -871,7 +871,7 @@ export default function AgroPage({ data }: { data: AgroData }) {
                 {sanidad.length === 0 ? (
                   <tr>
                     <td colSpan={7}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Sin aplicaciones registradas.
                       </div>
                     </td>
@@ -923,7 +923,7 @@ export default function AgroPage({ data }: { data: AgroData }) {
                 {riegos.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Sin riegos registrados.
                       </div>
                     </td>

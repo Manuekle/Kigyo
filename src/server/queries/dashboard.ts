@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/auth/session'
 import { can, type Permission } from '@/lib/auth/permissions'
 import { cop } from '@/lib/utils'
 import { todayIn } from '@/lib/domain'
+import { moduleRankFor } from '@/lib/data/nav'
 import type { Member } from '@/lib/auth/session'
 
 /**
@@ -379,8 +380,35 @@ export async function getDashboard(): Promise<DashboardData> {
     bump(row.created_at, 'documentos')
   }
 
+  /**
+   * Two tiles are named after what they report, not after the module that
+   * holds it. Stated rather than derived: `key === moduleKey` is right for the
+   * other ten, which is exactly enough for a spot check to look correct and be
+   * wrong for the two that matter — «Ventas de hoy» comes out of the counter
+   * and «Ocupación de hoy» out of the hotel.
+   */
+  const KPI_MODULE: Record<string, string> = { ventas: 'pos', ocupacion: 'hoteleria' }
+
+  /**
+   * The tiles in the order this sector works in.
+   *
+   * The pushes above stay where they are — each one sits beside the query that
+   * feeds it — and the order is applied once, here, with the same rule the
+   * sidebar uses. Stable: tiles of the same rank keep the order they were
+   * pushed in, so «Empleados activos» still leads Personas.
+   */
+  const rank = moduleRankFor(member.companyType)
+  const ordered = kpis
+    .map((kpi, i) => ({ kpi, i }))
+    .sort((a, b) => {
+      const ra = rank(KPI_MODULE[a.kpi.key] ?? a.kpi.key)
+      const rb = rank(KPI_MODULE[b.kpi.key] ?? b.kpi.key)
+      return ra - rb || a.i - b.i
+    })
+    .map(({ kpi }) => kpi)
+
   return {
-    kpis,
+    kpis: ordered,
     pendientes: wants.firmas
       ? pendientes.map((f) => ({
           id: f.id,

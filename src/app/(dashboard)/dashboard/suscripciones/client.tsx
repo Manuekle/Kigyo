@@ -203,7 +203,7 @@ export default function SuscripcionesPage({ data }: { data: SuscripcionesData })
               {state.plans.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin planes todavía.
                     </div>
                   </td>
@@ -342,7 +342,7 @@ export default function SuscripcionesPage({ data }: { data: SuscripcionesData })
               {state.subs.length === 0 ? (
                 <tr>
                   <td colSpan={8}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin suscripciones todavía.
                     </div>
                   </td>

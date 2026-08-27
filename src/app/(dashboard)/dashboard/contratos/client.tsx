@@ -305,7 +305,7 @@ export default function ContratosPage({ data }: { data: ContratosData }) {
               {visible.length === 0 ? (
                 <tr>
                   <td colSpan={data.canWrite ? 8 : 7}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       {contratos.length === 0
                         ? 'Todavía no hay contratos registrados.'
                         : 'No hay contratos con esos filtros.'}

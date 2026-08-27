@@ -174,7 +174,7 @@ export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
               <thead><tr><th scope="col">Empleado</th><th scope="col">Tipo</th><th scope="col">Desde</th><th scope="col">Días</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
               <tbody>
                 {ausencias.length === 0 ? (
-                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <tr><td colSpan={6}><div className="dempty dempty-block">
                     {state.canWrite ? 'Todavía no hay ausencias registradas.' : 'Todavía no hay ausencias registradas.'}
                   </div></td></tr>
                 ) : ausencias.map((a) => (
@@ -284,9 +284,9 @@ export default function AsistenciaPage({ data }: { data: AsistenciaData }) {
             <thead><tr><th scope="col">Persona</th><th scope="col">Área</th><th scope="col">Motivo</th><th scope="col">Fecha</th><th scope="col"></th></tr></thead>
             <tbody>
               {salidas === null ? (
-                <tr><td colSpan={5}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>Cargando salidas…</div></td></tr>
+                <tr><td colSpan={5}><div className="dempty dempty-block" role="status">Cargando salidas…</div></td></tr>
               ) : salidas.length === 0 ? (
-                <tr><td colSpan={5}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>Todavía no hay salidas registradas.</div></td></tr>
+                <tr><td colSpan={5}><div className="dempty dempty-block">Todavía no hay salidas registradas.</div></td></tr>
               ) : salidas.map((s) => (
                 <tr className="trow" key={s.id}>
                   <td><div className="cemp"><Avatar name={s.fullName} size={26} /><div className="cename">{s.fullName}</div></div></td>

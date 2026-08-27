@@ -230,7 +230,7 @@ export default function PuestosPage({ data }: { data: PuestosData }) {
               {state.posts.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin puestos.
                     </div>
                   </td>
@@ -375,7 +375,7 @@ export default function PuestosPage({ data }: { data: PuestosData }) {
               {state.shifts.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin turnos.
                     </div>
                   </td>

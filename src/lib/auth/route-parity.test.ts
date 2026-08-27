@@ -129,3 +129,49 @@ describe('every dashboard route is guarded', () => {
     ).toEqual([])
   })
 })
+
+/**
+ * The dashboard is no longer the only authenticated tree.
+ *
+ * `/mostrador` is the POS at full screen — a second door into `pos_sales`, with
+ * no sidebar and no topbar around it. The scan above never looks at it, because
+ * it walks `(dashboard)/dashboard` and nothing else, so the guarantee that made
+ * that scan worth writing would have quietly stopped covering the one screen
+ * where somebody takes money.
+ *
+ * Deliberately *not* folded into `ROUTE_MAP`: it is not a nav destination and
+ * not a module — it is another way to open one that already exists. What it
+ * owes is the same authorization, which is what this checks.
+ */
+const OTHER_AUTHENTICATED_GROUPS = ['src/app/(mostrador)']
+
+describe('every authenticated route outside the dashboard is guarded too', () => {
+  const files = OTHER_AUTHENTICATED_GROUPS.flatMap((group) =>
+    pages(resolve(process.cwd(), group)),
+  )
+
+  it('finds those pages at all', () => {
+    expect(files.length).toBeGreaterThan(0)
+  })
+
+  it('guards authorization inside every page.tsx', () => {
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8')
+      expect(
+        GUARDS.some((guard) => source.includes(guard)),
+        `${file.slice(process.cwd().length + 1)} no autoriza nada`,
+      ).toBe(true)
+    }
+  })
+
+  it('and the group\'s layout resolves the member itself', () => {
+    for (const group of OTHER_AUTHENTICATED_GROUPS) {
+      const layout = readFileSync(resolve(process.cwd(), group, 'layout.tsx'), 'utf8')
+      // The same boundary `(dashboard)/layout.tsx` draws, and for the same
+      // reason: proxy matching has been bypassable in shipped Next releases, so
+      // the guard has to live where the data is read.
+      expect(layout, `${group}/layout.tsx`).toContain('requireMember')
+      expect(layout, `${group}/layout.tsx no manda a pagar`).toContain('/suscripcion')
+    }
+  })
+})

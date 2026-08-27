@@ -105,7 +105,18 @@ export default function PrimerosPasos() {
                       {activeCount} activos ahora mismo, partiendo del preset de {sector.label}.
                       Enciende o apaga lo que sobre o falte.
                     </>
-                  : <>Sin sector, empiezas con el catálogo completo: {activeCount} módulos en el menú.</>}
+                  : <>
+                      {/*
+                        «El catálogo completo» dejó de ser cierto cuando
+                        `MANUAL_START` aterrizó: quien declina el sector recibe
+                        cinco módulos, no cincuenta y siete. La frase seguía
+                        anunciando lo contrario **al lado del número que la
+                        desmentía**, y se la leía justo la persona que había
+                        elegido decidir por su cuenta.
+                      */}
+                      Elegiste configurar a mano, así que empiezas con lo esencial:{' '}
+                      {activeCount} módulos en el menú. Enciende el resto cuando los necesites.
+                    </>}
               </p>
             </div>
             <Link className="btn fr-step-go" href="/dashboard/configuracion">

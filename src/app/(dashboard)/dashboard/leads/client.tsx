@@ -227,7 +227,7 @@ export default function LeadsPage({ data }: { data: LeadsData }) {
               {visible.length === 0 ? (
                 <tr>
                   <td colSpan={data.canWrite ? 5 : 4}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       {state.leads.length === 0
                         ? 'Todavía no hay leads. Registra el primero que te contacte.'
                         : 'No hay leads con esa etapa.'}

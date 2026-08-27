@@ -197,7 +197,7 @@ export default function ImagenesPaciente({ data, onData, pacientes }: Props) {
       </div>
 
       {visible.length === 0 ? (
-        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+        <div className="dempty dempty-block">
           Sin imágenes. Sube el primer estudio.
         </div>
       ) : (

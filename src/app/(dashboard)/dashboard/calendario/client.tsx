@@ -320,7 +320,7 @@ export default function CalendarioPage({ data }: { data: CalendarioData }) {
               {expanded && (
                 <div style={{ flexBasis: '100%', marginTop: 2, paddingTop: 10, borderTop: '1px solid var(--line2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {attendees === null ? (
-                    <div className="dempty">Cargando asistentes…</div>
+                    <div className="dempty" role="status">Cargando asistentes…</div>
                   ) : (attendees ?? []).length === 0 ? (
                     <div className="dempty">Sin asistentes aún.</div>
                   ) : (attendees ?? []).map((a) => (

@@ -233,7 +233,7 @@ export default function DonantesPage({ data }: { data: DonantesData }) {
               {state.donors.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin donantes.
                     </div>
                   </td>
@@ -407,7 +407,7 @@ export default function DonantesPage({ data }: { data: DonantesData }) {
               {state.donations.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin donaciones registradas.
                     </div>
                   </td>

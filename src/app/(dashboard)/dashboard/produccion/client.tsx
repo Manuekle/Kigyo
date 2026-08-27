@@ -320,7 +320,7 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
               {visible.length === 0 ? (
                 <tr>
                   <td colSpan={data.canWrite ? 8 : 7}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       {ordenes.length === 0
                         ? 'Todavía no hay órdenes de producción.'
                         : 'No hay órdenes con ese estado.'}
@@ -464,7 +464,7 @@ export default function ProduccionPage({ data }: { data: ProduccionData }) {
               {boms.length === 0 ? (
                 <tr>
                   <td colSpan={5}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin recetas. Crea la primera para que las órdenes sugieran su costo.
                     </div>
                   </td>

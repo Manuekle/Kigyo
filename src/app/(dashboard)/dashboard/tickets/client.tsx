@@ -187,7 +187,7 @@ function CommentsPanel({ ticketId, comments, loading, error, canWrite, onSend, o
   return (
     <div style={{ border: '1px solid var(--line)', borderRadius: 10, background: 'var(--elevated)' }}>
       {loading ? (
-        <div className="dempty" style={{ padding: '14px 0', textAlign: 'center' }}>Cargando comentarios…</div>
+        <div className="dempty" style={{ padding: '14px 0', textAlign: 'center' }} role="status">Cargando comentarios…</div>
       ) : error ? (
         <div className="dempty" style={{ padding: '14px 0', textAlign: 'center', color: 'var(--redd)' }}>{error}</div>
       ) : comments && comments.length > 0 ? (
@@ -711,7 +711,7 @@ export default function TicketsPage({ data }: { data: TicketsData }) {
               <thead><tr><th scope="col">Ticket</th><th scope="col">Solicitante</th><th scope="col">Área</th><th scope="col">Prioridad</th><th scope="col">Estado</th><th scope="col">Tiempo</th><th scope="col"><span className="sr-only">Comentarios</span></th></tr></thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <tr><td colSpan={7}><div className="dempty dempty-block">
                     {items.length === 0
                       ? (data.canWrite ? 'Todavía no hay tickets. Crea el primero.' : 'Todavía no hay tickets.')
                       : 'No hay tickets en esta área.'}

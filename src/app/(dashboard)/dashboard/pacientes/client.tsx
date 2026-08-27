@@ -527,7 +527,7 @@ items={[
                   {visible.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {pacientes.length === 0
                             ? 'Todavía no hay pacientes registrados.'
                             : 'No hay pacientes con ese estado.'}
@@ -660,7 +660,7 @@ items={[
                 {consultas.length === 0 ? (
                   <tr>
                     <td colSpan={7}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay consultas registradas.
                       </div>
                     </td>
@@ -701,7 +701,7 @@ items={[
                 {turnos.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 6 : 5}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no hay turnos programados.
                       </div>
                     </td>
@@ -762,7 +762,7 @@ items={[
                 {recetas.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no hay recetas registradas.
                       </div>
                     </td>
@@ -809,7 +809,7 @@ items={[
                 {laboratorio.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 6 : 5}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no hay exámenes solicitados.
                       </div>
                     </td>

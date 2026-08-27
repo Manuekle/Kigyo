@@ -180,7 +180,7 @@ export default function FirmasPage({ data }: { data: FirmasData }) {
             <thead><tr><th scope="col">Documento</th><th scope="col">Firmante</th><th scope="col">Tipo</th><th scope="col">Solicitado</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {firmas.length === 0 ? (
-                <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                <tr><td colSpan={6}><div className="dempty dempty-block">
                   Todavía no hay solicitudes de firma.
                 </div></td></tr>
               ) : firmas.map((f) => (

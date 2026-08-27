@@ -1,24 +1,16 @@
 'use client'
 
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
-import {
-  LayoutDashboard, Users, PenLine, Calendar, Clock, Wallet, GraduationCap,
-  Package, FileText, MessageSquare, Ticket, ShieldAlert, ShieldCheck, Activity, Sparkles, Settings,
-  X, LogOut, HelpCircle, Kanban, Receipt, RotateCcw, ShoppingCart, Cashier, Store,
-  FileCheck2, LayoutGrid, UserPlus, Tag, ChevronRight,
-  Wrench, Car, Factory, Stethoscope, School, Restaurant, Sprout, Home, Bed,
-  Handshake, UserSearch, UserCheck, Target, Building2, DollarSign, Truck, BookOpen,
-  Construction,
-  Apartment,
-  Contracts,
-  Link2,
-  Send,
-  Zap,
-} from '@/lib/icons'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { ChevronDown, ChevronRight, HelpCircle, LogOut, Search, Settings, Star, X } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
 import CompanySwitcher from '@/components/layout/CompanySwitcher'
 import { navFor, ROUTE_MAP } from '@/lib/data/nav'
+import { navIcon } from '@/lib/data/nav-icons'
+import {
+  loadNavPrefs, navPrefsServerSnapshot, navPrefsSnapshot, saveNavPrefs, subscribeNavPrefs,
+} from '@/lib/data/nav-prefs'
 import { useApp } from '@/lib/context/AppContext'
 import { useMember } from '@/lib/context/MemberContext'
 import { ROUTE_PERMISSIONS } from '@/lib/auth/permissions'
@@ -26,57 +18,15 @@ import { DROPDOWN_CLOSE_MS, dropdownClass, useExitTransition } from '@/lib/hooks
 
 const DRAWER_CLOSE_MS = 200 // matches --drawer-close-dur
 
-const ICON_MAP: Record<string, React.ReactNode> = {
-  LayoutDashboard: <LayoutDashboard size={18} />,
-  Users: <Users size={18} />,
-  PenLine: <PenLine size={18} />,
-  Calendar: <Calendar size={18} />,
-  Clock: <Clock size={18} />,
-  Wallet: <Wallet size={18} />,
-  GraduationCap: <GraduationCap size={18} />,
-  Package: <Package size={18} />,
-  FileText: <FileText size={18} />,
-  MessageSquare: <MessageSquare size={18} />,
-  Ticket: <Ticket size={18} />,
-  ShieldAlert: <ShieldAlert size={18} />,
-  ShieldCheck: <ShieldCheck size={18} />,
-  Activity: <Activity size={18} />,
-  Sparkles: <Sparkles size={18} />,
-  Settings: <Settings size={18} />,
-  Kanban: <Kanban size={18} />,
-  Receipt: <Receipt size={18} />,
-  RotateCcw: <RotateCcw size={18} />,
-  ShoppingCart: <ShoppingCart size={18} />,
-  Cashier: <Cashier size={18} />,
-  Store: <Store size={18} />,
-  FileCheck2: <FileCheck2 size={18} />,
-  LayoutGrid: <LayoutGrid size={18} />,
-  UserPlus: <UserPlus size={18} />,
-  Tag: <Tag size={18} />,
-  Wrench: <Wrench size={18} />,
-  Car: <Car size={18} />,
-  Factory: <Factory size={18} />,
-  Stethoscope: <Stethoscope size={18} />,
-  School: <School size={18} />,
-  Restaurant: <Restaurant size={18} />,
-  Sprout: <Sprout size={18} />,
-  Home: <Home size={18} />,
-  Bed: <Bed size={18} />,
-  Handshake: <Handshake size={18} />,
-  UserSearch: <UserSearch size={18} />,
-  UserCheck: <UserCheck size={18} />,
-  Target: <Target size={18} />,
-  Building2: <Building2 size={18} />,
-  DollarSign: <DollarSign size={18} />,
-  Truck: <Truck size={18} />,
-  BookOpen: <BookOpen size={18} />,
-  Construction: <Construction size={18} />,
-  Apartment: <Apartment size={18} />,
-  Contracts: <Contracts size={18} />,
-  Link2: <Link2 size={18} />,
-  Send: <Send size={18} />,
-  Zap: <Zap size={18} />,
-}
+/**
+ * How many modules can be pinned.
+ *
+ * Six, because the point of the shelf is that it is shorter than the list it
+ * sits above. A sector preset switches on nineteen to twenty-five modules and
+ * an administrator holds every one of them; a pinned section that grows to the
+ * same size has restated the problem one row higher.
+ */
+const PIN_LIMIT = 6
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -84,6 +34,10 @@ export default function Sidebar() {
   const { sidebarOpen, setSidebarOpen } = useApp()
   const member = useMember()
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const prefs = useSyncExternalStore(subscribeNavPrefs, navPrefsSnapshot, navPrefsServerSnapshot)
+  const { open: openOverrides, pinned } = prefs
+
   // Holds the menu on screen for its close transition instead of cutting it.
   const userMenu = useExitTransition(userMenuOpen, DROPDOWN_CLOSE_MS)
   // Same for the drawer's scrim: the drawer itself slides out on a CSS
@@ -104,8 +58,8 @@ export default function Sidebar() {
    * clicked.
    */
   const sections = useMemo(() => {
-    const allowed = (key: string) => {
-      const permission = ROUTE_PERMISSIONS[key]
+    const allowed = (k: string) => {
+      const permission = ROUTE_PERMISSIONS[k]
       return !permission || member.can(permission)
     }
 
@@ -122,20 +76,154 @@ export default function Sidebar() {
       .filter((section) => section.items.length > 0)
   }, [member])
 
-  function isActive(key: string) {
-    const route = ROUTE_MAP[key]
-    if (key === 'dashboard') return pathname === '/dashboard'
-    return pathname.startsWith(route)
+  /** Every item the nav can show, flattened — what a pin has to resolve to. */
+  const byKey = useMemo(() => {
+    const out = new Map<string, { key: string; label: string; icon: string }>()
+    for (const section of sections) {
+      for (const item of section.items) {
+        out.set(item.key, item)
+        for (const child of item.children) out.set(child.key, child)
+      }
+    }
+    return out
+  }, [sections])
+
+  /**
+   * Read after mount, deliberately.
+   *
+   * The server has no localStorage, so reading it during render would produce
+   * markup the client immediately contradicts. The first paint is the default
+   * shape and the stored one lands a frame later, which for a rail already on
+   * screen reads as nothing at all.
+   */
+  useEffect(() => {
+    loadNavPrefs(member.orgId)
+  }, [member.orgId])
+
+  /**
+   * Pins are re-checked against the live nav on every render, not on read.
+   *
+   * A pin outlives the reason it was allowed: a role narrows, a plan is
+   * downgraded, an administrator switches a module off. Filtering here rather
+   * than when the value is loaded means the shelf can never advertise a door
+   * that closed while this tab was open.
+   */
+  const pinnedItems = useMemo(
+    () => pinned.map((k) => byKey.get(k)).filter((i) => i !== undefined).slice(0, PIN_LIMIT),
+    [pinned, byKey],
+  )
+
+  /**
+   * Which sections start open.
+   *
+   * The two the sector says come first — `navFor` has already put the vertical
+   * and then the group that sector works in at the top — plus anything short
+   * enough that collapsing it saves nothing. Everything else starts folded,
+   * which is the whole point: an administrator opens on five or six rows
+   * instead of twenty-five, and the rest is one click away rather than gone.
+   */
+  const defaultOpen = useMemo(() => {
+    const labelled = sections.filter((s) => s.label)
+    return new Set<string>([
+      ...labelled.slice(0, 2).map((s) => s.label as string),
+      ...labelled.filter((s) => s.items.length <= 2).map((s) => s.label as string),
+    ])
+  }, [sections])
+
+  const filter = query.trim().toLowerCase()
+
+  /** The nav under the filter. Children are matched on their own label too. */
+  const shown = useMemo(() => {
+    if (!filter) return sections
+    return sections
+      .map((section) => ({
+        ...section,
+        items: section.items
+          .map((item) => ({
+            ...item,
+            children: item.children.filter((c) => c.label.toLowerCase().includes(filter)),
+          }))
+          .filter(
+            (item) => item.label.toLowerCase().includes(filter) || item.children.length > 0,
+          ),
+      }))
+      .filter((section) => section.items.length > 0)
+  }, [sections, filter])
+
+  function isOpen(label: string) {
+    // While filtering, everything is open: a match hidden inside a folded
+    // section is a search that answered nothing.
+    if (filter) return true
+    return openOverrides[label] ?? defaultOpen.has(label)
   }
 
-  function navigate(key: string) {
-    router.push(ROUTE_MAP[key])
-    setSidebarOpen(false)
+  function toggleSection(label: string) {
+    saveNavPrefs({ ...prefs, open: { ...openOverrides, [label]: !isOpen(label) } })
+  }
+
+  function togglePin(moduleKey: string) {
+    // Past the limit the oldest pin drops rather than the click being refused:
+    // a shelf that answers "no" to the seventh module is a shelf you stop using.
+    saveNavPrefs({
+      ...prefs,
+      pinned: pinned.includes(moduleKey)
+        ? pinned.filter((k) => k !== moduleKey)
+        : [...pinned, moduleKey].slice(-PIN_LIMIT),
+    })
+  }
+
+  function isActive(k: string) {
+    const route = ROUTE_MAP[k]
+    if (k === 'dashboard') return pathname === '/dashboard'
+    return pathname.startsWith(route)
   }
 
   async function handleLogout() {
     await fetch('/api/auth/login', { method: 'DELETE' })
     router.push('/login')
+  }
+
+  /**
+   * One row: a real link, plus the star that pins it.
+   *
+   * A `<Link>` and not a button with `router.push`. The rail was the only
+   * navigation in the product that could not be middle-clicked, opened in a new
+   * tab or prefetched, and it announced nothing to a screen reader beyond a
+   * highlighted background — the marketing nav had `aria-current` and the app
+   * did not. The star lives outside the anchor because a button inside a link
+   * is not a thing a browser can resolve.
+   */
+  function row(
+    item: { key: string; label: string; icon: string; badge?: string | number; badgeTone?: string },
+    sub = false,
+  ) {
+    const on = isActive(item.key)
+    const isPinned = pinned.includes(item.key)
+    return (
+      <div className="nitem-row" key={item.key}>
+        <Link
+          className={`nitem${sub ? ' nitem-sub' : ''}${on ? ' on' : ''}`}
+          href={ROUTE_MAP[item.key]}
+          aria-current={on ? 'page' : undefined}
+          onClick={() => setSidebarOpen(false)}
+          data-cuelume-press="tick"
+        >
+          {navIcon(item.icon, 18)}
+          <span className="nitem-label">{item.label}</span>
+          {item.badge !== undefined && (
+            <span className={`nbadge ${item.badgeTone ?? 'a'}`}>{item.badge}</span>
+          )}
+        </Link>
+        <button
+          className={`npin${isPinned ? ' on' : ''}`}
+          aria-label={isPinned ? `Quitar ${item.label} de Fijados` : `Fijar ${item.label}`}
+          aria-pressed={isPinned}
+          onClick={() => togglePin(item.key)}
+        >
+          <Star size={13} />
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -152,7 +240,7 @@ export default function Sidebar() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/icon.svg" alt="Kigyo" width={30} height={30} />
           </div>
-          <div className="bname">Kigyo<div className="bsub">People Operating System</div></div>
+          <div className="bname">Kigyo<div className="bsub">CRM · ERP · POS</div></div>
           {sidebarOpen && (
             <button className="ibtn" aria-label="Cerrar menú" style={{ marginLeft: 'auto' }} onClick={() => setSidebarOpen(false)}>
               <X size={15} />
@@ -166,42 +254,75 @@ export default function Sidebar() {
             for the single-company case. */}
         <CompanySwitcher />
 
-        <nav className="nav">
-          {sections.map((section, si) => {
-            return (
-              <div key={section.label ?? si}>
-                {section.label && (
-                  <div className="nlabel">{section.label}</div>
+        {/* Designed and styled since the nav was written and never rendered.
+            It is a control on the list and not a global search — the command
+            palette is that, and it lives in the topbar. */}
+        <div className="nav-find">
+          <Search size={14} />
+          <input
+            className="nav-find-input"
+            type="search"
+            value={query}
+            placeholder="Filtrar módulos"
+            aria-label="Filtrar módulos"
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        <nav className="nav" aria-label="Navegación principal">
+          {shown.flatMap((section, si) => {
+            const label = section.label
+            const open = !label || isOpen(label)
+            const panelId = `nav-section-${label ? label.replace(/\s+/g, '-').toLowerCase() : si}`
+            const node = (
+              <div key={label ?? si}>
+                {label && (
+                  <button
+                    className="nlabel"
+                    aria-expanded={open}
+                    aria-controls={panelId}
+                    onClick={() => toggleSection(label)}
+                  >
+                    <span>{label}</span>
+                    {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                  </button>
                 )}
-                {section.items.map((item) => (
-                  <div key={item.key}>
-                    <button
-                      className={`nitem${isActive(item.key) ? ' on' : ''}`}
-                      onClick={() => navigate(item.key)}
-                      data-cuelume-press="tick"
-                    >
-                      {ICON_MAP[item.icon]}
-                      <span className="nitem-label">{item.label}</span>
-                      {item.badge !== undefined && (
-                        <span className={`nbadge ${item.badgeTone ?? 'a'}`}>{item.badge}</span>
-                      )}
-                    </button>
-                    {item.children.map((child) => (
-                      <button
-                        key={child.key}
-                        className={`nitem nitem-sub${isActive(child.key) ? ' on' : ''}`}
-                        onClick={() => navigate(child.key)}
-                        data-cuelume-press="tick"
-                      >
-                        {ICON_MAP[child.icon]}
-                        <span className="nitem-label">{child.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                ))}
+                <div id={panelId} hidden={!open}>
+                  {section.items.map((item) => (
+                    <div key={item.key}>
+                      {row(item)}
+                      {item.children.map((child) => row(child, true))}
+                    </div>
+                  ))}
+                </div>
               </div>
             )
+
+            /*
+             * The shelf sits *under* Dashboard, not above it. Pinning is a
+             * shortcut into the list; the home screen is not a shortcut, and
+             * pushing it below a shelf that starts empty would move the one
+             * item every person has in common.
+             *
+             * Hidden while filtering: a pinned module that matches is already
+             * in its own section, and showing it twice in four rows of results
+             * reads as two different things.
+             */
+            if (si !== 0 || filter || pinnedItems.length === 0) return [node]
+            return [
+              node,
+              <div key="__pinned">
+                <div className="nlabel">Fijados</div>
+                {pinnedItems.map((item) => row(item))}
+              </div>,
+            ]
           })}
+
+          {filter && shown.length === 0 && (
+            <div className="nav-empty">
+              Ningún módulo se llama así. Prueba con otra palabra, o búscalo todo con ⌘K.
+            </div>
+          )}
         </nav>
 
         <div className="sfoot">
@@ -220,9 +341,14 @@ export default function Sidebar() {
                     nothing. Inviting is real now, but it belongs on the Roles
                     y permisos tab beside the people it changes, not in a menu
                     that cannot show who has been invited. */}
-                <button className="umitem" role="menuitem" onClick={() => { setUserMenuOpen(false); navigate('configuracion') }}>
+                <Link
+                  className="umitem"
+                  role="menuitem"
+                  href={ROUTE_MAP.configuracion}
+                  onClick={() => { setUserMenuOpen(false); setSidebarOpen(false) }}
+                >
                   <Settings size={16} />Configuración
-                </button>
+                </Link>
                 {/* "Ver como <rol>" was here. It wrote `viewAsRole` into
                     AppContext, toasted "Viendo como: Empleado", and nothing
                     anywhere read the value — the view never changed. In a

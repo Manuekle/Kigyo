@@ -223,7 +223,7 @@ export default function HseqPage({ data }: { data: HseqData }) {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <tr><td colSpan={7}><div className="dempty dempty-block">
                     {reports.length === 0 ? 'Todavía no hay trámites registrados.' : 'No hay trámites en este estado.'}
                   </div></td></tr>
                 ) : filtered.map((report) => (

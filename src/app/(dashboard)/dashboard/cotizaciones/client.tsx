@@ -306,11 +306,11 @@ export default function CotizacionesPage({ data }: { data: CotizacionesData }) {
             <thead><tr><th scope="col">Cliente</th><th scope="col">Proyecto</th><th scope="col">Líneas</th><th scope="col">Total</th><th scope="col">Prob.</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {cotizaciones.length === 0 ? (
-                <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                <tr><td colSpan={7}><div className="dempty dempty-block">
                   {state.canWrite ? 'Todavía no hay cotizaciones. Crea la primera.' : 'Todavía no hay cotizaciones.'}
                 </div></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay cotizaciones en este estado.</div></td></tr>
+                <tr><td colSpan={7}><div className="dempty dempty-block">No hay cotizaciones en este estado.</div></td></tr>
               ) : filtered.map((q) => (
                 <tr className="trow" key={q.id} style={{ cursor: 'pointer' }} {...activatable(() => setSelected(q), `Abrir la cotización de ${q.client}`)}>
                   <td>

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { requirePermission } from '@/lib/auth/session'
+import { SITE_URL } from '@/lib/site'
 import { getPortal, type PortalData } from '@/server/queries/portal'
 
 export type PortalResult<T> = { ok: true; data: T } | { ok: false; error: string }
@@ -29,8 +30,7 @@ export async function createTicketPortalToken(clientId: string): Promise<
       console.error('[portal] createTicketPortalToken', error)
       return fail(error?.message ?? 'No se pudo generar el enlace.')
     }
-    const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-    return { ok: true, token: data as string, url: `${origin}/soporte/${data}` }
+    return { ok: true, token: data as string, url: `${SITE_URL}/soporte/${data}` }
   } catch (err) {
     console.error('[portal] createTicketPortalToken', err)
     return fail('No se pudo generar el enlace.')
@@ -108,7 +108,22 @@ export async function createLink(
       )
     }
 
-    const url = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/portal/${token}`
+    /*
+     * `SITE_URL` y no `process.env.NEXT_PUBLIC_APP_URL` a pelo.
+     *
+     * Estas dos funciones leían la variable directamente y con respaldos
+     * distintos: una caía a `http://localhost:3000` y la otra a `''`. La segunda
+     * es la que dolía — sin la variable, el enlace que la aplicación entrega
+     * para *compartir con un cliente* salía como `/portal/<token>`, una ruta
+     * relativa, que fuera de esta pestaña no lleva a ninguna parte. Y salía sin
+     * error: un enlace roto tiene el mismo aspecto que uno bueno hasta que
+     * alguien intenta abrirlo.
+     *
+     * `lib/site.ts` existe justo para esto y respalda con el dominio real,
+     * porque un despliegue al que se le olvidó la variable debe declarar el
+     * dominio bueno y no uno inventado.
+     */
+    const url = `${SITE_URL}/portal/${token}`
     revalidatePath('/dashboard/portal')
     return { ok: true, token, url, data: await getPortal() }
   } catch {

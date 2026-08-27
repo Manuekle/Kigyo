@@ -246,11 +246,11 @@ export default function ProyectosPage({ data }: { data: ProyectosData }) {
             <thead><tr><th scope="col">Proyecto</th><th scope="col">Ubicación</th><th scope="col">Capacidad</th><th scope="col">Avance</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {proyectos.length === 0 ? (
-                <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                <tr><td colSpan={6}><div className="dempty dempty-block">
                   {data.canWrite ? 'Todavía no hay proyectos. Crea el primero.' : 'Todavía no hay proyectos.'}
                 </div></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay proyectos en esta categoría.</div></td></tr>
+                <tr><td colSpan={6}><div className="dempty dempty-block">No hay proyectos en esta categoría.</div></td></tr>
               ) : filtered.map((p) => (
                 <tr className="trow" key={p.id} style={{ cursor: 'pointer' }} {...activatable(() => setSelProy(p.id), `Abrir proyecto ${p.name}`)}>
                   <td>

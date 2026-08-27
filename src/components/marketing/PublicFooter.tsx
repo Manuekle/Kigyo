@@ -35,8 +35,8 @@ export default function PublicFooter() {
           <img src="/icon.svg" alt="Kigyo" width={32} height={32} className="pub-footer-mark" />
           <span className="pub-footer-brandname">Kigyo</span>
           <p className="pub-footer-tagline">
-            People Operating System para equipos modernos. Gestión de personas,
-            nómina, documentos y más en un solo lugar.
+            CRM, ERP y punto de venta en una sola herramienta. Eliges el sector de
+            tu negocio y Kigyo enciende lo que ese negocio usa.
           </p>
         </div>
 

@@ -235,7 +235,7 @@ export default function ContabilidadPage({ data }: { data: ContabilidadData }) {
                   {state.asientos.length === 0 ? (
                     <tr>
                       <td colSpan={state.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {state.canWrite
                             ? 'Todavía no hay asientos. Los movimientos de facturación, compras y caja llegan solos cuando el módulo está activo.'
                             : 'Todavía no hay asientos.'}
@@ -306,7 +306,7 @@ export default function ContabilidadPage({ data }: { data: ContabilidadData }) {
                 {state.mayor.length === 0 ? (
                   <tr>
                     <td colSpan={3}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         El mayor se llena solo cuando hay asientos publicados.
                       </div>
                     </td>

@@ -217,7 +217,7 @@ export default function DianPage({ data }: { data: DianPanelData }) {
               {state.documentos.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin documentos DIAN todavía.
                     </div>
                   </td>

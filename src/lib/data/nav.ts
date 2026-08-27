@@ -92,18 +92,50 @@ function itemsIn(group: ModuleGroup | null): NavItem[] {
  * A pure function of the sector, so it is the same on the server and in the
  * client and can be tested without rendering anything.
  */
-export function navFor(sector: string | null): NavSection[] {
-  const { navLabel, groupOrder } = sectorNav(sector)
-
-  // A partial `groupOrder` means "these first"; anything unnamed keeps its
-  // catalogue order behind them. Sectoriales is never in here — it has been
-  // promoted to the top and would otherwise appear twice.
-  const general: ModuleGroup[] = [
+/**
+ * The general groups in the order this sector works in.
+ *
+ * A partial `groupOrder` means "these first"; anything unnamed keeps its
+ * catalogue order behind them. Sectoriales is never in here — it is promoted
+ * above all of them and would otherwise appear twice.
+ */
+function generalOrder(sector: string | null): ModuleGroup[] {
+  const { groupOrder } = sectorNav(sector)
+  return [
     ...(groupOrder ?? []),
     ...MODULE_GROUPS.filter(
       (g) => g !== 'Sectoriales' && !(groupOrder ?? []).includes(g),
     ),
   ]
+}
+
+/** Which group a module sits in, by key. Built once. */
+const GROUP_OF = new Map<string, ModuleGroup | null>(REGISTRY.map((m) => [m.key, m.group]))
+
+/**
+ * How early a module comes for a sector — the nav's own opinion, as a number.
+ *
+ * The sidebar has put the vertical first and reordered the groups per sector
+ * since `navFor` was written, and the home dashboard did not: it pushed its
+ * tiles in a literal sequence that ended `… inventario, ocupacion, pacientes`,
+ * so a clinic — the sector whose nav was rewritten precisely to put «Clínica»
+ * on top — found «Pacientes activos» as the last tile, behind Empleados and
+ * Tickets.
+ *
+ * Exported so the two screens answer with one rule instead of two lists that
+ * agree until somebody edits one.
+ */
+export function moduleRankFor(sector: string | null): (moduleKey: string) => number {
+  const rank = new Map<ModuleGroup | null, number>([['Sectoriales', 0]])
+  generalOrder(sector).forEach((group, i) => rank.set(group, i + 1))
+  // The shell (`group: null`) and anything unknown sort last rather than first:
+  // an unrecognised key must not jump the queue.
+  return (key) => rank.get(GROUP_OF.get(key) ?? null) ?? 99
+}
+
+export function navFor(sector: string | null): NavSection[] {
+  const { navLabel } = sectorNav(sector)
+  const general = generalOrder(sector)
 
   const sections: NavSection[] = [
     { items: itemsIn(null) },

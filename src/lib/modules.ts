@@ -448,14 +448,18 @@ export const SUBSECTOR_PRESETS: Record<string, SectorDelta> = {
   /* ─── Restaurantes y alimentos ──────────────────────────────────────────── */
   'alimentos-salon':     { add: ['clientes'], remove: [] },
   // Delivery is the business, so the public storefront comes with it — and the
-  // counter, because half of fast food is somebody standing at it.
-  'alimentos-rapida':    { add: ['tienda', 'ecommerce', 'pos'], remove: [] },
+  // counter, because half of fast food is somebody standing at it. `clientes`
+  // because a domicilio goes to a person at an address: the role «Mostrador y
+  // caja» has read it since migration 46, and the preset did not switch it on.
+  'alimentos-rapida':    { add: ['tienda', 'ecommerce', 'pos', 'clientes'], remove: [] },
   'alimentos-bar':       { add: ['clientes'], remove: ['hseq'] },
   // Every event is quoted, contracted and run like a small project. Nobody
   // walks into a catering company and buys a canapé, so no counter.
   'alimentos-catering':  { add: ['clientes', 'cotizaciones', 'contratos', 'proyectos'], remove: ['caja'] },
-  // Bakes in batches, then sells them over a counter.
-  'alimentos-panaderia': { add: ['produccion', 'pos'], remove: [] },
+  // Bakes in batches, then sells them over a counter — to regulars, and on
+  // order, which is what `clientes` is for. Salón, bar and catering all had it
+  // and the two counters did not, for no reason either could name.
+  'alimentos-panaderia': { add: ['produccion', 'pos', 'clientes'], remove: [] },
 
   /* ─── Hotelería y turismo ───────────────────────────────────────────────── */
   'hoteleria-hotel':     { add: ['hseq'], remove: [] },
@@ -548,10 +552,12 @@ export const SUBSECTOR_PRESETS: Record<string, SectorDelta> = {
   // The sector itself: the store is the business, and the customer hears about
   // the order.
   'ecommerce-tienda':       { add: ['notificaciones'], remove: [] },
-  // Never touches the product: the supplier ships.
-  'ecommerce-dropshipping': { add: [], remove: ['inventario'] },
-  // Recurrence is the business model.
-  'ecommerce-suscripcion':  { add: ['suscripciones'], remove: [] },
+  // Never touches the product: the supplier ships. It still has to tell the
+  // buyer that it shipped — `notificaciones`, like the other three.
+  'ecommerce-dropshipping': { add: ['notificaciones'], remove: ['inventario'] },
+  // Recurrence is the business model, and a renewal nobody was told about is
+  // the one that gets charged back.
+  'ecommerce-suscripcion':  { add: ['suscripciones', 'notificaciones'], remove: [] },
 
   /* ─── Tecnología ────────────────────────────────────────────────────────── */
   // A product company bills subscriptions, not hours.
@@ -566,8 +572,9 @@ export const SUBSECTOR_PRESETS: Record<string, SectorDelta> = {
   'financiero-cooperativa': { add: ['caja'], remove: [] },
   // Places no credit: it intermediates somebody else's.
   'financiero-seguros':     { add: [], remove: ['creditos'] },
-  // Product, not practice: it does not consult.
-  'financiero-fintech':     { add: [], remove: ['consultoria'] },
+  // Product, not practice: it does not consult — it builds, which is what its
+  // «Ingeniero/a» role has been pointed at since migration 72.
+  'financiero-fintech':     { add: ['proyectos'], remove: ['consultoria'] },
   // Collects other people's debt; it never places its own.
   'financiero-cobranza':    { add: [], remove: ['creditos'] },
 
@@ -577,13 +584,20 @@ export const SUBSECTOR_PRESETS: Record<string, SectorDelta> = {
   // Underground adds constant rescue and ventilation training.
   'mineria-subterranea':    { add: ['produccion', 'capacitacion'], remove: [] },
   // Crushes and sells aggregate; it executes no projects and no civil works.
-  'mineria-agregados':      { add: ['produccion'], remove: ['proyectos', 'obra'] },
+  // «Sells» is the half `mineria` leaves out on purpose — the sector delivers
+  // tonnage under one contract — and the half this subsector lives on, which is
+  // why it is the only one with a «Comercial» role.
+  'mineria-agregados':      {
+    add: ['produccion', 'clientes', 'cotizaciones', 'facturacion'],
+    remove: ['proyectos', 'obra'],
+  },
 
   /* ─── Telecomunicaciones ────────────────────────────────────────────────── */
   // Subscribers pay their bill at a counter.
   'telecomunicaciones-isp':         { add: ['caja'], remove: [] },
-  // Installs somebody else's network: no subscribers of its own.
-  'telecomunicaciones-instalador':  { add: [], remove: ['suscriptores'] },
+  // Installs somebody else's network: no subscribers of its own — but people up
+  // a tower, which is `riesgos` and `hseq`. Its «Supervisor/a» role reads both.
+  'telecomunicaciones-instalador':  { add: ['riesgos', 'hseq'], remove: ['suscriptores'] },
   // Corporate networks, not subscriber lines.
   'telecomunicaciones-integrador':  { add: [], remove: ['suscriptores'] },
 
@@ -614,11 +628,158 @@ export const SUBSECTOR_PRESETS: Record<string, SectorDelta> = {
   /* ─── Gobierno ──────────────────────────────────────────────────────────── */
   // The entity runs the process and evaluates the people who carry it out.
   'gobierno-entidad':      { add: ['desempeno'], remove: [] },
-  // Executes somebody else's procurement; it does not run one.
-  'gobierno-contratista':  { add: [], remove: ['contratacion'] },
+  // Executes somebody else's procurement; it does not run one. Executing means
+  // materials on site, so `inventario` — which the entity, who only supervises,
+  // has no use for and the sector therefore never proposed.
+  'gobierno-contratista':  { add: ['inventario'], remove: ['contratacion'] },
   // A utility operates networks with subscribers, not procurement processes.
   'gobierno-servicios':    { add: ['suscriptores', 'flota', 'mantenimiento'], remove: ['contratacion'] },
 }
+
+/**
+ * Which sector each subsector hangs off.
+ *
+ * Espejo de la columna `parent_key` de `public.sectors` (migraciones 29 y 33),
+ * y no una deducción a partir de la clave: `fitness-gimnasio` cuelga de
+ * `fitness-bienestar`, así que el atajo obvio —`key.startsWith(sector + '-')`—
+ * falla, y falla **en silencio**, resolviendo contra ningún padre. Ese es
+ * exactamente el aviso que `sectors.test.ts` lleva escrito desde que tuvo que
+ * leer el seed para averiguarlo.
+ *
+ * Existe porque `SUBSECTOR_PRESETS` guarda la aritmética y no el árbol, y hay
+ * dos consumidores que sí necesitan el árbol sin poder tocar la base: la página
+ * pública de cada sector, que reúne los roles de sus subsectores, y el propio
+ * test, que ahora lo fija contra el seed en las dos direcciones.
+ */
+export const SUBSECTOR_PARENT: Record<string, string> = {
+  /* salud */
+  'salud-consultorio': 'salud',
+  'salud-ips': 'salud',
+  'salud-laboratorio': 'salud',
+  'salud-odontologia': 'salud',
+  'salud-estetica': 'salud',
+  'salud-veterinaria': 'salud',
+  /* comercio */
+  'comercio-retail': 'comercio',
+  'comercio-mayorista': 'comercio',
+  'comercio-ferreteria': 'comercio',
+  'comercio-farmacia': 'comercio',
+  'comercio-super': 'comercio',
+  /* alimentos */
+  'alimentos-salon': 'alimentos',
+  'alimentos-rapida': 'alimentos',
+  'alimentos-bar': 'alimentos',
+  'alimentos-catering': 'alimentos',
+  'alimentos-panaderia': 'alimentos',
+  /* hoteleria */
+  'hoteleria-hotel': 'hoteleria',
+  'hoteleria-hostal': 'hoteleria',
+  'hoteleria-finca': 'hoteleria',
+  'hoteleria-operador': 'hoteleria',
+  /* educacion */
+  'educacion-colegio': 'educacion',
+  'educacion-instituto': 'educacion',
+  'educacion-academia': 'educacion',
+  'educacion-universidad': 'educacion',
+  /* construccion */
+  'construccion-civil': 'construccion',
+  'construccion-mep': 'construccion',
+  'construccion-remodel': 'construccion',
+  'construccion-interv': 'construccion',
+  /* agro */
+  'agro-permanente': 'agro',
+  'agro-transitorio': 'agro',
+  'agro-ganaderia': 'agro',
+  'agro-poscosecha': 'agro',
+  /* servicios */
+  'servicios-consultoria': 'servicios',
+  'servicios-contable': 'servicios',
+  'servicios-legal': 'servicios',
+  'servicios-agencia': 'servicios',
+  'servicios-ti': 'servicios',
+  /* logistica */
+  'logistica-carga': 'logistica',
+  'logistica-ultima': 'logistica',
+  'logistica-bodegaje': 'logistica',
+  /* inmobiliario */
+  'inmobiliario-arriendo': 'inmobiliario',
+  'inmobiliario-ph': 'inmobiliario',
+  'inmobiliario-corretaje': 'inmobiliario',
+  /* manufactura */
+  'manufactura-metal': 'manufactura',
+  'manufactura-plastico': 'manufactura',
+  'manufactura-textil': 'manufactura',
+  'manufactura-alimentos': 'manufactura',
+  /* fitness-bienestar */
+  'fitness-gimnasio': 'fitness-bienestar',
+  'fitness-estudio': 'fitness-bienestar',
+  'fitness-spa': 'fitness-bienestar',
+  'fitness-centro': 'fitness-bienestar',
+  /* energia */
+  'energia-solar': 'energia',
+  'energia-eolica': 'energia',
+  'energia-eficiencia': 'energia',
+  'energia-om': 'energia',
+  /* ecommerce */
+  'ecommerce-marketplace': 'ecommerce',
+  'ecommerce-tienda': 'ecommerce',
+  'ecommerce-dropshipping': 'ecommerce',
+  'ecommerce-suscripcion': 'ecommerce',
+  /* tecnologia */
+  'tecnologia-saas': 'tecnologia',
+  'tecnologia-medida': 'tecnologia',
+  'tecnologia-integrador': 'tecnologia',
+  /* financiero */
+  'financiero-cooperativa': 'financiero',
+  'financiero-seguros': 'financiero',
+  'financiero-fintech': 'financiero',
+  'financiero-cobranza': 'financiero',
+  /* mineria */
+  'mineria-abierto': 'mineria',
+  'mineria-subterranea': 'mineria',
+  'mineria-agregados': 'mineria',
+  /* telecomunicaciones */
+  'telecomunicaciones-isp': 'telecomunicaciones',
+  'telecomunicaciones-instalador': 'telecomunicaciones',
+  'telecomunicaciones-integrador': 'telecomunicaciones',
+  /* seguridad */
+  'seguridad-vigilancia': 'seguridad',
+  'seguridad-monitoreo': 'seguridad',
+  'seguridad-escoltas': 'seguridad',
+  /* medios */
+  'medios-agencia': 'medios',
+  'medios-productora': 'medios',
+  'medios-medio': 'medios',
+  /* ong */
+  'ong-fundacion': 'ong',
+  'ong-cooperacion': 'ong',
+  'ong-voluntariado': 'ong',
+  /* gobierno */
+  'gobierno-entidad': 'gobierno',
+  'gobierno-contratista': 'gobierno',
+  'gobierno-servicios': 'gobierno',
+}
+
+/** Los subsectores de un sector, en el orden en que la base los siembra. */
+export function subsectorsOf(sector: string): string[] {
+  return Object.keys(SUBSECTOR_PARENT).filter((key) => SUBSECTOR_PARENT[key] === sector)
+}
+
+/**
+ * Los sectores que tienen página pública, en `/soluciones/[sector]`.
+ *
+ * Todos menos `otro`. «Otro» es la respuesta para un negocio sobre el que el
+ * catálogo no tiene ninguna opinión —su preset es el arranque mínimo y no
+ * propone ningún rol— y una página cuya premisa entera es tener una opinión no
+ * tiene nada que decir sobre él.
+ *
+ * Una sola lista porque son tres consumidores que se desincronizan solos:
+ * `generateStaticParams` decide qué rutas existen, el índice decide qué se
+ * enlaza y el sitemap decide qué se anuncia. Con `dynamicParams = false`, que
+ * el sitemap nombrara una ruta que los params no generan es un 404 publicado a
+ * los buscadores.
+ */
+export const SECTOR_LANDINGS: CompanyTypeDef[] = COMPANY_TYPES.filter((t) => t.key !== 'otro')
 
 export const COMPANY_TYPE_KEYS: CompanyTypeKey[] = COMPANY_TYPES.map((t) => t.key)
 

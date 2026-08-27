@@ -17,6 +17,29 @@ y scripts. **No se proponen cambios.**
 >   abiertos), **uno era un falso positivo** que habría roto la facturación si
 >   alguien lo «arreglaba», y uno era un artefacto de la sesión que lo escribió.
 >   Ver §17.
+>
+> **Segunda revisión, 2026-08-26.** Al día hasta la migración **110**. Lo que
+> cambió desde la 104: el precio pasó de COP a USD (§1), la 109 quitó las nueve
+> claves verticales de la semilla de «Líder de equipo», la 110 amplió ocho
+> presets de subsector que proponían menos de lo que sus propios roles abren, y
+> los roles sugeridos por sector se siembran ahora al guardar el sector en el
+> onboarding en vez de desde un botón en Configuración. El conteo de políticas
+> subió de 1296 a **1312**.
+>
+> Y hay **dos árboles de rutas nuevos** que este documento no describe en §3:
+>
+> - `src/app/(mostrador)` — el POS a pantalla completa, en `/mostrador`. Layout
+>   propio con las mismas cuatro compuertas en el mismo orden, sin sidebar ni
+>   topbar; reutiliza `dashboard/pos/client.tsx` con `fullscreen`. Cubierto por
+>   `route-parity.test.ts` › `OTHER_AUTHENTICATED_GROUPS`.
+> - `src/app/soluciones` — el índice y las 22 páginas públicas por sector,
+>   generadas desde `SECTOR_LANDINGS`, `presetFor` y `SUGGESTED_ROLES`. El
+>   `sitemap.ts` dejó de publicar las 22 rutas `/dashboard/*` que redirigían a
+>   `/login` y publica estas.
+>
+> La cabecera de página pasó a `PageHeader`, renderizada una vez en
+> `(dashboard)/layout.tsx` desde `META`/`META_SUB`; los 62 `loading.tsx` dejaron
+> de dibujar un `.phead` que ninguna página tenía.
 
 # 1. Resumen del proyecto
 
@@ -36,7 +59,11 @@ Planes implementados en `src/lib/plans.ts`:
 | `growth` | 3 | 5 | Ilimitados |
 | `enterprise` | Ilimitadas | Ilimitadas | Ilimitados |
 
-La página de precios declara desde `$80.000/mes`. Las contradicciones que este
+La página de precios declara desde **`$30/mes`**: los importes pasaron de COP a
+USD el 2026-08-25 para cuadrar con Polar ($30/$300, $100/$1.000, $200/$2.000).
+La prueba gratis son 14 días y existe **solo** en `STARTER_MONTHLY` —
+`TRIAL_DAYS` en `lib/pricing.ts` es lo que impide que la pantalla la invente,
+porque el catálogo de Polar exige token y `/pricing` es anónima. Las contradicciones que este
 documento señaló están corregidas: el FAQ afirmaba que «los tres planes cuestan
 $0» (commit `862c28f`) y el JSON-LD de `app/layout.tsx` declaraba `price: '0'` a
 los buscadores (corregido a un `AggregateOffer` cuyo `lowPrice` sale de
@@ -95,7 +122,7 @@ Estado de datos local:
 - 0 views públicas y 0 enums PostgreSQL. Los vocabularios son `text` con
   `check (col in (…))`, y `domain.test.ts` los parsea de las migraciones para
   que TypeScript y la base no se separen.
-- **1296 políticas RLS** sobre 201 tablas con `force row level security`; cero
+- **1312 políticas RLS** sobre 203 tablas con `force row level security`; cero
   tablas sin RLS.
 
 No se encontraron workers, colas persistentes ni cron. POS offline usa IndexedDB en navegador. Notificaciones tienen reglas y log, pero no procesador de envío encontrado.
@@ -897,7 +924,7 @@ Qué se verificó de la versión del 20, cómo, y qué salió.
 ## Lo que estaba desactualizado
 
 Escrito antes de las migraciones 97–104. Actualizado: conteos (104 migraciones,
-203 tablas, 6 extensiones, 1296 políticas), la capa de suspensión, el libro de
+203 tablas, 6 extensiones, 1312 políticas), la capa de suspensión, el libro de
 inventario, el IVA, el embudo relacional y la tercera puerta del envoltorio de
 API.
 

@@ -357,7 +357,7 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
                   {cycles.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 6 : 5}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           Todavía no hay ciclos de evaluación.
                         </div>
                       </td>
@@ -426,7 +426,7 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
                 {reviews.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 6 : 5}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay evaluaciones registradas.
                       </div>
                     </td>
@@ -487,7 +487,7 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
                 {goals.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay objetivos registrados.
                       </div>
                     </td>
@@ -551,7 +551,7 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
 
         {tab === 'encuestas' && (
           encuestas === null ? (
-            <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+            <div className="dempty dempty-block">
               Cargando encuestas…
             </div>
           ) : (
@@ -570,7 +570,7 @@ export default function DesempenoPage({ data }: { data: DesempenoData }) {
                   {encuestas.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 5 : 4}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           No hay encuestas registradas.
                         </div>
                       </td>

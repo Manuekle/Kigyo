@@ -329,7 +329,7 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
                   {courses.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           Todavía no hay cursos registrados.
                         </div>
                       </td>
@@ -415,7 +415,7 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
                   {visibleEnrollments.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 6 : 5}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {enrollments.length === 0
                             ? 'Nadie está inscrito todavía.'
                             : 'No hay inscripciones en ese estado.'}
@@ -487,7 +487,7 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
                 {certificaciones === null ? (
                   <tr>
                     <td colSpan={data.canWrite ? 6 : 5}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         {certTried
                           ? 'No se pudieron cargar las certificaciones.'
                           : 'Cargando certificaciones…'}
@@ -497,7 +497,7 @@ export default function CapacitacionPage({ data }: { data: CapacitacionData }) {
                 ) : certificaciones.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 6 : 5}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no hay certificaciones registradas.
                       </div>
                     </td>

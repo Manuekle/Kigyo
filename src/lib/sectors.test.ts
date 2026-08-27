@@ -2,11 +2,12 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  COMPANY_TYPES, MANUAL_START, MODULE_KEYS, SUBSECTOR_PRESETS,
-  applySectorDelta, presetFor,
+  COMPANY_TYPES, MANUAL_START, MODULE_KEYS, SUBSECTOR_PARENT, SUBSECTOR_PRESETS,
+  applySectorDelta, presetFor, subsectorsOf,
 } from '@/lib/modules'
 import { CORE_MODULES, missingHardDependencies, dependentsOf } from '@/lib/modules/registry'
 import { EMPTY_CATALOGUE, presetFromCatalogue, proposalForPlan, type SectorCatalogue } from '@/lib/sectors'
+import { SUGGESTED_ROLES } from '@/lib/suggested-roles'
 import { PLAN_KEYS, planAllows, planModules, type PlanKey } from '@/lib/plans'
 
 const MIGRATIONS_DIR = resolve(process.cwd(), 'supabase/migrations')
@@ -304,5 +305,81 @@ describe('the wizard proposes only what the plan can save', () => {
     const growth = planModules('growth')
     const salud = proposalForPlan(EMPTY_CATALOGUE, growth, 'salud').included
     expect(salud).toContain('pacientes')
+  })
+})
+
+/**
+ * El invariante que hace seguro sembrar los roles del sector automáticamente.
+ *
+ * Desde que `updateSector` llama a `seed_suggested_roles`, elegir un sector
+ * crea sus roles sin que nadie los revise. Un rol que nombra un módulo que el
+ * preset de su sector no enciende es, en ese momento, una promesa vacía: la
+ * persona invitada como «Recepcionista» abre el menú y no encuentra la pantalla
+ * que su rol dice abrir — y la culpa la carga el rol, que sí tenía el permiso.
+ *
+ * Vive aquí y no en `suggested-roles.test.ts` porque las dos piezas que hacen
+ * falta ya están en este archivo: `presetFor` y, sobre todo, `subsectorParents`,
+ * que se lee del seed justo porque deducir el padre de la clave se equivoca en
+ * silencio con `fitness-gimnasio`.
+ */
+describe('un rol sugerido solo nombra módulos que su sector enciende', () => {
+  const parentOf = subsectorParents()
+  const known = new Set<string>(COMPANY_TYPES.map((t) => t.key))
+
+  it('para los 23 sectores y sus subsectores', () => {
+    for (const [key, roles] of Object.entries(SUGGESTED_ROLES)) {
+      // La clave es un sector, o el subsector cuyo padre dice el seed.
+      const parent = parentOf.get(key) ?? null
+      const [sector, subsector] = parent ? [parent, key] : [key, null]
+      expect(known.has(sector), `${key} no cuelga de ningún sector conocido`).toBe(true)
+
+      const preset = new Set([...presetFor(sector, subsector), ...CORE_MODULES])
+      for (const role of roles) {
+        for (const permission of role.permissions) {
+          const [moduleKey] = permission.split(':')
+          expect(
+            preset.has(moduleKey),
+            `${key}/${role.key} abre ${permission}, y ${sector}` +
+              `${subsector ? ` → ${subsector}` : ''} no enciende ${moduleKey}`,
+          ).toBe(true)
+        }
+      }
+    }
+  })
+})
+
+/**
+ * El árbol de sectores, fijado en las dos direcciones.
+ *
+ * `SUBSECTOR_PARENT` es una copia de `parent_key` en `public.sectors`, y una
+ * copia sin guardia es una copia que se desincroniza el día que alguien añade
+ * un subsector por INSERT — que es justo el caso de uso para el que los
+ * sectores viven en la base y no en el código.
+ */
+describe('SUBSECTOR_PARENT es el árbol que siembra la base', () => {
+  const seeded = subsectorParents()
+
+  it('cubre exactamente lo mismo, en ambas direcciones', () => {
+    for (const [key, parent] of seeded) {
+      expect(SUBSECTOR_PARENT[key], `la base cuelga ${key} de ${parent} y TS no`).toBe(parent)
+    }
+    for (const [key, parent] of Object.entries(SUBSECTOR_PARENT)) {
+      expect(seeded.get(key), `TS cuelga ${key} de ${parent} y la base no lo siembra`).toBe(parent)
+    }
+  })
+
+  it('todo padre es un sector conocido', () => {
+    const known = new Set<string>(COMPANY_TYPES.map((t) => t.key))
+    for (const parent of new Set(Object.values(SUBSECTOR_PARENT))) {
+      expect(known.has(parent), `${parent} no es un sector`).toBe(true)
+    }
+  })
+
+  it('subsectorsOf no se deja engañar por el prefijo', () => {
+    // El caso que hace falso el atajo `key.startsWith(sector + '-')`.
+    expect(subsectorsOf('fitness-bienestar')).toContain('fitness-gimnasio')
+    expect(subsectorsOf('salud')).toEqual(
+      Object.keys(SUBSECTOR_PARENT).filter((k) => SUBSECTOR_PARENT[k] === 'salud'),
+    )
   })
 })

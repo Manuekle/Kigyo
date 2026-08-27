@@ -1,6 +1,6 @@
 # Kigyo — contexto maestro (estado, historia y pendientes)
 
-Único archivo de sesión. Actualizado: 2026-08-25. Rama `main`.
+Único archivo de sesión. Actualizado: 2026-08-26. Rama `main`.
 
 ---
 
@@ -26,14 +26,18 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 318/318 · tsc 0 · build verde · e2e 8/8 (`workers: 1` obligatorio).
+- vitest 332/332 · tsc 0 · build verde · e2e 8/8 (`workers: 1` obligatorio).
 - **lint: 17 errores + 42 avisos, TODOS en `src/components/extend/*`** (visores
   de `@extend-ai` sin trackear) y en los dos archivos que los usan
   (`DocumentPreview.tsx`, `documentos/client.tsx`). Ninguno en código propio.
   Entraron con esos componentes, no con la jornada del 25.
-- Remota: migraciones 1–108 aplicadas. Tipos regenerados (203 tablas) tras mig 106.
+- Remota: migraciones 1–110 aplicadas. Tipos regenerados (203 tablas) tras mig 106.
+  Las 109 y 110 no añaden tablas ni columnas, así que no hace falta regenerar.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
-- Working tree limpio, branch pusheada.
+- Jornada del 26 **sin commitear**: ~110 archivos tocados. Nuevos:
+  `PageHeader.tsx`, `PageSkeleton.tsx`, `nav-icons.tsx`, `nav-prefs.ts`,
+  `src/app/(mostrador)/`, `src/app/soluciones/`, 19 `loading.tsx` que faltaban y
+  las migraciones 109 y 110 (ambas ya aplicadas a la remota).
 - 0 residuos E2E en remota.
 
 ## 3. Historia — todo lo hecho
@@ -1282,6 +1286,251 @@ redirects en GET), pero un emisor de webhooks no los sigue en POST, y por eso
 - `'Habilitada'` es substring de `'Deshabilitada'` — match exacto en badges.
 - Backticks en template literals dentro de heredoc psql — escape o `String.raw`.
 
+### Jornada 2026-08-26 — el rol del sector nunca llegaba, y el rail eran 25 filas
+
+La pregunta era si convenía partir Kigyo en `pos.kigyo.pro`, `crm.kigyo.pro` y
+`erp.kigyo.pro`, más un subdominio por sector. La respuesta, medida y no
+supuesta, es **no** — y lo interesante es por qué.
+
+**Quién ve cuántos ítems.** Starter 10 · rol Empleado 11 · un cajero de
+`comercio-retail` **5** · un Administrador en Growth **19–25** según el sector
+(`ong` 19, `energia` 25). El amontonamiento existe **solo para el
+administrador**, que es la persona que menos quiere tres pestañas separadas.
+Partir por host no ayuda a nadie y rompe seis cosas: las cookies `sb-*` y
+`kigyo_ctx` son *host-only* (ningún cliente pasa `domain`), `resolveActiveCompany`
+cae a `companies[0]` **sin error** —se ve la empresa equivocada, no un fallo—,
+`NEXT_PUBLIC_APP_URL` es una constante de build que se inlinea en el bundle y de
+la que salen los correos de confirmación, el `successUrl` de Polar, el
+`redirect_url` de Wompi y los enlaces de portal, la allowlist de Supabase es de
+un solo valor, el CSP lleva `connect-src 'self'` con `frame-ancestors 'none'` y
+COOP `same-origin`, y sin `vercel.json` ni `rewrites` ni lectura de `host` en
+`proxy.ts` adjuntar cuatro dominios sirve **la app entera cuatro veces**.
+
+`salud.kigyo.pro` sí apunta a algo real y es de marketing: no existe ninguna
+landing por sector. Va como ruta `/soluciones/[sector]` — decidido, pendiente.
+
+**El hallazgo grande: 94 conjuntos de roles por sector que nadie recibía.**
+`SUGGESTED_ROLES` (migraciones 46/61/72) tiene «Médico/a», «Recepcionista»,
+«Cajero/a», «Capataz», «Regente de farmacia»… con permisos afinados uno por uno,
+y el único disparador era un botón en Configuración → Roles y permisos. El paso
+«Equipo» del wizard leía los roles en `onboarding/page.tsx`, **una vez, antes de
+preguntar el sector**, así que ofrecía siempre los tres genéricos: una clínica
+invitaba a su recepcionista como «Empleado» —once permisos, sin `pacientes`, sin
+`caja`, sin `facturacion`— y el dueño concluía que el producto no distingue
+roles. Ahora `updateSector` llama a `seed_suggested_roles` después del write (el
+RPC lee `coalesce(subsector, company_type)` de la propia empresa) y devuelve la
+lista; el paso «Equipo» la recibe y, debajo del desplegable, dice qué abre el rol
+elegido, derivado de `SUGGESTED_ROLES` + `MODULE_LABELS`. Verificado creando una
+empresa `salud → consultorio`: ofrece «Médico/a · Enfermero/a · Recepcionista» y
+escribe «Abre Caja, Calendario, Canales, Clientes, Documentos, Facturación,
+Notificaciones, Pacientes, Tickets.»
+
+El default de invitación **sigue siendo «Empleado» a propósito**, y no
+`defaultRole()`: con los roles del sector puestos, el de mayor `rank` es
+«Recepcionista» —trece permisos contra once—, así que seguir el rank ampliaría
+lo que un administrador concede sin mirar.
+
+**Migración 109 — «Líder de equipo» deja de nacer con once industrias.**
+`app.seed_default_permissions` repartía nueve claves verticales (`pacientes:read`,
+`estudiantes:read`, `restaurante:read/write`, `agro:read`, `inmobiliario:read`,
+`hoteleria:read`, `socios:read/write`) a toda empresa, fuera del sector que
+fuera. Hoy la compuerta de módulo lo tapa; el día que la empresa enciende un
+vertical, todos sus líderes ganan acceso sin que nadie lo decida. Las empresas
+que ya existen **no se tocan** — la misma razón por la que la 97 solo repuso al
+Administrador: `on conflict do nothing` no distingue «nació con ello» de «se lo
+concedieron». Medido en una empresa nueva: 44 permisos, antes 53.
+
+**Migración 110 — ocho subsectores proponían menos de lo que sus roles abren.**
+El guardia nuevo cruza `sector_modules` con `sector_roles` y encontró ocho pares
+rotos, todos por el lado del preset: `alimentos-rapida` y `alimentos-panaderia`
+sin `clientes`, `ecommerce-dropshipping` y `-suscripcion` sin `notificaciones`,
+`financiero-fintech` sin `proyectos`, `mineria-agregados` —el único con rol
+«Comercial»— sin `clientes/cotizaciones/facturacion`, `telecomunicaciones-instalador`
+sin `riesgos/hseq`, `gobierno-contratista` sin `inventario`. Solo `add`. Sembrar
+los roles automáticamente sin esto habría hecho visible el desajuste el día uno.
+
+**El rail deja de ser una lista de 25.** Cuatro cosas, ninguna toca el registro,
+los permisos ni las URLs:
+
+- **El filtro `.nav-find` ya estaba diseñado y estilado desde que se escribió el
+  nav, y no lo renderizaba nadie** (`globals.css:703`, con su comentario
+  explicando dónde va). Ahora se renderiza, con su vacío `.nav-empty`.
+- **Secciones plegables con memoria.** Abiertas por defecto: las dos que el
+  sector pone primero —`navFor` ya sube el vertical y reordena los grupos— más
+  las que tienen dos ítems o menos. Medido en la clínica demo: **de 15 enlaces a
+  10**, con Equipo, Personas y Operación plegadas.
+- **Fijados**, hasta 6, bajo Dashboard y no encima: fijar es un atajo a la lista
+  y la pantalla de inicio no es un atajo.
+- **`<Link>` en vez de `<button onClick={router.push}>`**, con
+  `aria-current="page"` y `aria-label` en el `<nav>`. El rail era la única
+  navegación del producto que no se podía abrir en pestaña nueva ni prefetchear,
+  y anunciaba menos que el nav público.
+
+Las preferencias viven en `src/lib/data/nav-prefs.ts`, un store de módulo leído
+con `useSyncExternalStore` — el mismo patrón que `SoundContext`, y por las mismas
+dos razones: el servidor no tiene `localStorage` y el snapshot tiene que ser
+referencialmente estable. Un `useEffect` con `setState` habría sido un error de
+`react-hooks/set-state-in-effect`, que es lint rojo en este repo.
+
+**La paleta era de otro producto.** Leía `NAV` = `navFor(null)` en vez del nav de
+la empresa, aplanaba solo el primer nivel —«Órdenes de compra», la única pantalla
+anidada, era inalcanzable por búsqueda— y llevaba su propio `ICON_MAP` de 26
+entradas contra las 50 del sidebar: `Stethoscope`, `Restaurant`, `Sprout`, `Bed`,
+`Apartment`, `Construction`, `Factory` y `School` pintaban un hueco, y
+`ICON_MAP[name]` no tiene respaldo que lo delatara. Una de sus entradas,
+`PenTool`, no la declara ningún módulo. Ahora hay **un** mapa
+(`src/lib/data/nav-icons.tsx`), fijado en las dos direcciones por `nav.test.ts`,
+y la paleta incluye Configuración —la única pantalla sin entrada de nav, cuya
+única puerta era un desplegable al fondo del rail.
+
+**Dos afirmaciones falsas de la interfaz, cerradas.** El topbar anunciaba `/`
+como atajo y **nada lo escuchaba**: ahora existe, con guardia sobre `input`,
+`textarea`, `select` y `contenteditable`. Y bajo 760 px la lupa era
+`display: none` sin equivalente táctil, así que **en móvil no había búsqueda**;
+ahora se colapsa a su icono, como hace `.aitop`.
+
+Verificado en navegador con la cuenta demo: 10 enlaces por defecto, abrir
+«Equipo» pasa a 15, filtrar «cli» deja 1, dos fijados sobreviven la recarga, 0
+iconos vacíos en la paleta, y a 375 px el rail queda en `x=-280` con
+`scrollWidth=375` (sin desbordamiento horizontal). La empresa de prueba se borró:
+0 residuos.
+
+### Jornada 2026-08-26 (tarde) — la documentación decía otro producto
+
+**El README describía una app de RRHH que ya no existe.** «People Operating
+System», «**21 módulos**», «aplica las **9** migraciones» —hay 110— y una sección
+entera, «Estado de los módulos», que afirmaba que dieciocho pantallas «todavía
+muestran datos de ejemplo en el cliente». Es falso desde la auditoría de
+pre-venta, que lo verificó pantalla por pantalla. También enlazaba la licencia de
+Saans a `public/font/saans-font-family/`, ruta que no existe (`public/fonts/saans/`),
+y decía que Saans cubre la familia entera cuando hay tres caras con tres trabajos
+—Saans solo titulares, Inter la lectura y las cifras, Caveat las firmas—.
+Reescrito entero, con los conteos sacados del código y de la base: 57 módulos
+conmutables, 11 verticales, 23 sectores, 84 subsectores, 94 conjuntos de roles,
+115 permisos, 203 tablas, 1.312 políticas.
+
+**`docs/SETUP.md`** decía «crean 58 tablas» y su §7 repetía la lista de pantallas
+con datos de ejemplo. Además mandaba a `npm run db:verify` con un «si esto falla,
+no despliegues» — y hoy falla siempre, porque la migración 86 necesita `pgvector`
+y el Postgres de Homebrew no lo trae. Ahora lo dice, y §7 pasó a ser lo único que
+de verdad no está conectado: DIAN producción, Wompi en vivo, entrega de
+marketing/notificaciones, validación de nómina y el Enterprise a mano.
+
+**`AGENTS.md` era solo la regla de `org_id`.** Las otras quince reglas
+vinculantes vivían en el §11 de este archivo —el «prompt para retomar»— así que
+el agente las leía si alguien se acordaba de pegarlas. Subidas a `AGENTS.md`, que
+es lo que `CLAUDE.md` carga en cada sesión: las cuatro compuertas y su orden, el
+registro como fuente única, el flujo de migraciones, IVA y stock derivado,
+`'use server'` en mutations, `todayIn`, la línea base del lint y `workers: 1`.
+
+**Lo que NO se borró, y por qué.** `AUDITORIA_ARQUITECTURA_KIGYO.md` y
+`FASE_0_CONTRATOS.md` parecen borrables —los dos se declaran documentos de
+análisis previos a un plan ya ejecutado— y están citados **ocho veces desde
+código, tests y migraciones**: `28_create_company.sql`, `41_company_setup.sql`,
+`39_deletable_company.sql`, `tests/rls/013` y `/005`, `plans.ts:181`,
+`account-scope.test.ts:84` y `scope-guard.test.ts:8`. Se quedan, con un aviso
+nuevo en `AGENTS.md`: son históricos congelados, no se borran y **tampoco se
+actualizan**.
+
+### Jornada 2026-08-26 (tarde) — el salto vertical, el mostrador y las 22 landings
+
+**Cada navegación terminaba en un salto, y la causa estaba escrita 43 veces.**
+`.phead` —título, subtítulo y dos botones— aparecía en 44 archivos: 43 eran
+`loading.tsx` y uno era una página real. El esqueleto pintaba una cabecera que
+la página nunca renderizaba, así que al llegar el contenido todo subía de golpe.
+Y el subtítulo existía: `META_SUB` es una proyección del registro, cada módulo
+trae el suyo escrito a mano, y **no lo renderizaba nadie** — su única referencia
+fuera de `nav.ts` era una aserción en `registry.test.ts`.
+
+`PageHeader` lo arregla por los dos lados. Vive en `(dashboard)/layout.tsx`, que
+no se vuelve a montar entre rutas, así que la cabecera **sobrevive la
+navegación** en vez de repintarse: medido, la `y` del `h1` es 84 antes y 84
+después. Tres rutas se apartan: `/dashboard` (su `h1` es «Hola, Manuel»), e `ia`
+y `canales`, que son pantallas-aplicación y reciben un `h1` en `sr-only`. El
+`crumb` del topbar dejó de ser `<h1>` y las tres negativas de `RequirePermission`
+pasaron a `<h2>`: ahora hay exactamente uno por pantalla, incluida la denegada.
+
+**26 de los 44 esqueletos eran idénticos byte a byte** — `pos/loading.tsx` y
+`clientes/loading.tsx` eran el mismo archivo, con una forma que no correspondía a
+ninguna de las dos páginas— y **19 rutas no tenían ninguno**. Ahora hay 62: uno
+compartido (`PageSkeleton`), más el del mostrador, el de `canales` (chat) y el de
+`ia`, que ya era bueno.
+
+**121 estilos en línea idénticos.** `className="dempty" style={{ padding: '22px
+0', textAlign: 'center' }}` repetido en 50 archivos, así que «vacío» se veía
+distinto allí donde alguien tecleó 14 en vez de 22 y no había dónde cambiarlo.
+Una clase, `.dempty-block`. **No** se creó un componente `EmptyState`: los 180
+`dempty` restantes son multilínea con expresiones dentro, convertirlos es
+cirugía por archivo, y un componente que nadie importa sería el undécimo de la
+lista de diez componentes muertos que esta misma auditoría señaló. Los seis que
+usaban la clase de *vacío* para decir «Cargando…» llevan ahora `role="status"`.
+
+**El dashboard no respetaba el sector.** `getDashboard` empujaba los KPI en una
+lista literal que terminaba en `… inventario, ocupacion, pacientes`, o sea que
+una clínica —el sector cuyo nav se reescribió para poner «Clínica» arriba—
+recibía «Pacientes activos» de última. `moduleRankFor(sector)` sale ahora de
+`nav.ts` y la usan las dos pantallas; `nav.test.ts` fija que coincide con el
+orden de secciones de `navFor` en los 23 sectores. De paso, los dos botones de IA
+del inicio se renderizaban siempre: sin el módulo `ia`, el propio dashboard te
+mandaba a «no está activo», y el segundo aparecía debajo del texto que acababa de
+decir que el asistente no está configurado.
+
+**`/mostrador`: el POS a pantalla completa.** Route group hermano con layout
+propio, las mismas cuatro compuertas en el mismo orden y `pos:read` encima; sin
+rail, sin topbar, sin los cuatro KPI ni los botones de exportar y preferencias
+—cosas que un dueño hace entre turnos y un cajero no hace a mitad de una venta—.
+Un solo cliente, con `fullscreen`, porque el carrito, el escáner, la cola offline
+y la impresora son la parte difícil y tiene que haber una sola de cada.
+Verificado: 0 rail, 0 topbar, 0 KPI, barra a 1024 de 1024. Esto es lo que
+`pos.kigyo.pro` quería ser.
+
+Un detalle que casi lo rompe: `body.nrh` es un flex **de fila** —así conviven el
+rail y `.main`— así que `.mostrador` sin `flex: 1` se encogía a su contenido y la
+barra terminaba a mitad de pantalla.
+
+`route-parity.test.ts` cubría solo `(dashboard)/dashboard`, de modo que el árbol
+nuevo habría quedado fuera de la única garantía que hace que valga la pena. Tiene
+ahora `OTHER_AUTHENTICATED_GROUPS`, y exige además que el layout del grupo
+resuelva `requireMember` y mande a `/suscripcion`.
+
+**22 landings por sector, y el sitemap deja de publicar rutas privadas.**
+`/soluciones` y `/soluciones/[sector]`, generadas desde `SECTOR_LANDINGS`,
+`presetFor` y `SUGGESTED_ROLES`: cada página lista los módulos que ese negocio
+enciende, agrupados con el vertical primero (`moduleRankFor`), y los oficios que
+recibe con lo que abre cada uno. Nada escrito a mano, así que no puede prometer
+un módulo que el producto no vaya a encender — que es la familia de las cuatro
+afirmaciones falsas del FAQ.
+
+Para reunir los roles hizo falta el árbol: `SUGGESTED_ROLES` se indexa como el
+seed, `coalesce(subsector, company_type)`, así que «Salud» no tiene entrada
+propia y sus diez roles viven bajo `salud-consultorio`, `salud-ips` y cuatro más.
+`SUBSECTOR_PARENT` es el espejo de `parent_key`, y **no** una deducción por
+prefijo: `fitness-gimnasio` cuelga de `fitness-bienestar`, que es justo el caso
+donde el atajo falla en silencio. Fijado contra el seed en las dos direcciones.
+
+El `sitemap.ts` publicaba **22 rutas `/dashboard/*`** que contestan 307 a
+`/login`: veintidós URLs que redirigen a la misma página, que es la forma que un
+buscador lee como sitio duplicado. Fuera. Ahora son 30 URLs, todas públicas.
+
+**Y el sitio decía ser otro producto.** El `metadata` de `app/layout.tsx` —title,
+description, keywords, applicationName, OpenGraph, Twitter y el JSON-LD—
+describía «People Operating System» con palabras clave sobre cesantías y
+prestaciones sociales. Eso es un módulo de 57. Reescrito a «CRM, ERP y POS para
+pymes», con las keywords que alguien teclea de verdad. Lo mismo en el pie
+público, en el rail (`CRM · ERP · POS`) y en `manifest.json`.
+
+**Higiene de dominio.** `portal.ts` construía sus dos enlaces leyendo
+`process.env.NEXT_PUBLIC_APP_URL` a pelo y con respaldos distintos: uno caía a
+`http://localhost:3000` y **el otro a `''`**, así que sin la variable el enlace
+que la aplicación entrega *para compartir con un cliente* salía como
+`/portal/<token>` — relativo, y sin error. `lib/wompi.ts` tenía el mismo patrón:
+sin la variable le entregaba a Wompi la cadena literal `undefined/dashboard/pos`
+como destino de vuelta del pago. Los tres pasan por `SITE_URL`.
+
+Lo que **no** se tocó: el apex contra `www`. Sigue abierto (§5.7) y es
+configuración de Vercel, no código — con el webhook de Polar apuntando hoy a
+`www`, cambiar el primario sin coordinarlo es romper los cobros.
+
 ## 5. Pendiente (todo requiere decisión o proveedor externo)
 
 1. ~~**Polar.sh**~~ RESUELTO el 2026-08-25. Cuenta creada y aprobada
@@ -1456,8 +1705,10 @@ psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL' … SQL
 | Archivo | Rol |
 |---|---|
 | `AGENTS.md`, `CLAUDE.md`, `README.md` | instrucciones repo (vinculantes) |
-| `docs/FASE_0_CONTRATOS.md` | contratos vinculantes (citado por AGENTS.md, tests y plans.ts) — NO borrar |
-| `docs/AUDITORIA_ARQUITECTURA_KIGYO.md` | razonamiento arquitectura (citado por AGENTS.md y tests) — NO borrar |
+| `docs/FASE_0_CONTRATOS.md` | contratos vinculantes. Citado 6 veces desde migraciones, tests RLS y `plans.ts` — **histórico congelado: ni borrar ni actualizar** |
+| `docs/AUDITORIA_ARQUITECTURA_KIGYO.md` | razonamiento de la arquitectura. Citado desde `AGENTS.md` y `scope-guard.test.ts` — **histórico congelado: ni borrar ni actualizar** |
+| `README.md` | reescrito el 2026-08-26: describía una app de RRHH con 21 módulos y 9 migraciones |
+| `AGENTS.md` | reglas vinculantes, todas. Es lo que `CLAUDE.md` carga cada sesión |
 | `docs/ARQUITECTURA_ACTUAL.md` | mapa técnico del sistema. Revisado y verificado contra la base remota el 2026-08-21; su §20 registra qué se comprobó, qué estaba mal y qué sigue abierto |
 | `docs/SETUP.md` | puesta en marcha (citado por README y código) |
 | `docs/CONTEXTO_SESION.md` | este archivo — único archivo de sesión |
@@ -1470,7 +1721,7 @@ Retoma Kigyo. Lee docs/CONTEXTO_SESION.md (maestro) y docs/ARQUITECTURA_ACTUAL.m
 (mapa técnico; su §20 dice qué se comprobó y qué salió mal).
 
 ESTADO
-tsc 0 · vitest 303/303 · build verde · e2e 8/8 (workers: 1 SIEMPRE)
+tsc 0 · vitest 332/332 · build verde · e2e 8/8 (workers: 1 SIEMPRE)
 lint: 17 errores + 42 avisos, TODOS en src/components/extend/* (visores de
 @extend-ai sin trackear) y en los dos archivos que los usan. Nada propio.
 Migraciones 1–108 aplicadas en remota. Tipos regenerados (203 tablas).

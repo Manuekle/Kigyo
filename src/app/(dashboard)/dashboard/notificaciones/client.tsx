@@ -196,7 +196,7 @@ export default function NotificacionesPage({ data }: { data: NotifPanelData }) {
               {state.rules.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin reglas todavía.
                     </div>
                   </td>
@@ -244,7 +244,7 @@ export default function NotificacionesPage({ data }: { data: NotifPanelData }) {
 
         <div className="cpad">
           {state.upcoming.length === 0 ? (
-            <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+            <div className="dempty dempty-block">
               Nada próximo.
             </div>
           ) : state.upcoming.map((u, i) => (
@@ -281,7 +281,7 @@ export default function NotificacionesPage({ data }: { data: NotifPanelData }) {
               {state.log.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin envíos registrados. Esta bitácora se llenará cuando se
                       conecte un proveedor de correo o WhatsApp; hoy los avisos
                       solo ocurren dentro de la aplicación.

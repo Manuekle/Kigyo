@@ -301,7 +301,7 @@ export default function MantenimientoPage({ data }: { data: MantenimientoData })
               {visible.length === 0 ? (
                 <tr>
                   <td colSpan={data.canWrite ? 7 : 6}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       {ordenes.length === 0
                         ? 'Todavía no hay órdenes de trabajo.'
                         : 'No hay órdenes con esos filtros.'}

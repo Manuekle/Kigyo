@@ -243,7 +243,7 @@ export default function CajaPage({ data }: { data: CajaData }) {
                     {state.movimientos.length === 0 ? (
                       <tr>
                         <td colSpan={state.canWrite ? 6 : 5}>
-                          <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                          <div className="dempty dempty-block">
                             Sin movimientos. Las ventas no aparecen aquí — entran solas al
                             arqueo desde el punto de venta.
                           </div>
@@ -314,7 +314,7 @@ export default function CajaPage({ data }: { data: CajaData }) {
                 {state.historial.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no hay turnos cerrados.
                       </div>
                     </td>
@@ -366,7 +366,7 @@ export default function CajaPage({ data }: { data: CajaData }) {
                 {state.cierresPorSucursal.length === 0 ? (
                   <tr>
                     <td colSpan={5}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Sin turnos cerrados todavía en ninguna sucursal.
                       </div>
                     </td>

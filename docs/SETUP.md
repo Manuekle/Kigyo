@@ -25,9 +25,9 @@ cada consulta paga esa latencia.
 
 ### 2.2 Aplicar las migraciones
 
-Las migraciones están en `supabase/migrations/`, numeradas y en orden. Crean 58
-tablas, las políticas RLS, los triggers de auditoría y los contadores de rate
-limiting.
+Las migraciones están en `supabase/migrations/`, numeradas y en orden. Crean las
+203 tablas, sus políticas RLS, los triggers de auditoría y los contadores de
+rate limiting.
 
 **Opción recomendada** — sin CLI ni Docker:
 
@@ -89,8 +89,15 @@ npm run db:verify
 ```
 
 Aplica todas las migraciones a una base desechable y corre las aserciones de
-RLS. La que importa: **un miembro de la organización A leyendo tablas de la
-organización B recibe cero filas.** Si esto falla, no despliegues.
+RLS. La que importa: **un miembro de la empresa A leyendo tablas de la empresa B
+recibe cero filas.**
+
+> [!WARNING]
+> **Hoy esto no corre en un Postgres de Homebrew.** La migración 86 necesita la
+> extensión `pgvector`, que ese paquete no trae, así que `db:verify` falla antes
+> de llegar a las aserciones. No es un fallo de aislamiento. Mientras tanto una
+> migración nueva se valida aplicándola a la remota dentro de
+> `begin; … rollback;` y comprobando con `psql`.
 
 ### 2.4 Plantilla de correo de recuperación
 
@@ -269,10 +276,13 @@ npm run dev
 npm run typecheck   # tsc --noEmit
 npm run lint        # eslint
 npm test            # vitest
-npm run db:verify   # migraciones + aserciones RLS
 npm run build       # producción
+npm run test:e2e    # playwright — workers: 1 obligatorio
 npm audit           # sin vulnerabilidades altas
 ```
+
+`npm run test:e2e` comparte el usuario demo, la empresa activa y la base demo
+entre specs: **jamás en paralelo**, ni dos procesos a la vez.
 
 Una comprobación manual que ninguna de las anteriores cubre — que la app ya no
 acepta una sesión falsificada:
@@ -288,31 +298,20 @@ dashboard completo.
 
 ## 7. Qué está conectado y qué no
 
-Cablearlo todo no entraba en esta pasada. El estado real:
+Todas las pantallas leen de la base. La auditoría de pre-venta lo verificó
+pantalla por pantalla: **no queda ningún dato de ejemplo en el cliente**, y los
+literales que hubo están documentados en comentarios de por qué se fueron.
 
-**Sobre la base de datos**
+Lo que sigue sin conectar no es código a medias: es un proveedor externo que
+falta.
 
-| Módulo | Estado |
+| Área | Estado |
 | --- | --- |
-| Autenticación (login, registro, recuperación) | Supabase Auth |
-| Configuración → Roles y permisos | `role_permissions` + `memberships` |
-| Configuración → Perfil y empresa | `profiles` + `organizations` |
-| Trazabilidad | `audit_log`, escrito por trigger |
-| Asistente IA | Foundry IQ + Azure OpenAI, con historial |
-| Exportación a Excel | Ruta de servidor con permisos |
+| **DIAN** | Ambiente **demo**: genera el XML UBL y un CUFE simulado. Producción exige proveedor homologado, certificado y revisor fiscal. |
+| **Wompi** | Código y webhook firmado listos; faltan llaves en vivo. |
+| **Marketing y Notificaciones** | Componen y segmentan de verdad, pero no hay proveedor de correo/WhatsApp ni proceso programado, así que no sale nada. Las dos pantallas lo dicen en pantalla. |
+| **Nómina** | Reglas versionadas, cierre inmutable y PILA. Los parámetros salen en **cero a propósito**: exigen validación de un contador laboral. |
+| **Plan Enterprise** | Se activa a mano con `select public.apply_subscription(...)`; no tiene checkout propio. |
 
-**Todavía con datos de ejemplo en el cliente**
-
-`empleados`, `tickets`, `firmas`, `documentos`, `inventario`, `riesgos`,
-`asistencia`, `nómina`, `proyectos`, `cotizaciones`, `compras`,
-`órdenes de compra`, `tienda`, `catálogos`, `consultoría`, `HSEQ`, `canales`,
-`calendario` y el resumen del dashboard.
-
-El esquema, las políticas RLS y los tipos generados **ya existen** para todos
-ellos. Lo que falta es la capa de consulta y las mutaciones por módulo,
-siguiendo el patrón que ya establecen `src/server/queries/settings.ts`,
-`src/server/mutations/settings.ts` y `src/server/queries/audit.ts`.
-
-Cada una de esas pantallas ya está protegida por permisos en el servidor: sin
-el permiso correspondiente no se envía ni su bundle. Lo que muestran son datos
-de ejemplo, no datos de otra organización.
+Para el detalle vivo de esto —qué se intentó, qué falló y por qué— la bitácora
+es `docs/CONTEXTO_SESION.md`.

@@ -583,7 +583,7 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                   {visible.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 8 : 7}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {pedidos.length === 0
                             ? 'Todavía no hay comandas.'
                             : 'No hay comandas con ese filtro.'}
@@ -686,7 +686,7 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                 {menu.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         El menú está vacío.
                       </div>
                     </td>
@@ -744,7 +744,7 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                 {mesas.length === 0 ? (
                   <tr>
                     <td colSpan={4}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay mesas registradas.
                       </div>
                     </td>
@@ -809,7 +809,7 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                 {reservas.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay reservas. Crea la primera con el botón Reserva.
                       </div>
                     </td>
@@ -859,7 +859,7 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
         {tab === 'costeo' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {menu.length === 0 ? (
-              <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+              <div className="dempty dempty-block">
                 Primero crea los platos del menú.
               </div>
             ) : menu.map((m) => {
@@ -934,7 +934,7 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                 {domicilios.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay domicilios. Crea uno desde el botón Domicilio.
                       </div>
                     </td>
@@ -989,7 +989,7 @@ export default function RestaurantePage({ data }: { data: RestauranteData }) {
                 {cajas.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 8 : 7}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay turnos de caja. Abre el primero con el botón Caja.
                       </div>
                     </td>

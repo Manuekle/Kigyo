@@ -370,7 +370,7 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
                   {visible.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {pedidos.length === 0
                             ? 'Todavía no hay pedidos en línea.'
                             : 'No hay pedidos con ese filtro.'}
@@ -507,7 +507,7 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
                 {cupones.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay cupones creados.
                       </div>
                     </td>
@@ -570,7 +570,7 @@ export default function EcommercePage({ data }: { data: EcommerceData }) {
                 {devoluciones.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Sin devoluciones registradas.
                       </div>
                     </td>

@@ -7,6 +7,7 @@ import { requireMember, requirePermission } from '@/lib/auth/session'
 import { isModuleKey, MODULE_KEYS, moduleDef } from '@/lib/modules'
 import { missingHardDependencies } from '@/lib/modules/registry'
 import { lowestPlanWith, planAllows } from '@/lib/plans'
+import { getRoles } from '@/server/queries/roles'
 
 /**
  * The setup wizard's writes.
@@ -21,6 +22,20 @@ import { lowestPlanWith, planAllows } from '@/lib/plans'
  */
 
 export type StepResult = { ok: true } | { ok: false; error: string }
+
+/** A role as an invitation picker needs it: what to submit and what to show. */
+export type RoleOption = { key: string; label: string }
+
+/**
+ * What saving the sector answers with.
+ *
+ * Wider than `StepResult` because this step changes what a *later* step can
+ * offer. Picking «Salud → Consultorio» seeds «Médico/a», «Enfermero/a» and
+ * «Recepcionista» into the organization, and the invitation picker two steps
+ * on has to know about them — it was handed its list before the sector was
+ * even asked, so it offered the three seeded generics to everybody.
+ */
+export type SectorResult = { ok: true; roles: RoleOption[] } | { ok: false; error: string }
 
 /**
  * The account is no longer a step.
@@ -116,7 +131,7 @@ const sectorSchema = z.object({
  */
 export async function updateSector(
   input: z.input<typeof sectorSchema>,
-): Promise<StepResult> {
+): Promise<SectorResult> {
   try {
     const member = await requirePermission('configuracion:manage')
     const parsed = sectorSchema.safeParse(input)
@@ -204,8 +219,34 @@ export async function updateSector(
       }
     }
 
+    /**
+     * The sector's own roles, seeded the moment the sector is known.
+     *
+     * The catalogue has existed since migration 46 — 94 sets of roles by sector
+     * and subsector, with hand-tuned permissions — and the only door to it was
+     * a button in Configuración → Roles y permisos. So the wizard's own
+     * «Equipo» step invited people into the three generics: a clinic's
+     * receptionist arrived as «Empleado», with no `pacientes`, no `caja` and no
+     * `facturacion`, and the sector's answer was never offered.
+     *
+     * After the write, not before: `app.seed_default_roles` reads
+     * `coalesce(subsector, company_type)` off the organization itself. It is
+     * idempotent (`on conflict do nothing` on both roles and grants), so
+     * changing sector adds the new sector's roles without touching what is
+     * already there — which is the safe direction, since deleting a role would
+     * leave whoever held it without one. Configuración can remove them.
+     *
+     * A failure here does not fail the step. The sector is saved, the wizard
+     * moves on, and the button in Configuración is still there.
+     */
+    const { error: seedError } = await supabase.rpc('seed_suggested_roles', {
+      p_org_id: member.orgId,
+    })
+    if (seedError) console.error('[onboarding] seed_suggested_roles', seedError)
+
     revalidatePath('/dashboard', 'layout')
-    return { ok: true }
+    const roles = await getRoles(member.orgId)
+    return { ok: true, roles: roles.map((r) => ({ key: r.key, label: r.label })) }
   } catch {
     return { ok: false, error: 'No tienes permiso para esta acción.' }
   }

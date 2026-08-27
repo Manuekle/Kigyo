@@ -353,7 +353,7 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
                   {visible.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {inmuebles.length === 0
                             ? 'Todavía no hay inmuebles registrados.'
                             : 'No hay inmuebles con ese estado.'}
@@ -443,7 +443,7 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
                 {contratos.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay contratos de arriendo.
                       </div>
                     </td>
@@ -527,7 +527,7 @@ export default function InmobiliarioPage({ data }: { data: InmobiliarioData }) {
                 {pagos.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay pagos registrados.
                       </div>
                     </td>

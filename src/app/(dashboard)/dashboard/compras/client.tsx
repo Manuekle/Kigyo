@@ -281,7 +281,7 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
   function renderTimeline(c: CompraRow) {
     const events = timeline[c.id]
     if (timelineLoading === c.id) {
-      return <div className="dempty" style={{ padding: '12px 0' }}>Cargando eventos…</div>
+      return <div className="dempty" style={{ padding: '12px 0' }} role="status">Cargando eventos…</div>
     }
     if (!events || events.length === 0) {
       return <div className="dempty" style={{ padding: '12px 0' }}>Sin eventos por ahora.</div>
@@ -472,9 +472,9 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
         {filter === 'Facturas proveedor' ? (
           <div className="tblwrap">
             {invoiceLoading ? (
-              <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>Cargando facturas…</div>
+              <div className="dempty dempty-block" role="status">Cargando facturas…</div>
             ) : invoices.length === 0 ? (
-              <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+              <div className="dempty dempty-block">
                 {state.canWrite ? 'Todavía no hay facturas de proveedor. Crea la primera.' : 'Todavía no hay facturas de proveedor.'}
               </div>
             ) : (
@@ -552,11 +552,11 @@ export default function ComprasPage({ data }: { data: ComprasData }) {
             <thead><tr><th scope="col">Requisición</th><th scope="col">Proveedor</th><th scope="col">Proyecto</th><th scope="col">Total</th><th scope="col">Urgencia</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
             <tbody>
               {compras.length === 0 ? (
-                <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                <tr><td colSpan={7}><div className="dempty dempty-block">
                   {state.canWrite ? 'Todavía no hay requisiciones. Crea la primera.' : 'Todavía no hay requisiciones.'}
                 </div></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay requisiciones en este estado.</div></td></tr>
+                <tr><td colSpan={7}><div className="dempty dempty-block">No hay requisiciones en este estado.</div></td></tr>
               ) : filtered.map((c) => [
                 <tr key={c.id} className="trow" style={{ cursor: 'pointer' }} {...activatable(() => setSelected(c), `Abrir la requisición ${c.code ?? ''}`)}>
                   <td>

@@ -24,37 +24,43 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  /*
+   * Todo este bloque describía un producto de RRHH: «People Operating System»,
+   * y palabras clave sobre cesantías y prestaciones sociales. Eso es un módulo
+   * de los cincuenta y siete. Lo que se le anunciaba a un buscador no era una
+   * versión resumida del producto, era otro producto — y era lo primero que
+   * leía alguien que buscaba «software para restaurantes».
+   */
   title: {
     template: '%s | Kigyo',
-    default: 'Kigyo — People Operating System',
+    default: 'Kigyo — CRM, ERP y POS para pymes',
   },
-  description:
-    'People Operating System para equipos modernos en Colombia. Nómina, prestaciones sociales, documentos, vacaciones y más. Simplifica la administración de tu empresa.',
+  description: 'Suite de gestión multiempresa para pymes en Colombia: clientes, ventas, punto de venta, inventario, compras, facturación y nómina, más un módulo por sector. Eliges tu industria y Kigyo enciende lo que ese negocio usa.',
   keywords: [
-    'recursos humanos',
-    'RRHH',
-    'HR',
-    'people ops',
-    'people operating system',
-    'gestión de personas',
+    'ERP',
+    'CRM',
+    'punto de venta',
+    'POS',
+    'software de gestión',
+    'facturación electrónica',
+    'inventario',
     'nómina',
-    'documentos laborales',
-    'vacaciones',
-    'administración de personal',
-    // The terms someone actually searches for here — the generic ones above
-    // compete with the whole Spanish-speaking web.
+    // Los términos que alguien teclea de verdad: los genéricos de arriba
+    // compiten con toda la web en español, y los de abajo con quien vende justo
+    // lo que este producto hace.
+    'ERP para pymes Colombia',
+    'software POS Colombia',
+    'facturación electrónica DIAN',
     'software de nómina Colombia',
-    'RRHH Colombia',
-    'prestaciones sociales',
-    'cesantías',
-    'prima de servicios',
-    'seguridad social',
+    'software para restaurantes',
+    'software para clínicas',
+    'software para constructoras',
     'Kigyo',
   ],
   authors: [{ name: 'Kigyo', url: SITE_URL }],
   creator: 'Kigyo',
   publisher: 'Kigyo',
-  applicationName: 'Kigyo — People Operating System',
+  applicationName: 'Kigyo — CRM, ERP y POS para pymes',
   category: 'business',
   formatDetection: {
     email: false,
@@ -77,10 +83,9 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   openGraph: {
     type: 'website',
-    siteName: 'Kigyo — People Operating System',
-    title: 'Kigyo — People Operating System',
-    description:
-      'People Operating System para equipos modernos en Colombia. Nómina, prestaciones sociales, documentos, vacaciones y más.',
+    siteName: 'Kigyo — CRM, ERP y POS para pymes',
+    title: 'Kigyo — CRM, ERP y POS para pymes',
+    description: 'CRM, ERP y punto de venta en una sola herramienta, configurada según el sector de tu negocio. Multiempresa, con nómina y facturación colombianas.',
     url: SITE_URL,
     locale: 'es_CO',
     images: [
@@ -88,15 +93,14 @@ export const metadata: Metadata = {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Kigyo — People Operating System',
+        alt: 'Kigyo — CRM, ERP y POS para pymes',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Kigyo — People Operating System',
-    description:
-      'People Operating System para equipos modernos en Colombia. Nómina, prestaciones sociales, documentos, vacaciones y más.',
+    title: 'Kigyo — CRM, ERP y POS para pymes',
+    description: 'CRM, ERP y punto de venta en una sola herramienta, configurada según el sector de tu negocio. Multiempresa, con nómina y facturación colombianas.',
     images: ['/og-image.png'],
   },
   robots: {
@@ -118,14 +122,13 @@ export const metadata: Metadata = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Kigyo — People Operating System',
+  name: 'Kigyo — CRM, ERP y POS para pymes',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
-  description:
-    'People Operating System para equipos modernos. Gestión de personas, nómina, documentos, vacaciones y más.',
+  description: 'CRM, ERP y punto de venta en una sola herramienta, configurada según el sector de tu negocio. Multiempresa, con nómina y facturación colombianas.',
   /*
    * Decía `price: '0'`, o sea que Kigyo es gratis, mientras /pricing cobra
-   * desde $80.000 al mes. Los datos estructurados los lee Google para los
+   * desde $30 al mes. Los datos estructurados los lee Google para los
    * resultados enriquecidos y los leen los rastreadores de IA, así que era una
    * afirmación falsa dicha exactamente donde más se propaga — la misma familia
    * que las cuatro del FAQ.

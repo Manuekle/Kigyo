@@ -408,7 +408,7 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
                   {visible.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {vehiculos.length === 0
                             ? 'Todavía no hay vehículos registrados.'
                             : 'No hay vehículos con ese estado.'}
@@ -498,7 +498,7 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
                 {servicios.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay servicios registrados.
                       </div>
                     </td>
@@ -540,7 +540,7 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
                 {combustible.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay tanqueos registrados.
                       </div>
                     </td>
@@ -578,7 +578,7 @@ export default function FlotaPage({ data }: { data: FlotaData }) {
                 {rutas.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no hay rutas planificadas.
                       </div>
                     </td>

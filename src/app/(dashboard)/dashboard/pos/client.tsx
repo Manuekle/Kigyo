@@ -194,7 +194,16 @@ function SimulatedPaymentDialog({
   )
 }
 
-export default function PosPage({ data }: { data: PosData }) {
+/**
+ * `fullscreen` is the counter mode, at `/mostrador`.
+ *
+ * The same component, because the cart, the scanner, the offline outbox and the
+ * receipt printer are the hard parts and there must be exactly one of each. What
+ * it changes is what a till does not need in front of a customer: four figures
+ * about the day, and the export and receipt-settings buttons, which are things
+ * an owner does between shifts and not a cashier does mid-sale.
+ */
+export default function PosPage({ data, fullscreen = false }: { data: PosData; fullscreen?: boolean }) {
   const { runExport, exporting } = useExport()
   const { addToast } = useApp()
   const [pending, startTransition] = useTransition()
@@ -580,6 +589,7 @@ export default function PosPage({ data }: { data: PosData }) {
 
   return (
     <>
+      {!fullscreen && (
       <div className="g3" style={{ marginBottom: 16 }}>
         <div className="rise d1">
           <Stat icon={<DollarSign size={16} />} tone="grn" label="Cobrado hoy"
@@ -607,6 +617,7 @@ export default function PosPage({ data }: { data: PosData }) {
               : 'módulo no activo'} />
         </div>
       </div>
+      )}
 
       {/* Dicho antes de cobrar, no después: una venta en efectivo sin turno
           abierto no queda en ningún arqueo, y eso se descubre al cierre. */}
@@ -657,7 +668,13 @@ export default function PosPage({ data }: { data: PosData }) {
             value={tab}
             onChange={setTab}
           />
+          {!fullscreen && (
           <div style={{ display: 'flex', gap: 8 }}>
+            {/* The same screen without the office around it. A link and not a
+                second host: one origin, one session, one active company. */}
+            <Link className="btn" href="/mostrador">
+              <Store size={15} />Pantalla completa
+            </Link>
             <button disabled={exporting} aria-busy={exporting} className="btn" onClick={exportRows}>
               <FileSpreadsheet size={15} />Exportar
             </button>
@@ -675,6 +692,7 @@ export default function PosPage({ data }: { data: PosData }) {
               </button>
             )}
           </div>
+          )}
         </div>
 
         {/* ─── Vender ─────────────────────────────────────────────────── */}
@@ -832,7 +850,7 @@ export default function PosPage({ data }: { data: PosData }) {
                 {state.ventas.length === 0 ? (
                   <tr>
                     <td colSpan={state.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Todavía no se ha cobrado nada.
                       </div>
                     </td>

@@ -346,7 +346,7 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
                   {visible.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {clientes.length === 0
                             ? 'Todavía no hay clientes registrados.'
                             : 'No hay clientes con ese estado.'}
@@ -497,7 +497,7 @@ export default function ClientesPage({ data }: { data: ClientesData }) {
                 {interacciones.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay interacciones registradas.
                       </div>
                     </td>

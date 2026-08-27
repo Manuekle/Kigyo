@@ -499,7 +499,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                   {visible.length === 0 ? (
                     <tr>
                       <td colSpan={7}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {reservas.length === 0
                             ? 'Todavía no hay reservas.'
                             : 'No hay reservas con ese estado.'}
@@ -589,7 +589,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                   {habitaciones.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           Todavía no hay habitaciones registradas.
                         </div>
                       </td>
@@ -667,7 +667,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                 {seasons.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Sin temporadas. Las reservas usan la tarifa base de cada habitación.
                       </div>
                     </td>
@@ -725,7 +725,7 @@ export default function HoteleriaPage({ data }: { data: HoteleriaData }) {
                   {tareas.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 6 : 5}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           Todavía no hay tareas de limpieza.
                         </div>
                       </td>

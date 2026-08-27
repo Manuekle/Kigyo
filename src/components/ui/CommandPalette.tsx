@@ -2,43 +2,16 @@
 
 import { useEffect, useId, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, LayoutDashboard, Users, PenTool, Calendar, Clock, DollarSign, BookOpen, Package, FileText, MessageSquare, Ticket, ShieldAlert, Activity, Sparkles, Settings, ArrowRight, Wallet, Kanban, Receipt, ShoppingCart, FileCheck2, LayoutGrid, PenLine, Tag, ShieldCheck, Truck } from '@/lib/icons'
+import { Search, ArrowRight, Settings } from '@/lib/icons'
 import Avatar from '@/components/ui/Avatar'
 import { searchDirectory, type DirectoryHit } from '@/server/mutations/empleados'
-import { NAV, ROUTE_MAP } from '@/lib/data/nav'
+import { navFor, META, ROUTE_MAP } from '@/lib/data/nav'
+import { navIcon } from '@/lib/data/nav-icons'
 import { useApp } from '@/lib/context/AppContext'
 import { useMember } from '@/lib/context/MemberContext'
 import { ROUTE_PERMISSIONS } from '@/lib/auth/permissions'
 import { useFocusTrap } from '@/lib/hooks/use-focus-trap'
 import { useExitTransition } from '@/lib/hooks/use-exit-transition'
-
-const ICON_MAP: Record<string, React.ReactNode> = {
-  LayoutDashboard: <LayoutDashboard size={15} />,
-  Users: <Users size={15} />,
-  PenTool: <PenTool size={15} />,
-  Calendar: <Calendar size={15} />,
-  Clock: <Clock size={15} />,
-  DollarSign: <DollarSign size={15} />,
-  BookOpen: <BookOpen size={15} />,
-  Package: <Package size={15} />,
-  FileText: <FileText size={15} />,
-  MessageSquare: <MessageSquare size={15} />,
-  Ticket: <Ticket size={15} />,
-  ShieldAlert: <ShieldAlert size={15} />,
-  Activity: <Activity size={15} />,
-  Sparkles: <Sparkles size={15} />,
-  Settings: <Settings size={15} />,
-  Wallet: <Wallet size={15} />,
-  Kanban: <Kanban size={15} />,
-  Receipt: <Receipt size={15} />,
-  ShoppingCart: <ShoppingCart size={15} />,
-  FileCheck2: <FileCheck2 size={15} />,
-  LayoutGrid: <LayoutGrid size={15} />,
-  PenLine: <PenLine size={15} />,
-  Tag: <Tag size={15} />,
-  ShieldCheck: <ShieldCheck size={15} />,
-  Truck: <Truck size={15} />,
-}
 
 type Result =
   | { kind: 'emp'; id: string; name: string; role: string; dept: string }
@@ -48,8 +21,32 @@ export default function CommandPalette() {
   const { cmdOpen, setCmdOpen } = useApp()
 
   useEffect(() => {
+    /**
+     * `/` opens it too — the topbar has been advertising that key since the
+     * search button was drawn, and nothing was listening for it.
+     *
+     * Guarded on where the caret is: a slash typed into a field is a slash, and
+     * stealing it would make every date, path and fraction in the product
+     * impossible to type. `isContentEditable` covers the rich text editors,
+     * which are neither input nor textarea.
+     */
+    function typingInAField() {
+      const el = document.activeElement as HTMLElement | null
+      if (!el) return false
+      return (
+        el.tagName === 'INPUT' ||
+        el.tagName === 'TEXTAREA' ||
+        el.tagName === 'SELECT' ||
+        el.isContentEditable
+      )
+    }
+
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setCmdOpen(true) }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setCmdOpen(true); return }
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !typingInAField()) {
+        e.preventDefault()
+        setCmdOpen(true)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -78,15 +75,31 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
   const member = useMember()
 
   /**
-   * Only pages this member can actually open.
+   * Only pages this member can actually open, in this company's vocabulary.
    *
    * The palette used to list all twenty of them regardless of role, so a
    * search for "Nómina" offered a row that answered "no tienes acceso" when
    * you pressed Enter. Same filter the sidebar applies — the route guard on
    * the server is still the control; this just stops the palette advertising
    * doors that are locked.
+   *
+   * Two things it did not do until now. It read `NAV`, which is `navFor(null)`
+   * — the catalogue's own order, not the sector's — and it flattened only the
+   * top level, so «Órdenes de compra», the one nested screen in the product,
+   * could not be reached by searching for it at all.
+   *
+   * Configuración is appended by hand: it is the one screen with no nav entry
+   * (`USER_MENU_ONLY` in lib/data/nav.ts) and no icon in the registry, and
+   * leaving the only door to modules, roles, permissions, branches and billing
+   * inside a dropdown at the foot of the rail is not a decision search should
+   * inherit.
    */
-  const pages = NAV.flatMap((s) => s.items).filter((item) => {
+  const pages = [
+    ...navFor(member.companyType).flatMap((s) =>
+      s.items.flatMap((item) => [item, ...(item.children ?? [])]),
+    ),
+    { key: 'configuracion', label: META.configuracion, icon: '' },
+  ].filter((item) => {
     const permission = ROUTE_PERMISSIONS[item.key]
     return !permission || member.can(permission)
   })
@@ -215,7 +228,9 @@ function CommandPaletteBody({ onClose }: { onClose: () => void }) {
                   onClick={() => go(r)}
                   onMouseEnter={() => setActive(empResults.length + i)}
                 >
-                  <div className="cmdico">{ICON_MAP[r.icon]}</div>
+                  <div className="cmdico">
+                    {r.key === 'configuracion' ? <Settings size={15} /> : navIcon(r.icon, 15)}
+                  </div>
                   <span style={{ fontSize: 13, fontWeight: 400 }}>{r.label}</span>
                   <ArrowRight size={13} style={{ marginLeft: 'auto', color: 'var(--ink3)', flexShrink: 0 }} />
                 </button>

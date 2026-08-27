@@ -8,6 +8,7 @@ import { requireMember } from '@/lib/auth/session'
 import { getNotificaciones } from '@/server/queries/notificaciones'
 import Sidebar from '@/components/layout/Sidebar'
 import Topbar from '@/components/layout/Topbar'
+import PageHeader from '@/components/layout/PageHeader'
 import Toasts from '@/components/ui/Toasts'
 import CommandPalette from '@/components/ui/CommandPalette'
 
@@ -131,6 +132,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 </div>
               )}
               <div className="content" id="contenido" tabIndex={-1}>
+                {/*
+                  Above `{children}` and inside the layout on purpose: a layout
+                  does not re-render between routes, so the heading survives the
+                  navigation instead of being repainted as a skeleton — which is
+                  what made every page load end in a vertical jump.
+                */}
+                <PageHeader />
                 {children}
               </div>
             </main>

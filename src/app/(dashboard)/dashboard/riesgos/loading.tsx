@@ -1,12 +1,6 @@
 export default function Loading() {
   return (
     <div>
-      <div className="phead" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="skel" style={{ width: 180, height: 26, borderRadius: 8 }} />
-          <div className="skel" style={{ width: 240, height: 15, borderRadius: 5 }} />
-        </div>
-      </div>
       <div className="g2" style={{ marginBottom: 16 }}>
         <div className="skel" style={{ height: 200, borderRadius: 24 }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

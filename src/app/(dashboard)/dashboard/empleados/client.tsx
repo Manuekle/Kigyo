@@ -427,13 +427,13 @@ export default function EmpleadosPage({ data }: { data: EmpleadosData }) {
               <thead><tr><th scope="col">Empleado</th><th scope="col">Cargo</th><th scope="col">Departamento</th><th scope="col">Ubicación</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
               <tbody>
                 {empleados.length === 0 ? (
-                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <tr><td colSpan={6}><div className="dempty dempty-block">
                     {data.canWrite
                       ? 'Todavía no hay nadie en el directorio. Agrega a la primera persona del equipo.'
                       : 'Todavía no hay nadie en el directorio.'}
                   </div></td></tr>
                 ) : rows.length === 0 ? (
-                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No se encontraron empleados para &quot;{q}&quot;.</div></td></tr>
+                  <tr><td colSpan={6}><div className="dempty dempty-block">No se encontraron empleados para &quot;{q}&quot;.</div></td></tr>
                 ) : rows.map((e) => (
                   <tr className="trow" key={e.id} style={{ cursor: 'pointer' }} {...activatable(() => openEmpleado(e), `Ver perfil de ${e.fullName}`)}>
                     <td><div className="cemp"><Avatar name={e.fullName} /><div><div className="cename">{e.fullName}</div><div className="ceid mono">{e.code ?? '—'}{e.siteName ? <span> · {e.siteName}</span> : null}</div></div></div></td>
@@ -483,7 +483,7 @@ export default function EmpleadosPage({ data }: { data: EmpleadosData }) {
               cannot back up.
             */}
             {roots.length === 0 ? (
-              <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+              <div className="dempty dempty-block">
                 {empleados.length === 0
                   ? 'Agrega personas al directorio para ver el organigrama.'
                   : 'Nadie tiene el nivel más alto: asigna jefes para construir el organigrama.'}

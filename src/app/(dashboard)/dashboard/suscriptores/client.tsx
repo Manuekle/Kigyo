@@ -204,7 +204,7 @@ export default function SuscriptoresPage({ data }: { data: SuscriptoresData }) {
               {state.plans.length === 0 ? (
                 <tr>
                   <td colSpan={4}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin planes.
                     </div>
                   </td>
@@ -341,7 +341,7 @@ export default function SuscriptoresPage({ data }: { data: SuscriptoresData }) {
               {state.subscribers.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin suscriptores.
                     </div>
                   </td>

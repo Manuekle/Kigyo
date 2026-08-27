@@ -212,7 +212,7 @@ export default function InventarioPage({ data }: { data: InventarioData }) {
               <thead><tr><th scope="col">Activo</th><th scope="col">Categoría</th><th scope="col">Asignado a</th><th scope="col">Serial</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
               <tbody>
                 {activos.length === 0 ? (
-                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <tr><td colSpan={6}><div className="dempty dempty-block">
                     {state.canWrite ? 'Todavía no hay activos. Registra el primero.' : 'Todavía no hay activos.'}
                   </div></td></tr>
                 ) : activos.map((a) => (
@@ -284,7 +284,7 @@ export default function InventarioPage({ data }: { data: InventarioData }) {
               <thead><tr><th scope="col">Pedido</th><th scope="col">Proveedor</th><th scope="col">Cantidad</th><th scope="col">Valor estimado</th><th scope="col">Solicitó</th><th scope="col">Estado</th></tr></thead>
               <tbody>
                 {pedidos.length === 0 ? (
-                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <tr><td colSpan={6}><div className="dempty dempty-block">
                     Todavía no hay pedidos. Los pedidos de la tienda también aparecen aquí.
                   </div></td></tr>
                 ) : pedidos.map((p) => (

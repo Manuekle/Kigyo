@@ -203,7 +203,7 @@ const Veterinaria = forwardRef<VeterinariaHandle, Props>(function Veterinaria({ 
               {data.pets.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin mascotas. Registra la primera con su propietario.
                     </div>
                   </td>
@@ -288,7 +288,7 @@ const Veterinaria = forwardRef<VeterinariaHandle, Props>(function Veterinaria({ 
               {data.vaccines.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin vacunas registradas.
                     </div>
                   </td>
@@ -342,7 +342,7 @@ const Veterinaria = forwardRef<VeterinariaHandle, Props>(function Veterinaria({ 
               {data.hospitalizations.length === 0 ? (
                 <tr>
                   <td colSpan={6}>
-                    <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                    <div className="dempty dempty-block">
                       Sin hospitalizaciones.
                     </div>
                   </td>

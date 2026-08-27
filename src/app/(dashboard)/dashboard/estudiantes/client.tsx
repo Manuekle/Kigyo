@@ -501,7 +501,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                   {visible.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 7 : 6}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           {estudiantes.length === 0
                             ? 'Todavía no hay estudiantes matriculados.'
                             : 'No hay estudiantes con ese estado.'}
@@ -617,7 +617,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                 {programas.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 6 : 5}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay programas académicos creados.
                       </div>
                     </td>
@@ -670,7 +670,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                 {materias.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay materias matriculadas.
                       </div>
                     </td>
@@ -729,7 +729,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                 {horarios.length === 0 ? (
                   <tr>
                     <td colSpan={data.canWrite ? 7 : 6}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         No hay horarios creados.
                       </div>
                     </td>
@@ -782,7 +782,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                   {estudiantes.length === 0 ? (
                     <tr>
                       <td colSpan={data.canWrite ? 4 : 2}>
-                        <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                        <div className="dempty dempty-block">
                           Sin estudiantes para marcar.
                         </div>
                       </td>
@@ -855,7 +855,7 @@ export default function EstudiantesPage({ data }: { data: EstudiantesData }) {
                 {notas.length === 0 ? (
                   <tr>
                     <td colSpan={7}>
-                      <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                      <div className="dempty dempty-block">
                         Sin cortes registrados. La nota final de cada materia sale de aquí.
                       </div>
                     </td>

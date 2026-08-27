@@ -107,6 +107,8 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
   const series = SERIES[theme]
   const go = (x: string) => router.push(`/dashboard/${x}`)
   const openAI = () => router.push('/dashboard/ia')
+  /** Whether this company runs the assistant and this person may use it. */
+  const canUseAI = member.can('ia:use')
 
   const [shown, setShown] = useState(false)
   const [insights, setInsights] = useState<{ title: string; desc: string; tone: string }[]>([])
@@ -170,12 +172,21 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
     <>
       <div className="dash-head">
         <div className={`t-stagger${shown ? ' is-shown' : ''}`}>
-          <h2 className="dash-hello t-stagger-line t-stagger-line--1">Hola, {firstName}</h2>
+          {/* The `<h1>` for this route: `PageHeader` stands aside here because
+              «Hola, Manuel» is a better first line than «Dashboard». */}
+          <h1 className="dash-hello t-stagger-line t-stagger-line--1">Hola, {firstName}</h1>
           <p className="dash-sub t-stagger-line t-stagger-line--2">
             Esto es lo que está pasando en {data.orgName}.
           </p>
         </div>
-        <button className="btn pri" onClick={openAI}><Sparkles size={15} />Preguntar a la IA</button>
+        {/* Gated, like every other door on this screen. It used to render
+            unconditionally, so a company without the `ia` module — or a person
+            whose role does not carry `ia:use` — was sent from their own
+            dashboard to «no está activo», which is the exact bug the
+            recommendation rows were fixed for two audits ago. */}
+        {canUseAI && (
+          <button className="btn pri" onClick={openAI}><Sparkles size={15} />Preguntar a la IA</button>
+        )}
       </div>
 
       {/* An account with nothing in it yet gets somewhere to start instead of
@@ -328,11 +339,16 @@ export default function DashboardPage({ data }: { data: DashboardData }) {
               </div>
             )
           })}
-          <div className="cpad" style={{ paddingTop: 14, paddingBottom: 16 }}>
-            <button className="btn pri" style={{ width: '100%', justifyContent: 'center' }} onClick={openAI}>
-              <Sparkles size={15} />Preguntar al asistente IA
-            </button>
-          </div>
+          {/* Inside the branch that has insights to show, not after it. It sat
+              outside, so the card said «El asistente de IA no está configurado»
+              and then offered a full-width button to go and ask it. */}
+          {canUseAI && insightsAvailable && (
+            <div className="cpad" style={{ paddingTop: 14, paddingBottom: 16 }}>
+              <button className="btn pri" style={{ width: '100%', justifyContent: 'center' }} onClick={openAI}>
+                <Sparkles size={15} />Preguntar al asistente IA
+              </button>
+            </div>
+          )}
         </div>
 
         {data.show.trazabilidad && (

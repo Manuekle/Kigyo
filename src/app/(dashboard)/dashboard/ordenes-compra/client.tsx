@@ -136,11 +136,11 @@ export default function OrdenesCompraPage({ data }: { data: ComprasData }) {
               </thead>
               <tbody>
                 {ordenes.length === 0 ? (
-                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <tr><td colSpan={6}><div className="dempty dempty-block">
                     Todavía no hay órdenes de compra. Aprueba una requisición en Compras y genérala desde allí.
                   </div></td></tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={6}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>No hay órdenes en este estado.</div></td></tr>
+                  <tr><td colSpan={6}><div className="dempty dempty-block">No hay órdenes en este estado.</div></td></tr>
                 ) : filtered.map((o) => (
                   <tr
                     key={o.id}

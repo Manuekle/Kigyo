@@ -46,13 +46,22 @@ export default function Topbar({ notificaciones }: { notificaciones: Notificacio
         <Menu size={18} />
       </button>
 
-      <h1 className="crumb mono">{title}</h1>
+      {/*
+        A label, not the heading. The page owns its `<h1>` now (see
+        `PageHeader`), and this repeats it in a 56px bar that stays put while you
+        scroll — two `<h1>`s saying the same thing, one of them at the top of a
+        toolbar, is the shape a screen reader cannot make sense of.
+      */}
+      <p className="crumb mono">{title}</p>
 
       <div style={{ flex: 1 }} />
 
       <button
         className="search"
         onClick={() => setCmdOpen(true)}
+        // Below 760px the label and the key hint are hidden and this is an
+        // icon, so the accessible name cannot come from its own text.
+        aria-label="Buscar empleados o páginas"
         style={{ cursor: 'pointer' }}
         data-cuelume-press="droplet"
       >

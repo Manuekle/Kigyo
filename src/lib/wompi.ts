@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { SITE_URL } from '@/lib/site'
 
 /**
  * Cliente mínimo de Wompi: intención de pago y verificación de eventos.
@@ -104,7 +105,10 @@ export async function wompiCreatePaymentIntent(input: {
       customer_email: input.customerEmail,
       reference: input.reference,
       payment_method: { type: 'BANCOLOMBIA_QR' },
-      redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/pos`,
+      // `SITE_URL` y no `process.env` a pelo: sin la variable esto le entregaba
+      // a Wompi la cadena literal «undefined/dashboard/pos» como destino de
+      // vuelta del pago, y el fallo aparece al final de una compra real.
+      redirect_url: `${SITE_URL}/dashboard/pos`,
     }),
   })
 

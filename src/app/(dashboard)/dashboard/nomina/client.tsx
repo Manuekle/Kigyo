@@ -519,7 +519,7 @@ export default function NominaPage({ data }: { data: NominaData }) {
             <tbody>
               {areas.length === 0 ? (
                 <tr><td colSpan={4}>
-                  <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <div className="dempty dempty-block">
                     {periods.length === 0 ? (
                       <>
                         Todavía no hay periodos de nómina.
@@ -581,7 +581,7 @@ export default function NominaPage({ data }: { data: NominaData }) {
             <tbody>
               {breakdown.length === 0 ? (
                 <tr><td colSpan={5}>
-                  <div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <div className="dempty dempty-block">
                     {periods.length === 0 ? 'Abre un periodo para ver el desglose.' : 'El periodo está abierto pero sin líneas.'}
                   </div>
                 </td></tr>

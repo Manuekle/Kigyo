@@ -1,26 +1,30 @@
+/**
+ * The counter: a grid of product tiles and the sale beside it. The generic
+ * skeleton it shared with twenty-five other routes drew three figures and four
+ * cards — this is the one screen where somebody is standing in front of the
+ * person using it, so a load that redraws into a different layout is the worst
+ * place in the product to have one.
+ */
 export default function Loading() {
   return (
-    <div>
-      <div className="phead" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="skel" style={{ width: 100, height: 26, borderRadius: 8 }} />
-          <div className="skel" style={{ width: 260, height: 15, borderRadius: 5 }} />
+    <div role="status" aria-label="Cargando el punto de venta">
+      <div className="g3" style={{ marginBottom: 16 }} aria-hidden="true">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="skel" style={{ height: 104, borderRadius: 'var(--r-xl)' }} />
+        ))}
+      </div>
+      <div className="card cpad" aria-hidden="true">
+        <div className="pos-layout">
+          <div>
+            <div className="skel" style={{ height: 36, borderRadius: 999, marginBottom: 14 }} />
+            <div className="pos-grid">
+              {[...Array(9)].map((_, i) => (
+                <div key={i} className="skel" style={{ height: 84, borderRadius: 14 }} />
+              ))}
+            </div>
+          </div>
+          <div className="skel" style={{ height: 320, borderRadius: 'var(--r-xl)' }} />
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div className="skel" style={{ width: 110, height: 36, borderRadius: 999 }} />
-          <div className="skel" style={{ width: 150, height: 36, borderRadius: 999 }} />
-        </div>
-      </div>
-      <div className="gkpi" style={{ marginBottom: 16 }}>
-        {[...Array(3)].map((_, i) => <div key={i} className="skel" style={{ height: 110, borderRadius: 24 }} />)}
-      </div>
-      <div className="g2" style={{ marginBottom: 16 }}>
-        <div className="skel" style={{ height: 280, borderRadius: 24 }} />
-        <div className="skel" style={{ height: 280, borderRadius: 24 }} />
-      </div>
-      <div className="g2b">
-        <div className="skel" style={{ height: 220, borderRadius: 24 }} />
-        <div className="skel" style={{ height: 220, borderRadius: 24 }} />
       </div>
     </div>
   )

@@ -144,7 +144,7 @@ export default function ConsultoriaPage({ data }: { data: ConsultoriaData }) {
               <thead><tr><th scope="col">Tema</th><th scope="col">Solicitante</th><th scope="col">Estado</th><th scope="col"></th></tr></thead>
               <tbody>
                 {consultas.length === 0 ? (
-                  <tr><td colSpan={4}><div className="dempty" style={{ padding: '22px 0', textAlign: 'center' }}>
+                  <tr><td colSpan={4}><div className="dempty dempty-block">
                     Todavía no hay consultas registradas.
                   </div></td></tr>
                 ) : consultas.map((c) => (

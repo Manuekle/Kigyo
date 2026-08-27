@@ -1,13 +1,6 @@
 export default function Loading() {
   return (
     <div>
-      <div className="phead" style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="skel" style={{ width: 110, height: 26, borderRadius: 8 }} />
-          <div className="skel" style={{ width: 180, height: 15, borderRadius: 5 }} />
-        </div>
-        <div className="skel" style={{ width: 130, height: 36, borderRadius: 999 }} />
-      </div>
       <div className="g3" style={{ marginBottom: 16 }}>
         {[...Array(3)].map((_, i) => <div key={i} className="skel" style={{ height: 84, borderRadius: 16 }} />)}
       </div>
