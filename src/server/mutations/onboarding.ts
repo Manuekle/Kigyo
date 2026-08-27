@@ -59,6 +59,11 @@ const profileSchema = z.object({
   legalName: z.string().trim().max(200).nullish(),
   taxId: z.string().trim().max(40).nullish(),
   // ISO-3166 alpha-2 and ISO-4217, matching the database's check constraints.
+  // El domicilio: sale en los documentos y es lo que el UBL de la DIAN pide
+  // como `<cbc:CityName>` y `<cbc:AddressLine>` (migración 111). Opcionales,
+  // porque el primer paso del asistente no es un formulario fiscal.
+  city: z.string().trim().max(80).nullish(),
+  address: z.string().trim().max(200).nullish(),
   country: z.string().trim().regex(/^[A-Z]{2}$/, 'País inválido.'),
   currency: z.string().trim().regex(/^[A-Z]{3}$/, 'Moneda inválida.'),
   timezone: z.string().trim().min(1).max(60),
@@ -88,6 +93,8 @@ export async function updateCompanyProfile(
         name: parsed.data.name,
         legal_name: parsed.data.legalName?.trim() || null,
         tax_id: parsed.data.taxId?.trim() || null,
+        city: parsed.data.city?.trim() || null,
+        address: parsed.data.address?.trim() || null,
         country: parsed.data.country,
         currency: parsed.data.currency,
         timezone: parsed.data.timezone,

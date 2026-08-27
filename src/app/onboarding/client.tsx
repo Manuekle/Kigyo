@@ -188,6 +188,8 @@ export default function Client({
     name: companyName,
     legalName: '',
     taxId: '',
+    city: '',
+    address: '',
     country: 'CO',
     currency: DEFAULT_CURRENCY,
     timezone: 'America/Bogota',
@@ -491,6 +493,8 @@ export default function Client({
             name: profile.name,
             legalName: profile.legalName || null,
             taxId: profile.taxId || null,
+            city: profile.city || null,
+            address: profile.address || null,
             country: profile.country,
             currency: profile.currency,
             timezone: profile.timezone,
@@ -612,6 +616,24 @@ export default function Client({
               id="onb-tax" className="field" value={profile.taxId} maxLength={40}
               placeholder="Opcional — aparece en facturas y contratos"
               onChange={(e) => setProfile({ ...profile, taxId: e.target.value })}
+            />
+
+            {/* El domicilio: sale en cada documento que la empresa imprima y es
+                lo que el UBL de la DIAN pide como ciudad y dirección del
+                emisor (migración 111). Opcionales — se corrigen en
+                Configuración → Empresa cuando haga falta. */}
+            <label className="flabel" htmlFor="onb-city">Ciudad</label>
+            <input
+              id="onb-city" className="field" value={profile.city} maxLength={80}
+              placeholder="Opcional — aparece en facturas"
+              onChange={(e) => setProfile({ ...profile, city: e.target.value })}
+            />
+
+            <label className="flabel" htmlFor="onb-address">Dirección</label>
+            <input
+              id="onb-address" className="field" value={profile.address} maxLength={200}
+              placeholder="Opcional — calle, número, oficina"
+              onChange={(e) => setProfile({ ...profile, address: e.target.value })}
             />
 
             <label className="flabel" htmlFor="onb-country">País</label>

@@ -141,6 +141,10 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
   const [showPw, setShowPw] = useState<Record<string, boolean>>({})
   const [company, setCompany] = useState(data.organization.name)
   const [industry, setIndustry] = useState(data.organization.industry ?? '')
+  const [legalName, setLegalName] = useState(data.organization.legalName ?? '')
+  const [taxId, setTaxId] = useState(data.organization.taxId ?? '')
+  const [city, setCity] = useState(data.organization.city ?? '')
+  const [address, setAddress] = useState(data.organization.address ?? '')
 
   /**
    * Modules are the only thing on this screen that is org-wide rather than
@@ -406,7 +410,7 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
       let result: ActionResult = { ok: true }
 
       if (tab === 'perfil') result = await updateProfile({ fullName: name })
-      else if (tab === 'empresa') result = await updateOrganization({ name: company, industry })
+      else if (tab === 'empresa') result = await updateOrganization({ name: company, industry, legalName, taxId, city, address })
       else if (tab === 'modulos') {
         result = await updateModules({
           companyType: companyTypeKey,
@@ -938,6 +942,36 @@ export default function ConfiguracionPage({ data, sites }: { data: SettingsData;
             {fe('company')}
             <div className="flabel">Industria</div>
             <input className="field" value={industry} onChange={(e) => { setIndustry(e.target.value); mark() }} />
+            {/*
+              Las cuatro de abajo se preguntaban **una sola vez**, en el
+              asistente, y no había dónde corregirlas: un NIT mal tecleado el
+              primer día se quedaba en todas las facturas de la empresa y la
+              única salida era crear otra. Aquí, donde ya se edita el nombre.
+            */}
+            <div className="flabel">Razón social</div>
+            <input
+              className="field" value={legalName} maxLength={200}
+              placeholder="Si difiere del nombre comercial"
+              onChange={(e) => { setLegalName(e.target.value); mark() }}
+            />
+            <div className="flabel">NIT / identificación fiscal</div>
+            <input
+              className="field" value={taxId} maxLength={40}
+              placeholder="Aparece en facturas y contratos"
+              onChange={(e) => { setTaxId(e.target.value); mark() }}
+            />
+            <div className="flabel">Ciudad</div>
+            <input
+              className="field" value={city} maxLength={80}
+              placeholder="Domicilio de la empresa"
+              onChange={(e) => { setCity(e.target.value); mark() }}
+            />
+            <div className="flabel">Dirección</div>
+            <input
+              className="field" value={address} maxLength={200}
+              placeholder="Calle, número, oficina"
+              onChange={(e) => { setAddress(e.target.value); mark() }}
+            />
             {/*
               Decía «Próximamente», que es una promesa y no una descripción.
               Kigyo es colombiano por dentro: 67 archivos fijan `es-CO`, la

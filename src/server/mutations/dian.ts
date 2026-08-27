@@ -49,7 +49,7 @@ async function loadSnapshot(
       .order('position', { ascending: true }),
     supabase
       .from('organizations')
-      .select('name, legal_name, tax_id, country')
+      .select('name, legal_name, tax_id, country, city, address')
       .eq('id', orgId)
       .maybeSingle(),
   ])
@@ -90,6 +90,8 @@ async function loadSnapshot(
     legal_name: string | null
     tax_id: string | null
     country: string | null
+    city: string | null
+    address: string | null
   } | null)
 
   const items = ((itemsResult.data ?? []) as Array<{
@@ -113,21 +115,12 @@ async function loadSnapshot(
     clientTaxId,
     organizationName: org?.legal_name?.trim() || org?.name || '—',
     organizationTaxId: org?.tax_id ?? '',
-    organizationAddress: '—', // sin campo en organizations; deferred (ver CONTEXTO)
-    /**
-     * Ciudad del emisor, que tampoco existe como columna.
-     *
-     * Decía `org?.country ?? 'CO'`, así que el `<cbc:CityName>` del XML salía
-     * con un código de país. No rompe nada hoy —el UBL es de demostración y su
-     * propio archivo declara que no es válido ante la DIAN— pero es un campo
-     * mapeado al dato equivocado, y es el tipo de cosa que sobrevive intacta
-     * hasta el día del proveedor homologado.
-     *
-     * Se deja el mismo marcador que la dirección de al lado: falta el dato, y
-     * eso se dice en vez de rellenarlo con otro que no es. Producción exige
-     * añadir ciudad y dirección a `organizations`.
-     */
-    organizationCity: '—',
+    // Desde la migración 111 las dos existen como columna. El marcador se
+    // queda para la empresa que todavía no las llenó: decir «falta el dato»
+    // sigue siendo mejor que rellenarlo con otro que no es — que es lo que
+    // hacía este campo cuando mandaba el país como ciudad.
+    organizationAddress: org?.address?.trim() || '—',
+    organizationCity: org?.city?.trim() || '—',
     subtotalCents: inv.subtotal_cents,
     taxCents: inv.tax_cents,
     totalCents: inv.total_cents,

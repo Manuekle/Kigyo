@@ -26,25 +26,21 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 351/351 · tsc 0 · build verde · e2e 13/13 (`workers: 1` obligatorio).
+- vitest 351/351 · tsc 0 · build verde · e2e 14/14 (`workers: 1` obligatorio).
 - **lint: 17 errores + 42 avisos, TODOS en `src/components/extend/*`** (visores
   de `@extend-ai` sin trackear) y en los dos archivos que los usan
   (`DocumentPreview.tsx`, `documentos/client.tsx`). Ninguno en código propio.
   Entraron con esos componentes, no con la jornada del 25.
-- Remota: migraciones 1–110 aplicadas. Tipos regenerados (203 tablas) tras mig 106.
+- Remota: migraciones 1–111 aplicadas. Tipos regenerados (203 tablas) tras mig 106.
   Las 109 y 110 no añaden tablas ni columnas, así que no hace falta regenerar.
 - db-verify local NO válido: mig 86 (`vector`) no instalada en homebrew PG — validar migraciones nuevas aplicando remota + psql.
 - Jornada del 26 en `main` (`8b83d10`, 149 archivos). Nuevos: `PageHeader.tsx`,
   `PageSkeleton.tsx`, `nav-icons.tsx`, `nav-prefs.ts`, `src/app/(mostrador)/`,
   `src/app/soluciones/`, 19 `loading.tsx` que faltaban y las migraciones 109 y
   110 (ambas aplicadas a la remota y comprobadas por psql).
-- **Residuo en remota, pendiente de borrar:** la empresa «E2E Panadería La
-  Espiga» (`alimentos-panaderia`, 10 módulos) creada el 27 para probar el
-  asistente de punta a punta. Ocupa el tercer y último cupo de empresas del plan
-  Growth de la cuenta demo, así que **hasta borrarla no se puede crear otra**.
-  Se borra con
-  `delete from public.organizations where name = 'E2E Panadería La Espiga';`
-  (cascada; ver migración 39). Ningún otro residuo E2E.
+- 0 residuos E2E en remota. La empresa «E2E Panadería La Espiga» del 27 —creada
+  para probar el asistente de punta a punta con enfoque de mostrador— la borró
+  el dueño al terminar la revisión.
 
 ## 3. Historia — todo lo hecho
 
@@ -1763,6 +1759,29 @@ en dos niveles:
   `globals.css`. Su comentario dice que arma los keyframes en el primer cambio;
   no hay keyframes. Código muerto sin efecto visible.
 
+#### La empresa no sabía dónde queda (migración 111)
+
+Salió tirando del último de los cuatro pendientes externos. Producción DIAN
+necesita ciudad y dirección del emisor y `organizations` no las tenía: el UBL
+mandaba `'—'` en los dos campos, y antes de eso mandaba el **código de país**
+como ciudad. Eso sí era código, y es lo único de los cuatro que lo era.
+
+- **Mig 111:** `organizations.city` y `.address`, las dos nullable y con
+  `check` de longitud. Sin departamento ni código DANE: salen de un catálogo
+  oficial que este repositorio no tiene, y inventarlos es exactamente lo que
+  `AGENTS.md` prohíbe. Validada en `begin; … rollback;`, aplicada a la remota y
+  tipos regenerados (203 tablas).
+- `mutations/dian.ts` deja de mandar el marcador cuando el dato existe — y lo
+  conserva cuando no, porque decir «falta» sigue siendo mejor que rellenarlo con
+  otra cosa.
+- **Y el hallazgo de paso, que era peor:** razón social, NIT, ciudad y dirección
+  se preguntaban **una sola vez, en el asistente**, y Configuración → Empresa
+  sólo editaba nombre e industria. Un NIT mal tecleado el primer día se quedaba
+  en todas las facturas de la empresa y la única salida era crear otra. Los
+  cuatro campos son ahora editables donde ya se edita el nombre.
+- `e2e/empresa.spec.ts` lo prueba y restaura **exactamente** lo que encontró,
+  vacíos incluidos.
+
 #### Gotcha nuevo de e2e
 
 **Otro Next dev server en el 3000 secuestra la suite en silencio.**
@@ -1789,7 +1808,9 @@ running»). Salida: levantar el dev en otro puerto y correr con
    `select public.apply_subscription('<account_id>', 'enterprise', 'active');`
    con `service_role`. Es deliberado y está documentado; conviene una pantalla
    interna antes de vender el primer Enterprise.
-3. **DIAN producción** — proveedor homologado + certificado + revisor fiscal.
+3. **DIAN producción** — proveedor homologado + certificado XAdES-EPES +
+   revisor fiscal. El lado de código que faltaba está hecho: ciudad y dirección
+   del emisor existen desde la migración 111 y el UBL las usa.
 4. **Wompi en vivo** — llaves sandbox para probar loop 3.3 completo.
 5. **Marketing y Notificaciones: entrega** — proveedor de correo/WhatsApp más
    un proceso programado (hoy no hay cron, ni edge function, ni `vercel.json`).

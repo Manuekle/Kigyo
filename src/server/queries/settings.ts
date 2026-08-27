@@ -52,6 +52,11 @@ export interface SettingsData {
     id: string
     name: string
     industry: string | null
+    /** Los datos con los que la empresa se presenta en un documento. */
+    legalName: string | null
+    taxId: string | null
+    city: string | null
+    address: string | null
     slug: string
     companyType: string | null
     /** The subsector, when the sector has one and the customer picked it. */
@@ -113,7 +118,7 @@ export async function getSettings(): Promise<SettingsData> {
   const [orgResult, roles, grantsResult, membersResult, invitationsResult, factorsResult, sectorLock] = await Promise.all([
     supabase
       .from('organizations')
-      .select('id, name, industry, slug, company_type, subsector, enabled_modules, branding')
+      .select('id, name, industry, legal_name, tax_id, city, address, slug, company_type, subsector, enabled_modules, branding')
       .eq('id', member.orgId)
       .single(),
     getRoles(member.orgId),
@@ -204,6 +209,10 @@ export async function getSettings(): Promise<SettingsData> {
       id: org.id,
       name: org.name,
       industry: org.industry,
+      legalName: org.legal_name,
+      taxId: org.tax_id,
+      city: org.city,
+      address: org.address,
       slug: org.slug,
       companyType: org.company_type,
       subsector: org.subsector,

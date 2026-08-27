@@ -384,9 +384,23 @@ export async function updateProfile(input: z.input<typeof profileSchema>): Promi
   }
 }
 
+/**
+ * Los datos con los que la empresa se presenta en un documento.
+ *
+ * Hasta hoy esta pantalla sólo editaba nombre e industria, y la razón social,
+ * el NIT, la ciudad y la dirección se preguntaban **una vez** en el asistente y
+ * no se podían corregir nunca más: un NIT mal tecleado el primer día se quedaba
+ * en todas las facturas de la empresa, y la única salida era crear otra. Las
+ * cuatro son opcionales aquí por el mismo motivo que en el asistente — una
+ * empresa funciona sin haberlas dicho — pero corregibles siempre.
+ */
 const organizationSchema = z.object({
   name: z.string().trim().min(1, 'El nombre de la empresa es obligatorio.').max(120),
   industry: z.string().trim().max(80).optional(),
+  legalName: z.string().trim().max(200).nullish(),
+  taxId: z.string().trim().max(40).nullish(),
+  city: z.string().trim().max(80).nullish(),
+  address: z.string().trim().max(200).nullish(),
 })
 
 export async function updateOrganization(
@@ -402,7 +416,18 @@ export async function updateOrganization(
     const supabase = await createClient()
     const { error } = await supabase
       .from('organizations')
-      .update({ name: parsed.data.name, industry: parsed.data.industry || null })
+      // Cadena vacía a null, igual que `updateCompanyProfile`: «no lo han
+      // dicho» y «lo dijeron en blanco» son hechos distintos, y una plantilla
+      // de factura que imprime un NIT vacío es un fallo que el dato no debería
+      // poder describir.
+      .update({
+        name: parsed.data.name,
+        industry: parsed.data.industry || null,
+        legal_name: parsed.data.legalName?.trim() || null,
+        tax_id: parsed.data.taxId?.trim() || null,
+        city: parsed.data.city?.trim() || null,
+        address: parsed.data.address?.trim() || null,
+      })
       .eq('id', member.orgId)
 
     if (error) return { ok: false, error: 'No se pudo actualizar la organización.' }

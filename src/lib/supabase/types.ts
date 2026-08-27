@@ -6171,6 +6171,8 @@ export interface Database {
           status: "active" | "suspended"
           setup_completed_at: string | null
           receipt_prefs: Json
+          city: string | null
+          address: string | null
         }
         Insert: {
           id?: string
@@ -6192,6 +6194,8 @@ export interface Database {
           status?: "active" | "suspended"
           setup_completed_at?: string | null
           receipt_prefs?: Json
+          city?: string | null
+          address?: string | null
         }
         Update: {
           id?: string
@@ -6213,6 +6217,8 @@ export interface Database {
           status?: "active" | "suspended"
           setup_completed_at?: string | null
           receipt_prefs?: Json
+          city?: string | null
+          address?: string | null
         }
         Relationships: [
           {
