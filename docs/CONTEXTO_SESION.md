@@ -1842,9 +1842,31 @@ running»). Salida: levantar el dev en otro puerto y correr con
    revisor fiscal. El lado de código que faltaba está hecho: ciudad y dirección
    del emisor existen desde la migración 111 y el UBL las usa.
 4. **Wompi en vivo** — llaves sandbox para probar loop 3.3 completo.
-5. **Marketing y Notificaciones: entrega** — proveedor de correo/WhatsApp más
-   un proceso programado (hoy no hay cron, ni edge function, ni `vercel.json`).
-   Las dos pantallas ya dicen en pantalla qué hacen y qué no.
+5. **Marketing y Notificaciones: entrega.** La descripción que tenía este punto
+   —«hace falta un proveedor de correo/WhatsApp»— era **inexacta**, y lo
+   inexacto cambiaba a quién le toca actuar. Medido el 27:
+
+   - El canal de WhatsApp **no es un proveedor que compre Kigyo, es de cada
+     empresa**: `integraciones.ts` ya guarda su `phoneNumberId` y su token en el
+     vault (por empresa, migraciones 62–64) y `testWhatsapp` ya habla con la
+     Graph API de Meta v21 para verificar la conexión. Esa mitad está hecha.
+   - Lo que falta del lado del código son tres cosas, no una: el emisor contra
+     `/{phone_number_id}/messages`, el escritor de `notification_log` —que
+     sigue sin tener uno solo— y un programador (no hay cron, ni edge function,
+     ni `vercel.json`).
+   - Y lo que falta del lado de fuera **no es una compra**: la Cloud API sólo
+     deja mandar mensajes iniciados por el negocio con **plantillas aprobadas
+     por Meta**, registradas en el WhatsApp Manager de cada empresa. Un emisor
+     escrito antes de eso compila, se despliega y falla en producción con
+     «template not approved» — que es la familia de funciones que fingen, la
+     misma que estas tres pantallas dejaron de fingir el 25.
+
+   O sea: construir el emisor tiene sentido el día que haya **una empresa con
+   plantillas aprobadas** con la que probarlo de verdad. Correo es la otra
+   opción y esa sí es una cuenta de proveedor (Resend, SES o similar), sin
+   aprobación de plantillas de por medio.
+
+   Las dos pantallas siguen diciendo en pantalla qué hacen y qué no.
 6. **Nómina** — validación contador laboral.
 7. ~~**Apex contra `www`**~~ RESUELTO el 2026-08-26 por el lado de la
    aplicación. La descripción vieja de este punto era además **falsa**: decía
