@@ -345,6 +345,37 @@ describe('los segmentos dividen el catálogo entero', () => {
     expect(activeSuites([])).toEqual([])
   })
 
+  /**
+   * La regla que hace seguro el paso de enfoque, dicha sobre el catálogo y no
+   * sobre una propuesta concreta.
+   *
+   * Si un módulo dependiera *en duro* de otro que no comparte ninguno de sus
+   * segmentos, elegir ese segmento entregaría una empresa rota — `tienda` sin
+   * `catalogos` es una tienda sin nada que vender— y el fallo aparecería sólo
+   * en los sectores cuyo preset resulte incluir a los dos. Comprobarlo aquí lo
+   * saca del azar del preset: es una propiedad del etiquetado.
+   */
+  it('una dependencia dura comparte segmento con quien depende de ella', () => {
+    for (const dep of MODULE_DEPENDENCIES) {
+      if (dep.kind !== 'hard') continue
+      const suyas = suitesOf(dep.module)
+      const requeridas = suitesOf(dep.requires)
+      const comun = suyas.filter((s) => requeridas.includes(s))
+      expect(
+        comun.length,
+        `${dep.module} (${suyas.join('+')}) depende en duro de ${dep.requires} (${requeridas.join('+')}) y no comparten segmento`,
+      ).toBeGreaterThan(0)
+      // Y más fuerte: cada segmento de quien depende tiene que estar cubierto,
+      // o ese segmento entrega el módulo sin su mitad obligatoria.
+      for (const suite of suyas) {
+        expect(
+          requeridas,
+          `elegir ${suite} da ${dep.module} sin ${dep.requires}`,
+        ).toContain(suite)
+      }
+    }
+  })
+
   it('modulesInSuite sólo devuelve módulos conmutables', () => {
     for (const suite of SUITE_KEYS) {
       for (const key of modulesInSuite(suite)) {

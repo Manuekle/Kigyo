@@ -460,6 +460,26 @@ describe('el enfoque recorta la propuesta sin perder nada', () => {
     }
   })
 
+  /**
+   * La prueba que decide si el paso de enfoque es seguro.
+   *
+   * Recortar una lista de módulos puede romperla: `ecommerce` sin `tienda` y
+   * `tienda` sin `catalogos` son tiendas sin catálogo, y `nomina` sin
+   * `empleados` es una nómina sin nadie a quien pagarle. El asistente ya
+   * arrastra las dependencias duras cuando alguien toca un interruptor a mano;
+   * lo que nadie miraba es la lista que este paso entrega **antes** de que se
+   * toque interruptor alguno.
+   */
+  it('deja una empresa operable: ningún enfoque rompe una dependencia dura', () => {
+    for (const sector of sectors) {
+      for (const suite of SUITE_KEYS) {
+        const { included } = focusProposal(EMPTY_CATALOGUE, allowed, sector, null, [suite])
+        const faltan = missingHardDependencies([...included, ...CORE_MODULES])
+        expect(faltan, `${sector} / ${suite} deja colgando ${faltan.join(', ')}`).toEqual([])
+      }
+    }
+  })
+
   it('un módulo del enfoque nombra ese segmento, y ninguno se cuela', () => {
     for (const sector of sectors) {
       for (const suite of SUITE_KEYS as readonly Suite[]) {

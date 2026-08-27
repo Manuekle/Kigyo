@@ -26,7 +26,7 @@ Account    public.accounts          — plan, billing, límites
 
 ## 2. Estado de verificación
 
-- vitest 349/349 · tsc 0 · build verde · e2e 13/13 (`workers: 1` obligatorio).
+- vitest 351/351 · tsc 0 · build verde · e2e 13/13 (`workers: 1` obligatorio).
 - **lint: 17 errores + 42 avisos, TODOS en `src/components/extend/*`** (visores
   de `@extend-ai` sin trackear) y en los dos archivos que los usan
   (`DocumentPreview.tsx`, `documentos/client.tsx`). Ninguno en código propio.
@@ -1706,7 +1706,7 @@ devuelve los 25 —ningún módulo huérfano— y la lente sobrevive la recarga.
 activa, comprueba invariantes que valen para cualquiera y se salta solo si la
 empresa usa un único segmento. No gasta cupo del plan ni deja residuo.
 
-**Verificado:** tsc 0 · vitest 349/349 (10 nuevas) · build verde · e2e 13/13 ·
+**Verificado:** tsc 0 · vitest 351/351 (12 nuevas) · build verde · e2e 13/13 ·
 lint en la línea base de siempre (17 errores y 42 avisos, todos en
 `src/components/extend/*` y los dos archivos que los usan).
 
@@ -1737,6 +1737,21 @@ forma de trabajar:
 `.gkpi`, así que contarlas antes de que llegue el contenido mide el placeholder
 —siete donde había tres— y la prueba concluyó que la lente escondía cosas que no
 escondía. La prueba espera ahora a `networkidle` y a que la reja sea visible.
+
+#### Que un solo segmento deje una empresa operable, no una a medias
+
+Recortar una lista de módulos puede romperla: `tienda` sin `catalogos` es una
+tienda sin nada que vender, `ecommerce` sin `tienda` no tiene dónde vivir y
+`nomina` sin `empleados` es una nómina sin nadie a quien pagarle. Dos pruebas,
+en dos niveles:
+
+- Sobre la propuesta: para los 23 sectores × 3 segmentos, `focusProposal` +
+  el núcleo no deja ni una dependencia dura colgando.
+- Sobre el catálogo, que es la que no puede quedarse vacía: **toda dependencia
+  dura tiene que cubrir todos los segmentos de quien depende de ella**. Sacarla
+  del azar del preset la convierte en una propiedad del etiquetado. Comprobado
+  que falla: etiquetar `catalogos` como sólo ERP la rompe con «tienda (pos)
+  depende en duro de catalogos (erp) y no comparten segmento».
 
 #### Dos cosas que quedan anotadas y no se tocaron
 
